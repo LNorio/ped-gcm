@@ -1,0 +1,3 @@
+#!/bin/sh
+# Bloqueia o commit se os testes relacionados aos arquivos do commit não passarem com 100% de sucesso.
+node scripts/testes-commit.mjs
