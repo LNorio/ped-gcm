@@ -17,12 +17,23 @@ export interface SelectProps extends Omit<ComponentProps<'select'>, 'children'> 
   placeholder?: string
   /** Mensagem de validação; quando presente, marca o campo como inválido. */
   erro?: string | null
+  /** Esconde o rótulo visualmente, mantendo-o para leitores de tela (contexto já evidente na tela). */
+  rotuloOculto?: boolean
 }
 
 /**
  * Lista de seleção (select nativo) com rótulo e mensagem de erro acessíveis.
  */
-export function Select({ rotulo, opcoes, placeholder, erro, id: idInformado, className, ...resto }: SelectProps) {
+export function Select({
+  rotulo,
+  opcoes,
+  placeholder,
+  erro,
+  rotuloOculto = false,
+  id: idInformado,
+  className,
+  ...resto
+}: SelectProps) {
   const idGerado = useId()
   const id = idInformado ?? idGerado
   const idErro = `${id}-erro`
@@ -32,7 +43,7 @@ export function Select({ rotulo, opcoes, placeholder, erro, id: idInformado, cla
 
   return (
     <div className="campo">
-      <label className="campo__rotulo" htmlFor={id}>
+      <label className={rotuloOculto ? 'campo__rotulo visualmente-oculto' : 'campo__rotulo'} htmlFor={id}>
         {rotulo}
       </label>
       <select

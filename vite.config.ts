@@ -39,6 +39,9 @@ export default defineConfig(({ mode }) => {
             environment: 'jsdom',
             include: ['src/**/*.integration.test.{ts,tsx}'],
             setupFiles: ['./src/test/setup.ts'],
+            // Fluxos completos (login → acesso → layout) levam alguns segundos sob carga;
+            // o padrão de 5 s gerava falsos negativos no hook de commit.
+            testTimeout: 15000,
           },
         },
       ],

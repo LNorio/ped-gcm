@@ -1,0 +1,38 @@
+/* Marca "Comercial Mariano" — símbolo em SVG e nome em duas linhas */
+
+.marca {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.marca--claro {
+  color: var(--cor-sobre-primaria);
+}
+
+.marca--escuro {
+  color: var(--cor-primaria);
+}
+
+.marca__simbolo {
+  width: 3.25rem;
+  height: auto;
+  flex-shrink: 0;
+}
+
+.marca__texto {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+.marca__linha1 {
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.marca__linha2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+}

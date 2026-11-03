@@ -1,0 +1,81 @@
+/**
+ * Layout principal da aplicação (F2.3 — RF-01, RF-02, RNF-06): cabeçalho azul com a marca,
+ * o seletor de filial e os dados do usuário; barra de abas conforme as permissões do perfil;
+ * conteúdo da rota filha (`Outlet`) e rodapé institucional.
+ *
+ * Deve ser usado dentro de `SessaoProvider` e de um roteador. Tolera `acesso === null`
+ * (sessão ainda carregando) sem quebrar: o cabeçalho fica sem os dados do usuário.
+ */
+import { NavLink, Outlet } from 'react-router-dom'
+import { CAMINHO_DA_ABA } from '../caminhos'
+import { Botao } from '../components/Botao'
+import { Etiqueta } from '../components/Etiqueta'
+import { Marca } from '../components/Marca'
+import { Rodape } from '../components/Rodape'
+import { ROTULOS_ABA } from '../sessao/permissoes'
+import { useSessao } from '../sessao/SessaoProvider'
+import { usePermissoes } from '../sessao/usePermissoes'
+import { ROTULOS_PERFIL } from '../types/dominio'
+import { TODAS_AS_FILIAIS } from '../sessao/filial'
+import { SeletorFilial } from './SeletorFilial'
+import './LayoutPrincipal.css'
+
+export function LayoutPrincipal() {
+  const { acesso, filialSelecionada, selecionarFilial, sair } = useSessao()
+  const { abas } = usePermissoes()
+
+  const valorFilial =
+    filialSelecionada === TODAS_AS_FILIAIS ? TODAS_AS_FILIAIS : (filialSelecionada?.codigo ?? '')
+
+  return (
+    <div className="layout-principal">
+      <header className="layout-principal__cabecalho">
+        <div className="layout-principal__cabecalho-conteudo">
+          <Marca className="layout-principal__marca" />
+          <span className="layout-principal__sistema">PED</span>
+
+          {acesso ? (
+            <SeletorFilial
+              filiais={acesso.filiais}
+              todasAsFiliais={acesso.todasAsFiliais}
+              valor={valorFilial}
+              onChange={selecionarFilial}
+            />
+          ) : null}
+
+          <div className="layout-principal__usuario">
+            {acesso ? <span className="layout-principal__saudacao">Olá, {acesso.nome}</span> : null}
+            {acesso?.perfil ? <Etiqueta tom="dourado">{ROTULOS_PERFIL[acesso.perfil]}</Etiqueta> : null}
+            <Botao variante="sobre-primaria" className="layout-principal__sair" onClick={sair}>
+              Sair
+            </Botao>
+          </div>
+        </div>
+      </header>
+
+      <nav className="layout-principal__abas" aria-label="Abas">
+        <ul className="layout-principal__lista-abas">
+          {abas.map((aba) => (
+            <li key={aba}>
+              <NavLink
+                to={CAMINHO_DA_ABA[aba]}
+                end={aba === 'inicio'}
+                className={({ isActive }) =>
+                  isActive ? 'layout-principal__aba layout-principal__aba--ativa' : 'layout-principal__aba'
+                }
+              >
+                {ROTULOS_ABA[aba]}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      <main className="layout-principal__conteudo">
+        <Outlet />
+      </main>
+
+      <Rodape />
+    </div>
+  )
+}

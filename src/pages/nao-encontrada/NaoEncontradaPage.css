@@ -1,0 +1,52 @@
+/*
+ * Página "não encontrada" (F2.3) — cartão centralizado na área de conteúdo do layout principal.
+ */
+
+.nao-encontrada {
+  align-self: center;
+  width: 100%;
+  max-width: 520px;
+  margin-top: 1.5rem;
+}
+
+.nao-encontrada__corpo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0;
+  text-align: center;
+}
+
+.nao-encontrada__codigo {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--cor-dourado);
+}
+
+.nao-encontrada__texto {
+  color: var(--cor-texto-suave);
+}
+
+/* Link com aparência de botão primário (mesmas medidas de `.botao`) */
+.nao-encontrada__voltar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: 0.5rem;
+  padding: 0 1.25rem;
+  border-radius: var(--raio-pequeno);
+  background-color: var(--cor-primaria);
+  color: #fff;
+  font-weight: 500;
+  line-height: 1.2;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+.nao-encontrada__voltar:hover {
+  background-color: var(--cor-primaria-escura);
+}

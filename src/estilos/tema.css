@@ -31,6 +31,20 @@
   /* Rótulos de seção em caixa alta (cabeçalhos de tabela, legendas, rótulos de filtros) */
   --cor-texto-rotulo: #4f5b67;
 
+  /*
+   * Elementos sobre fundo primário (cabeçalho azul, telas de login e sem acesso):
+   * texto e marca em branco, controles com borda e fundo translúcidos, anel de foco branco.
+   */
+  --cor-sobre-primaria: #fff;
+  --cor-sobre-primaria-suave: #dce7f3;
+  --cor-borda-sobre-primaria: rgba(255, 255, 255, 0.6);
+  --cor-fundo-sobre-primaria: rgba(255, 255, 255, 0.14);
+  --cor-fundo-sobre-primaria-forte: rgba(255, 255, 255, 0.22);
+  --cor-fundo-sobre-primaria-leve: rgba(255, 255, 255, 0.06);
+  --anel-foco-sobre-primaria: 0 0 0 3px rgba(255, 255, 255, 0.45);
+  /* Filete escuro no topo do cabeçalho (protótipo) */
+  --cor-filete-cabecalho: #2b3540;
+
   /* Estados */
   --cor-sucesso: #2E8A57;
   --cor-alerta: #B7791F;
@@ -46,6 +60,8 @@
   --raio: 8px;
   --raio-pequeno: 7px;
   --raio-pilula: 999px;
+  /* Cartões destacados sobre o gradiente (login, sem acesso) */
+  --raio-cartao: 12px;
   --sombra-card: 0 12px 28px rgba(0, 30, 60, 0.18);
   --sombra-modal: 0 14px 34px rgba(0, 30, 60, 0.2);
   --anel-foco: 0 0 0 3px rgba(0, 98, 175, 0.35);
@@ -161,6 +177,51 @@ svg {
   color: var(--cor-texto-rotulo);
 }
 
+/* ---------- Tela pública (login, sem acesso) ---------- */
+
+/*
+ * Telas exibidas fora do layout principal: fundo em degradê azul ocupando toda a altura,
+ * conteúdo centralizado e um cartão branco com a marca e a ação principal.
+ * Estrutura: .tela-publica > .tela-publica__conteudo > .tela-publica__cartao
+ */
+.tela-publica {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--gradiente-login);
+  color: var(--cor-sobre-primaria);
+}
+
+.tela-publica__conteudo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  padding: 2.5rem 1rem;
+}
+
+.tela-publica__cartao {
+  width: 100%;
+  max-width: 440px;
+  padding: 1.5rem 1.625rem 1.625rem;
+  border-radius: var(--raio-cartao);
+  background-color: var(--cor-superficie);
+  box-shadow: var(--sombra-card);
+  color: var(--cor-texto);
+}
+
+@media (max-width: 480px) {
+  .tela-publica__conteudo {
+    padding: 2rem 0.75rem;
+  }
+
+  .tela-publica__cartao {
+    padding: 1.25rem 1rem 1.375rem;
+  }
+}
+
 /* Pílula de contagem exibida ao lado de um rótulo (chips e seletor de situação) */
 .contagem-pilula {
   display: inline-flex;
@@ -174,41 +235,4 @@ svg {
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 1.5;
-}
-
-/* ---------- Layout da aplicação ---------- */
-
-.app {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.app-header {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  padding: 1rem 1.5rem;
-  background-color: var(--cor-primaria);
-  color: #fff;
-}
-
-.app-header h1 {
-  margin: 0;
-  color: #fff;
-  font-size: 1.5rem;
-}
-
-.app-main {
-  flex: 1;
-  padding: 1.5rem;
-}
-
-@media (max-width: 480px) {
-  .app-header,
-  .app-main {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
 }

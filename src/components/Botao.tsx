@@ -1,7 +1,15 @@
 import type { ComponentProps } from 'react'
 import './Botao.css'
 
-export type VarianteBotao = 'primario' | 'dourado' | 'contorno' | 'perigo' | 'perigo-cheio' | 'link'
+export type VarianteBotao =
+  | 'primario'
+  | 'dourado'
+  | 'contorno'
+  | 'perigo'
+  | 'perigo-cheio'
+  | 'link'
+  /** Transparente com borda e texto brancos, para uso sobre fundo primário (cabeçalho). */
+  | 'sobre-primaria'
 export type TamanhoBotao = 'normal' | 'pequeno'
 
 export interface BotaoProps extends ComponentProps<'button'> {

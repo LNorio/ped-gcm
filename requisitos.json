@@ -3,7 +3,7 @@
     {
       "id": "RF-00",
       "titulo": "Tela inicial",
-      "descricao": "Exibe o cabeçalho com o nome do sistema (PED) e o subtítulo \"Sistema de Cadastro\".",
+      "descricao": "src/App.tsx monta SessaoProvider + RouterProvider (createBrowserRouter com as rotas de src/rotas.tsx). Sem token na sessão, a aplicação abre na tela de login (título \"Programa de Excelência em Distribuição\", botão \"Entrar\", rodapé institucional) sem chamar a API. O cabeçalho antigo \"PED / Sistema de Cadastro\" deixa de existir (substituído pelo layout principal da F2.3).",
       "status": "implementado",
       "testes": [
         "src/App.test.tsx"
@@ -16,13 +16,21 @@
         {
           "data": "2026-11-03",
           "alteracao": "Id renomeado de RF000 para RF-00 para seguir o padrão do documento de requisitos (RF-xx)."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Requisito alterado (F2.3 substitui a tela inicial): App passa a montar SessaoProvider + RouterProvider e, sem sessão, mostra a tela de login do protótipo em vez do cabeçalho \"PED / Sistema de Cadastro\". Motivo: a tela inicial provisória da F1.1 dá lugar ao fluxo real de acesso (login → layout com abas). Testes de src/App.test.tsx reescritos; status em-alteracao até a implementação da F2."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Alteração implementada: App monta SessaoProvider + RouterProvider; tela inicial é o login. 3 de 3 testes."
         }
       ]
     },
     {
       "id": "F1.2",
       "titulo": "Cliente HTTP da API e sessão",
-      "descricao": "INT-01, RNF-08 — Cliente HTTP (src/services/api.ts) com URL base por VITE_API_URL (padrão \"/api\", sem duplicar barras), query string com parâmetros nulos omitidos, GET por padrão com Accept JSON, corpo serializado em JSON, Authorization: Bearer <token> quando houver token na sessão (src/services/sessao.ts: obterToken/definirToken/limparToken). Erros viram ApiError (name, status, mensagem, message, dados) com a mensagem do JSON {\"mensagem\"} da API ou mensagem padrão em pt-BR por status (400, 401, 403, 404, 500, outros) e falha de rede (status 0, \"Não foi possível conectar ao servidor.\"). 401 em requisição autenticada dispara window 'sessao-expirada' (EVENTO_SESSAO_EXPIRADA); 401 sem token (login recusado) não dispara.",
+      "descricao": "INT-01, RNF-08 — Cliente HTTP (src/services/api.ts) com URL base por VITE_API_URL (padrão \"/api\", sem duplicar barras), query string com parâmetros nulos omitidos, GET por padrão com Accept JSON, corpo serializado em JSON, Authorization: Bearer <token> quando houver token na sessão (src/services/sessao.ts: obterToken/definirToken/limparToken). Erros viram ApiError (name, status, mensagem, message, dados) com a mensagem do JSON {\"mensagem\"} da API ou mensagem padrão em pt-BR por status (400, 401, 403, 404, 500, outros) e falha de rede (status 0, \"Não foi possível conectar ao servidor.\"). 401 em requisição autenticada dispara window 'sessao-expirada' (EVENTO_SESSAO_EXPIRADA); 401 sem token (login recusado) não dispara. Persistência (F2.1): definirToken grava o token em sessionStorage na chave \"ped.token\" (nunca em localStorage), obterToken lê da memória ou restaura do sessionStorage (recarga da página) e limparToken remove dos dois.",
       "status": "implementado",
       "testes": [
         "src/services/sessao.test.ts",
@@ -49,6 +57,18 @@
         {
           "data": "2026-11-03",
           "alteracao": "Ajuste implementado: 50 de 50 testes passando."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Requisito alterado pela F2.1: src/services/sessao.ts passa a persistir o token em sessionStorage (chave \"ped.token\") para a sessão sobreviver à recarga da página. Motivo: o provider de sessão restaura o acesso ao montar com token salvo. Testes de persistência acrescentados em src/services/sessao.test.ts; status em-alteracao até a implementação."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Persistência do token em sessionStorage implementada; 11 de 11 testes de sessao.ts passando."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Cobertura complementar (F2): sessionStorage indisponível (getItem/setItem/removeItem lançando) — definirToken/obterToken/limparToken não propagam o erro e a sessão continua funcionando só em memória. 6 testes acrescentados em src/services/sessao.test.ts; comportamento já implementado."
         }
       ]
     },
@@ -114,7 +134,7 @@
     {
       "id": "F1.6",
       "titulo": "Componentes base",
-      "descricao": "RNF-05, RNF-08 — src/components: Botao (variantes primario|dourado|contorno|perigo|perigo-cheio|link, tamanho pequeno, type=button por padrão, nome acessível por aria-label), Campo/Select/AreaTexto (rótulo associado, erro com aria-invalid e descrição acessível, dica), Chip (botão com aria-pressed e contagem), Etiqueta (tons neutro|info|sucesso|alerta|perigo|dourado), Card (região nomeada pelo título, ações), Aviso (role note; tipo erro é role alert) e ErroCampo (role alert; nada quando vazio).",
+      "descricao": "RNF-05, RNF-08 — src/components: Botao (variantes primario|dourado|contorno|perigo|perigo-cheio|link, tamanho pequeno, type=button por padrão, nome acessível por aria-label), Campo/Select/AreaTexto (rótulo associado, erro com aria-invalid e descrição acessível, dica), Chip (botão com aria-pressed e contagem), Etiqueta (tons neutro|info|sucesso|alerta|perigo|dourado), Card (região nomeada pelo título, ações), Aviso (role note; tipo erro é role alert) e ErroCampo (role alert; nada quando vazio). Campo aceita a prop opcional sufixo?: ReactNode (ex.: botão de mostrar/ocultar senha), renderizada dentro do contêiner do input logo após o <input>, sem ser repassada como atributo ao input e sem afetar rótulo, erro, dica nem aria-describedby.",
       "status": "implementado",
       "testes": [
         "src/components/Botao.test.tsx",
@@ -135,6 +155,14 @@
         {
           "data": "2026-11-03",
           "alteracao": "Implementação concluída: 65 de 65 testes passando (9 componentes em src/components/)."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Requisito alterado (F2): Campo ganha a prop sufixo?: ReactNode, renderizada dentro do contêiner do input após o <input>, sem afetar rótulo, erro, dica e aria-describedby. Motivo: a LoginPage precisa posicionar o botão \"Mostrar senha\"/\"Ocultar senha\" dentro do campo de senha sem duplicar a estrutura do Campo. 7 testes acrescentados em src/components/Campo.test.tsx (5 vermelhos até a implementação); status em-alteracao."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Ajuste implementado: Campo com prop sufixo. Todos os testes passando."
         }
       ]
     },
@@ -233,6 +261,176 @@
         {
           "data": "2026-11-03",
           "alteracao": "Implementação concluída: 10 de 10 testes passando (src/components/Historico.tsx)."
+        }
+      ]
+    },
+    {
+      "id": "F2.1",
+      "titulo": "Autenticação e sessão",
+      "descricao": "RF-03, RF-04, INT-01 — src/services/autenticacao.ts: entrar(usuario, senha) faz POST /api/valida-usuario com { usuario, senha } (sem Authorization), devolve o token da resposta { token } e o guarda com definirToken (resposta 200 sem token rejeita com ApiError \"Resposta inválida do servidor.\"); credenciais inválidas rejeitam com ApiError e a mensagem da API, sem guardar token; a senha nunca é armazenada. obterAcesso() faz GET /api/ped/acesso com o Bearer e devolve Acesso via paraAcesso (perfil null não é erro). src/sessao/SessaoProvider.tsx: SessaoProvider + useSessao() → { estado: 'carregando'|'anonimo'|'autenticado'|'sem-acesso', acesso, erro, filialSelecionada: Filial|'todas'|null, entrar, sair, selecionarFilial }. Ao montar com token salvo chama obterAcesso (perfil null → sem-acesso; 401/403 → anonimo com token limpo); sem token → anonimo sem chamar a API. entrar com falha expõe a mensagem em erro e rejeita; sucesso limpa erro. Filial inicial: 'todas' quando todasAsFiliais, senão a primeira da lista. sair limpa token, acesso, filial e erro. Evento window 'sessao-expirada' encerra a sessão e expõe erro \"Sua sessão expirou. Entre novamente.\"; se o evento chegar com a sessão já 'anonimo' (401 tardio depois de sair deliberadamente, ou sessão nunca autenticada), erro permanece null; o ouvinte é removido ao desmontar. Restauração com falha de rede (status 0), 5xx ou 403 → 'anonimo', token limpo e erro com a mensagem da API ({mensagem}) ou a padrão do status. selecionarFilial com código inexistente, 'todas' sem todasAsFiliais ou sem acesso não altera a filial. Em <StrictMode> a restauração termina 'autenticado' sem erro; desmontar com obterAcesso pendente não gera erro nem aviso. useSessao fora do provider lança erro.",
+      "status": "implementado",
+      "testes": [
+        "src/services/autenticacao.test.ts",
+        "src/sessao/SessaoProvider.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F2.1 do plano, do contrato de login da Postman (POST /api/valida-usuario → { token }) e de GET /api/ped/acesso em docs/backend/API (24).md."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída: autenticacao.ts e SessaoProvider.tsx; testes unitários 100%."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Cobertura complementar (F2): selecionarFilial com código inexistente / 'todas' sem todasAsFiliais / sem acesso; restauração com falha de rede (status 0), 5xx e 403 expondo a mensagem; render em <StrictMode>; desmontagem com obterAcesso pendente. 10 testes acrescentados em src/sessao/SessaoProvider.test.tsx; comportamentos já implementados."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Requisito alterado (F2): o evento 'sessao-expirada' recebido com a sessão já 'anonimo' (401 tardio de uma chamada em andamento depois de sair deliberadamente) não altera erro, que permanece null. Motivo: evitar o aviso \"Sua sessão expirou\" na tela de login para quem acabou de clicar em Sair. 2 testes acrescentados em src/sessao/SessaoProvider.test.tsx (vermelhos até a implementação); status em-alteracao."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Ajuste implementado: evento sessao-expirada com sessão anônima não altera o estado. Todos os testes passando."
+        }
+      ]
+    },
+    {
+      "id": "F2.2",
+      "titulo": "Tela de login",
+      "descricao": "RF-03, RNF-05, RNF-06, RNF-08 — src/pages/login/LoginPage.tsx conforme docs/tela-login.jpg: marca \"Comercial Mariano\" (role img), etiqueta \"PED\", título (h1) \"Programa de Excelência em Distribuição\", subtítulo \"Cadastro, preenchimento e fechamento\", campo \"Usuário\" (placeholder \"Seu login\"), campo \"Senha\" (placeholder \"Sua senha\", type password, botão \"Mostrar senha\"/\"Ocultar senha\" que alterna o tipo sem enviar o formulário), botão \"Entrar\" (submit, desabilitado durante o envio, sem envio duplicado), Enter envia; chama useSessao().entrar(usuario, senha); sucesso navega para \"/\"; o erro da sessão (mensagem da API, falha de conexão, erro ao obter acesso) aparece como alerta junto ao formulário, mantendo o usuário digitado e reabilitando o botão; rodapé institucional. Integração: login → Início com cabeçalho \"Olá, nome\" e etiqueta do perfil; senha não fica em storage.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/login/LoginPage.test.tsx",
+        "src/pages/login/LoginPage.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F2.2 do plano e do protótipo docs/tela-login.jpg."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída (LoginPage). 23 de 23 testes."
+        }
+      ]
+    },
+    {
+      "id": "F2.3",
+      "titulo": "Rotas e layout principal",
+      "descricao": "RF-02, RNF-04, RNF-06 — src/rotas.tsx exporta rotas (RouteObject[]), CAMINHOS ({ login: '/login', semAcesso: '/sem-acesso', inicio: '/', tipos, apontamentos, dadosExternos: '/dados-externos', indicadores, faixas, dashboards, preenchimento, fechamentos }) e RotaProtegida (carregando → RegiaoStatus \"Carregando...\"; anonimo → /login; sem-acesso → /sem-acesso; autenticado → conteúdo); /login com sessão autenticada redireciona a \"/\", com estado carregando mostra \"Carregando...\" e com estado sem-acesso redireciona a /sem-acesso. Rota desconhecida (path '*', filha do layout): com sessão autenticada mostra, dentro do LayoutPrincipal, src/pages/nao-encontrada/NaoEncontradaPage.tsx (h1 \"Página não encontrada\" e link \"Voltar ao Início\" → \"/\"), preservando a URL; sem sessão redireciona a /login. errorElement nas rotas: erro de renderização mostra src/pages/erro/ErroPage.tsx (h1 \"Ocorreu um erro inesperado\" e link \"Voltar ao Início\" → \"/\"), em português, sem o texto padrão do react-router. src/layout/LayoutPrincipal.tsx: header (banner) com marca \"Comercial Mariano\" (role img), \"PED\", seletor de filial (F2.4), \"Olá, {nome}\", Etiqueta com ROTULOS_PERFIL e botão \"Sair\" (chama sair()); com acesso null (sessão carregando) o header fica sem seletor, saudação e etiqueta, mantendo marca, \"PED\" e Sair, e a nav \"Abas\" fica sem links. <nav aria-label=\"Abas\"> com NavLink por aba visível (Início, Tipos, Apontamentos, Dados Externos, Indicadores, Faixas, Dashboards, Preenchimento, Fechamentos; aria-current=\"page\" na ativa, Início só na raiz); Outlet; Rodape. src/components/Marca.tsx: role img \"Comercial Mariano\" (SVG e texto internos aria-hidden), prop tom claro (padrão) | escuro refletida nas classes marca--claro/marca--escuro, className extra. Placeholders src/pages/<aba>/<Aba>Page.tsx com h1 igual ao rótulo da aba. Integração: token salvo → \"Carregando...\" → GET /api/ped/acesso com Bearer → layout; aba por URL própria; navegação entre abas sem nova chamada de acesso.",
+      "status": "implementado",
+      "testes": [
+        "src/rotas.test.tsx",
+        "src/layout/LayoutPrincipal.test.tsx",
+        "src/components/Marca.test.tsx",
+        "src/rotas.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F2.3 do plano e do cabeçalho/abas do protótipo (docs/PED — Cadastro e Preenchimento-html/Main.dc.html)."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída (rotas, LayoutPrincipal, Marca, páginas placeholder, caminhos). 45 de 45 testes."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Cobertura complementar (F2): /login com estado carregando mostra \"Carregando...\" (1 teste em src/rotas.test.tsx); LayoutPrincipal com acesso null (4 testes em src/layout/LayoutPrincipal.test.tsx); novo arquivo src/components/Marca.test.tsx (9 testes: role img, tom claro/escuro, className, SVG e texto aria-hidden). Comportamentos já implementados."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Requisito alterado (F2): (1) rota '*' filha do layout com NaoEncontradaPage (h1 \"Página não encontrada\", link \"Voltar ao Início\") para sessão autenticada e redirecionamento a /login sem sessão; errorElement com ErroPage (\"Ocorreu um erro inesperado\", link \"Voltar ao Início\") em vez do texto padrão do react-router. Motivo: URL inválida ou erro de renderização hoje mostram \"Unexpected Application Error!\" em inglês. (2) /login com estado sem-acesso redireciona a /sem-acesso, consistente com RotaProtegida. Motivo: hoje mostra o formulário de login a um usuário autenticado sem perfil. 8 testes vermelhos em src/rotas.test.tsx e 4 em src/rotas.integration.test.tsx até a implementação; status em-alteracao."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Ajuste implementado: rota 404 (NaoEncontradaPage), errorElement (ErroPage), /login em sem-acesso redireciona. Todos os testes passando."
+        }
+      ]
+    },
+    {
+      "id": "F2.4",
+      "titulo": "Seletor de filial no cabeçalho",
+      "descricao": "RF-01 — src/layout/SeletorFilial.tsx com props { filiais: Filial[], todasAsFiliais: boolean, valor: string ('todas' ou código), onChange(valor) }: todasAsFiliais true → Select rotulado \"Filial\" com \"Todas as filiais\" (valor 'todas') seguida de todas as filiais no formato \"código - nome\"; false com uma filial → texto fixo \"código - nome\" sem select; false com várias → Select só com elas. Integrado ao LayoutPrincipal via useSessao (valor = filialSelecionada, onChange = selecionarFilial); a filial escolhida fica disponível às abas pelo useSessao().filialSelecionada.",
+      "status": "implementado",
+      "testes": [
+        "src/layout/SeletorFilial.test.tsx",
+        "src/layout/SeletorFilial.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F2.4 do plano e do RF-01."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída (SeletorFilial). 12 de 12 testes."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Cobertura complementar (F2): lista de filiais vazia — todasAsFiliais=false não renderiza nada; todasAsFiliais=true mostra o seletor só com \"Todas as filiais\". 2 testes acrescentados em src/layout/SeletorFilial.test.tsx; comportamento já implementado."
+        }
+      ]
+    },
+    {
+      "id": "F2.5",
+      "titulo": "Sair e sessão expirada",
+      "descricao": "RF-05 — Botão Sair do layout encerra a sessão (limpa token em memória e sessionStorage, acesso e estado) e volta à tela de login sem alerta; depois de sair, abas voltam a exigir login e um novo login entra normalmente. Sessão expirada: 401 em chamada autenticada (evento 'sessao-expirada' do cliente HTTP) leva ao login com o Aviso \"Sua sessão expirou. Entre novamente.\" e token limpo; entrar de novo abre o Início e remove o aviso.",
+      "status": "implementado",
+      "testes": [
+        "src/sessao/SessaoProvider.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F2.5 do plano."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída (sair e sessão expirada via SessaoProvider + rotas). 6 de 6 testes."
+        }
+      ]
+    },
+    {
+      "id": "F2.6",
+      "titulo": "Permissões por perfil",
+      "descricao": "RF-04, RF-16 — src/sessao/permissoes.ts: type Aba ('inicio'|'tipos'|'apontamentos'|'dados-externos'|'indicadores'|'faixas'|'dashboards'|'preenchimento'|'fechamentos'), ABAS (ordem do protótipo), ROTULOS_ABA, abasVisiveis(perfil | null) e podeAcessar(perfil | null, aba) conforme a matriz da seção 2: Admin e Validador veem todas as abas (Validador com acesso total a Tipos, Faixas e Fechamentos); Preenchedor vê só Início, Apontamentos, Dados Externos e Preenchimento; perfil null não vê nenhuma. src/sessao/usePermissoes.ts: usePermissoes() → { abas, pode(aba) } a partir do perfil da sessão (sem acesso → nenhuma aba). Rota de aba não permitida redireciona para \"/\" (direto pela URL ou navegando depois de logado).",
+      "status": "implementado",
+      "testes": [
+        "src/sessao/permissoes.test.ts",
+        "src/sessao/usePermissoes.test.tsx",
+        "src/sessao/permissoes.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F2.6 do plano e da matriz de permissões da seção 2 do documento de requisitos."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída (permissoes.ts, usePermissoes). 65 de 65 testes."
+        }
+      ]
+    },
+    {
+      "id": "F2.8",
+      "titulo": "Tela de usuário sem acesso",
+      "descricao": "RF-03, RF-04, INT-01 — src/pages/sem-acesso/SemAcessoPage.tsx com a mensagem exata \"Usuário sem acesso ao sistema, favor verificar com a equipe de Departamento Pessoal\", botão \"Voltar ao login\" (chama sair() e navega para /login), sem abas, sem cabeçalho e com o rodapé institucional. Integração: login válido com perfil null, token salvo com perfil null ou URL de aba levam à tela; voltar ao login limpa a sessão e as abas voltam a exigir login.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/sem-acesso/SemAcessoPage.test.tsx",
+        "src/pages/sem-acesso/SemAcessoPage.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F2.8 do plano e da decisão sobre usuário sem perfil."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída (SemAcessoPage). 12 de 12 testes."
         }
       ]
     }

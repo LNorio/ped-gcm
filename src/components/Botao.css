@@ -89,6 +89,22 @@
   text-decoration: underline;
 }
 
+/* Sobre fundo primário (cabeçalho azul): transparente, borda e texto brancos */
+.botao--sobre-primaria {
+  background-color: transparent;
+  color: var(--cor-sobre-primaria);
+  border-color: var(--cor-borda-sobre-primaria);
+}
+
+.botao--sobre-primaria:hover:not(:disabled) {
+  border-color: var(--cor-sobre-primaria);
+  background-color: var(--cor-fundo-sobre-primaria);
+}
+
+.botao--sobre-primaria:focus-visible {
+  box-shadow: var(--anel-foco-sobre-primaria);
+}
+
 /* Em telas estreitas os botões podem ocupar a largura disponível quando o pai pedir */
 @media (max-width: 480px) {
   .botao {

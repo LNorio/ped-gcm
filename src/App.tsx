@@ -1,17 +1,18 @@
-import { Rodape } from './components/Rodape'
+/**
+ * Raiz da aplicação (RF-00): provê a sessão e monta o roteador do navegador com as rotas
+ * declaradas em `rotas.tsx`. Sem sessão, a primeira tela é o login.
+ */
+import { RouterProvider, createBrowserRouter } from 'react-router-dom'
+import { rotas } from './rotas'
+import { SessaoProvider } from './sessao/SessaoProvider'
+
+const roteador = createBrowserRouter(rotas)
 
 function App() {
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>PED</h1>
-        <span>Sistema de Cadastro</span>
-      </header>
-      <main className="app-main">
-        <p>Projeto iniciado. Os módulos de cadastro serão adicionados aqui.</p>
-      </main>
-      <Rodape />
-    </div>
+    <SessaoProvider>
+      <RouterProvider router={roteador} />
+    </SessaoProvider>
   )
 }
 

@@ -1,0 +1,76 @@
+/*
+ * Seletor de filial do cabeçalho (RF-01).
+ * Visual compacto sobre o fundo azul do cabeçalho, conforme o protótipo (.hdr-sel):
+ * borda branca translúcida, texto branco, 40px de altura.
+ */
+
+.seletor-filial {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* O rótulo "Filial" fica apenas para leitores de tela (`rotuloOculto` do Select); o contexto visual é o cabeçalho */
+.seletor-filial .campo {
+  gap: 0;
+  width: 100%;
+}
+
+.seletor-filial select.campo__controle,
+.seletor-filial__fixa {
+  box-sizing: border-box;
+  height: 40px;
+  min-height: 40px;
+  max-width: 260px;
+  padding: 0 0.625rem;
+  border: 1px solid var(--cor-borda-sobre-primaria);
+  border-radius: var(--raio-pequeno);
+  background-color: var(--cor-fundo-sobre-primaria);
+  color: var(--cor-sobre-primaria);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 38px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.seletor-filial select.campo__controle {
+  padding-right: 2rem;
+  cursor: pointer;
+  /* Seta branca para contrastar com o fundo azul */
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23ffffff' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.625rem center;
+}
+
+.seletor-filial select.campo__controle:hover:not(:disabled) {
+  border-color: var(--cor-sobre-primaria);
+  background-color: var(--cor-fundo-sobre-primaria-forte);
+}
+
+.seletor-filial select.campo__controle:focus-visible {
+  outline: 2px solid var(--cor-sobre-primaria);
+  outline-offset: 2px;
+}
+
+/* As opções abrem em painel nativo claro; garante leitura do texto */
+.seletor-filial select.campo__controle option {
+  color: var(--cor-texto);
+  background-color: var(--cor-superficie);
+}
+
+.seletor-filial__fixa {
+  display: inline-flex;
+  align-items: center;
+  cursor: default;
+}
+
+@media (max-width: 480px) {
+  .seletor-filial select.campo__controle,
+  .seletor-filial__fixa {
+    max-width: 180px;
+    font-size: 0.8125rem;
+  }
+}

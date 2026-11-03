@@ -1,0 +1,62 @@
+/*
+ * Página de erro inesperado (F2.3) — mesmo visual das telas públicas (login, sem acesso).
+ * Fundo, conteúdo centralizado e cartão vêm de `.tela-publica*` (tema.css); aqui ficam só a
+ * disposição interna do cartão, a marca reduzida e o link de retorno com aparência de botão.
+ */
+
+.erro-pagina__cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.erro-pagina__marca {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.erro-pagina__marca-logo .marca__simbolo {
+  width: 2.5rem;
+}
+
+.erro-pagina__marca-logo .marca__linha1 {
+  font-size: 0.875rem;
+}
+
+.erro-pagina__marca-logo .marca__linha2 {
+  font-size: 1.25rem;
+}
+
+.erro-pagina__titulo {
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.erro-pagina__texto {
+  margin-top: 0.375rem;
+  font-size: 0.9375rem;
+}
+
+/* Link com aparência de botão primário em largura total, como o "Voltar ao login" */
+.erro-pagina__voltar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 1.25rem;
+  border-radius: var(--raio-pequeno);
+  background-color: var(--cor-primaria);
+  color: #fff;
+  font-weight: 500;
+  line-height: 1.2;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+.erro-pagina__voltar:hover {
+  background-color: var(--cor-primaria-escura);
+}

@@ -1,0 +1,42 @@
+/*
+ * Tela "sem acesso" (F2.8) — mesmo visual da tela de login.
+ * Fundo, conteúdo centralizado e cartão vêm da "tela pública" compartilhada (`.tela-publica*`,
+ * em tema.css); aqui ficam só a disposição interna do cartão e a marca reduzida.
+ */
+
+.sem-acesso__cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.sem-acesso__marca {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+/* Marca compartilhada (`Marca` tom escuro) em tamanho reduzido para o cartão */
+.sem-acesso__marca-logo .marca__simbolo {
+  width: 2.5rem;
+}
+
+.sem-acesso__marca-logo .marca__linha1 {
+  font-size: 0.875rem;
+}
+
+.sem-acesso__marca-logo .marca__linha2 {
+  font-size: 1.25rem;
+}
+
+.sem-acesso__mensagem {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.sem-acesso__voltar {
+  width: 100%;
+}

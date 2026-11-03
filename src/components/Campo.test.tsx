@@ -93,4 +93,79 @@ describe('F1.6 — Componentes base: Campo', () => {
 
     expect(screen.getByLabelText('Nome')).toBeDisabled()
   })
+
+  describe('sufixo', () => {
+    const botaoOlho = (
+      <button type="button" aria-label="Mostrar senha">
+        olho
+      </button>
+    )
+
+    it('renderiza o conteúdo do sufixo no mesmo contêiner do input, logo após ele', () => {
+      render(<Campo rotulo="Senha" type="password" sufixo={botaoOlho} />)
+
+      const input = screen.getByLabelText('Senha')
+      const botao = screen.getByRole('button', { name: 'Mostrar senha' })
+      expect(input.parentElement).toContainElement(botao)
+      expect(input.compareDocumentPosition(botao) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('não repassa "sufixo" como atributo do input', () => {
+      render(<Campo rotulo="Senha" sufixo={botaoOlho} />)
+
+      expect(screen.getByLabelText('Senha')).not.toHaveAttribute('sufixo')
+    })
+
+    it('mantém o rótulo associado ao input e o sufixo fora do rótulo', () => {
+      render(<Campo rotulo="Senha" sufixo={botaoOlho} />)
+
+      const input = screen.getByLabelText('Senha')
+      expect(input.tagName).toBe('INPUT')
+      expect(screen.getByText('Senha').tagName).toBe('LABEL')
+      expect(screen.getByText('Senha')).not.toContainElement(screen.getByRole('button', { name: 'Mostrar senha' }))
+    })
+
+    it('não altera aria-describedby: sem erro e dica, o input continua sem descrição', () => {
+      render(<Campo rotulo="Senha" sufixo={botaoOlho} />)
+
+      expect(screen.getByLabelText('Senha')).not.toHaveAttribute('aria-describedby')
+    })
+
+    it('com erro e dica, a descrição acessível continua sendo apenas erro e dica (sem o sufixo)', () => {
+      render(<Campo rotulo="Senha" erro="Informe a senha" dica="Mínimo de 6 caracteres" sufixo={botaoOlho} />)
+
+      const input = screen.getByLabelText('Senha')
+      expect(input).toHaveAttribute('aria-invalid', 'true')
+      expect(input).toHaveAccessibleDescription('Informe a senha Mínimo de 6 caracteres')
+      expect(screen.getByRole('alert')).toHaveTextContent('Informe a senha')
+      expect(screen.getByRole('alert')).not.toContainElement(screen.getByRole('button', { name: 'Mostrar senha' }))
+    })
+
+    it('o sufixo é interativo: clicar nele não altera o valor do input', async () => {
+      const user = userEvent.setup()
+      const aoClicar = vi.fn()
+      render(
+        <Campo
+          rotulo="Senha"
+          defaultValue="segredo"
+          sufixo={
+            <button type="button" aria-label="Mostrar senha" onClick={aoClicar}>
+              olho
+            </button>
+          }
+        />,
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Mostrar senha' }))
+
+      expect(aoClicar).toHaveBeenCalledTimes(1)
+      expect(screen.getByLabelText('Senha')).toHaveValue('segredo')
+    })
+
+    it('sem sufixo, nada além do input é renderizado como controle', () => {
+      render(<Campo rotulo="Senha" />)
+
+      expect(screen.queryByRole('button')).not.toBeInTheDocument()
+    })
+  })
 })

@@ -1,6 +1,8 @@
 /*
  * Estilos compartilhados pelos campos de formulário: Campo (input), Select e AreaTexto.
  * Estrutura: .campo > .campo__rotulo + .campo__controle + (.erro-campo | .campo__dica)
+ * No Campo (input), o controle fica dentro de `.campo__entrada`, que também abriga o `sufixo`
+ * opcional (`.campo__sufixo`, sobreposto ao canto direito do input).
  */
 
 .campo {
@@ -8,6 +10,47 @@
   flex-direction: column;
   gap: 0.4375rem;
   min-width: 0;
+}
+
+.campo__entrada {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.campo__entrada .campo__controle {
+  flex: 1;
+  min-width: 0;
+}
+
+.campo__controle--com-sufixo {
+  padding-right: 2.75rem;
+}
+
+/*
+ * Sufixo (ex.: botão de mostrar/ocultar senha): sobre o canto direito, centrado na altura do input.
+ * O seletor composto garante prioridade sobre as variantes de `.botao`, independentemente da ordem
+ * em que as folhas de estilo são carregadas.
+ */
+.campo__entrada > .campo__sufixo {
+  position: absolute;
+  top: 50%;
+  right: 0.25rem;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  min-height: 42px;
+  height: 42px;
+  padding: 0;
+  color: var(--cor-texto-suave);
+}
+
+.campo__entrada > .campo__sufixo:hover:not(:disabled) {
+  color: var(--cor-primaria);
+  text-decoration: none;
 }
 
 .campo__rotulo {
