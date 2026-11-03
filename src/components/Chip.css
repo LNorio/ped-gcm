@@ -1,0 +1,41 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 36px;
+  padding: 0.375rem 0.875rem;
+  border: 1px solid var(--cor-borda-controle);
+  border-radius: var(--raio-pilula);
+  background-color: var(--cor-superficie);
+  color: var(--cor-texto-secundario);
+  font-size: 0.875rem;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+/* O foco é o anel compartilhado `.foco-anel` (tema.css) */
+.chip:hover:not(:disabled) {
+  border-color: var(--cor-primaria);
+}
+
+.chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.chip--ativo {
+  background-color: #e3eef9;
+  border-color: var(--cor-primaria);
+  color: #00427a;
+  font-weight: 500;
+}
+
+/* A contagem usa a pílula compartilhada `.contagem-pilula` (tema.css); aqui só o estado ativo */
+.chip--ativo .chip__contagem {
+  background-color: var(--cor-primaria);
+  color: #fff;
+}

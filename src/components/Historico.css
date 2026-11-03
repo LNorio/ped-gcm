@@ -1,0 +1,149 @@
+/*
+ * Histórico/auditoria somente leitura (RNF-01).
+ * Linha do tempo vertical e compacta, pensada para linhas expansíveis da Tabela e para diálogos.
+ */
+
+.historico {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  font-size: 0.875rem;
+  color: var(--cor-texto);
+}
+
+/* A legenda usa o utilitário `.rotulo-secao` (tema.css) */
+
+.historico__vazio {
+  padding: 0.5rem 0;
+  font-size: 0.875rem;
+  color: var(--cor-texto-suave);
+}
+
+.historico__lista {
+  position: relative;
+  margin: 0;
+  padding: 0 0 0 1.25rem;
+  list-style: none;
+}
+
+/* Linha vertical da linha do tempo */
+.historico__lista::before {
+  content: '';
+  position: absolute;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  left: 0.3125rem;
+  width: 2px;
+  background-color: var(--cor-borda);
+  border-radius: 1px;
+}
+
+.historico__item {
+  position: relative;
+  padding: 0.375rem 0 0.625rem;
+}
+
+.historico__item:last-child {
+  padding-bottom: 0;
+}
+
+.historico__marcador {
+  position: absolute;
+  top: 0.6875rem;
+  left: -1.25rem;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--cor-primaria);
+  border-radius: 50%;
+  background-color: var(--cor-superficie);
+}
+
+.historico__item:first-child .historico__marcador {
+  background-color: var(--cor-primaria);
+}
+
+.historico__conteudo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.historico__cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.625rem;
+}
+
+.historico__data {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--cor-texto-suave);
+  white-space: nowrap;
+}
+
+/* A ação é renderizada com <Etiqueta tom="info"> (Etiqueta.css) */
+
+.historico__usuario {
+  font-size: 0.8125rem;
+  color: var(--cor-texto-secundario);
+  overflow-wrap: anywhere;
+}
+
+.historico__mudanca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.125rem;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.historico__de {
+  color: var(--cor-texto-suave);
+}
+
+.historico__seta {
+  color: var(--cor-texto-suave);
+  white-space: pre;
+}
+
+.historico__para {
+  font-weight: 500;
+  color: var(--cor-texto);
+}
+
+.historico__detalhes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--cor-texto-secundario);
+}
+
+.historico__detalhe + .historico__detalhe::before {
+  content: '·';
+  margin-right: 0.5rem;
+  color: var(--cor-texto-suave);
+}
+
+.historico__motivo {
+  font-size: 0.8125rem;
+  color: var(--cor-texto-secundario);
+  overflow-wrap: anywhere;
+}
+
+.historico__motivo-rotulo {
+  font-weight: 500;
+  color: var(--cor-texto-suave);
+}
+
+@media (max-width: 480px) {
+  .historico__cabecalho {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.125rem;
+  }
+}

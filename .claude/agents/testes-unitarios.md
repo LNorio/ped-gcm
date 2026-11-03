@@ -31,10 +31,15 @@ Use um caminho temporário (pasta de rascunho ou `$TEMP`) para o JSON, nunca den
 
 ## 3. Calcular o resultado
 
-Do JSON: `numTotalTests`, `numPassedTests`, `numFailedTests`, `numPendingTests`.
-Percentual de sucesso = `numPassedTests / (numTotalTests - numPendingTests) × 100`, com duas casas decimais.
-Para cada teste com `status: "failed"` em `testResults[].assertionResults[]`, colete o arquivo,
-o nome completo (`fullName`) e a primeira linha relevante de `failureMessages`.
+O projeto segue TDD: leia `requisitos.json` e separe cada arquivo de `testResults[]` pelo requisito
+ao qual está vinculado (campo `testes`).
+
+- **Requisito `implementado`:** conta no percentual. Percentual = testes aprovados / testes executados
+  × 100, com duas casas decimais. Para cada teste com `status: "failed"`, colete o arquivo, o
+  `fullName` e a primeira linha relevante de `failureMessages`.
+- **Requisito `pendente` ou `em-alteracao`:** não conta no percentual (falhar é esperado em TDD);
+  informe apenas o progresso (aprovados de total).
+- **Arquivo de teste sem requisito:** reprova; liste-o para ser registrado.
 
 Se o comando falhar sem gerar o JSON (erro de compilação, import quebrado), o resultado é
 **REPROVADO** com percentual 0% e o erro exibido no terminal.
@@ -45,7 +50,8 @@ Responda exatamente neste formato:
 
 ```
 TESTES UNITÁRIOS: APROVADO | REPROVADO
-Sucesso: <xx,xx>% (<aprovados> de <total>)
+Sucesso: <xx,xx>% (<aprovados> de <total>) — ou "SEM TESTES" se nenhum teste de requisito implementado foi executado
+Requisitos em TDD (não bloqueiam): <id> <título> [<status>]: <aprovados> de <total> passando
 Arquivos do commit: <lista>
 
 Falhas:

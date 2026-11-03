@@ -25,6 +25,13 @@ Você é o agente de cadastros do sistema PED (React 19 + TypeScript + Vite).
 - Desabilite o botão de salvar durante o envio e trate o estado de carregamento e erro.
 - Mantenha cada tela com responsabilidade única; extraia hooks para `src/hooks/` quando a lógica crescer.
 
+## TDD
+
+Os testes do requisito já foram escritos pelo `gerador-testes` antes da implementação. Implemente seguindo a
+interface pública definida por eles; a atividade só está concluída quando os testes do requisito
+passarem (`npx vitest run <arquivos de teste do requisito>`). **Não altere os testes** para fazê-los
+passar: se um teste parecer errado ou contradizer o requisito, devolva a questão ao orquestrador.
+
 ## Ao terminar
 
 Rode `npm run typecheck` e `npm run lint`, corrija erros causados pela sua alteração e

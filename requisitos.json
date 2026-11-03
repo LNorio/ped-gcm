@@ -1,0 +1,240 @@
+{
+  "requisitos": [
+    {
+      "id": "RF-00",
+      "titulo": "Tela inicial",
+      "descricao": "Exibe o cabeçalho com o nome do sistema (PED) e o subtítulo \"Sistema de Cadastro\".",
+      "status": "implementado",
+      "testes": [
+        "src/App.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-10-21",
+          "alteracao": "Criação do requisito junto com a estrutura inicial do projeto."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Id renomeado de RF000 para RF-00 para seguir o padrão do documento de requisitos (RF-xx)."
+        }
+      ]
+    },
+    {
+      "id": "F1.2",
+      "titulo": "Cliente HTTP da API e sessão",
+      "descricao": "INT-01, RNF-08 — Cliente HTTP (src/services/api.ts) com URL base por VITE_API_URL (padrão \"/api\", sem duplicar barras), query string com parâmetros nulos omitidos, GET por padrão com Accept JSON, corpo serializado em JSON, Authorization: Bearer <token> quando houver token na sessão (src/services/sessao.ts: obterToken/definirToken/limparToken). Erros viram ApiError (name, status, mensagem, message, dados) com a mensagem do JSON {\"mensagem\"} da API ou mensagem padrão em pt-BR por status (400, 401, 403, 404, 500, outros) e falha de rede (status 0, \"Não foi possível conectar ao servidor.\"). 401 em requisição autenticada dispara window 'sessao-expirada' (EVENTO_SESSAO_EXPIRADA); 401 sem token (login recusado) não dispara.",
+      "status": "implementado",
+      "testes": [
+        "src/services/sessao.test.ts",
+        "src/services/api.test.ts",
+        "src/services/api.integration.test.ts"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F1.2 do plano, do contrato da API (docs/backend/API (24).md) e do .env.example."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída: 36 de 36 testes passando (src/services/api.ts, src/services/sessao.ts)."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Cobertura complementar: testes de 204/corpo vazio, AbortError repassado, corpo de erro não-JSON, FormData/string sem Content-Type JSON, cabeçalhos extras, PUT/DELETE. Dois comportamentos novos (2xx com corpo vazio resolve undefined; 2xx com corpo não-JSON rejeita com ApiError 'Resposta inválida do servidor.') ficam vermelhos até a implementação."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Requisito ajustado após revisão de qualidade: resposta 2xx com corpo vazio resolve undefined; 2xx com corpo não-JSON vira ApiError(status, \"Resposta inválida do servidor.\"). Motivo: evitar SyntaxError cru fora do contrato \"sempre ApiError\"."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Ajuste implementado: 50 de 50 testes passando."
+        }
+      ]
+    },
+    {
+      "id": "F1.3",
+      "titulo": "Tipos do domínio e adaptadores da API",
+      "descricao": "INT-01, INT-02, INT-03 — Enums do domínio em src/types/dominio.ts (perfil, tipo de valor, periodicidade, sentido, cálculo, sentido do cálculo, referência Filial/Colaborador/Zona de venda, sistema de origem, coleta, janela retroativa, situações de dado externo e dashboard, tipo de vínculo) com listas e rótulos pt-BR. Adaptadores em src/services/adaptadores.ts convertendo as respostas da API (chaves em português com espaço, ex.: \"nome filial\", \"mes de referencia\") para tipos TS em camelCase (paraFilial, paraAcesso, paraPeriodo, paraTipoApontamento, paraApontamento, paraDadoExterno, paraIndicador, paraDashboard, paraTabelaFaixas, paraHistoricoMeta, paraFechamento, paraTipoValor) e dos tipos TS para os corpos das requisições (paraCorpoNovoApontamento, paraCorpoNovoDadoExterno com identificador em maiúsculas, paraCorpoNovoIndicador, paraCorpoDashboard, paraCorpoNovaTabelaFaixas, paraCorpoPreenchimento, paraCorpoAjusteMetas), usando os exemplos reais da API.",
+      "status": "implementado",
+      "testes": [
+        "src/types/dominio.test.ts",
+        "src/services/adaptadores.test.ts"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F1.3 do plano e dos exemplos de resposta de docs/backend/API (24).md."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída: 40 de 40 testes passando (src/types/dominio.ts, src/services/adaptadores.ts)."
+        }
+      ]
+    },
+    {
+      "id": "F1.4",
+      "titulo": "Utilitários de formato pt-BR",
+      "descricao": "RNF-03, RNF-09, RN-10 — src/utils/formato.ts: formatarData (dd/mm/aaaa, sem deslocar o dia pelo fuso), formatarDataHora (dd/mm/aaaa hh:mm), formatarNumero (vírgula decimal, ponto de milhar, 2 casas por padrão, casas personalizáveis), formatarMoeda (R$), formatarPercentual (sufixo %), lerDecimal (texto com vírgula decimal e ponto de milhar → number; null para inválido), formatarCompetencia (MM/AAAA) e normalizarBusca (sem acento, minúsculas, espaços reduzidos). Arredondamento de exibição em 2 casas; null/undefined/inválido devolvem texto vazio.",
+      "status": "implementado",
+      "testes": [
+        "src/utils/formato.test.ts"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F1.4 do plano."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída: 30 de 30 testes passando (src/utils/formato.ts)."
+        }
+      ]
+    },
+    {
+      "id": "F1.5",
+      "titulo": "Identidade visual",
+      "descricao": "RNF-06 — src/estilos/tema.css com as variáveis --cor-primaria #0062AF, --cor-dourado #C49A4E, --cor-dourado-escuro #C99A4C, --cor-fundo #F2F5F9, --cor-texto #1D2A36 e font-family Ubuntu; src/main.tsx importa @fontsource/ubuntu (pacote local, sem Google Fonts) e ./estilos/tema.css; src/components/Rodape.tsx renderiza um <footer> com \"Desenvolvido pelo Departamento de TI do Grupo Comercial Mariano\".",
+      "status": "implementado",
+      "testes": [
+        "src/estilos/tema.test.ts",
+        "src/components/Rodape.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F1.5 do plano e dos tokens do protótipo."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída: 6 de 6 testes passando (src/estilos/tema.css, src/components/Rodape.tsx)."
+        }
+      ]
+    },
+    {
+      "id": "F1.6",
+      "titulo": "Componentes base",
+      "descricao": "RNF-05, RNF-08 — src/components: Botao (variantes primario|dourado|contorno|perigo|perigo-cheio|link, tamanho pequeno, type=button por padrão, nome acessível por aria-label), Campo/Select/AreaTexto (rótulo associado, erro com aria-invalid e descrição acessível, dica), Chip (botão com aria-pressed e contagem), Etiqueta (tons neutro|info|sucesso|alerta|perigo|dourado), Card (região nomeada pelo título, ações), Aviso (role note; tipo erro é role alert) e ErroCampo (role alert; nada quando vazio).",
+      "status": "implementado",
+      "testes": [
+        "src/components/Botao.test.tsx",
+        "src/components/Campo.test.tsx",
+        "src/components/Select.test.tsx",
+        "src/components/AreaTexto.test.tsx",
+        "src/components/Chip.test.tsx",
+        "src/components/Etiqueta.test.tsx",
+        "src/components/Card.test.tsx",
+        "src/components/Aviso.test.tsx",
+        "src/components/ErroCampo.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F1.6 do plano."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída: 65 de 65 testes passando (9 componentes em src/components/)."
+        }
+      ]
+    },
+    {
+      "id": "F1.7",
+      "titulo": "Tabela responsiva",
+      "descricao": "RNF-04 — src/components/Tabela.tsx: tabela genérica com colunas (chave, título, render), dados, obterChave, legenda (nome acessível), estado vazio (padrão \"Nenhum registro encontrado.\" ou textoVazio), quadro com rolagem horizontal (.tabela-rolagem) e linhas expansíveis (expandir(linha) → conteúdo ou null; botão \"Expandir detalhes\"/\"Recolher detalhes\" com aria-expanded; rótulos personalizáveis).",
+      "status": "implementado",
+      "testes": [
+        "src/components/Tabela.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F1.7 do plano."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída: 11 de 11 testes passando (src/components/Tabela.tsx)."
+        }
+      ]
+    },
+    {
+      "id": "F1.8",
+      "titulo": "Diálogo modal e diálogo de confirmação",
+      "descricao": "RNF-05, RNF-07 — src/components/Dialogo.tsx: role dialog, aria-modal, nomeado pelo título, descrição acessível, botão \"Fechar\", Esc fecha, foco movido para dentro ao abrir, preso (Tab/Shift+Tab) e devolvido ao elemento de origem ao fechar; nada renderizado quando fechado. src/components/DialogoConfirmacao.tsx: título, descrição do impacto, botões Confirmar/Cancelar (textos personalizáveis, variante de perigo, processando desabilita), Esc cancela; modo bloqueado por regra (prop bloqueio) exibe o motivo e oferece só \"Entendi\" (chama onCancelar).",
+      "status": "implementado",
+      "testes": [
+        "src/components/Dialogo.test.tsx",
+        "src/components/DialogoConfirmacao.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F1.8 do plano."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída: 21 de 21 testes passando (src/components/Dialogo.tsx, DialogoConfirmacao.tsx)."
+        }
+      ]
+    },
+    {
+      "id": "F1.9",
+      "titulo": "Notificação temporária e região de status",
+      "descricao": "RNF-05, RNF-08 — src/components/Notificacao.tsx: role status com a mensagem, tipos sucesso|erro|info, chama onFechar após duracaoMs (padrão 3000 ms), cancela ao desmontar, reinicia ao mudar a mensagem, nada com mensagem nula. src/components/RegiaoStatus.tsx: região aria-live sempre presente (role status/polite; tipo erro → role alert/assertive) que anuncia a mensagem atual.",
+      "status": "implementado",
+      "testes": [
+        "src/components/Notificacao.test.tsx",
+        "src/components/RegiaoStatus.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F1.9 do plano."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída: 11 de 11 testes passando (src/components/Notificacao.tsx, RegiaoStatus.tsx)."
+        }
+      ]
+    },
+    {
+      "id": "F1.10",
+      "titulo": "Barra de filtros reutilizável",
+      "descricao": "RNF-09, RF-18, RF-24, RF-33, RF-47, RF-79 (filtros) — src/components/BarraFiltros.tsx: campo de busca (searchbox, rótulo \"Buscar\" por padrão) que devolve o texto digitado e a versão normalizada (sem acento e minúsculas); seletor de situação com papel de lista (listbox \"Situação\" com options aria-selected e contagem); grupo de botões com contagem (group \"Tipo\", aria-pressed; clicar no ativo desmarca); \"Limpar filtros\" visível só com onLimpar e algum filtro ativo (busca, situação diferente da primeira ou botão ativo). Integração: filtros + Tabela + normalizarBusca filtrando uma lista.",
+      "status": "implementado",
+      "testes": [
+        "src/components/BarraFiltros.test.tsx",
+        "src/components/BarraFiltros.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F1.10 do plano e dos filtros descritos em RF-18, RF-24, RF-33, RF-47 e RF-79."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída: 28 de 28 testes passando (src/components/BarraFiltros.tsx)."
+        }
+      ]
+    },
+    {
+      "id": "F1.11",
+      "titulo": "Histórico somente leitura",
+      "descricao": "RNF-01 — src/components/Historico.tsx: lista (role list, nomeada pela legenda) de registros na ordem recebida com data/hora pt-BR, ação, usuário, mudança \"de → para\" (\"—\" quando não há valor anterior), motivo quando existe e detalhes opcionais; estado vazio (padrão \"Nenhuma alteração registrada.\"); nenhum botão, link ou campo de edição.",
+      "status": "implementado",
+      "testes": [
+        "src/components/Historico.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F1.11 do plano."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída: 10 de 10 testes passando (src/components/Historico.tsx)."
+        }
+      ]
+    }
+  ]
+}

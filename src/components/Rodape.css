@@ -1,0 +1,16 @@
+.rodape {
+  padding: 0.875rem 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+/* Páginas internas: discreto sobre --cor-fundo */
+.rodape--escuro {
+  color: var(--cor-texto-suave);
+}
+
+/* Telas com fundo azul (login): texto claro, como no protótipo */
+.rodape--claro {
+  color: rgba(255, 255, 255, 0.85);
+}

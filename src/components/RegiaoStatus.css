@@ -1,0 +1,14 @@
+.regiao-status {
+  min-height: 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--cor-texto-suave);
+}
+
+.regiao-status:empty {
+  min-height: 0;
+}
+
+.regiao-status--erro {
+  color: var(--cor-perigo);
+}

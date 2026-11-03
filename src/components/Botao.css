@@ -1,0 +1,98 @@
+.botao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1.25rem;
+  border: 1px solid transparent;
+  border-radius: var(--raio-pequeno);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+/* O foco é o anel compartilhado `.foco-anel` (tema.css) */
+.botao:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.botao--pequeno {
+  min-height: 36px;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+}
+
+/* Variantes */
+
+.botao--primario {
+  background-color: var(--cor-primaria);
+  color: #fff;
+}
+
+.botao--primario:hover:not(:disabled) {
+  background-color: var(--cor-primaria-escura);
+}
+
+.botao--dourado {
+  background-color: var(--cor-dourado);
+  color: #1f1a10;
+}
+
+.botao--dourado:hover:not(:disabled) {
+  background-color: #b4893d;
+}
+
+.botao--contorno {
+  background-color: var(--cor-superficie);
+  color: var(--cor-primaria);
+  border-color: #9db6d1;
+}
+
+.botao--contorno:hover:not(:disabled) {
+  background-color: #f1f6fb;
+}
+
+.botao--perigo {
+  background-color: var(--cor-superficie);
+  color: var(--cor-perigo);
+  border-color: #e3b1aa;
+}
+
+.botao--perigo:hover:not(:disabled) {
+  background-color: #fdf2f0;
+}
+
+.botao--perigo-cheio {
+  background-color: var(--cor-perigo);
+  color: #fff;
+}
+
+.botao--perigo-cheio:hover:not(:disabled) {
+  background-color: var(--cor-perigo-escura);
+}
+
+.botao--link {
+  background-color: transparent;
+  color: var(--cor-primaria);
+  padding: 0 0.5rem;
+}
+
+.botao--link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+/* Em telas estreitas os botões podem ocupar a largura disponível quando o pai pedir */
+@media (max-width: 480px) {
+  .botao {
+    max-width: 100%;
+    white-space: normal;
+  }
+}

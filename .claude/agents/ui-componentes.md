@@ -21,6 +21,13 @@ Você é o agente de interface do sistema PED (React 19 + TypeScript + Vite).
 - Layout responsivo (funcionar em telas a partir de 360px de largura).
 - Antes de criar um componente, verifique se já existe um semelhante em `src/components/`.
 
+## TDD
+
+Os testes do requisito já foram escritos pelo `gerador-testes` antes da implementação. Implemente seguindo a
+interface pública definida por eles; a atividade só está concluída quando os testes do requisito
+passarem (`npx vitest run <arquivos de teste do requisito>`). **Não altere os testes** para fazê-los
+passar: se um teste parecer errado ou contradizer o requisito, devolva a questão ao orquestrador.
+
 ## Ao terminar
 
 Rode `npm run typecheck` e `npm run lint`, corrija erros causados pela sua alteração e

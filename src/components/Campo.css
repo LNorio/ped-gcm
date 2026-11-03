@@ -1,0 +1,81 @@
+/*
+ * Estilos compartilhados pelos campos de formulário: Campo (input), Select e AreaTexto.
+ * Estrutura: .campo > .campo__rotulo + .campo__controle + (.erro-campo | .campo__dica)
+ */
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4375rem;
+  min-width: 0;
+}
+
+.campo__rotulo {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--cor-texto-secundario);
+}
+
+.campo__controle {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--cor-borda-controle);
+  border-radius: var(--raio);
+  background-color: var(--cor-superficie);
+  color: var(--cor-texto);
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.campo__controle::placeholder {
+  color: var(--cor-texto-suave);
+  opacity: 1;
+}
+
+.campo__controle:hover:not(:disabled) {
+  border-color: var(--cor-primaria-clara);
+}
+
+.campo__controle:disabled {
+  background-color: var(--cor-superficie-suave);
+  color: var(--cor-texto-suave);
+  cursor: not-allowed;
+}
+
+.campo__controle[aria-invalid='true'] {
+  border-color: var(--cor-perigo);
+}
+
+/* O foco do controle é o contorno interno compartilhado `.foco-interno` (tema.css) */
+.campo__controle[aria-invalid='true']:focus-visible {
+  outline-color: var(--cor-perigo);
+}
+
+/* Select nativo: seta própria para manter o visual entre navegadores */
+select.campo__controle {
+  padding-right: 2.25rem;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%2333414E' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  cursor: pointer;
+}
+
+select.campo__controle:disabled {
+  cursor: not-allowed;
+}
+
+/* Área de texto */
+textarea.campo__controle {
+  min-height: 76px;
+  padding: 0.625rem 0.75rem;
+  resize: vertical;
+}
+
+.campo__dica {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--cor-texto-suave);
+}

@@ -1,0 +1,42 @@
+.aviso {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid;
+  border-radius: var(--raio);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.aviso__titulo {
+  font-weight: 700;
+}
+
+.aviso__conteudo > p {
+  margin: 0;
+}
+
+.aviso--info {
+  background-color: #f3f8fd;
+  border-color: #caddf0;
+  color: #1f466d;
+}
+
+.aviso--alerta {
+  background-color: #fdf7ea;
+  border-color: #ecd4a4;
+  color: #6b4a0f;
+}
+
+.aviso--sucesso {
+  background-color: #eef8f2;
+  border-color: #bfe1cc;
+  color: #1b5c3a;
+}
+
+.aviso--erro {
+  background-color: #fdf0ee;
+  border-color: #f0c1ba;
+  color: #8f2418;
+}

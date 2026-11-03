@@ -1,0 +1,267 @@
+# Plano de Implementação — PED
+
+**Objetivo:** entregar o front-end do PED — Cadastro e Preenchimento (React 19 + TypeScript + Vite), consumindo a API do back-end PED (Laravel, `/api/ped/...`), com as abas Início, Tipos, Apontamentos, Dados Externos, Indicadores, Faixas, Dashboards, Preenchimento e Fechamentos, conforme o documento de requisitos (v2.3, 03/11/2026) e o protótipo de 03/11/2026. Ficam fora: abas Aprovações e Usuários, botão "Trocar usuário", encerramento automático e Consulta de Resultados.
+**Atualizado em:** 03/11/2026
+**Progresso geral:** 12% (11 de 95 atividades concluídas)
+
+**Fontes do plano:** `docs/PED — Cadastro e Preenchimento Documento de Requisitos.md` (RF/RN/RNF/INT/P), `docs/tela-login.jpg` (protótipo da tela de login), `docs/backend/API (24).md` (contrato da API), `docs/backend/PED (3).md` (domínio e coleta do ERP), `docs/backend/PED-dados-externos.postman_collection (1).json` (login e dados externos), `docs/backend/PLANO-CADASTRO.md` (fases do back-end) e `docs/PED — Cadastro e Preenchimento-html/` (protótipo de interface).
+
+**Critério de pronto padrão (CP):** testes dos requisitos vinculados (escritos antes pelo `gerador-testes` e registrados no `requisitos.json`) passando, `npm run typecheck` e `npm run lint` sem erros e `npm run test:implementados` sem falhas. Cada atividade acrescenta o critério específico da sua linha.
+
+**Convenções de vínculo:** a coluna *Requisitos* das atividades usa os códigos do documento (RF-xx, RN-xx, RNF-xx, INT-xx). No `requisitos.json`, o registro é **por atividade do plano**: cada atividade gera um requisito com o mesmo id (`F1.2`, `F1.3`, ...), com os códigos do documento citados na descrição; a exceção é o `RF-00` (tela inicial da estrutura do projeto, renomeado de `RF000` em 03/11/2026), que permanece com o código do documento. Convenção ajustada em 03/11/2026 ao concluir a F1.
+
+## Premissas e decisões (03/11/2026)
+
+- **Documento de requisitos prevalece sobre a API.** Quando o documento e a API divergem, vale o documento; a diferença vira um ajuste a fazer no back-end (seção *Ajustes necessários na API*). Atividades do front que dependem desse ajuste ficam **Bloqueadas** com o motivo "aguarda ajuste na API: <o quê>".
+- **Usuários:** perfil, grupo e filiais dos usuários virão de uma integração da API do PED com outra API externa. A aba Usuários continua fora do escopo do front.
+- **Vínculo usuário → tipo:** a API de acesso devolve perfil + grupo; o tipo sai do vínculo grupo → tipo configurado na aba Tipos (P-01, parte resolvida).
+- **Filiais de acesso (RF-01):** Admin e Validador veem todas as filiais; os demais usuários veem somente as filiais da sua abrangência (uma ou várias).
+- **Faixas e Fechamentos/imagens:** acesso somente de Admin e Validador, ambos em todas as filiais.
+- **Imagens congeladas (RF-50/RF-82):** uma imagem pode ser gerada sobre um colaborador **ou** sobre uma filial; o front prevê os dois casos.
+- **Pontuação (RF-54):** a fórmula é informada no cadastro do dashboard e construída pela TI; o front exibe o que a API calcular.
+- **Bitrix24 (INT-04):** será implementado no back-end; até lá o front exibe o que a API devolver, sem número de tarefa quando não houver.
+- **Usuário sem perfil ou sem acesso à plataforma:** redirecionado a uma tela própria com a mensagem exata "Usuário sem acesso ao sistema, favor verificar com a equipe de Departamento Pessoal" (F2.8).
+- **Técnicas (já aplicadas no projeto):** navegação com React Router (`react-router-dom`, uma rota por aba); fonte Ubuntu pelo pacote local `@fontsource/ubuntu` (sem Google Fonts); proxy do Vite para `/api` em `vite.config.ts` e `.env.example` com `VITE_API_URL` e `VITE_API_PROXY_TARGET`.
+- **RF-00:** a tela inicial atual ("PED / Sistema de Cadastro") passará por "requisito alterado" (`gerador-testes`) antes da F2.3, que a substitui pelo layout do protótipo. É um passo do ciclo, não uma dúvida.
+
+## Fases
+
+| Fase | Descrição | Progresso | Status |
+| --- | --- | --- | --- |
+| F1 | Fundação: cliente HTTP, tipos do domínio, formatos pt-BR, identidade visual e componentes reutilizáveis | 100% (11/11) | Concluída |
+| F2 | Acesso, sessão, layout, rotas e navegação entre abas | 0% (0/8) | Pendente |
+| F3 | Tipos de apontamento | 0% (0/5) | Pendente |
+| F4 | Apontamentos | 0% (0/6) | Pendente |
+| F5 | Dados externos | 0% (0/10) | Pendente |
+| F6 | Indicadores | 0% (0/9) | Pendente |
+| F7 | Dashboards | 0% (0/10) | Pendente |
+| F8 | Faixas | 0% (0/6) | Pendente |
+| F9 | Preenchimento, metas e abertura de período | 0% (0/12) | Pendente |
+| F10 | Fechamentos e imagens congeladas | 0% (0/8) | Pendente |
+| F11 | Início | 0% (0/5) | Pendente |
+| F12 | Não funcionais transversais, segurança e integrações pendentes | 0% (0/5) | Pendente |
+
+Ordem: a F1 e a F2 vêm antes de qualquer tela. As abas seguem a dependência do domínio (e a ordem do back-end): Tipos → Apontamentos → Dados externos → Indicadores → Dashboards → Faixas (faixas pertencem a um dashboard) → Preenchimento → Fechamentos. O Início vem por último porque resume e leva às demais abas (Preenchimento). F3 a F8 podem ter atividades de serviço (`integracao-api`) adiantadas em paralelo, pois a API já está publicada. Prazos e prioridades não foram informados (ver *Dúvidas em aberto*).
+
+## F1 — Fundação
+
+| ID | Atividade | Requisitos | Agente | Depende de | Critério de pronto | Status | Arquivos |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| F1.1 | Estrutura inicial do projeto e tela inicial com cabeçalho "PED / Sistema de Cadastro" | RF-00 | ui-componentes | — | CP; cabeçalho exibido | Concluída (21/10/2026) | `src/App.tsx`, `src/App.test.tsx`, `src/main.tsx`, `src/index.css` (removido em 03/11/2026; estilos migrados para `src/estilos/tema.css` na F1.5) |
+| F1.2 | Configuração da URL base da API por variável de ambiente (`VITE_API_URL`, padrão `/api`; proxy do Vite para `VITE_API_PROXY_TARGET`; produção `http://192.168.7.18:8080/api`) e cliente HTTP com `Authorization: Bearer`, JSON e tratamento de erros (`{"mensagem"}`; 400, 401, 403, 404, 500 e falha de rede) | INT-01, RNF-08 | integracao-api | F1.1 | CP; 401 dispara evento de sessão expirada; erros tipados com a `mensagem` da API | Concluída (03/11/2026) — decisões: token só em memória nesta fase (persistência fica para a F2); 401 com token dispara `sessao-expirada`, 401 sem token (login recusado) não dispara; `AbortError` repassado sem conversão. Ajuste pós-revisão (03/11/2026): 2xx com corpo vazio resolve `undefined`; 2xx com corpo não-JSON vira `ApiError` "Resposta inválida do servidor." (50/50 testes) | `src/services/api.ts`, `src/services/sessao.ts`, `src/services/api.test.ts`, `src/services/api.integration.test.ts`, `src/services/sessao.test.ts`, `vite.config.ts`, `.env.example` |
+| F1.3 | Tipos do domínio e adaptadores das respostas da API (chaves em português com espaço, ex.: `"nome filial"`, `"mes de referencia"`) para tipos TS; enums de perfil, tipo de valor, periodicidade, sentido, situações e referência (Filial, Colaborador, Zona de venda) | INT-01, INT-02, INT-03 | integracao-api | F1.2 | CP; adaptadores de ida e volta cobertos por testes; nenhum componente lê chaves com espaço diretamente | Concluída (03/11/2026) — decisão: `paraTipoValor` lança erro em valor desconhecido (falha explícita); formatos não documentados de `indicadores` e `tarefa bitrix` assumidos (ver *Dúvidas em aberto*) | `src/types/dominio.ts`, `src/services/adaptadores.ts`, `src/types/dominio.test.ts`, `src/services/adaptadores.test.ts` |
+| F1.4 | Utilitários de formato pt-BR: data `dd/mm/aaaa hh:mm`, número com vírgula decimal e ponto de milhar, moeda em reais, porcentagem, leitura de decimal com vírgula, mês de competência (`MM/AAAA`) e normalização de busca sem acento e sem maiúsculas | RNF-03, RNF-09, RN-10 | ui-componentes | F1.1 | CP; arredondamento de exibição em 2 casas | Concluída (03/11/2026) — `lerDecimal("2.000")` → 2000 (padrão BR); a leitura pela API pode divergir (ver *Dúvidas em aberto*) | `src/utils/formato.ts`, `src/utils/formato.test.ts` |
+| F1.5 | Identidade visual: tokens do protótipo (azul `#0062AF`, dourado `#C49A4E`/`#C99A4C`, fundo `#F2F5F9`, texto `#1D2A36`), fonte Ubuntu pelo pacote local `@fontsource/ubuntu` (instalado; sem Google Fonts), estilos globais e rodapé "Desenvolvido pelo Departamento de TI do Grupo Comercial Mariano" | RNF-06 | ui-componentes | F1.1 | CP; rodapé exibido em todas as telas; fonte carregada do pacote local | Concluída (03/11/2026) — tokens `--cor-primaria`, `--cor-dourado`, `--cor-dourado-escuro`, `--cor-fundo`, `--cor-texto` e extras do protótipo; `Rodape` com prop `tom: 'escuro' \| 'claro'`; `src/index.css` removido (migrado para `tema.css`). Infraestrutura: `vite.config.ts` com `test.css.include: [/\.css\?raw$/]` (teste do tema lê o CSS) e `.oxlintrc.json` ignorando `docs/` (protótipo com cópias do React era lintado). Refatoração pós-revisão (03/11/2026): CSS dos componentes consolidado em tokens e utilitários do `tema.css` | `src/estilos/tema.css`, `src/estilos/tema.test.ts`, `src/components/Rodape.tsx`, `src/components/Rodape.css`, `src/components/Rodape.test.tsx`, `src/main.tsx`, `src/App.tsx`, `vite.config.ts`, `.oxlintrc.json` |
+| F1.6 | Componentes base: botões (primário, dourado, contorno, perigo, perigo cheio, link, pequeno), campo com rótulo associado, select, textarea, chip de filtro, etiqueta (tag), card, nota/aviso e mensagem de erro de campo | RNF-05, RNF-08 | ui-componentes | F1.5 | CP; todo campo com `label` associado; botões de ícone com nome acessível; foco visível | Concluída (03/11/2026) — padrão: um CSS por componente, exports nomeados, props tipadas exportadas; `Campo.css` compartilhado por `Select` e `AreaTexto` | `src/components/Botao.tsx/.css`, `Campo.tsx/.css`, `Select.tsx`, `AreaTexto.tsx`, `ErroCampo.tsx/.css`, `Chip.tsx/.css`, `Etiqueta.tsx/.css`, `Card.tsx/.css`, `Aviso.tsx/.css` e os `*.test.tsx` correspondentes |
+| F1.7 | Tabela/lista responsiva com rolagem horizontal dentro do quadro, estado vazio e linhas expansíveis (histórico/alerta) | RNF-04 | ui-componentes | F1.6 | CP; tabelas largas rolam dentro do card em telas menores | Concluída (03/11/2026) | `src/components/Tabela.tsx`, `src/components/Tabela.css`, `src/components/Tabela.test.tsx` |
+| F1.8 | Diálogo modal acessível e diálogo de confirmação com descrição do impacto; modo "bloqueado por regra" com motivo e botão único "Entendi" | RNF-05, RNF-07 | ui-componentes | F1.6 | CP; `role="dialog"`, `aria-modal`, foco preso e devolvido, Esc fecha | Concluída (03/11/2026) — decisão: foco inicial no painel, não no primeiro botão; sem `aria-hidden`/`inert` no resto da página (fica para a revisão F12.1) | `src/components/Dialogo.tsx`, `src/components/Dialogo.css`, `src/components/DialogoConfirmacao.tsx`, `src/components/Dialogo.test.tsx`, `src/components/DialogoConfirmacao.test.tsx` |
+| F1.9 | Notificação temporária (~3 s) e região de status/erro anunciada (`aria-live`) | RNF-05, RNF-08 | ui-componentes | F1.6 | CP; notificação some após ~3 s e é anunciada | Concluída (03/11/2026) — notificação no canto inferior direito, como o protótipo | `src/components/Notificacao.tsx`, `src/components/Notificacao.css`, `src/components/RegiaoStatus.tsx`, `src/components/RegiaoStatus.css`, `src/components/Notificacao.test.tsx`, `src/components/RegiaoStatus.test.tsx` |
+| F1.10 | Barra de filtros reutilizável: busca (sem acento/maiúsculas), chips de situação e botões com contagem | RNF-09, RF-18, RF-24, RF-33, RF-47, RF-79 | ui-componentes | F1.4, F1.6 | CP; seletores com papel de lista | Concluída (03/11/2026) — listbox com navegação por teclado; integração com `Tabela` e `normalizarBusca` testada | `src/components/BarraFiltros.tsx`, `src/components/BarraFiltros.css`, `src/components/BarraFiltros.test.tsx`, `src/components/BarraFiltros.integration.test.tsx` |
+| F1.11 | Componente de histórico/auditoria somente leitura (data, ação, usuário, de → para, motivo), sem ações de edição ou exclusão | RNF-01 | ui-componentes | F1.7 | CP; nenhuma ação de alterar histórico na interface | Concluída (03/11/2026) | `src/components/Historico.tsx`, `src/components/Historico.css`, `src/components/Historico.test.tsx` |
+
+## F2 — Acesso, sessão, layout, rotas e navegação
+
+| ID | Atividade | Requisitos | Agente | Depende de | Critério de pronto | Status | Arquivos |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| F2.1 | Serviço de autenticação e sessão: `POST /api/valida-usuario` (`usuario`, `senha` → `token`), `GET /api/ped/acesso` (perfil, grupo, tipos, todas as filiais, filiais, período aberto) e contexto/hook de sessão | RF-03, RF-04, INT-01 | integracao-api | F1.2, F1.3 | CP; senha nunca armazenada; `perfil: null` ou sem acesso à plataforma leva à tela da F2.8 | Pendente | — |
+| F2.2 | Tela de login conforme o protótipo `docs/tela-login.jpg`: fundo azul em degradê; marca "Comercial Mariano" no topo; cartão branco centralizado com etiqueta "PED", título "Programa de Excelência em Distribuição" e subtítulo "Cadastro, preenchimento e fechamento"; campo "Usuário" (placeholder "Seu login"); campo "Senha" (placeholder "Sua senha", botão mostrar/ocultar senha com nome acessível); botão azul "Entrar" na largura do cartão; erros da API junto ao formulário; rodapé "Desenvolvido pelo Departamento de TI do Grupo Comercial Mariano" | RF-03, RNF-05, RNF-06, RNF-08 | cadastro-formularios | F2.1, F1.5, F1.6 | CP; login válido leva ao Início; inválido mostra a mensagem da API; mostrar/ocultar senha alterna o tipo do campo | Pendente | — |
+| F2.3 | Rotas com React Router (`react-router-dom`): rota de login, rota da tela "sem acesso" (F2.8), rota protegida por sessão e uma rota própria por aba; layout principal conforme protótipo: cabeçalho (marca Comercial Mariano, PED, "Olá, nome", etiqueta do perfil, botão Sair), barra de abas com aba ativa pela URL e rodapé; navegação entre abas (Início, Tipos, Apontamentos, Dados Externos, Indicadores, Faixas, Dashboards, Preenchimento, Fechamentos) | RF-02, RNF-04, RNF-06 | ui-componentes | F2.1, F1.5 | CP; substitui o cabeçalho do RF-00 (passar RF-00 por "requisito alterado" antes); cada aba acessível por URL própria; aba ativa coerente com a URL | Pendente | — |
+| F2.4 | Seletor de filial no cabeçalho a partir das filiais devolvidas por `/api/ped/acesso`: Admin e Validador — todas as filiais (seletor livre com "Todas as filiais"); demais usuários — filiais da sua abrangência (uma filial → fixa, sem troca; várias → seletor restrito); filial selecionada disponível às abas | RF-01 | ui-componentes | F2.3 | CP; os três casos cobertos a partir da lista da API (o Validador ver todas e o Preenchedor ver várias depende do ajuste A-03 na API; não bloqueia o front) | Pendente | — |
+| F2.5 | Sair: encerra a sessão (descarta token e estado) e volta ao login; tratamento de sessão expirada (401) | RF-05 | integracao-api | F2.1, F2.3 | CP | Pendente | — |
+| F2.6 | Permissões por perfil (matriz da seção 2): abas visíveis e ações habilitadas por Admin, Validador e Preenchedor, em um único ponto (hook); Validador com acesso total a Tipos, Faixas e Fechamentos | RF-04, RF-16 | ui-componentes | F2.1 | CP; Preenchedor não vê Tipos, Indicadores, Faixas, Dashboards nem Fechamentos | Pendente | — |
+| F2.7 | Aplicar o vínculo usuário → grupo → tipo (perfil + grupo devolvidos pela API; tipos derivados do vínculo grupo → tipo da aba Tipos) e a regra para "nenhuma filial de acesso" | RF-04, RF-16, INT-01 | integracao-api | F2.1 | CP | Bloqueada (aguarda ajuste na API: A-01 — `/api/ped/acesso` devolver grupo e tipos pelo vínculo grupo → tipo; P-01 parcial — significado de "nenhuma filial de acesso") | — |
+| F2.8* | Tela "sem acesso": usuário sem perfil no PED (`perfil: null`) ou sem acesso à plataforma é redirecionado a uma rota própria com a mensagem exata "Usuário sem acesso ao sistema, favor verificar com a equipe de Departamento Pessoal" e opção de voltar ao login | RF-03, RF-04, INT-01 | cadastro-formularios | F2.1, F2.3 | CP; nenhuma aba acessível nesse estado; mensagem exata exibida | Pendente | — |
+
+## F3 — Tipos de apontamento
+
+| ID | Atividade | Requisitos | Agente | Depende de | Critério de pronto | Status | Arquivos |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| F3.1 | Serviço de tipos: `GET/POST /api/ped/tipos-apontamento`, `PUT/DELETE /api/ped/tipos-apontamento/{id}`; lista de grupos (endpoint a definir no ajuste A-02) | RF-12, RF-13, RF-14, RF-15 | integracao-api | F1.3 | CP; a parte de grupos depende de A-02 | Pendente | — |
+| F3.2 | Listagem de tipos: nome, origem (Fixo/Personalizado), quantidade de apontamentos; aviso dos 7 tipos fixos; aba para Admin e Validador (ambos com cadastro, edição e exclusão) | RF-12, RF-16 | cadastro-formularios | F3.1, F1.7, F2.6 | CP | Pendente | — |
+| F3.3 | Excluir tipo personalizado com confirmação (Admin e Validador); fixos sem ação de excluir; bloqueio com motivo quando há apontamentos | RF-15, RN-13, RNF-07 | cadastro-formularios | F3.2, F1.8 | CP; a exclusão pelo Validador depende do ajuste A-02 (permissão); não bloqueia o front | Pendente | — |
+| F3.4 | Cadastrar tipo personalizado (Admin e Validador): nome obrigatório e único (sem diferenciar maiúsculas) e ao menos um grupo vinculado; lista de grupos da API; coluna "Grupos vinculados" na listagem | RF-13, RF-16, INT-02 | cadastro-formularios | F3.2 | CP | Bloqueada (aguarda ajuste na API: A-02 — lista de grupos, vínculo grupo → tipo e permissão ao Validador) | — |
+| F3.5 | Editar grupos vinculados de qualquer tipo (fixo ou personalizado), Admin e Validador | RF-14, RF-16, INT-02 | cadastro-formularios | F3.4 | CP | Bloqueada (aguarda ajuste na API: A-02 — mesma dependência da F3.4) | — |
+
+## F4 — Apontamentos
+
+| ID | Atividade | Requisitos | Agente | Depende de | Critério de pronto | Status | Arquivos |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| F4.1 | Serviço de apontamentos: `GET /api/ped/apontamentos` (busca, situação, tipo; contagem por tipo), `POST`, `PUT .../{id}/situacao`, `DELETE .../{id}` | RF-17 a RF-22 | integracao-api | F1.3 | CP | Pendente | — |
+| F4.2 | Listagem: nome, descrição, situação, tipo, tipo de valor, indicadores, data e autor; etiquetas "Vinculado a dashboard" e "Desativado, mas usado em indicador ativo" | RF-17 | cadastro-formularios | F4.1, F1.7 | CP; Preenchedor vê só seus tipos | Pendente | — |
+| F4.3 | Filtros: busca (nome, tipo, descrição, tipo de valor), situação (todas, ativos, inativos, com problemas) e botões por tipo com contagem | RF-18, RNF-09 | cadastro-formularios | F4.2, F1.10 | CP | Pendente | — |
+| F4.4 | Cadastro: nome obrigatório, tipo (entre os do usuário), tipo de valor (Porcentagem, Numeral, Booleano), descrição opcional; nasce ativo; sem edição após salvo | RF-19, RF-20 | cadastro-formularios | F4.2 | CP; nenhuma ação de editar na listagem | Pendente | — |
+| F4.5 | Ativar/desativar (Admin e Validador, qualquer apontamento) com confirmação do impacto; exibe quem e quando | RF-21, RNF-01, RNF-07 | cadastro-formularios | F4.2, F1.8 | CP | Pendente | — |
+| F4.6 | Excluir (Admin) com confirmação; bloqueio listando os indicadores quando compõe **ou já compôs** indicador (mesmo excluído), conforme o documento | RF-22, RN-11, RN-12, RNF-07 | cadastro-formularios | F4.2, F1.8 | CP; o front exibe o bloqueio e a lista devolvidos pela API; o caso "já compôs" depende do ajuste A-10 (não bloqueia o front) | Pendente | — |
+
+## F5 — Dados externos
+
+| ID | Atividade | Requisitos | Agente | Depende de | Critério de pronto | Status | Arquivos |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| F5.1 | Serviço de dados externos: `GET/POST /api/ped/dados-externos-cadastro`, `GET .../identificadores`, `PUT .../{id}/concluir`, `PUT .../{id}/situacao`, `DELETE .../{id}`, `GET .../{id}/realizado` | RF-23 a RF-31, INT-03 | integracao-api | F1.3 | CP | Pendente | — |
+| F5.2 | Listagem: nome, tipo, data e autor, situação (com nº da tarefa Bitrix quando a API devolver; sem número quando não houver), origem, identificador (ou "a definir pela TI"), campo/cálculo, referência, coleta, janela retroativa e tipo de valor | RF-23 | cadastro-formularios | F5.1, F1.7 | CP | Pendente | — |
+| F5.3 | Filtros: busca (nome, origem, identificador, campo, tipo, referência) e situação (todas, ativos, inativos, em construção, com problemas) | RF-24, RNF-09 | cadastro-formularios | F5.2, F1.10 | CP | Pendente | — |
+| F5.4 | Formulário — campos comuns: nome, tipo, sistema de origem, tipo de valor, referência (Filial, Colaborador e Zona de venda exibidas normalmente), coleta (diária ou dia 1–31), sentido do cálculo, janela retroativa (oculta em "último valor"), comentários (obrigatórios em "Outro sistema"); sem edição após salvo | RF-25, RF-29 | cadastro-formularios | F5.2 | CP; as três referências aparecem como opções válidas | Pendente | — |
+| F5.5 | Variante Admin: identificador da consulta obrigatório, gravado em maiúsculas (com apoio da lista de identificadores); dado nasce ativo | RF-26 | cadastro-formularios | F5.4 | CP | Pendente | — |
+| F5.6 | Variante Validador/Preenchedor: campo/cálculo obrigatório; dado nasce "Em construção (TI)"; exibe a tarefa gerada (título e descrição; número só quando a API devolver) | RF-27, INT-04 | cadastro-formularios | F5.4 | CP | Pendente | — |
+| F5.7 | Concluir construção (Admin): informa identificador, ativa o dado e avisa o indicador criado automaticamente | RF-28 | cadastro-formularios | F5.2, F1.8 | CP | Pendente | — |
+| F5.8 | Ativar/desativar (Admin e Validador, qualquer dado) com confirmação; dado em construção só muda pela conclusão | RF-30, RNF-01, RNF-07 | cadastro-formularios | F5.2, F1.8 | CP | Pendente | — |
+| F5.9 | Excluir (Admin) com confirmação; bloqueio quando compõe **ou já compôs** indicador, conforme o documento | RF-31, RN-12, RNF-07 | cadastro-formularios | F5.2, F1.8 | CP; o caso "já compôs" depende do ajuste A-10 (não bloqueia o front) | Pendente | — |
+| F5.10 | Validar ponta a ponta as referências Colaborador e Zona de venda (gravação pela API e exibição na listagem e nos indicadores/dashboards) | RF-25, INT-03 | cadastro-formularios | F5.4 | CP | Bloqueada (aguarda ajuste na API: A-11 — aceitar referências `colaborador` e `zona de venda`) | — |
+
+## F6 — Indicadores
+
+| ID | Atividade | Requisitos | Agente | Depende de | Critério de pronto | Status | Arquivos |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| F6.1 | Serviço de indicadores: `GET/POST /api/ped/indicadores-cadastro`, `PUT .../{id}/meta`, `PUT .../{id}/situacao`, `GET .../{id}/metas-historico`; `DELETE .../{id}` quando criado (A-09) | RF-32 a RF-40 | integracao-api | F1.3 | CP; a função de exclusão entra com a F6.7 | Pendente | — |
+| F6.2 | Listagem: nome, composição (apontamentos em azul, dado externo em dourado, desativados marcados), sentido e cálculo, meta, dashboards com pontos base; etiquetas (automático, meta a definir, componentes desativados, inativo, meta editável, vinculado) | RF-32 | cadastro-formularios | F6.1, F1.7 | CP | Pendente | — |
+| F6.3 | Filtros (busca; todas, ativos, inativos, aguardando meta, com problemas), alertas da aba e sinal de alerta na aba Indicadores do menu | RF-33, RNF-09 | cadastro-formularios | F6.2, F1.10, F2.3 | CP | Pendente | — |
+| F6.4 | Cadastro: nome, meta manual (> 0), sentido, cálculo (soma/média, só com apontamentos), descrição, meta editável; composição exclusiva (apontamentos ativos **ou** um dado externo ativo), com busca e remoção | RF-34, RF-35 | cadastro-formularios | F6.2, F4.1, F5.1 | CP; escolher um tipo bloqueia o outro | Pendente | — |
+| F6.5 | Definir meta de indicador criado automaticamente (meta > 0, sentido, meta editável; mostra o dado de origem; só uma vez) | RF-36 | cadastro-formularios | F6.2, F1.8 | CP | Pendente | — |
+| F6.6 | Inativar/reativar qualquer indicador com confirmação, informando os dashboards afetados | RF-38, RN-08, RNF-07 | cadastro-formularios | F6.2, F1.8 | CP | Pendente | — |
+| F6.7 | Excluir indicador nunca vinculado a dashboard (exclusão física, com confirmação) | RF-37, RN-11 | cadastro-formularios | F6.2, F1.8 | CP | Bloqueada (aguarda ajuste na API: A-09 — rota `DELETE /api/ped/indicadores-cadastro/{id}`) | — |
+| F6.8 | Histórico de alterações de meta (data, filial, mês, de, para, usuário, motivo) filtrado pela filial do cabeçalho | RF-39, RNF-01 | cadastro-formularios | F6.2, F1.11, F2.4 | CP | Pendente | — |
+| F6.9 | Aviso de componente desativado com o impacto (dado externo, todos ou parte dos apontamentos) e orientação | RF-40 | cadastro-formularios | F6.2 | CP | Pendente | — |
+
+## F7 — Dashboards
+
+| ID | Atividade | Requisitos | Agente | Depende de | Critério de pronto | Status | Arquivos |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| F7.1 | Serviço de dashboards: `GET/POST /api/ped/dashboards`, `GET/PUT/DELETE .../{id}`, `POST .../previa-tarefa`, `PUT .../{id}/concluir`, `PUT .../{id}/situacao`, `GET .../{id}/historico`, `GET .../{id}/tarefas`, `GET /api/ped/vinculos` | RF-47 a RF-59, INT-02 | integracao-api | F1.3 | CP | Pendente | — |
+| F7.2 | Listagem e filtros: nome, vínculo, situação e tarefa Bitrix (número só quando a API devolver), data, periodicidade, itens, indicadores e pontos (soma/máximo), período atual; alertas de indicadores com problema e pontos afetados | RF-47, RN-16 | cadastro-formularios | F7.1, F1.7, F1.10 | CP | Pendente | — |
+| F7.3 | Menu de ações por dashboard conforme perfil e situação (Editar, Ver pesos, Histórico, Preencher, Ativar/Desativar ou Concluir, Excluir) | RF-48 | cadastro-formularios | F7.2, F2.6 | CP | Pendente | — |
+| F7.4 | Formulário — dados básicos: nome, periodicidade, pontuação base máxima (> 0), indicador base da faixa (qualquer indicador), fórmula de pontuação em texto livre (construída pela TI, conforme o documento), observação para a TI | RF-49, RF-54, RN-15 | cadastro-formularios | F7.2, F6.1 | CP | Pendente | — |
+| F7.5 | Formulário — vínculo: filiais (com "Selecionar todas"), cargos ou colaboradores, com busca por nome, cargo ou filial; resumo de imagens a gerar (por colaborador ou por filial, conforme o documento) | RF-50, INT-02 | cadastro-formularios | F7.4 | CP; o resumo segue a regra do documento (uma imagem por colaborador em dashboard por filiais e "Filial (sem colaborador vinculado)"); a geração real depende de A-07 | Pendente | — |
+| F7.6 | Formulário — indicadores com pontos base (> 0), total e quanto falta/excede; indisponíveis com motivo (inativo, componente desativado, meta a definir); regra de referência em dashboard por filiais | RF-51, RF-52, RF-53, RN-15 | cadastro-formularios | F7.4 | CP | Pendente | — |
+| F7.7 | Prévia da tarefa (título e descrição) e gravação; dashboard nasce "em construção (TI)"; número da tarefa só quando a API devolver | RF-55, INT-04 | cadastro-formularios | F7.5, F7.6 | CP | Pendente | — |
+| F7.8 | Edição (exceto pontuação máxima) com opção "Enviar tarefa à TI" e tarefas anteriores | RF-56, RN-15, INT-04 | cadastro-formularios | F7.7 | CP | Pendente | — |
+| F7.9 | Ver pesos dos indicadores e histórico de modificações (ação, data, usuário, alterações, tarefa, observação) | RF-48, RF-57, RNF-01 | cadastro-formularios | F7.3, F1.11 | CP | Pendente | — |
+| F7.10 | Ativar/desativar, concluir construção/modificação e excluir (Admin) com confirmação | RF-48, RF-58, RF-59, RN-17, RN-18, RNF-07 | cadastro-formularios | F7.3, F1.8 | CP | Pendente | — |
+
+## F8 — Faixas
+
+| ID | Atividade | Requisitos | Agente | Depende de | Critério de pronto | Status | Arquivos |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| F8.1 | Serviço de faixas: `GET/POST /api/ped/faixas`, `GET/PUT/DELETE .../{id}`, `GET .../{id}/historico`, `GET .../{id}/versoes/{versao}` | RF-41 a RF-46 | integracao-api | F1.3 | CP | Pendente | — |
+| F8.2 | Aba para Admin e Validador, ambos com todas as filiais: tabelas da filial selecionada (ou todas), escolha da tabela, dashboard e filial, versão vigente, data e autor, linhas De/Até (R$) e Alíquota (%) | RF-41, RNF-03 | cadastro-formularios | F8.1, F2.4, F1.7 | CP; o acesso do Validador às outras filiais depende de A-04 (não bloqueia o front) | Pendente | — |
+| F8.3 | Nova tabela: dashboard, filial (só com "Todas as filiais"), descrição, linhas; validações de linhas; orientação quando já existe tabela | RF-42, RF-43, RN-14 | cadastro-formularios | F8.2, F7.1 | CP | Pendente | — |
+| F8.4 | Alterar faixas: nova versão v+1 com motivo obrigatório e mesmas validações | RF-44, RF-43, RN-14 | cadastro-formularios | F8.3 | CP | Pendente | — |
+| F8.5 | Histórico de versões (versão, vigente, motivo, data, autor) com visualização das faixas de cada versão | RF-45, RNF-01 | cadastro-formularios | F8.2, F1.11 | CP | Pendente | — |
+| F8.6 | Excluir tabela somente de dashboard excluído, com confirmação | RF-46, RN-18, RNF-07 | cadastro-formularios | F8.2, F1.8 | CP | Pendente | — |
+
+## F9 — Preenchimento, metas e abertura de período
+
+| ID | Atividade | Requisitos | Agente | Depende de | Critério de pronto | Status | Arquivos |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| F9.1 | Serviços: `GET /api/ped/preenchimento/meses`, `GET/PUT /api/ped/preenchimento`, `GET /api/ped/apontamentos/{id}/historico`, `GET /api/ped/periodo`, `GET .../periodo/historico`, `POST .../periodo/abrir`, `GET/PUT /api/ped/metas` | RF-60 a RF-76 | integracao-api | F1.3 | CP; lote tudo ou nada com erros por item | Pendente | — |
+| F9.2 | Exigir filial selecionada (pedir a escolha quando o cabeçalho está em "Todas as filiais") | RF-60 | cadastro-formularios | F9.1, F2.4 | CP | Pendente | — |
+| F9.3 | Seletor de mês de competência (12 meses: aberto com pendentes, fechado · consulta, futuro desabilitado) e de ano (setas/digitação, 2000 ao ano atual, "Ir para o período aberto"); outros meses só consulta | RF-61, RF-62 | cadastro-formularios | F9.2 | CP | Pendente | — |
+| F9.4 | Cabeçalho do mês: filial, situação, progresso "X de Y apontamentos preenchidos", quem abriu e quando | RF-63 | cadastro-formularios | F9.3 | CP | Pendente | — |
+| F9.5 | Apontamentos ativos por tipo com contagem e busca em todos os tipos; nome, tipo de valor, situação, indicadores e dashboards/periodicidades | RF-64, RF-65 | cadastro-formularios | F9.3 | CP | Pendente | — |
+| F9.6 | Entrada de valores (Booleano Sim/Não; Numeral e Porcentagem decimais com vírgula, não negativos, "%") e lançamento em lote, um por mês e filial | RF-66, RF-67, RNF-03 | cadastro-formularios | F9.5 | CP | Pendente | — |
+| F9.7 | Correção com valor diferente e motivo; histórico do apontamento (data, ação, anterior, novo, usuário, motivo) | RF-68, RF-69, RNF-01 | cadastro-formularios | F9.6, F1.11 | CP | Pendente | — |
+| F9.8 | Aviso de mês já congelado em imagens de dashboards (correção vale só para períodos abertos) | RF-70, RN-18 | cadastro-formularios | F9.5 | CP | Pendente | — |
+| F9.9 | "Editar metas": botão com contagem, janela com filial/mês/situação e filtro por tipo, meta do cadastro × vigente, "Ajustada"; ajuste só no mês aberto, > 0, diferente da vigente, com motivo | RF-71, RF-72, RF-73, RN-07 | cadastro-formularios | F9.3, F1.8 | CP | Pendente | — |
+| F9.10 | Histórico de ajustes de meta por indicador (data, de, para, usuário, motivo) | RF-74, RNF-01 | cadastro-formularios | F9.9, F1.11 | CP | Pendente | — |
+| F9.11 | Abrir outro mês (Admin) com confirmação; mês anterior passa a consulta; registro de quem abriu e quando | RF-75, RF-76, RNF-07 | cadastro-formularios | F9.3, F1.8 | CP | Pendente | — |
+| F9.12 | Reabrir mês passado já fechado (Admin), conforme o documento (P-09 resolvida) | RF-76 | cadastro-formularios | F9.11 | CP | Bloqueada (aguarda ajuste na API: A-06 — `POST /api/ped/periodo/abrir` aceitar reabertura de mês igual ou anterior ao aberto pelo Admin) | — |
+
+## F10 — Fechamentos e imagens congeladas
+
+| ID | Atividade | Requisitos | Agente | Depende de | Critério de pronto | Status | Arquivos |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| F10.1 | Serviços: `GET /api/ped/fechamentos`, `GET .../{id}/previa`, `POST .../{id}/encerrar`, `GET /api/ped/imagens`, `GET /api/ped/imagens/{id}` | RF-77 a RF-84 | integracao-api | F1.3 | CP | Pendente | — |
+| F10.2 | Aba para Admin e Validador, ambos com todas as filiais: lista de dashboards ativos por periodicidade e nome (vínculo, filiais e pendências, período, progresso, ação; etiquetas de problema e falta de faixas) com filtros e "Limpar filtros" | RF-78, RF-79, RN-16, RN-17 | cadastro-formularios | F10.1, F1.10 | CP; o acesso do Validador às outras filiais depende de A-05 (não bloqueia o front) | Pendente | — |
+| F10.3 | Visualização de imagem (componente compartilhado entre prévia e consulta), prevendo imagem de **colaborador** e imagem de **filial**: código, filial, período, dashboard, vínculo, colaborador e cargo (quando houver), Resultado Operacional, PED, pontuação (calculada pela API conforme a fórmula do cadastro), tabela por indicador, total, faixas com a atingida destacada, data e usuário | RF-83, RNF-02, RN-01, RN-02, RN-03, RN-04, RN-09, RN-10 | ui-componentes | F10.1, F1.7 | CP; somente leitura; os dois tipos de imagem renderizam | Pendente | — |
+| F10.4 | Pré-visualização: escolha da filial (imagens, progresso, faixas, encerrada), colaborador com busca, lista de imagens, navegação "Imagem X de N · Filial F", avisos de pendências e falta de faixas; encerrar a partir dela | RF-80 | cadastro-formularios | F10.2, F10.3 | CP; nada é gravado | Pendente | — |
+| F10.5 | Encerramento manual com confirmação (total e por filial, outros dashboards não afetados, filiais com pendências e sem faixas); exibe lote ENC-xxxxxx | RF-77, RF-81, RF-82, RNF-07 | cadastro-formularios | F10.2, F1.8 | CP | Pendente | — |
+| F10.6 | Consulta retroativa de imagens (Admin e Validador, todas as filiais): dashboard, colaborador e cargo, período, filial, data, usuário, PED; filtro por período e busca; visualizar | RF-84, RN-18 | cadastro-formularios | F10.3, F2.4 | CP; o acesso do Validador às outras filiais depende de A-05 (não bloqueia o front) | Pendente | — |
+| F10.7 | Imagens por colaborador em dashboards por filiais e imagem "Filial (sem colaborador vinculado)" na prévia, confirmação e consulta — validação ponta a ponta com a API | RF-50, RF-80, RF-81, RF-82 | cadastro-formularios | F10.4, F10.5 | CP | Bloqueada (aguarda ajuste na API: A-07 — gerar imagem por colaborador ou por filial conforme o documento) | — |
+| F10.8 | Exibição e conferência do realizado de dado externo em dashboards não mensais | RN-05, RN-06 | cadastro-formularios | F10.3 | CP | Bloqueada (P-08 em aberto no documento, que prevalece) | — |
+
+## F11 — Início
+
+| ID | Atividade | Requisitos | Agente | Depende de | Critério de pronto | Status | Arquivos |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| F11.1 | Serviço `GET /api/ped/inicio` (filial do cabeçalho) | RF-06 a RF-11 | integracao-api | F1.3 | CP | Pendente | — |
+| F11.2 | Avisos do período aberto (regra de um período por vez) e de acesso (Preenchedor: tipos e filiais; outros perfis: filiais restritas) | RF-06, RF-07 | ui-componentes | F11.1, F2.3 | CP | Pendente | — |
+| F11.3 | Indicadores-resumo por perfil (Admin, Validador, Preenchedor) | RF-08 | ui-componentes | F11.1 | CP | Pendente | — |
+| F11.4 | Botão "Preencher apontamentos do período" e lista "Períodos em aberto" (periodicidade, período atual, progresso "X de Y lançamentos", Preencher) | RF-09, RF-10 | ui-componentes | F11.1, F9.2 | CP; Preencher leva à rota da aba Preenchimento | Pendente | — |
+| F11.5 | "Últimas alterações em apontamentos" (6 mais recentes: ação, apontamento, competência, filial, anterior → novo, data, usuário) | RF-11 | ui-componentes | F11.1, F1.7 | CP | Pendente | — |
+
+## F12 — Não funcionais transversais, segurança e integrações pendentes
+
+| ID | Atividade | Requisitos | Agente | Depende de | Critério de pronto | Status | Arquivos |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| F12.1 | Revisão de acessibilidade de todas as abas (rótulos, nomes acessíveis, foco, diálogos, listas, avisos anunciados) | RNF-05 | qualidade-testes | F3 a F11 | CP; nenhuma pendência de acessibilidade aberta | Pendente | — |
+| F12.2 | Revisão de responsividade e formatos pt-BR em todas as abas | RNF-03, RNF-04 | qualidade-testes | F3 a F11 | CP | Pendente | — |
+| F12.3 | Metas de desempenho e ajuste do teste de carga (`scripts/teste-carga.mjs`) aos volumes esperados | — | qualidade-testes | F2.1 | CP; limites definidos pelo negócio | Bloqueada (P-12) | — |
+| F12.4 | Segurança da sessão no front: guarda do token, expiração, dados de colaboradores exibidos, registro de acessos | — | integracao-api | F2.1 | CP | Bloqueada (P-14) | — |
+| F12.5 | Integração real com o Bitrix24: exibir número/link da tarefa criada no Bitrix24 em dados externos e dashboards | INT-04, RF-27, RF-55, RF-56 | integracao-api | F5.6, F7.7 | CP | Bloqueada (aguarda ajuste na API: A-12 — integração Bitrix24 ainda será implementada no back-end; até lá o front exibe o que a API devolver, sem número de tarefa) | — |
+
+## Ajustes necessários na API (back-end)
+
+Consolidação dos pontos em que a API publicada diverge do documento de requisitos (que prevalece). Itens para a equipe de back-end; o front acompanha cada um pela atividade indicada.
+
+| ID | Ajuste | Requisitos | Decisão | Atividades do front afetadas |
+| --- | --- | --- | --- | --- |
+| A-01 | `GET /api/ped/acesso` devolver perfil + **grupo** do usuário e os tipos derivados do vínculo grupo → tipo (hoje: vínculo direto colaborador ↔ tipo, provisório) | RF-04, RF-16, INT-01, P-01 | 1 | F2.1 (contrato), F2.7 (bloqueada) |
+| A-02 | Aba Tipos: endpoint de **lista de grupos**; `POST/PUT /api/ped/tipos-apontamento` vincular **grupos** (hoje `usuarios`); permitir `POST/PUT/DELETE` ao **Validador** (hoje só Admin) | RF-13, RF-14, RF-15, RF-16, INT-02 | 1 | F3.1, F3.3, F3.4 (bloqueada), F3.5 (bloqueada) |
+| A-03 | Filiais de acesso: Admin **e Validador** veem todas as filiais; demais usuários veem as filiais da sua abrangência, podendo ser **várias** (hoje: só a própria filial) | RF-01, RF-07 | 2 | F2.4, F11.2 |
+| A-04 | Faixas: Validador com acesso a **todas as filiais** (hoje `403` fora da própria filial) | RF-41 a RF-46 | 3 | F8.2 a F8.6 |
+| A-05 | Fechamentos e imagens: Validador com acesso a **todas as filiais** na prévia, no encerramento e na consulta (hoje só a própria filial) | RF-77 a RF-84 | 3 | F10.2, F10.4, F10.5, F10.6 |
+| A-06 | `POST /api/ped/periodo/abrir`: Admin pode **reabrir mês passado** já fechado (hoje recusa mês igual ou anterior ao aberto) | RF-76 (P-09 resolvida) | 4 | F9.12 (bloqueada) |
+| A-07 | Imagens congeladas geradas sobre um **colaborador ou uma filial**: dashboard por filiais gera uma imagem por colaborador e a imagem "Filial (sem colaborador vinculado)" (hoje uma imagem por filial; colaborador sem filial fica sem imagem) | RF-50, RF-80, RF-81, RF-82 | 5 | F7.5, F10.3, F10.4, F10.5, F10.7 (bloqueada) |
+| A-08 | Pontuação calculada pela **fórmula informada no cadastro e construída pela TI** (hoje 4 etapas fixas; fórmula só como texto de referência) | RF-54, P-10 | 6 | F7.4, F10.3 |
+| A-09 | Criar a rota `DELETE /api/ped/indicadores-cadastro/{id}` para indicador nunca vinculado a dashboard | RF-37, RN-11 | 7 | F6.1, F6.7 (bloqueada) |
+| A-10 | Exclusão de apontamento e de dado externo bloqueada também quando **já compôs** indicador (mesmo excluído), listando os indicadores (hoje só verifica indicadores existentes) | RF-22, RF-31, RN-12 | 8 | F4.6, F5.9 |
+| A-11 | Dados externos: aceitar as referências **Colaborador** e **Zona de venda** além de Filial; vínculo de colaborador com zona de venda nos cadastros (`GET /api/ped/vinculos`) | RF-25, RF-53, INT-02, INT-03 | 9 | F5.4, F5.10 (bloqueada), F7.6 |
+| A-12 | Integração com o **Bitrix24** (fase 8 do back-end): criar as tarefas e devolver número/link (hoje tarefas só registradas localmente, `aguardando_envio`) | INT-04, RF-27, RF-55, RF-56 | 10 | F5.6, F7.7, F7.8, F12.5 (bloqueada) |
+| A-13 | **Usuários**: integração da API do PED com a API externa para perfil, grupo e filiais de acesso (a aba Usuários da API fica fora do front) | INT-01, RF-04 | 12 | F2.1, F2.7 |
+
+## Dúvidas em aberto
+
+**Pendências do documento de requisitos**
+- P-01 (parte restante) — "Nenhuma filial de acesso" significa acesso a todas as filiais, como no protótipo? (A parte perfil + grupo foi decidida: ver A-01/A-02.) — afeta: F2.7.
+- P-08 — Como os meses de um dado externo são juntados em dashboards não mensais e como isso combina com a janela retroativa. A API usa "valor da data atual", mas o documento (que prevalece) mantém em aberto. — afeta: F10.8.
+- P-12 — Desempenho, volume e disponibilidade. — afeta: F12.3.
+- P-13 — Backup (sem impacto direto no front). — afeta: nenhuma atividade do front.
+- P-14 — LGPD e segurança: dados de colaboradores, credenciais, registro de acessos. — afeta: F12.4 (guarda do token no navegador).
+
+**Pontos a confirmar com a API (surgidos na F1, 03/11/2026)**
+- Dashboard — `itens vinculados`: a API aceita os ids de colaboradores como string ou exige número? Afeta: F1.3 (`paraCorpoDashboard`), F7.1, F7.5.
+- Histórico de meta: o primeiro ajuste traz `de: null` ou a meta do cadastro? Afeta: F1.3 (`paraHistoricoMeta`), F6.8, F9.10.
+- Formato de `indicadores` em apontamentos e dados externos e de `tarefa bitrix` não documentados na API; os adaptadores assumem `{id, nome}[]` e `{id, status, titulo}`. Afeta: F1.3, F4.2, F5.2, F7.2.
+- `lerDecimal("2.000")` devolve 2000 (padrão BR: ponto de milhar), mas a API leria "2.000" como 2. Confirmar como os valores decimais devem ser enviados à API (número já convertido, ou texto) e se o padrão BR de leitura está correto. Afeta: F1.4, F9.6, F8.3.
+- Decisão a validar: `paraTipoValor` lança erro quando a API devolve um tipo de valor desconhecido (falha explícita, em vez de valor padrão). Afeta: F1.3, F4.2, F9.6.
+
+**Pontos ainda não confirmados**
+- Formato completo da resposta de `POST /api/valida-usuario` (além de `token`) e existência de rota de logout na API (RF-05); se não houver, o Sair só descarta o token no front. — afeta: F2.1, F2.5.
+- Coleta (INT-03): a coleta "dia do mês" fica só registrada e a sincronização roda diariamente para todos os dados. Sem impacto de tela; confirmar se é aceitável. — afeta: F5.4.
+- Confirmar que `docs/PED — Cadastro e Preenchimento Documento de Requisitos.md` v2.3 é a versão vigente (o back-end cita `REQUISITOS-CADASTRO-PREENCHIMENTO.md` e a Postman cita `docs/ped/API.md`).
+- A tela "sem acesso" (F2.8) e sua mensagem não constam do documento de requisitos; o `gerador-testes` precisa registrar um requisito próprio (ou complementar RF-04) no `requisitos.json`.
+- Prazos e prioridades de entrega não foram informados. — afeta: ordem das fases.
+
+## Histórico
+- 03/11/2026 — [commit] "F1 (F1.2–F1.11): fundação — cliente HTTP, tipos, formatos, tema e componentes base" — atividades: F1.1 (ajustes em `src/App.tsx`, `src/App.test.tsx`, `src/main.tsx`; `src/index.css` removido), F1.2, F1.3, F1.4, F1.5, F1.6, F1.7, F1.8, F1.9, F1.10, F1.11. 98 arquivos: 66 em `src/` (todos vinculados a atividades da F1) e 32 de infraestrutura do projeto (TDD: `requisitos.json`, `scripts/requisitos.mjs`, `scripts/testes-implementados.mjs`, `scripts/testes-commit.mjs`, `tsconfig.app.json`, `vite.config.ts`, `.env.example`, `.oxlintrc.json`; dependências `react-router-dom` e `@fontsource/ubuntu` em `package.json`/`package-lock.json`; agentes `.claude/agents/*` e `CLAUDE.md`; documentos de referência em `docs/` e este plano). Sem desvios.
+- 03/11/2026 — [requisito] F1.2 ajustado após revisão de qualidade (`qualidade-testes`): resposta 2xx com corpo vazio resolve `undefined`; 2xx com corpo não-JSON vira `ApiError` "Resposta inválida do servidor." (antes: `SyntaxError` cru). Motivo: manter o contrato "todo erro é `ApiError`". Tratado dentro do ciclo da F1.2 (testes complementares → vermelho → implementação → 50/50), sem reabertura: a atividade permanece Concluída. Refatoração complementar da revisão: CSS dos componentes consolidado em tokens/utilitários do `tema.css` (F1.5/F1.6) e 51 testes complementares (`gerador-testes`, cobertura complementar) nos requisitos da F1. Fecha o item "revisão em andamento" da linha anterior.
+- 03/11/2026 — [atividade] F1 concluída: F1.2, F1.3, F1.4, F1.5, F1.6, F1.7, F1.8, F1.9, F1.10 e F1.11 passam a Concluída (F1.2 de Em andamento; as demais de Pendente), em TDD, com 100% dos testes de cada requisito, `npm run typecheck` e `npm run lint` sem erros e `npm run test:implementados` APROVADO (249 unitários + 10 integração). Requisitos `F1.2` a `F1.11` marcados `implementado` no `requisitos.json`. Revisão de qualidade (`qualidade-testes`) em andamento em paralelo; eventuais apontamentos serão registrados depois. Progresso: 12% (11/95). Liberadas: F2.1 e os serviços F3.1, F4.1, F5.1, F6.1, F7.1, F8.1, F9.1, F10.1, F11.1 (dependem só de F1.3).
+- 03/11/2026 — [mudança] Convenção do `requisitos.json` ajustada: o registro é por atividade do plano (ids `F1.2`, `F1.3`, ...), com os códigos do documento (RF/RN/RNF/INT) na descrição; `RF-00` permanece com o código do documento. Substitui a frase anterior "o `requisitos.json` segue o mesmo padrão (RF-xx)".
+- 03/11/2026 — [mudança] Decisões técnicas da F1: token só em memória (persistência fica para a F2 — F2.1/F2.5); 401 com token dispara `sessao-expirada` e 401 sem token não dispara (F1.2); `paraTipoValor` com falha explícita (F1.3); foco inicial do diálogo no painel e sem `aria-hidden`/`inert` no restante da página, a reavaliar na F12.1 (F1.8); notificação no canto inferior direito (F1.9); `src/index.css` removido e migrado para `src/estilos/tema.css` (F1.5). Infraestrutura: `vite.config.ts` com `test.css.include` para o teste do tema e `.oxlintrc.json` ignorando `docs/`. Cinco pontos a confirmar com a API registrados em *Dúvidas em aberto* (ids de colaboradores, `de: null` no histórico de meta, formatos de `indicadores` e `tarefa bitrix`, leitura de `"2.000"`, `paraTipoValor`).
+- 03/11/2026 — [mudança] Tela de login (F2.2) atualizada conforme o protótipo `docs/tela-login.jpg` (marca, cartão "PED / Programa de Excelência em Distribuição / Cadastro, preenchimento e fechamento", campos Usuário e Senha com mostrar/ocultar, botão "Entrar", rodapé); protótipo incluído nas fontes do plano.
+- 03/11/2026 — [mudança] Decisões técnicas aplicadas: `RF000` renomeado para `RF-00` no `requisitos.json` e em `src/App.test.tsx` (F1.1 e F2.3 atualizadas); navegação com React Router, uma rota por aba (F2.3); fonte Ubuntu por `@fontsource/ubuntu` (F1.5); proxy do Vite para `/api` e `.env.example` prontos — F1.2 passa a Em andamento (falta o cliente HTTP). RF-00 passará por "requisito alterado" antes da F2.3 (passo do ciclo, não dúvida).
+- 03/11/2026 — [mudança] Seção "Ajustes necessários na API (back-end)" criada com 13 itens (A-01 a A-13). Dúvidas decididas removidas (autenticação/grupos, Tipos, filiais, Faixas, reabertura, imagens, fórmula, exclusões, referências, Bitrix, Usuários, tela sem acesso, RF000, rotas, fonte, proxy, IDs). Permanecem: P-01 (parte "nenhuma filial"), P-08, P-12, P-13, P-14, formato do login/logout, coleta INT-03, versão vigente do documento, requisito da tela sem acesso e prazos.
+- 03/11/2026 — [mudança] Decisão 13 (pendências): P-11 considerada resolvida (Laravel/Sanctum + React/Vite) e retirada das dúvidas; P-01 coberta pela decisão 1, restando só "nenhuma filial"; P-08 mantida e F10.8 segue Bloqueada (P-08), pois o documento prevalece; P-12 e P-14 continuam abertas.
+- 03/11/2026 — [mudança] Decisão 12 (premissa): usuários virão de integração da API com API externa; aba Usuários fora do escopo do front (A-13).
+- 03/11/2026 — [mudança] Decisão 11: criada a atividade não planejada F2.8* — tela "sem acesso" com a mensagem exata "Usuário sem acesso ao sistema, favor verificar com a equipe de Departamento Pessoal". Vinculada a RF-03, RF-04 e INT-01 (o orquestrador citou RF-01/RF-02, mas no documento esses tratam da filial e da identificação no cabeçalho; o acesso após o login é o RF-04). F2.1 e F2.3 passam a prever o redirecionamento.
+- 03/11/2026 — [mudança] Decisão 10: Bitrix24 será implementado no back-end (A-12); F12.5 continua Bloqueada; F5.2, F5.6, F7.2, F7.7 exibem o número da tarefa só quando a API devolver.
+- 03/11/2026 — [mudança] Decisão 9: referências Colaborador e Zona de venda serão aceitas pela API (A-11); F5.4 exibe as três referências normalmente; F5.10 redefinida como validação ponta a ponta e Bloqueada (aguarda ajuste na API).
+- 03/11/2026 — [mudança] Decisão 8: bloqueio de exclusão "já compôs indicador" conforme o documento (A-10); F4.6 e F5.9 ajustadas, sem bloqueio do front.
+- 03/11/2026 — [mudança] Decisão 7: rota DELETE de indicador será criada (A-09); F6.7 Bloqueada (aguarda ajuste na API: rota DELETE); F6.1 prevê a função.
+- 03/11/2026 — [mudança] Decisão 6: fórmula de pontuação construída pela TI, conforme o documento (A-08); F7.4 e F10.3 ajustadas.
+- 03/11/2026 — [mudança] Decisão 5: imagem gerada sobre colaborador ou filial (A-07); F10.3 passa a prever os dois casos; F7.5 segue o documento no resumo; F10.7 Bloqueada (aguarda ajuste na API).
+- 03/11/2026 — [mudança] Decisão 4: reabertura de mês pelo Admin conforme o documento (A-06); F9.12 Bloqueada (aguarda ajuste na API).
+- 03/11/2026 — [mudança] Decisão 3: Faixas e Fechamentos/imagens só para Admin e Validador, ambos em todas as filiais (A-04, A-05); F8.2, F10.2 e F10.6 ajustadas, sem bloqueio do front.
+- 03/11/2026 — [mudança] Decisão 2: Admin e Validador veem todas as filiais; demais veem as filiais da abrangência (A-03); F2.4 ajustada, sem bloqueio do front.
+- 03/11/2026 — [mudança] Decisão 1: aba Tipos para Admin e Validador, vínculo grupo → tipo (A-01, A-02); F3.2 a F3.5 ajustadas; F3.4 e F3.5 passam de Bloqueada (P-01) para Bloqueada (aguarda ajuste na API); F2.7 redefinida (perfil + grupo) e Bloqueada (aguarda ajuste na API; P-01 parcial).
+- 03/11/2026 — [mudança] Regra geral decidida pelo usuário: o documento de requisitos prevalece sobre a API; divergências viram ajustes no back-end e bloqueiam só as atividades do front que dependem deles. Plano revisado: 12 fases e 95 atividades (1 concluída, 1 em andamento, 11 bloqueadas).
+- 03/11/2026 — [mudança] Plano criado a partir do documento de requisitos v2.3, da API (fases 1 a 9 do back-end), do PED.md, da coleção Postman, do PLANO-CADASTRO e do protótipo de 03/11/2026: 12 fases e 94 atividades (1 concluída, 11 bloqueadas). Ordem das abas alinhada ao back-end (Dashboards antes de Faixas).

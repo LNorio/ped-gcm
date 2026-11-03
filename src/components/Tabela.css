@@ -1,0 +1,129 @@
+/*
+ * Tabela de dados (RNF-04). O quadro `.tabela-rolagem` permite rolagem horizontal em telas
+ * menores, para que a tabela não estoure a largura do card.
+ */
+
+.tabela-rolagem {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/*
+ * Acoplamento intencional com Card: quando a tabela é filha direta de `.card__corpo`, o quadro
+ * de rolagem anula o padding do card (1.25rem; 1rem nas laterais abaixo de 480px — ver Card.css)
+ * para que as linhas encostem nas bordas do card. A regra fica aqui, e não em Card.css, para que
+ * o Card continue genérico e só a Tabela saiba como se adaptar ao seu contêiner.
+ */
+.card__corpo > .tabela-rolagem {
+  width: auto;
+  margin: -1.25rem;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+  color: var(--cor-texto);
+  background-color: var(--cor-superficie);
+}
+
+.tabela__legenda {
+  padding: 0.75rem 1.25rem;
+  text-align: left;
+  font-weight: 700;
+  color: var(--cor-texto);
+  caption-side: top;
+}
+
+.tabela th,
+.tabela td {
+  padding: 0.75rem 1.25rem;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* Tipografia do cabeçalho vem do utilitário `.rotulo-secao` (tema.css), aplicado a cada <th> */
+.tabela thead th {
+  background-color: #f6f8fb;
+  border-bottom: 1px solid #dfe6ed;
+}
+
+.tabela tbody td {
+  border-bottom: 1px solid var(--cor-fundo-neutro);
+}
+
+.tabela tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.tabela tbody tr:hover td {
+  background-color: var(--cor-superficie-suave);
+}
+
+.tabela__linha--aberta td {
+  background-color: var(--cor-superficie-suave);
+}
+
+.tabela__alinhar-direita {
+  text-align: right;
+}
+
+.tabela__alinhar-centro {
+  text-align: center;
+}
+
+.tabela__vazio {
+  text-align: center;
+  color: var(--cor-texto-suave);
+  padding: 2rem 1.25rem;
+}
+
+.tabela tbody tr:hover .tabela__vazio {
+  background-color: transparent;
+}
+
+/* Linhas expansíveis */
+
+.tabela__coluna-expandir {
+  width: 1%;
+  text-align: right;
+}
+
+.tabela__botao-expandir {
+  min-height: 32px;
+  padding: 0 0.5rem;
+}
+
+.tabela__seta {
+  transition: transform 0.15s ease;
+}
+
+.tabela__botao-expandir[aria-expanded='true'] .tabela__seta {
+  transform: rotate(180deg);
+}
+
+.tabela__detalhes td {
+  white-space: normal;
+  padding: 1rem 1.25rem 1.25rem;
+  background-color: var(--cor-superficie-suave);
+  border-bottom: 1px solid var(--cor-fundo-neutro);
+}
+
+.tabela tbody .tabela__detalhes:hover td {
+  background-color: var(--cor-superficie-suave);
+}
+
+@media (max-width: 480px) {
+  .card__corpo > .tabela-rolagem {
+    margin: -1.25rem -1rem;
+  }
+
+  .tabela th,
+  .tabela td,
+  .tabela__legenda {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}

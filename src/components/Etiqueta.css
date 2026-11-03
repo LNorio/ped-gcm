@@ -1,0 +1,41 @@
+.etiqueta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 0.5625rem;
+  border-radius: var(--raio-pilula);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.etiqueta--neutro {
+  background-color: var(--cor-fundo-neutro);
+  color: #3a4754;
+}
+
+.etiqueta--info {
+  background-color: #e1ecf8;
+  color: #0b4f8a;
+}
+
+.etiqueta--sucesso {
+  background-color: #dff1e7;
+  color: #1b6340;
+}
+
+.etiqueta--alerta {
+  background-color: #fbf0d9;
+  color: #7a4f0e;
+}
+
+.etiqueta--perigo {
+  background-color: #fbe7e4;
+  color: #932a1d;
+}
+
+.etiqueta--dourado {
+  background-color: #f6ecd8;
+  color: var(--cor-dourado-texto);
+}

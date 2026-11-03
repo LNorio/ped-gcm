@@ -8,7 +8,7 @@ Você é o agente de qualidade do sistema PED (React 19 + TypeScript + Vite).
 
 ## Responsabilidades
 
-1. **Verificação** — rodar `npm run typecheck`, `npm run lint` e `npm run test:all` e reportar o
+1. **Verificação** — rodar `npm run typecheck`, `npm run lint` e `npm run test:implementados` e reportar o
    resultado real. Não rode `npm run build`: a build é responsabilidade do agente `build-validado`.
 2. **Revisão** — ler os arquivos alterados procurando:
    - erros de lógica e de tipagem (`any`, `!` desnecessários);

@@ -1,0 +1,509 @@
+{
+    "info": {
+        "name": "PED — Dados externos",
+        "description": "Endpoints de dados externos do PED (leitura dos valores e cadastro).\n\nComo usar: importe este arquivo no Insomnia ou no Postman; em Variáveis, ajuste `base_url`, `usuario` e `senha`; rode 'Login (gera o token)' e use as demais.\nNenhuma senha ou token está gravado neste arquivo. Contrato completo: docs/ped/API.md.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{token}}",
+                "type": "string"
+            }
+        ]
+    },
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://127.0.0.1:8080"
+        },
+        {
+            "key": "usuario",
+            "value": ""
+        },
+        {
+            "key": "senha",
+            "value": ""
+        },
+        {
+            "key": "token",
+            "value": ""
+        },
+        {
+            "key": "mes",
+            "value": "2026-10-01"
+        },
+        {
+            "key": "filial",
+            "value": "100"
+        },
+        {
+            "key": "indicador",
+            "value": "faturamento"
+        },
+        {
+            "key": "id_dado",
+            "value": "1"
+        }
+    ],
+    "item": [
+        {
+            "name": "Login (gera o token)",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Accept",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "url": {
+                    "raw": "{{base_url}}/api/valida-usuario",
+                    "host": [
+                        "{{base_url}}"
+                    ],
+                    "path": [
+                        "api",
+                        "valida-usuario"
+                    ]
+                },
+                "description": "Retorna o campo `token`. No Postman ele é guardado sozinho na variável `token`. No Insomnia, copie o valor do campo `token` da resposta e cole na variável de ambiente `token`.",
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n    \"usuario\": \"{{usuario}}\",\n    \"senha\": \"{{senha}}\"\n}",
+                    "options": {
+                        "raw": {
+                            "language": "json"
+                        }
+                    }
+                },
+                "auth": {
+                    "type": "noauth"
+                }
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "try { const j = pm.response.json(); if (j.token) { pm.collectionVariables.set('token', j.token); } } catch (e) {}"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Leitura dos valores",
+            "item": [
+                {
+                    "name": "Meu acesso no PED",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/ped/acesso",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "ped",
+                                "acesso"
+                            ]
+                        },
+                        "description": "Perfil do usuário no PED (admin, validador, preenchedor ou null)."
+                    }
+                },
+                {
+                    "name": "Indicadores (catálogo de coleta)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/ped/indicadores",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "ped",
+                                "indicadores"
+                            ]
+                        },
+                        "description": "Os códigos que um dado externo pode usar como identificador."
+                    }
+                },
+                {
+                    "name": "Filiais",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/ped/filiais",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "ped",
+                                "filiais"
+                            ]
+                        },
+                        "description": "Filiais visíveis para o usuário."
+                    }
+                },
+                {
+                    "name": "Valores dos dados externos",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/ped/dados-externos?mes_de_referencia={{mes}}&filial={{filial}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "ped",
+                                "dados-externos"
+                            ],
+                            "query": [
+                                {
+                                    "key": "mes_de_referencia",
+                                    "value": "{{mes}}",
+                                    "disabled": false,
+                                    "description": "Qualquer data do mês. Padrão: mês atual."
+                                },
+                                {
+                                    "key": "filial",
+                                    "value": "{{filial}}",
+                                    "disabled": false,
+                                    "description": "Código da filial. Só vale para Admin (omitir ou \"todas\" = todas)."
+                                },
+                                {
+                                    "key": "indicador",
+                                    "value": "{{indicador}}",
+                                    "disabled": true,
+                                    "description": "Código de um indicador, para trazer só ele."
+                                }
+                            ]
+                        },
+                        "description": "Valores já coletados do ERP por filial e mês. `meta`/`atingimento` só em faturamento e volume_*. Indicador sem dado no mês não aparece."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Cadastro de dados externos",
+            "item": [
+                {
+                    "name": "Listar dados externos cadastrados",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/ped/dados-externos-cadastro?situacao=todas",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "ped",
+                                "dados-externos-cadastro"
+                            ],
+                            "query": [
+                                {
+                                    "key": "busca",
+                                    "value": "faturamento",
+                                    "disabled": true,
+                                    "description": "Nome, origem, identificador, campo/cálculo, tipo ou referência."
+                                },
+                                {
+                                    "key": "situacao",
+                                    "value": "todas",
+                                    "disabled": false,
+                                    "description": "todas, ativos, inativos, construcao ou problemas."
+                                }
+                            ]
+                        },
+                        "description": "Lista os dados dos tipos do usuário (Preenchedor vê só os dos seus tipos)."
+                    }
+                },
+                {
+                    "name": "Identificadores disponíveis (Admin e Validador)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/ped/dados-externos-cadastro/identificadores",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "ped",
+                                "dados-externos-cadastro",
+                                "identificadores"
+                            ]
+                        },
+                        "description": "As coletas existentes que um identificador pode apontar, com quantos dados já usam cada uma."
+                    }
+                },
+                {
+                    "name": "Cadastrar dado — Admin (já ativo)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/ped/dados-externos-cadastro",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "ped",
+                                "dados-externos-cadastro"
+                            ]
+                        },
+                        "description": "Admin cadastra já ATIVO, com identificador obrigatório. Cria dado de verdade: use um nome de teste.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"nome\": \"Faturamento líquido\",\n    \"id tipo\": 1,\n    \"sistema de origem\": \"senior_erp\",\n    \"tipo de valor\": \"numeral\",\n    \"referencia\": \"filial\",\n    \"coleta\": \"dia do mes\",\n    \"dia da coleta\": 15,\n    \"sentido do calculo\": \"soma\",\n    \"janela retroativa\": 3,\n    \"identificador\": \"FATURAMENTO\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Pedir construção à TI — Validador/Preenchedor",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/ped/dados-externos-cadastro",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "ped",
+                                "dados-externos-cadastro"
+                            ]
+                        },
+                        "description": "Nasce `em_construcao`, sem identificador, e gera uma tarefa para a Equipe de TI. Cria dado de verdade: use um nome de teste.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"nome\": \"Teste de pedido de construção\",\n    \"id tipo\": 1,\n    \"sistema de origem\": \"outro\",\n    \"comentarios\": \"obrigatório quando a origem é \\\"outro\\\"\",\n    \"tipo de valor\": \"numeral\",\n    \"referencia\": \"filial\",\n    \"coleta\": \"diaria\",\n    \"sentido do calculo\": \"ultimo\",\n    \"campo calculo\": \"obrigatório para Validador e Preenchedor\",\n    \"observacao\": \"só entra na tarefa da TI\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Concluir construção — Admin",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/ped/dados-externos-cadastro/{{id_dado}}/concluir",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "ped",
+                                "dados-externos-cadastro",
+                                "{{id_dado}}",
+                                "concluir"
+                            ]
+                        },
+                        "description": "Conclui a construção e ativa o dado.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"identificador\": \"FATURAMENTO\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Ativar/desativar — Admin e Validador",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/ped/dados-externos-cadastro/{{id_dado}}/situacao",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "ped",
+                                "dados-externos-cadastro",
+                                "{{id_dado}}",
+                                "situacao"
+                            ]
+                        },
+                        "description": "Grava quem mudou e quando. Dado em construção só muda pela conclusão.",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"ativo\": false\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Realizado do dado (RN-05)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/ped/dados-externos-cadastro/{{id_dado}}/realizado?filial={{filial}}&mes_de_referencia={{mes}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "ped",
+                                "dados-externos-cadastro",
+                                "{{id_dado}}",
+                                "realizado"
+                            ],
+                            "query": [
+                                {
+                                    "key": "filial",
+                                    "value": "{{filial}}",
+                                    "disabled": false,
+                                    "description": "Admin informa a filial; os demais usam a própria."
+                                },
+                                {
+                                    "key": "mes_de_referencia",
+                                    "value": "{{mes}}",
+                                    "disabled": false,
+                                    "description": "Qualquer data do mês."
+                                }
+                            ]
+                        },
+                        "description": "Valor calculado pela janela retroativa (soma/média/último), arredondado em 2 casas, com os meses considerados."
+                    }
+                },
+                {
+                    "name": "Excluir dado — Admin",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/ped/dados-externos-cadastro/{{id_dado}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "ped",
+                                "dados-externos-cadastro",
+                                "{{id_dado}}"
+                            ]
+                        },
+                        "description": "Recusa (400) se o dado compõe algum indicador. APAGA o cadastro: confira o `id_dado` antes."
+                    }
+                }
+            ]
+        }
+    ]
+}

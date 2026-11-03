@@ -1,0 +1,214 @@
+/*
+ * Tema do PED — identidade visual (RNF-06).
+ * Tokens extraídos do protótipo (docs/tela-login.jpg e docs/PED — Cadastro e Preenchimento-html).
+ * A fonte Ubuntu é carregada localmente pelo pacote @fontsource/ubuntu (ver src/main.tsx);
+ * não usar Google Fonts.
+ */
+
+:root {
+  /* Cores institucionais */
+  --cor-primaria: #0062AF;
+  --cor-primaria-escura: #00468A;
+  --cor-primaria-clara: #2F7FCF;
+  --cor-dourado: #C49A4E;
+  --cor-dourado-escuro: #C99A4C;
+  --cor-dourado-claro: #FBF6EC;
+  --cor-dourado-texto: #5C4210;
+
+  /* Superfícies e texto */
+  --cor-fundo: #F2F5F9;
+  --cor-superficie: #FFFFFF;
+  --cor-superficie-suave: #F9FBFC;
+  --cor-texto: #1D2A36;
+  --cor-texto-secundario: #33414E;
+  --cor-texto-suave: #56636F;
+  --cor-borda: #D9E1EA;
+  --cor-borda-suave: #E3E9EF;
+  /* Borda de controles interativos (inputs, chips, seletor segmentado) */
+  --cor-borda-controle: #bfcad6;
+  /* Fundo neutro de pílulas de contagem, etiquetas neutras e divisórias de linhas */
+  --cor-fundo-neutro: #edf1f5;
+  /* Rótulos de seção em caixa alta (cabeçalhos de tabela, legendas, rótulos de filtros) */
+  --cor-texto-rotulo: #4f5b67;
+
+  /* Estados */
+  --cor-sucesso: #2E8A57;
+  --cor-alerta: #B7791F;
+  --cor-perigo: #C0392B;
+  --cor-perigo-escura: #8A2A20;
+  --cor-info: #2F7FCF;
+
+  /* Tipografia */
+  --fonte-base: 'Ubuntu', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --tamanho-fonte-base: 15px;
+
+  /* Forma */
+  --raio: 8px;
+  --raio-pequeno: 7px;
+  --raio-pilula: 999px;
+  --sombra-card: 0 12px 28px rgba(0, 30, 60, 0.18);
+  --sombra-modal: 0 14px 34px rgba(0, 30, 60, 0.2);
+  --anel-foco: 0 0 0 3px rgba(0, 98, 175, 0.35);
+
+  /* Gradiente de fundo da tela de login */
+  --gradiente-login: linear-gradient(160deg, #004F8F 0%, var(--cor-primaria) 55%, var(--cor-primaria-clara) 100%);
+
+  color-scheme: light;
+}
+
+/* ---------- Reset básico ---------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: 'Ubuntu', system-ui, 'Segoe UI', Roboto, sans-serif;
+  font-size: var(--tamanho-fonte-base);
+  line-height: 1.5;
+  color: var(--cor-texto);
+  background-color: var(--cor-fundo);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--cor-texto);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+a {
+  color: var(--cor-primaria);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+img,
+svg {
+  max-width: 100%;
+  display: block;
+}
+
+/* Foco visível e consistente para teclado */
+:focus-visible {
+  outline: 2px solid var(--cor-primaria);
+  outline-offset: 2px;
+}
+
+/* ---------- Utilitários globais ---------- */
+
+/*
+ * Foco por anel (box-shadow) para controles com borda arredondada própria: botões e chips.
+ * Substitui o outline padrão, que não acompanha o raio da borda.
+ */
+.foco-anel:focus-visible {
+  outline: none;
+  box-shadow: var(--anel-foco);
+}
+
+/* Foco por contorno interno para campos de formulário (input, select, textarea) */
+.foco-interno:focus-visible {
+  outline: 2px solid var(--cor-primaria);
+  outline-offset: -1px;
+  border-color: var(--cor-primaria);
+}
+
+/* Texto apenas para leitores de tela */
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Rótulo de seção em caixa alta: cabeçalhos de tabela, legendas e rótulos de filtros */
+.rotulo-secao {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cor-texto-rotulo);
+}
+
+/* Pílula de contagem exibida ao lado de um rótulo (chips e seletor de situação) */
+.contagem-pilula {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  padding: 0 0.375rem;
+  border-radius: var(--raio-pilula);
+  background-color: var(--cor-fundo-neutro);
+  color: var(--cor-texto-suave);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* ---------- Layout da aplicação ---------- */
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  background-color: var(--cor-primaria);
+  color: #fff;
+}
+
+.app-header h1 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.5rem;
+}
+
+.app-main {
+  flex: 1;
+  padding: 1.5rem;
+}
+
+@media (max-width: 480px) {
+  .app-header,
+  .app-main {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}

@@ -23,6 +23,13 @@ Você é o agente de integração do sistema PED (React 19 + TypeScript + Vite).
 - Se o backend ainda não existir, crie os serviços com dados simulados (mock) isolados em um único
   ponto, fáceis de trocar pela chamada real, e deixe isso explícito no resumo.
 
+## TDD
+
+Os testes do requisito já foram escritos pelo `gerador-testes` antes da implementação. Implemente seguindo a
+interface pública definida por eles; a atividade só está concluída quando os testes do requisito
+passarem (`npx vitest run <arquivos de teste do requisito>`). **Não altere os testes** para fazê-los
+passar: se um teste parecer errado ou contradizer o requisito, devolva a questão ao orquestrador.
+
 ## Ao terminar
 
 Rode `npm run typecheck` e `npm run lint`, corrija erros causados pela sua alteração e

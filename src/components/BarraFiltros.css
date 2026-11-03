@@ -1,0 +1,133 @@
+/*
+ * Barra de filtros das listagens (busca + situação + botões com contagem + limpar).
+ * Layout em linha que quebra em telas estreitas; a partir de 360px cada bloco ocupa a largura toda.
+ * Reutiliza: `.campo__controle` (Campo.css) no campo de busca, `.rotulo-secao`, `.contagem-pilula`
+ * e `.foco-anel` (tema.css) e o componente Chip nos botões.
+ */
+
+.barra-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--cor-borda-suave);
+  background-color: var(--cor-superficie);
+}
+
+.barra-filtros__busca,
+.barra-filtros__secao {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.barra-filtros__busca {
+  flex: 1 1 260px;
+  max-width: 380px;
+}
+
+/* Campo de busca: é um `.campo__controle` com lupa à esquerda */
+.barra-filtros__campo {
+  padding-left: 2.375rem;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2356636F' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0.75rem center;
+}
+
+/* Seletor de situação: lista de opções em formato segmentado */
+.barra-filtros__situacoes {
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--cor-borda-controle);
+  border-radius: var(--raio);
+  overflow: hidden;
+  background-color: var(--cor-superficie);
+}
+
+.barra-filtros__situacao {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 40px;
+  padding: 0 0.875rem;
+  color: var(--cor-texto-secundario);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.barra-filtros__situacao + .barra-filtros__situacao {
+  border-left: 1px solid var(--cor-borda-controle);
+}
+
+.barra-filtros__situacao:hover {
+  background-color: #f1f6fb;
+}
+
+/* O anel de foco fica por dentro porque o grupo tem overflow: hidden */
+.barra-filtros__situacao:focus-visible {
+  outline: none;
+  box-shadow: inset var(--anel-foco);
+}
+
+.barra-filtros__situacao--ativa,
+.barra-filtros__situacao--ativa:hover {
+  background-color: var(--cor-primaria);
+  color: #fff;
+}
+
+/* A contagem usa a pílula compartilhada `.contagem-pilula` (tema.css); aqui só o estado ativo */
+.barra-filtros__situacao--ativa .barra-filtros__situacao-contagem {
+  background-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+/* Botões com contagem (chips) */
+.barra-filtros__botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.barra-filtros__limpar {
+  display: flex;
+  align-items: flex-end;
+  margin-left: auto;
+  min-height: 42px;
+}
+
+@media (max-width: 600px) {
+  .barra-filtros {
+    padding: 0.75rem 1rem;
+  }
+
+  .barra-filtros__busca {
+    flex-basis: 100%;
+    max-width: none;
+  }
+
+  .barra-filtros__secao {
+    flex-basis: 100%;
+  }
+
+  .barra-filtros__situacoes {
+    display: flex;
+  }
+
+  .barra-filtros__situacao {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .barra-filtros__limpar {
+    margin-left: 0;
+    min-height: 0;
+  }
+}

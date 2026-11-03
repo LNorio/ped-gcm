@@ -1,0 +1,123 @@
+.dialogo-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background-color: rgba(12, 28, 44, 0.5);
+  overflow-y: auto;
+}
+
+.dialogo {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 560px;
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  padding: 1.5rem;
+  background-color: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra-modal);
+  outline: none;
+}
+
+.dialogo:focus-visible {
+  box-shadow: var(--sombra-modal), var(--anel-foco);
+}
+
+.dialogo__cabecalho {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.dialogo__titulos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.dialogo__titulo {
+  font-size: 1.25rem;
+  overflow-wrap: anywhere;
+}
+
+.dialogo__descricao {
+  color: var(--cor-texto-secundario);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.dialogo__fechar {
+  flex: none;
+  min-height: 36px;
+  width: 36px;
+  padding: 0;
+  color: var(--cor-texto-secundario);
+  border-color: var(--cor-borda);
+}
+
+.dialogo__corpo {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  color: var(--cor-texto-secundario);
+  line-height: 1.55;
+}
+
+.dialogo__corpo > p + p,
+.dialogo__corpo > p + ul {
+  margin-top: 0.5rem;
+}
+
+/* Diálogo de confirmação */
+
+.dialogo-confirmacao__texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  white-space: pre-line;
+}
+
+.dialogo-confirmacao__texto ul {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.dialogo-confirmacao--bloqueado .dialogo__titulo {
+  color: var(--cor-perigo-escura);
+}
+
+.dialogo__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.625rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+@media (max-width: 480px) {
+  .dialogo-fundo {
+    padding: 0.75rem;
+    align-items: flex-end;
+  }
+
+  .dialogo {
+    padding: 1.25rem 1rem;
+    max-height: calc(100vh - 1.5rem);
+    max-height: calc(100dvh - 1.5rem);
+  }
+
+  .dialogo__acoes {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}
