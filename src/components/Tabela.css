@@ -20,6 +20,15 @@
   margin: -1.25rem;
 }
 
+/*
+ * Card com `semPadding`: o corpo já não tem padding, então a tabela não precisa (nem deve) aplicar
+ * a margem negativa. Vale também abaixo de 480px (especificidade maior que a regra do media query).
+ */
+.card__corpo--sem-padding > .tabela-rolagem {
+  width: 100%;
+  margin: 0;
+}
+
 .tabela {
   width: 100%;
   border-collapse: collapse;

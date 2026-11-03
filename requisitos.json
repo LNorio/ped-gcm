@@ -163,6 +163,10 @@
         {
           "data": "2026-11-03",
           "alteracao": "Ajuste implementado: Campo com prop sufixo. Todos os testes passando."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Cobertura relacionada: a prop semPadding do Card (classe card__corpo--sem-padding) é testada em src/components/Card.semPadding.test.tsx, vinculado ao F1.12, para não deixar este requisito implementado vermelho até a implementação. Status mantido."
         }
       ]
     },
@@ -261,6 +265,28 @@
         {
           "data": "2026-11-03",
           "alteracao": "Implementação concluída: 10 de 10 testes passando (src/components/Historico.tsx)."
+        }
+      ]
+    },
+    {
+      "id": "F1.12",
+      "titulo": "Hook de listagem, utilitários de filtro e mensagens de erro",
+      "descricao": "RNF-08, RNF-09 (atividade não planejada, extraída na revisão da F3 como infraestrutura genérica para as próximas abas) — src/services/api.ts: MENSAGEM_ERRO_INESPERADO = \"Não foi possível concluir a operação. Tente novamente.\" e mensagemDeErro(erro: unknown): string (ApiError → erro.mensagem; qualquer outro valor → MENSAGEM_ERRO_INESPERADO). src/hooks/useListagem.ts: useListagem<T>(carregar: () => Promise<T[]>) → { itens, carregando, erro: string | null, recarregar(): Promise<void>, setItens }: carrega no mount; carregando true no mount e durante recarregar; erro via mensagemDeErro, mantido enquanto a recarga está em andamento e limpo no sucesso (a tela mantém o alerta com \"Tentar novamente\" desabilitado); recarregar nunca rejeita; proteção de corrida: só o resultado da última chamada é aplicado (respostas fora de ordem são descartadas) e uma alteração local via setItens feita durante uma carga prevalece sobre o resultado antigo; mudanças na referência de carregar entre renders são ignoradas (carrega só no mount e via recarregar); desmontar durante a carga não gera setState/console.error nem rejeição não tratada; em <StrictMode> o estado final é consistente (número de chamadas não fixado). src/utils/filtros.ts: filtrarPorBusca(itens, termo, obterTexto → string | string[]) (normalizarBusca em termo e campos; termo vazio/só espaços devolve todos; casa se qualquer campo contiver o termo; preserva ordem e referências) e contarPor(itens, obterChave) → Record<string, number> (sem chaves zeradas). src/components/Card.tsx: prop semPadding?: boolean → o corpo recebe a classe card__corpo--sem-padding (mantendo card__corpo), sem afetar título, ações ou região. src/types/dominio.ts: export type OrigemTipo = 'Fixo' | 'Personalizado' e TipoApontamento.origem: OrigemTipo (tipo sem teste de runtime; as constantes ORIGEM_FIXO/ORIGEM_PERSONALIZADO são testadas em F3.1).",
+      "status": "implementado",
+      "testes": [
+        "src/services/api.mensagemDeErro.test.ts",
+        "src/hooks/useListagem.test.tsx",
+        "src/utils/filtros.test.ts",
+        "src/components/Card.semPadding.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) como atividade não planejada após a revisão da F3: hook genérico de listagem com proteção de corrida, utilitários de filtro, mensagem de erro unificada e Card sem padding, para reaproveitar nas próximas abas. Os testes de mensagemDeErro e de Card.semPadding ficam em arquivos próprios (não em api.test.ts/Card.test.tsx) para não deixar vermelhos F1.2 e F1.6, já implementados."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída: useListagem, filtros, mensagemDeErro, Card semPadding."
         }
       ]
     },
@@ -431,6 +457,95 @@
         {
           "data": "2026-11-03",
           "alteracao": "Implementação concluída (SemAcessoPage). 12 de 12 testes."
+        }
+      ]
+    },
+    {
+      "id": "F3.1",
+      "titulo": "Serviço de tipos de apontamento",
+      "descricao": "RF-12, RF-13, RF-14, RF-15, INT-01 — src/services/tiposService.ts: listarTipos() faz GET /ped/tipos-apontamento e converte cada item com paraTipoApontamento (ignora o campo \"usuarios\" devolvido ao Admin; quantidades ausentes viram 0); resposta 2xx que não é lista (objeto ou corpo vazio) rejeita com ApiError(status, MENSAGEM_RESPOSTA_INVALIDA). excluirTipo(id) faz DELETE /ped/tipos-apontamento/{id} sem corpo e resolve undefined (204 ou 200). criarTipo({ nome, usuarios }) faz POST /ped/tipos-apontamento com o corpo em JSON e atualizarTipo(id, { usuarios }) faz PUT /ped/tipos-apontamento/{id} (usados só a partir da F3.4/F3.5; testados apenas URL, método e corpo). Erros HTTP ({mensagem} 400/403/404/500) e falha de rede chegam como ApiError com a mensagem da API ou a padrão do status. TIPOS_FIXOS: readonly string[] com os 7 fixos na ordem da API (Comercial, Financeiro, Recursos Humanos, Tecnologia da Informação, Fiscal, Processos, Contabilidade). Exporta ORIGEM_FIXO = 'Fixo' e ORIGEM_PERSONALIZADO = 'Personalizado' (tipo OrigemTipo de F1.12). Validação das respostas: listarTipos rejeita com ApiError(200, MENSAGEM_RESPOSTA_INVALIDA) se algum item da lista estiver fora do formato (sem id numérico, nome ou origem em texto; item nulo) — itens inválidos não são ignorados; criarTipo e atualizarTipo devolvem o tipo convertido para o domínio (camelCase, quantidades ausentes como 0) e rejeitam com ApiError(MENSAGEM_RESPOSTA_INVALIDA) quando o corpo 2xx está vazio ou fora do formato. A lista de grupos (A-02) fica fora desta atividade.",
+      "status": "implementado",
+      "testes": [
+        "src/services/tiposService.test.ts"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F3.1 do plano e da seção \"Tipos de apontamento\" de docs/backend/API (24).md. Fixture compartilhada em src/test/tiposFalsos.ts."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída (src/services/tiposService.ts): 23 de 23 testes."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Requisito alterado (refatoração pós-revisão da F3): exporta ORIGEM_FIXO/ORIGEM_PERSONALIZADO (substituem as constantes locais da TiposPage e tipam TipoApontamento.origem como OrigemTipo); listarTipos passa a rejeitar com ApiError(200, resposta inválida) quando um item da lista está fora do formato, consistente com criarTipo/atualizarTipo (decisão: não ignorar itens inválidos); cobertura dos valores convertidos e das respostas inválidas de criarTipo/atualizarTipo. 10 testes acrescentados em src/services/tiposService.test.ts (4 vermelhos até a implementação); status em-alteracao."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Ajuste implementado: ORIGEM_*, validação de itens. Todos os testes passando."
+        }
+      ]
+    },
+    {
+      "id": "F3.2",
+      "titulo": "Listagem de tipos de apontamento",
+      "descricao": "RF-12, RF-16 — src/pages/tipos/TiposPage.tsx (export function TiposPage, sem depender de roteador) e src/pages/tipos/useTipos.ts (useTipos() → { tipos, carregando, erro: string | null, recarregar(), excluir(id) }; carrega GET /ped/tipos-apontamento ao montar; erro guarda a mensagem da ApiError). Tela: h1 \"Tipos\"; Aviso tipo=\"info\" (role note) \"Os sete tipos fixos da plataforma (Comercial, Financeiro, Recursos Humanos, Tecnologia da Informação, Fiscal, Processos e Contabilidade) não podem ser excluídos.\"; RegiaoStatus \"Carregando tipos...\" durante a carga; erro de carga em Aviso tipo=\"erro\" com a mensagem e botão \"Tentar novamente\" (chama recarregar). Tabela com legenda \"Tipos de apontamento\" e colunas Nome, Origem (Etiqueta: Fixo tom neutro, Personalizado tom info), Apontamentos (quantidadeApontamentos) e Ações (botão \"Excluir\" com aria-label \"Excluir tipo {nome}\" só em personalizados; fixos sem botão); textoVazio \"Nenhum tipo cadastrado.\". BarraFiltros: busca (searchbox \"Buscar\") por nome via normalizarBusca (sem acento/maiúsculas) e seletor de situações rotulado \"Origem\" (listbox) com Todos/Fixo/Personalizado e a contagem de cada um sobre a lista completa; Todos é o padrão; busca e origem combinam. Nesta fase a tabela não mostra grupos vinculados (A-02 / F3.4). Admin e Validador veem a mesma tela (decisão: documento prevalece sobre a API). Refatoração pós-revisão (F1.12): useTipos usa useListagem(listarTipos) mantendo a interface pública { tipos, carregando, erro, recarregar, excluir }; erro de carga que não é ApiError mostra \"Não foi possível concluir a operação. Tente novamente.\" (mensagemDeErro); durante a recarga o alerta permanece com \"Tentar novamente\" desabilitado (um segundo clique não dispara outra chamada); desmontar durante a carga inicial não gera console.error. A tabela é extraída em src/pages/tipos/TabelaTipos.tsx (TabelaTipos({ tipos, onExcluir(tipo), textoVazio? }): mesmas colunas/etiquetas/botões; onExcluir recebe o TipoApontamento da linha; a célula Ações dos fixos mostra \"—\" com aria-hidden e o texto \"Sem ações\" com a classe visualmente-oculto). A barra de filtros e a tabela ficam em um Card com semPadding (classe card__corpo--sem-padding). Sem correspondência nos filtros a tabela mostra \"Nenhum tipo encontrado para os filtros.\"; \"Limpar filtros\" aparece com busca ou origem ativa e restaura as 9 linhas (busca vazia, origem Todos).",
+      "status": "implementado",
+      "testes": [
+        "src/pages/tipos/useTipos.test.tsx",
+        "src/pages/tipos/TiposPage.test.tsx",
+        "src/pages/tipos/TabelaTipos.test.tsx",
+        "src/pages/tipos/TiposPage.erroInesperado.test.tsx",
+        "src/pages/tipos/TiposPage.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F3.2 do plano, de RF-12/RF-16 e do protótipo da aba Tipos (Main.dc.html). Decisão de teste: o filtro de origem usa o seletor de situações da BarraFiltros (listbox \"Origem\", com \"Todos\" como padrão) em vez dos chips alternáveis, porque \"Todos\" não faz sentido como botão que se desmarca. Integração reaproveita renderizarApp('/tipos') com sessão Admin e Validador; Preenchedor já coberto em F2.6."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída (TiposPage, useTipos): 38 de 38 testes."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Requisito alterado (refatoração pós-revisão da F3): useTipos passa a usar useListagem (F1.12) com interface pública idêntica; TabelaTipos extraída da TiposPage (novo src/pages/tipos/TabelaTipos.test.tsx); célula Ações dos fixos ganha \"Sem ações\" só para leitor de tela; Card com semPadding; fallback de erro não-ApiError unificado em \"Não foi possível concluir a operação. Tente novamente.\" (novo src/pages/tipos/TiposPage.erroInesperado.test.tsx, com vi.mock do serviço); \"Tentar novamente\" desabilitado com o alerta mantido durante a recarga. Cobertura complementar: \"Nenhum tipo encontrado para os filtros.\", \"Limpar filtros\", desmontagem durante a carga. Motivo: extrair infraestrutura genérica para as próximas abas e fechar lacunas apontadas na revisão. Status em-alteracao até a implementação."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Refatoração concluída: useListagem, TabelaTipos, Card semPadding. Todos os testes passando."
+        }
+      ]
+    },
+    {
+      "id": "F3.3",
+      "titulo": "Exclusão de tipo personalizado",
+      "descricao": "RF-15, RN-13, RNF-07 — Na TiposPage, clicar em \"Excluir tipo {nome}\" abre DialogoConfirmacao (título \"Excluir tipo\"). Tipo sem apontamentos: impacto \"O tipo {nome} será removido. Esta ação não pode ser desfeita.\", perigo, textoConfirmar \"Excluir\" e \"Cancelar\" (Cancelar/Esc fecham sem chamar a API). Tipo com quantidadeApontamentos > 0: modo bloqueio com \"Este tipo possui {n} apontamento(s) vinculado(s) e não pode ser excluído.\" e botão único \"Entendi\", sem chamar a API. Confirmar → useTipos.excluir(id) → excluirTipo(id) (DELETE); botão Excluir desabilitado (processando) durante a chamada; sucesso → diálogo fecha, Notificacao tipo=\"sucesso\" \"Tipo excluído.\" e a linha some (remoção local ou recarga; contagens dos filtros atualizadas). Erro da API (400/403/404/rede) → diálogo fecha, Aviso tipo=\"erro\" com a mensagem da ApiError (ou a padrão do status), linha mantida, sem notificação; uma exclusão posterior bem-sucedida remove o alerta. 401 encerra a sessão (comportamento do cliente HTTP). O hook excluir(id) rejeita com a ApiError e não altera erro de carga nem a lista em caso de falha. Admin e Validador têm a mesma ação; se a API recusar o Validador (403), a tela mostra a mensagem da API. Refatoração pós-revisão (F1.12): o diálogo é extraído em src/pages/tipos/DialogoExcluirTipo.tsx (DialogoExcluirTipo({ tipo: TipoApontamento | null, excluindo, onConfirmar, onCancelar }); tipo null não renderiza nada; sem apontamentos → confirmação com impacto, Excluir (perigo, desabilitado com excluindo) e Cancelar; com apontamentos → bloqueio com o motivo e só \"Entendi\"; Cancelar/Esc/Entendi chamam onCancelar). Na TiposPage, Cancelar e Esc são ignorados enquanto excluindo e um segundo clique em Excluir não dispara outra chamada; erro ao excluir que não é ApiError mostra \"Não foi possível concluir a operação. Tente novamente.\" (mensagemDeErro). useTipos.excluir: a linha excluída não \"volta\" quando um GET antigo (recarregar em andamento) chega depois da exclusão; desmontar durante excluir não gera console.error e a promessa resolve.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/tipos/useTipos.exclusao.test.tsx",
+        "src/pages/tipos/TiposPage.exclusao.test.tsx",
+        "src/pages/tipos/DialogoExcluirTipo.test.tsx",
+        "src/pages/tipos/TiposPage.exclusao.erroInesperado.test.tsx",
+        "src/pages/tipos/TiposPage.exclusao.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-03",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F3.3 do plano, de RF-15/RN-13/RNF-07 e da decisão de premissa (documento prevalece: Validador também exclui; recusa da API vira mensagem na tela). Testes da exclusão separados dos da listagem (F3.2) porque cada arquivo de teste só pode pertencer a um requisito."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Implementação concluída (exclusão com confirmação e bloqueio): 31 de 31 testes."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Requisito alterado (refatoração pós-revisão da F3): DialogoExcluirTipo extraído da TiposPage (novo src/pages/tipos/DialogoExcluirTipo.test.tsx); fallback de erro não-ApiError na exclusão unificado em \"Não foi possível concluir a operação. Tente novamente.\" (novo src/pages/tipos/TiposPage.exclusao.erroInesperado.test.tsx, com vi.mock do serviço); corrida recarregar x excluir no useTipos (linha excluída não volta com GET antigo). Cobertura complementar: Cancelar/Esc ignorados durante a exclusão, clique duplo em Excluir, desmontagem durante excluir. Motivo: extrair infraestrutura genérica para as próximas abas e fechar lacunas apontadas na revisão. Status em-alteracao até a implementação."
+        },
+        {
+          "data": "2026-11-03",
+          "alteracao": "Refatoração concluída: DialogoExcluirTipo. Todos os testes passando."
         }
       ]
     }

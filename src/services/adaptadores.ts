@@ -35,6 +35,7 @@ import {
   type NovoDadoExterno,
   type NovoIndicador,
   type OrigemMeta,
+  type OrigemTipo,
   type Perfil,
   type Periodicidade,
   type Periodo,
@@ -92,7 +93,7 @@ export interface PeriodoApi {
 export interface TipoApontamentoApi {
   id: number
   nome: string
-  origem: string
+  origem: OrigemTipo
   'quantidade usuarios'?: number | null
   'quantidade apontamentos'?: number | null
 }

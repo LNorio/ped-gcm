@@ -10,17 +10,32 @@ export interface CardProps {
   acoes?: ReactNode
   children: ReactNode
   className?: string
+  /**
+   * Remove o padding do corpo, para conteúdos que devem encostar nas bordas do card
+   * (ex.: barra de filtros + tabela). Título e ações não são afetados.
+   */
+  semPadding?: boolean
 }
 
 /**
  * Painel com borda e fundo branco. Com `titulo`, vira uma região nomeada (`<section aria-labelledby>`).
  */
-export function Card({ titulo, nivelTitulo = 2, acoes, children, className }: CardProps) {
+export function Card({
+  titulo,
+  nivelTitulo = 2,
+  acoes,
+  children,
+  className,
+  semPadding = false,
+}: CardProps) {
   const idTitulo = useId()
   const Titulo = `h${nivelTitulo}` as const
 
   const classes = ['card']
   if (className) classes.push(className)
+
+  const classesCorpo = ['card__corpo']
+  if (semPadding) classesCorpo.push('card__corpo--sem-padding')
 
   return (
     <section className={classes.join(' ')} aria-labelledby={titulo ? idTitulo : undefined}>
@@ -32,7 +47,7 @@ export function Card({ titulo, nivelTitulo = 2, acoes, children, className }: Ca
           {acoes ? <div className="card__acoes">{acoes}</div> : null}
         </header>
       ) : null}
-      <div className="card__corpo">{children}</div>
+      <div className={classesCorpo.join(' ')}>{children}</div>
     </section>
   )
 }

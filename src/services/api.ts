@@ -39,6 +39,8 @@ const MENSAGENS_POR_STATUS: Readonly<Record<number, string>> = {
 
 export const MENSAGEM_SEM_CONEXAO = 'Não foi possível conectar ao servidor.'
 export const MENSAGEM_RESPOSTA_INVALIDA = 'Resposta inválida do servidor.'
+/** Mensagem unificada (F1.12) para falhas que não vieram da API como `ApiError`. */
+export const MENSAGEM_ERRO_INESPERADO = 'Não foi possível concluir a operação. Tente novamente.'
 
 /** Mensagem padrão em pt-BR para um status HTTP de erro. */
 export function mensagemPadraoPorStatus(status: number): string {
@@ -61,6 +63,14 @@ export class ApiError extends Error {
     this.mensagem = mensagem
     this.dados = dados
   }
+}
+
+/**
+ * Mensagem exibível ao usuário para qualquer erro capturado (F1.12).
+ * `ApiError` → `mensagem`; qualquer outro valor → `MENSAGEM_ERRO_INESPERADO`, sem vazar texto técnico.
+ */
+export function mensagemDeErro(erro: unknown): string {
+  return erro instanceof ApiError ? erro.mensagem : MENSAGEM_ERRO_INESPERADO
 }
 
 /** Lê a URL base da API no momento da chamada (permite trocar a env em testes). */

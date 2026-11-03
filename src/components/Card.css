@@ -31,10 +31,19 @@
   padding: 1.25rem;
 }
 
+/* Corpo sem padding (prop `semPadding`): o conteúdo encosta nas bordas do card. */
+.card__corpo--sem-padding {
+  padding: 0;
+}
+
 @media (max-width: 480px) {
   .card__cabecalho,
   .card__corpo {
     padding-left: 1rem;
     padding-right: 1rem;
+  }
+
+  .card__corpo--sem-padding {
+    padding: 0;
   }
 }

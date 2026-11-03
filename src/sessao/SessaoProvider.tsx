@@ -9,7 +9,7 @@
  */
 
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { ApiError, EVENTO_SESSAO_EXPIRADA, mensagemPadraoPorStatus } from '../services/api'
+import { ApiError, EVENTO_SESSAO_EXPIRADA, mensagemDeErro, mensagemPadraoPorStatus } from '../services/api'
 import { entrar as entrarServico, obterAcesso } from '../services/autenticacao'
 import { limparToken, obterToken } from '../services/sessao'
 import type { Acesso, Filial } from '../types/dominio'
@@ -43,8 +43,6 @@ export interface Sessao {
 // oxlint-disable-next-line react/only-export-components
 export const SessaoContexto = createContext<Sessao | undefined>(undefined)
 
-const MENSAGEM_ERRO_INESPERADO = 'Não foi possível concluir a operação. Tente novamente.'
-
 interface DadosSessao {
   estado: EstadoSessao
   acesso: Acesso | null
@@ -70,10 +68,6 @@ function dadosComAcesso(acesso: Acesso): DadosSessao {
     erro: null,
     filialSelecionada: filialInicial(acesso),
   }
-}
-
-function mensagemDe(erro: unknown): string {
-  return erro instanceof ApiError ? erro.mensagem : MENSAGEM_ERRO_INESPERADO
 }
 
 /** 401 ao restaurar: o cliente HTTP já disparou `EVENTO_SESSAO_EXPIRADA`, que preencheu `erro`. */
@@ -110,7 +104,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
           return
         }
         // 403/rede/5xx: volta ao login informando o motivo; o usuário entra novamente.
-        setDados({ ...SESSAO_ANONIMA, erro: mensagemDe(erro) })
+        setDados({ ...SESSAO_ANONIMA, erro: mensagemDeErro(erro) })
       })
 
     return () => {
@@ -141,7 +135,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
       if (montado.current) setDados(dadosComAcesso(acesso))
     } catch (erro) {
       limparToken()
-      if (montado.current) setDados({ ...SESSAO_ANONIMA, erro: mensagemDe(erro) })
+      if (montado.current) setDados({ ...SESSAO_ANONIMA, erro: mensagemDeErro(erro) })
       throw erro
     }
   }, [])

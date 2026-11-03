@@ -166,11 +166,13 @@ export interface Periodo {
   abertoEm: DataApi | null
 }
 
+/** Origem de um tipo de apontamento: nasce na migration (`Fixo`) ou foi criado pelo Admin (`Personalizado`). */
+export type OrigemTipo = 'Fixo' | 'Personalizado'
+
 export interface TipoApontamento {
   id: number
   nome: string
-  /** `Fixo` ou `Personalizado`. */
-  origem: string
+  origem: OrigemTipo
   quantidadeUsuarios: number
   quantidadeApontamentos: number
 }
