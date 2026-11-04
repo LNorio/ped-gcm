@@ -1,5 +1,5 @@
 import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { paraTipoApontamento } from '../../services/adaptadores'
 import { excluirTipo, listarTipos } from '../../services/tiposService'
@@ -56,7 +56,7 @@ describe('F3.3 — Exclusão de tipo: erro inesperado (não ApiError)', () => {
   })
 
   it('TiposPage: erro inesperado ao excluir fecha o diálogo, mostra a mensagem unificada e mantém a linha, sem notificação', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     excluirTipoFalso.mockRejectedValue(new Error('detalhe técnico interno'))
     renderizar()
     await screen.findByRole('table', { name: 'Tipos de apontamento' })
@@ -75,7 +75,7 @@ describe('F3.3 — Exclusão de tipo: erro inesperado (não ApiError)', () => {
   })
 
   it('depois do erro inesperado, uma exclusão bem-sucedida remove o alerta e a linha', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     excluirTipoFalso.mockRejectedValueOnce(new Error('falha interna')).mockResolvedValueOnce(undefined)
     renderizar()
     await screen.findByRole('table', { name: 'Tipos de apontamento' })

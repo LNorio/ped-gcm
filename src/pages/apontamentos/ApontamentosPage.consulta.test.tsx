@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { escolherAcao, rotuloAcoesApontamento } from '../../test/menuAcoes'
 import { EstadoCarga } from '../../components/EstadoCarga'
 import { definirToken, limparToken } from '../../services/sessao'
 import { ProvedorSessaoFalso } from '../../test/ProvedorSessaoFalso'
@@ -99,7 +100,7 @@ describe('F4.2 — ApontamentosPage: EstadoCarga e lista durante reconsultas', (
     })
 
     it('com erro de carga, EstadoCarga recebe a mensagem e onTentarNovamente repete a consulta', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       let tentativa = 0
       const chamadas = simularApi(fetchFalso, {
         [`GET ${ROTA}`]: (_init, url) => {
@@ -125,7 +126,7 @@ describe('F4.2 — ApontamentosPage: EstadoCarga e lista durante reconsultas', (
 
   describe('reconsulta filtrada', () => {
     it('a tabela permanece visível com a lista anterior enquanto a consulta filtrada está em andamento', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       let liberar: () => void = () => {}
       simularApi(fetchFalso, {
         [`GET ${ROTA}`]: (_init, url) => {
@@ -151,7 +152,7 @@ describe('F4.2 — ApontamentosPage: EstadoCarga e lista durante reconsultas', (
     })
 
     it('exclusão concluída com o GET de um tipo pendente: ao final, a tabela mostra a lista do filtro novo (recarga automática)', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       let lista: ApontamentoApiFalso[] = apontamentosApi()
       let liberar: () => void = () => {}
       let pendente = false
@@ -176,7 +177,7 @@ describe('F4.2 — ApontamentosPage: EstadoCarga e lista durante reconsultas', (
 
       await user.click(chipTipo('Comercial'))
       await waitFor(() => expect(gets(chamadas)).toHaveLength(2))
-      await user.click(screen.getByRole('button', { name: 'Excluir apontamento Chamados resolvidos no prazo' }))
+      await escolherAcao(user, rotuloAcoesApontamento('Chamados resolvidos no prazo'), 'Excluir')
       await user.click(within(screen.getByRole('dialog', { name: 'Excluir apontamento' })).getByRole('button', { name: 'Excluir' }))
       await screen.findByText('Apontamento excluído.')
 

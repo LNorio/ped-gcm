@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import { paraApontamento } from '../../services/adaptadores'
 import {
@@ -60,7 +60,7 @@ describe('F4.6 — DialogoExcluirApontamento (confirmação da exclusão)', () =
     })
 
     it('clicar em Excluir chama onConfirmar uma vez e não chama onCancelar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onConfirmar, onCancelar } = renderizar(CHAMADOS)
 
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }))
@@ -70,7 +70,7 @@ describe('F4.6 — DialogoExcluirApontamento (confirmação da exclusão)', () =
     })
 
     it('clicar em Cancelar chama onCancelar e não chama onConfirmar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onConfirmar, onCancelar } = renderizar(CHAMADOS)
 
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancelar' }))
@@ -80,7 +80,7 @@ describe('F4.6 — DialogoExcluirApontamento (confirmação da exclusão)', () =
     })
 
     it('Esc chama onCancelar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onConfirmar, onCancelar } = renderizar(CHAMADOS)
 
       await user.keyboard('{Escape}')
@@ -90,7 +90,7 @@ describe('F4.6 — DialogoExcluirApontamento (confirmação da exclusão)', () =
     })
 
     it('com excluindo, o botão Excluir fica desabilitado e o clique não chama onConfirmar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onConfirmar } = renderizar(CHAMADOS, { excluindo: true })
 
       const confirmar = within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' })
@@ -136,7 +136,7 @@ describe('F4.6 — DialogoExcluirApontamento (confirmação da exclusão)', () =
     })
 
     it('"Entendi" chama onCancelar e nunca onConfirmar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onConfirmar, onCancelar } = renderizar(TREINAMENTOS)
 
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Entendi' }))
@@ -146,7 +146,7 @@ describe('F4.6 — DialogoExcluirApontamento (confirmação da exclusão)', () =
     })
 
     it('Esc no modo bloqueio também chama onCancelar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onConfirmar, onCancelar } = renderizar(TREINAMENTOS)
 
       await user.keyboard('{Escape}')

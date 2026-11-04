@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { escolherAcao, itensDoMenuAcoes, rotuloAcoesApontamento } from '../../test/menuAcoes'
 import { useAcaoConfirmada } from '../../hooks/useAcaoConfirmada'
 import { definirToken, limparToken } from '../../services/sessao'
 import { podeExecutar } from '../../sessao/permissoes'
@@ -74,27 +75,30 @@ describe('F4.5 — ApontamentosPage: permissão de alterar situação pela matri
     expect(podeExecutar).toHaveBeenCalledWith('validador', 'alterar-situacao-apontamento')
   })
 
-  it('quem decide é a matriz de ações: com a ação negada, nem o Admin vê Desativar/Ativar', async () => {
+  it('quem decide é a matriz de ações: com a ação negada, nem o Admin vê Desativar/Ativar no menu', async () => {
+    const user = usuarioRapido()
     vi.mocked(podeExecutar).mockImplementation((_perfil, acao) => acao !== 'alterar-situacao-apontamento')
     await abrirTela('admin')
 
-    expect(screen.queryByRole('button', { name: /^Desativar apontamento / })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^Ativar apontamento / })).not.toBeInTheDocument()
+    expect(await itensDoMenuAcoes(user, rotuloAcoesApontamento('Chamados resolvidos no prazo'))).toEqual(['Excluir'])
+    expect(await itensDoMenuAcoes(user, rotuloAcoesApontamento('Conciliação bancária concluída'))).toEqual(['Ver detalhes', 'Excluir'])
   })
 
-  it('com a ação liberada pela matriz, os botões aparecem mesmo para um perfil que normalmente não os tem', async () => {
+  it('com a ação liberada pela matriz, os itens aparecem mesmo para um perfil que normalmente não os tem', async () => {
+    const user = usuarioRapido()
     vi.mocked(podeExecutar).mockImplementation((_perfil, acao) => acao === 'alterar-situacao-apontamento')
     await abrirTela('preenchedor')
 
-    expect(screen.getAllByRole('button', { name: /^(Desativar|Ativar) apontamento / }).length).toBeGreaterThan(0)
+    expect(await itensDoMenuAcoes(user, rotuloAcoesApontamento('Chamados resolvidos no prazo'))).toEqual(['Desativar'])
+    expect(await itensDoMenuAcoes(user, rotuloAcoesApontamento('Relatório mensal entregue'))).toEqual(['Ver detalhes', 'Ativar'])
   })
 
   it('o diálogo de situação é conduzido por useAcaoConfirmada: abrir define o alvo e confirmar executa a alteração', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     await abrirTela('admin')
     expect(useAcaoConfirmada).toHaveBeenCalled()
 
-    await user.click(screen.getByRole('button', { name: 'Desativar apontamento Chamados resolvidos no prazo' }))
+    await escolherAcao(user, rotuloAcoesApontamento('Chamados resolvidos no prazo'), 'Desativar')
 
     const alvos = vi.mocked(useAcaoConfirmada).mock.results.map((resultado) => (resultado.value as { alvo: unknown }).alvo)
     expect(alvos).toContainEqual(expect.objectContaining({ id: 4, nome: 'Chamados resolvidos no prazo', ativo: true }))

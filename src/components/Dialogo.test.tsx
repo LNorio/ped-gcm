@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../test/usuario'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { Dialogo } from './Dialogo'
@@ -79,7 +79,7 @@ describe('F1.8 — Dialogo modal acessível', () => {
   })
 
   it('tem um botão "Fechar" com nome acessível que chama onFechar', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const onFechar = vi.fn()
     render(
       <Dialogo aberto titulo="Confirmar" onFechar={onFechar}>
@@ -93,7 +93,7 @@ describe('F1.8 — Dialogo modal acessível', () => {
   })
 
   it('Esc chama onFechar', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const onFechar = vi.fn()
     render(
       <Dialogo aberto titulo="Confirmar" onFechar={onFechar}>
@@ -107,7 +107,7 @@ describe('F1.8 — Dialogo modal acessível', () => {
   })
 
   it('ao abrir, move o foco para dentro do diálogo', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     render(<Harness />)
 
     await user.click(screen.getByRole('button', { name: 'Abrir' }))
@@ -117,7 +117,7 @@ describe('F1.8 — Dialogo modal acessível', () => {
   })
 
   it('prende o foco: Tab a partir do último elemento volta para dentro do diálogo', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     render(<Harness />)
     await user.click(screen.getByRole('button', { name: 'Abrir' }))
     const dialogo = screen.getByRole('dialog')
@@ -130,7 +130,7 @@ describe('F1.8 — Dialogo modal acessível', () => {
   })
 
   it('prende o foco: Shift+Tab a partir do primeiro elemento permanece dentro do diálogo', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     render(<Harness />)
     await user.click(screen.getByRole('button', { name: 'Abrir' }))
     const dialogo = screen.getByRole('dialog')
@@ -143,7 +143,7 @@ describe('F1.8 — Dialogo modal acessível', () => {
   })
 
   it('Tab a partir do próprio painel, sem campos no conteúdo, mantém o foco dentro do diálogo', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     render(
       <Dialogo aberto titulo="Aviso" onFechar={() => {}}>
         <p>Somente texto, sem elementos focáveis.</p>
@@ -164,7 +164,7 @@ describe('F1.8 — Dialogo modal acessível', () => {
   })
 
   it('bloqueia a rolagem da página enquanto aberto e a restaura ao fechar', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     document.body.style.overflow = 'auto'
     render(<Harness />)
     expect(document.body.style.overflow).toBe('auto')
@@ -206,7 +206,7 @@ describe('F1.8 — Dialogo modal acessível', () => {
   })
 
   it('ao fechar com Esc, devolve o foco ao elemento que abriu o diálogo', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const onFechar = vi.fn()
     render(<Harness onFechar={onFechar} />)
     const abrir = screen.getByRole('button', { name: 'Abrir' })

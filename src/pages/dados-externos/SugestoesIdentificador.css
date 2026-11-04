@@ -1,0 +1,18 @@
+/* Sugestões de identificadores existentes (F5.5, F5.7). */
+
+.sugestoes-identificador {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.sugestoes-identificador__rotulo {
+  color: var(--cor-texto-secundario);
+  font-size: 0.875em;
+}
+
+.sugestoes-identificador__lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MENSAGEM_SEM_CONEXAO, mensagemPadraoPorStatus } from '../../services/api'
 import { definirToken, limparToken } from '../../services/sessao'
@@ -218,7 +218,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
     })
 
     it('"Tentar novamente" chama a API de novo e, com sucesso, mostra a tabela e remove o alerta', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       let tentativa = 0
       const chamadas = simularApi(fetchFalso, {
         [ROTA_LISTA]: () => {
@@ -238,7 +238,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
     })
 
     it('"Tentar novamente" fica desabilitado, com o alerta ainda visível, enquanto a recarga está em andamento', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       let liberar: () => void = () => {}
       let tentativa = 0
       simularApi(fetchFalso, {
@@ -318,7 +318,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
     })
 
     it('selecionar Fixo mostra só os sete fixos; Personalizado só os personalizados; Todos volta à lista completa', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularLista()
       renderizar()
       const tabela = await aguardarTabela()
@@ -336,7 +336,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
     })
 
     it('a busca por nome ignora acentos e maiúsculas', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularLista()
       renderizar()
       const tabela = await aguardarTabela()
@@ -355,7 +355,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
     })
 
     it('limpar o texto da busca volta a mostrar todos os tipos', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularLista()
       renderizar()
       const tabela = await aguardarTabela()
@@ -369,7 +369,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
     })
 
     it('busca e origem combinam', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularLista()
       renderizar()
       const tabela = await aguardarTabela()
@@ -381,7 +381,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
     })
 
     it('busca sem correspondência não lista nenhum tipo', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularLista()
       renderizar()
       await aguardarTabela()
@@ -394,7 +394,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
     })
 
     it('busca sem correspondência mostra "Nenhum tipo encontrado para os filtros." (e não "Nenhum tipo cadastrado.")', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularLista()
       renderizar()
       const tabela = await aguardarTabela()
@@ -406,7 +406,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
     })
 
     it('origem sem itens após filtrar também mostra "Nenhum tipo encontrado para os filtros."', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularLista(tiposApi().slice(0, 7)) // só fixos
       renderizar()
       const tabela = await aguardarTabela()
@@ -425,7 +425,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
     })
 
     it('"Limpar filtros" aparece após digitar uma busca e, ao clicar, restaura as 9 linhas e limpa o campo', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularLista()
       renderizar()
       const tabela = await aguardarTabela()
@@ -441,7 +441,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
     })
 
     it('"Limpar filtros" aparece após escolher uma origem e, ao clicar, volta para Todos com as 9 linhas', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularLista()
       renderizar()
       const tabela = await aguardarTabela()
@@ -457,7 +457,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
     })
 
     it('"Limpar filtros" limpa busca e origem ao mesmo tempo', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularLista()
       renderizar()
       const tabela = await aguardarTabela()
@@ -474,7 +474,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
     })
 
     it('as contagens das origens não mudam com a busca (refletem a lista completa)', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularLista()
       renderizar()
       await aguardarTabela()

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import { EstadoCarga, type EstadoCargaProps } from './EstadoCarga'
 
@@ -57,7 +57,7 @@ describe('F1.13 — EstadoCarga (carregando / erro de carga com "Tentar novament
   })
 
   it('"Tentar novamente" chama onTentarNovamente uma vez por clique', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const { onTentarNovamente } = renderizar({ erro: 'Falha temporária.' })
 
     await user.click(screen.getByRole('button', { name: 'Tentar novamente' }))
@@ -66,7 +66,7 @@ describe('F1.13 — EstadoCarga (carregando / erro de carga com "Tentar novament
   })
 
   it('com erro durante uma nova carga: mantém o alerta, desabilita "Tentar novamente" e anuncia a carga', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const { onTentarNovamente } = renderizar({ erro: 'Falha temporária.', carregando: true })
 
     expect(screen.getByRole('alert')).toHaveTextContent('Falha temporária.')

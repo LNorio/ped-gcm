@@ -3,10 +3,15 @@
  *
  * Componente de apresentação: recebe a lista já filtrada e avisa o pai quando o usuário pede para
  * ativar/desativar ou excluir um apontamento. Apontamentos não são editáveis (RF-20), então não há
- * ação "Editar". A linha expansível mostra quem alterou a situação e quando (RNF-01).
+ * ação "Editar".
+ *
+ * As ações ficam no menu de três pontos (`MenuAcoes`): "Ver detalhes"/"Ocultar detalhes" (só quando a
+ * situação já foi alterada), "Desativar"/"Ativar" e "Excluir", conforme as permissões. Os detalhes
+ * mostram quem alterou a situação e quando (RNF-01); várias linhas podem ficar abertas.
  */
-import { Botao } from '../../components/Botao'
+import { useState } from 'react'
 import { Etiqueta } from '../../components/Etiqueta'
+import { MenuAcoes, type ItemMenuAcoes } from '../../components/MenuAcoes'
 import { Tabela, type ColunaTabela } from '../../components/Tabela'
 import { ROTULOS_TIPO_VALOR, type Apontamento } from '../../types/dominio'
 import { formatarDataHora } from '../../utils/formato'
@@ -14,13 +19,13 @@ import './TabelaApontamentos.css'
 
 export interface TabelaApontamentosProps {
   apontamentos: Apontamento[]
-  /** Exibe os botões "Desativar"/"Ativar". */
+  /** Exibe "Desativar"/"Ativar" no menu de ações. */
   podeAlterarSituacao: boolean
-  /** Exibe o botão "Excluir". */
+  /** Exibe "Excluir" no menu de ações. */
   podeExcluir: boolean
-  /** Chamado com o apontamento da linha ao clicar em "Desativar" ou "Ativar". */
+  /** Chamado com o apontamento da linha ao escolher "Desativar" ou "Ativar". */
   onAlterarSituacao: (apontamento: Apontamento) => void
-  /** Chamado com o apontamento da linha ao clicar em "Excluir". */
+  /** Chamado com o apontamento da linha ao escolher "Excluir". */
   onExcluir: (apontamento: Apontamento) => void
   /** Texto exibido quando `apontamentos` está vazio. */
   textoVazio?: string
@@ -44,6 +49,27 @@ export function TabelaApontamentos({
   onExcluir,
   textoVazio,
 }: TabelaApontamentosProps) {
+  const [expandidas, setExpandidas] = useState<ReadonlySet<Apontamento['id']>>(() => new Set())
+  const [apontamentosAnteriores, setApontamentosAnteriores] = useState(apontamentos)
+
+  // Ids que saíram da lista (filtro, exclusão) deixam de constar como expandidos.
+  if (apontamentos !== apontamentosAnteriores) {
+    setApontamentosAnteriores(apontamentos)
+    const ids = new Set(apontamentos.map((apontamento) => apontamento.id))
+    if ([...expandidas].some((id) => !ids.has(id))) {
+      setExpandidas(new Set([...expandidas].filter((id) => ids.has(id))))
+    }
+  }
+
+  function alternarDetalhes(id: Apontamento['id']) {
+    setExpandidas((atuais) => {
+      const novas = new Set(atuais)
+      if (novas.has(id)) novas.delete(id)
+      else novas.add(id)
+      return novas
+    })
+  }
+
   const colunas: ColunaTabela<Apontamento>[] = [
     {
       chave: 'nome',
@@ -103,30 +129,25 @@ export function TabelaApontamentos({
       chave: 'acoes',
       titulo: 'Ações',
       alinhar: 'direita',
-      render: (apontamento) => (
-        <div className="tabela-apontamentos__acoes">
-          {podeAlterarSituacao ? (
-            <Botao
-              variante="contorno"
-              tamanho="pequeno"
-              aria-label={`${apontamento.ativo ? 'Desativar' : 'Ativar'} apontamento ${apontamento.nome}`}
-              onClick={() => onAlterarSituacao(apontamento)}
-            >
-              {apontamento.ativo ? 'Desativar' : 'Ativar'}
-            </Botao>
-          ) : null}
-          {podeExcluir ? (
-            <Botao
-              variante="perigo"
-              tamanho="pequeno"
-              aria-label={`Excluir apontamento ${apontamento.nome}`}
-              onClick={() => onExcluir(apontamento)}
-            >
-              Excluir
-            </Botao>
-          ) : null}
-        </div>
-      ),
+      render: (apontamento) => {
+        const itens: ItemMenuAcoes[] = []
+        if (apontamento.situacaoAlteradaEm) {
+          itens.push({
+            rotulo: expandidas.has(apontamento.id) ? 'Ocultar detalhes' : 'Ver detalhes',
+            onSelecionar: () => alternarDetalhes(apontamento.id),
+          })
+        }
+        if (podeAlterarSituacao) {
+          itens.push({
+            rotulo: apontamento.ativo ? 'Desativar' : 'Ativar',
+            onSelecionar: () => onAlterarSituacao(apontamento),
+          })
+        }
+        if (podeExcluir) {
+          itens.push({ rotulo: 'Excluir', onSelecionar: () => onExcluir(apontamento), perigo: true })
+        }
+        return <MenuAcoes rotulo={`Ações do apontamento ${apontamento.nome}`} itens={itens} />
+      },
     },
   ]
 
@@ -138,6 +159,7 @@ export function TabelaApontamentos({
       legenda="Apontamentos"
       textoVazio={textoVazio}
       expandir={detalhesSituacao}
+      expandidas={expandidas}
     />
   )
 }

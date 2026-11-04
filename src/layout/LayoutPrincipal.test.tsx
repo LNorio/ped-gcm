@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../test/usuario'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import type { Sessao } from '../sessao/SessaoProvider'
@@ -66,7 +66,7 @@ describe('F2.3 — Rotas e layout principal (LayoutPrincipal)', () => {
     })
 
     it('o botão "Sair" chama sair() da sessão', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const sair = vi.fn()
       renderizar({ acesso: admin(), sair })
 
@@ -76,7 +76,7 @@ describe('F2.3 — Rotas e layout principal (LayoutPrincipal)', () => {
     })
 
     it('mostra o seletor de filial ligado à sessão (todas as filiais)', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const selecionarFilial = vi.fn()
       renderizar({ acesso: admin(), filialSelecionada: 'todas', selecionarFilial })
 
@@ -129,7 +129,7 @@ describe('F2.3 — Rotas e layout principal (LayoutPrincipal)', () => {
     })
 
     it('clicar em uma aba troca o conteúdo e a aba ativa', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       renderizar({ acesso: admin() }, '/')
 
       const abas = screen.getByRole('navigation', { name: 'Abas' })
@@ -186,7 +186,7 @@ describe('F2.3 — Rotas e layout principal (LayoutPrincipal)', () => {
     })
 
     it('o botão Sair continua chamando sair() mesmo sem acesso', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const sair = vi.fn()
       renderizar({ estado: 'carregando', acesso: null, filialSelecionada: null, sair })
 

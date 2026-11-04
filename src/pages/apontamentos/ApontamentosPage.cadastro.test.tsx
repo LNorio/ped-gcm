@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { type Usuario, usuarioRapido } from '../../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { escolherAcao, rotuloAcoesApontamento } from '../../test/menuAcoes'
 import { MENSAGEM_SEM_CONEXAO, mensagemPadraoPorStatus } from '../../services/api'
 import { definirToken, limparToken } from '../../services/sessao'
 import { ProvedorSessaoFalso } from '../../test/ProvedorSessaoFalso'
@@ -96,13 +97,13 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
   const botaoNovo = () => screen.getByRole('button', { name: 'Novo apontamento' })
   const dialogo = () => screen.getByRole('dialog', { name: 'Novo apontamento' })
 
-  async function abrirFormulario(user: ReturnType<typeof userEvent.setup>) {
+  async function abrirFormulario(user: Usuario) {
     await user.click(botaoNovo())
     return dialogo()
   }
 
   async function preencher(
-    user: ReturnType<typeof userEvent.setup>,
+    user: Usuario,
     dados: { nome: string; tipo: string; tipoValor: string; descricao?: string },
   ) {
     const form = dialogo()
@@ -124,7 +125,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
     })
 
     it('abre o diálogo modal "Novo apontamento" com o formulário e os botões Salvar e Cancelar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComEstado()
       await abrirTela()
 
@@ -140,7 +141,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
     })
 
     it('o select Tipo oferece os tipos do usuário logado (useSessao().acesso.tipos)', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComEstado()
       await abrirTela('admin')
 
@@ -157,7 +158,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
     })
 
     it('Preenchedor com um tipo vê só o seu tipo no select', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComEstado()
       await abrirTela('preenchedor')
 
@@ -170,7 +171,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
     })
 
     it('Cancelar fecha o diálogo sem chamar a API', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const chamadas = simularApiComEstado()
       await abrirTela()
 
@@ -183,7 +184,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
     })
 
     it('Esc fecha o diálogo sem chamar a API', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const chamadas = simularApiComEstado()
       await abrirTela()
 
@@ -195,7 +196,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
     })
 
     it('reabrir o diálogo depois de cancelar mostra o formulário limpo', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComEstado()
       await abrirTela()
 
@@ -211,7 +212,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
 
   describe('validação (RF-19)', () => {
     it('Salvar com o formulário vazio mostra as três mensagens e não chama a API', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const chamadas = simularApiComEstado()
       await abrirTela()
 
@@ -228,7 +229,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
 
   describe('cadastro com sucesso', () => {
     it('Salvar envia POST com { nome, "id tipo", "tipo de valor", descricao }, fecha o diálogo, notifica "Apontamento cadastrado." e o novo apontamento aparece ativo na lista', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const chamadas = simularApiComEstado()
       await abrirTela()
 
@@ -266,7 +267,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
     })
 
     it('sem descrição, o POST envia descricao null', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const chamadas = simularApiComEstado()
       await abrirTela()
 
@@ -284,7 +285,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
     })
 
     it('o botão Salvar fica desabilitado enquanto a API não responde e um segundo clique não gera outro POST', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       let liberar: () => void = () => {}
       let lista = apontamentosApi()
       const chamadas = simularApi(fetchFalso, {
@@ -322,7 +323,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
     })
 
     it('Preenchedor cadastra no seu tipo como os demais perfis', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const chamadas = simularApiComEstado()
       await abrirTela('preenchedor')
 
@@ -336,7 +337,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
     })
 
     it('depois de salvar, abrir "Novo apontamento" de novo mostra o formulário limpo', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComEstado()
       await abrirTela()
 
@@ -354,7 +355,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
 
   describe('erros da API no cadastro', () => {
     it('403 (tipo que não é do usuário): a mensagem da API aparece em um Aviso de erro dentro do diálogo, que permanece aberto, sem notificação', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const chamadas = simularApiComEstado(() => respostaErro(403, 'Você só pode cadastrar apontamentos nos seus tipos.'))
       await abrirTela('preenchedor')
 
@@ -373,7 +374,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
     })
 
     it('400 mostra a mensagem da API no diálogo', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComEstado(() => respostaErro(400, 'Já existe um apontamento com este nome.'))
       await abrirTela()
 
@@ -385,7 +386,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
     })
 
     it('erro sem mensagem usa a mensagem padrão do status; falha de rede usa a mensagem de conexão', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       let tentativa = 0
       simularApiComEstado(() => {
         tentativa += 1
@@ -403,7 +404,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
     })
 
     it('depois de um erro, corrigir e salvar com sucesso fecha o diálogo e notifica', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       let tentativa = 0
       simularApiComEstado(() => {
         tentativa += 1
@@ -427,7 +428,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
 
   describe('sem edição (RF-20)', () => {
     it('nenhum botão ou link "Editar" existe na tela, nem na tabela nem no diálogo', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComEstado()
       await abrirTela()
 
@@ -439,7 +440,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
     })
 
     it('clicar no nome de um apontamento não abre formulário algum', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComEstado()
       await abrirTela()
 
@@ -463,7 +464,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
       return chamadas
     }
 
-    async function cadastrar(user: ReturnType<typeof userEvent.setup>) {
+    async function cadastrar(user: Usuario) {
       await abrirFormulario(user)
       await preencher(user, { nome: 'Visitas a clientes novos', tipo: 'Comercial', tipoValor: 'Numeral' })
       await user.click(within(dialogo()).getByRole('button', { name: 'Salvar' }))
@@ -471,11 +472,11 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
     }
 
     it('o erro de uma alteração de situação recusada é apagado depois de um cadastro bem-sucedido', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComAcoesRecusadas()
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Desativar apontamento Chamados resolvidos no prazo' }))
+      await escolherAcao(user, rotuloAcoesApontamento('Chamados resolvidos no prazo'), 'Desativar')
       await user.click(within(screen.getByRole('dialog', { name: 'Desativar apontamento' })).getByRole('button', { name: 'Desativar' }))
       expect(await screen.findByRole('alert')).toHaveTextContent('Apenas Admin e Validador alteram a situação.')
 
@@ -486,11 +487,11 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
     })
 
     it('o erro de uma exclusão recusada é apagado depois de um cadastro bem-sucedido', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComAcoesRecusadas()
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir apontamento Chamados resolvidos no prazo' }))
+      await escolherAcao(user, rotuloAcoesApontamento('Chamados resolvidos no prazo'), 'Excluir')
       await user.click(within(screen.getByRole('dialog', { name: 'Excluir apontamento' })).getByRole('button', { name: 'Excluir' }))
       expect(await screen.findByRole('alert')).toHaveTextContent('Apenas o administrador exclui apontamentos.')
 
@@ -501,11 +502,11 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
     })
 
     it('um cadastro recusado não apaga o erro da ação anterior (só o sucesso apaga)', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComAcoesRecusadas(() => respostaErro(400, 'Já existe um apontamento com este nome.'))
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Desativar apontamento Chamados resolvidos no prazo' }))
+      await escolherAcao(user, rotuloAcoesApontamento('Chamados resolvidos no prazo'), 'Desativar')
       await user.click(within(screen.getByRole('dialog', { name: 'Desativar apontamento' })).getByRole('button', { name: 'Desativar' }))
       await screen.findByText('Apenas Admin e Validador alteram a situação.')
 
@@ -520,7 +521,7 @@ describe('F4.4 — Cadastro de apontamento (ApontamentosPage)', () => {
 
   describe('usuário sem tipos disponíveis', () => {
     it('o diálogo mostra o aviso "Você não tem tipos de apontamento disponíveis para cadastro." e "Salvar" desabilitado; nenhum POST', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const chamadas = simularApiComEstado()
       render(
         <ProvedorSessaoFalso

@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../test/usuario'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { limparToken } from '../services/sessao'
@@ -50,7 +50,7 @@ describe('F2.4 — Seletor de filial (integração: cabeçalho + sessão)', () =
   })
 
   it('Admin: começa em "Todas as filiais"; escolher uma filial no cabeçalho muda a filial disponível às abas', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     simularApi(fetchFalso, {
       'GET /api/ped/acesso': () => respostaJson(acessoApi({ perfil: 'admin', 'todas as filiais': true, filiais: FILIAIS_API })),
     })
@@ -100,7 +100,7 @@ describe('F2.4 — Seletor de filial (integração: cabeçalho + sessão)', () =
   })
 
   it('Preenchedor com várias filiais: seletor restrito a elas, sem "Todas as filiais", e a troca reflete nas abas', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     simularApi(fetchFalso, {
       'GET /api/ped/acesso': () =>
         respostaJson(acessoApi({ perfil: 'preenchedor', filiais: [FILIAIS_API[1], FILIAIS_API[2]] })),

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import { Campo } from './Campo'
 
@@ -44,7 +44,7 @@ describe('F1.6 — Componentes base: Campo', () => {
   })
 
   it('chama onChange ao digitar', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const onChange = vi.fn()
     render(<Campo rotulo="Nome" onChange={onChange} />)
 
@@ -142,7 +142,7 @@ describe('F1.6 — Componentes base: Campo', () => {
     })
 
     it('o sufixo é interativo: clicar nele não altera o valor do input', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const aoClicar = vi.fn()
       render(
         <Campo

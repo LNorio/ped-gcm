@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import { Select } from './Select'
 
@@ -48,7 +48,7 @@ describe('F1.6 — Componentes base: Select', () => {
   })
 
   it('chama onChange e atualiza o valor ao escolher uma opção', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const onChange = vi.fn()
     render(<Select rotulo="Tipo de valor" opcoes={opcoesTipoValor} defaultValue="numeral" onChange={onChange} />)
 

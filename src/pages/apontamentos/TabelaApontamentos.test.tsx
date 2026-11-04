@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { type Usuario, usuarioRapido } from '../../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import { paraApontamento } from '../../services/adaptadores'
 import {
@@ -11,6 +11,7 @@ import {
   NOMES_APONTAMENTOS,
   apontamentosApi,
 } from '../../test/apontamentosFalsos'
+import { abrirMenuAcoes, escolherAcao, itensDoMenuAcoes, rotuloAcoesApontamento } from '../../test/menuAcoes'
 import type { Apontamento } from '../../types/dominio'
 import { TabelaApontamentos, type TabelaApontamentosProps } from './TabelaApontamentos'
 
@@ -22,6 +23,11 @@ const CHAMADOS = paraApontamento(APONTAMENTO_CHAMADOS_API)
 const RELATORIO = paraApontamento(APONTAMENTO_RELATORIO_API)
 
 const COLUNAS = ['Nome', 'Tipo', 'Tipo de valor', 'Situação', 'Indicadores', 'Cadastro', 'Ações']
+const COL_ACOES = 6
+
+/** Apontamentos com `situacaoAlteradaEm` preenchido (as únicas linhas com detalhes). */
+const COM_DETALHES = ['Conciliação bancária concluída', 'Relatório mensal entregue']
+const SEM_DETALHES = ['Roteiro de visitas elaborado', 'Horas de treinamento realizadas', 'Chamados resolvidos no prazo']
 
 describe('F4.2 — TabelaApontamentos (tabela da listagem de apontamentos)', () => {
   function renderizar(props: Partial<TabelaApontamentosProps> = {}) {
@@ -62,21 +68,43 @@ describe('F4.2 — TabelaApontamentos (tabela da listagem de apontamentos)', () 
     return within(linhaDoApontamento(nome)).getAllByRole('cell')[indice]
   }
 
+  /** Linha de detalhes logo abaixo da linha do apontamento, ou `null` se estiver recolhida. */
+  function detalhesDe(nome: string): HTMLElement | null {
+    const proxima = linhaDoApontamento(nome).nextElementSibling as HTMLElement | null
+    return proxima && proxima.classList.contains('tabela__detalhes') ? proxima : null
+  }
+
+  async function verDetalhes(user: Usuario, nome: string): Promise<HTMLElement> {
+    await escolherAcao(user, rotuloAcoesApontamento(nome), 'Ver detalhes')
+    const detalhes = detalhesDe(nome)
+    if (!detalhes) throw new Error(`Detalhes de "${nome}" não foram abertos`)
+    return detalhes
+  }
+
   describe('estrutura', () => {
-    it('renderiza a tabela com legenda "Apontamentos" e as colunas Nome, Tipo, Tipo de valor, Situação, Indicadores, Cadastro e Ações', () => {
+    it('renderiza a tabela com legenda "Apontamentos" e só as colunas Nome, Tipo, Tipo de valor, Situação, Indicadores, Cadastro e Ações', () => {
       renderizar()
 
       const cabecalhos = within(tabela()).getAllByRole('columnheader').map((coluna) => coluna.textContent)
-      expect(cabecalhos.slice(0, COLUNAS.length)).toEqual(COLUNAS)
+      expect(cabecalhos).toEqual(COLUNAS)
+      expect(within(linhaDoApontamento('Conciliação bancária concluída')).getAllByRole('cell')).toHaveLength(COLUNAS.length)
     })
 
-    it('lista os apontamentos recebidos na ordem informada, com o nome na primeira coluna', () => {
+    it('lista os apontamentos recebidos na ordem informada, com o nome na primeira coluna e os detalhes recolhidos', () => {
       renderizar()
 
       expect(linhasDeDados()).toHaveLength(5)
       for (const [indice, nome] of NOMES_APONTAMENTOS.entries()) {
         expect(within(within(linhasDeDados()[indice]).getAllByRole('cell')[0]).getByText(nome)).toBeInTheDocument()
+        expect(detalhesDe(nome)).toBeNull()
       }
+    })
+
+    it('não há coluna nem botão "Expandir detalhes" da tabela (a expansão fica no menu de ações)', () => {
+      renderizar()
+
+      expect(screen.queryByRole('button', { name: /^(Expandir|Recolher) detalhes$/ })).not.toBeInTheDocument()
+      expect(within(tabela()).queryByRole('columnheader', { name: 'Detalhes' })).not.toBeInTheDocument()
     })
 
     it('lista vazia exibe o textoVazio informado e nenhum botão', () => {
@@ -176,136 +204,244 @@ describe('F4.2 — TabelaApontamentos (tabela da listagem de apontamentos)', () 
       expect(celula('Conciliação bancária concluída', 5)).toHaveTextContent('15/09/2026 14:30')
       expect(celula('Conciliação bancária concluída', 5)).toHaveTextContent('por João Lima')
     })
-  })
 
-  describe('linha expansível com a alteração de situação (RNF-01)', () => {
-    it('apontamento com situação alterada tem o botão "Expandir detalhes"; sem alteração não tem', () => {
+    it('a coluna Ações tem o menu "Ações do apontamento {nome}" (aria-haspopup="menu") em todas as linhas', () => {
       renderizar()
 
-      expect(within(linhaDoApontamento('Conciliação bancária concluída')).getByRole('button', { name: 'Expandir detalhes' })).toBeInTheDocument()
-      expect(within(linhaDoApontamento('Relatório mensal entregue')).getByRole('button', { name: 'Expandir detalhes' })).toBeInTheDocument()
-      expect(within(linhaDoApontamento('Roteiro de visitas elaborado')).queryByRole('button', { name: 'Expandir detalhes' })).not.toBeInTheDocument()
-      expect(within(linhaDoApontamento('Chamados resolvidos no prazo')).queryByRole('button', { name: 'Expandir detalhes' })).not.toBeInTheDocument()
+      for (const nome of NOMES_APONTAMENTOS) {
+        const gatilho = within(celula(nome, COL_ACOES)).getByRole('button', { name: rotuloAcoesApontamento(nome) })
+        expect(gatilho).toHaveAttribute('aria-haspopup', 'menu')
+      }
     })
 
-    it('expandir mostra "Situação alterada em {data} por {usuário}" e recolher esconde', async () => {
-      const user = userEvent.setup()
+    it('a coluna Ações não tem mais os botões "Desativar/Ativar/Excluir apontamento {nome}"', () => {
+      renderizar()
+
+      expect(screen.queryByRole('button', { name: /^(Desativar|Ativar|Excluir) apontamento / })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^(Desativar|Ativar|Excluir)$/ })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('detalhes da linha com a alteração de situação ("Ver detalhes" no menu de ações — RNF-01)', () => {
+    it('"Ver detalhes" mostra "Situação alterada em {data} por {usuário}" só naquela linha', async () => {
+      const user = usuarioRapido()
       renderizar()
 
       expect(screen.queryByText(/Situação alterada em/)).not.toBeInTheDocument()
-      await user.click(within(linhaDoApontamento('Conciliação bancária concluída')).getByRole('button', { name: 'Expandir detalhes' }))
+      const detalhes = await verDetalhes(user, 'Conciliação bancária concluída')
 
-      expect(screen.getByText('Situação alterada em 20/10/2026 11:05 por Ana Costa')).toBeInTheDocument()
-
-      await user.click(within(linhaDoApontamento('Conciliação bancária concluída')).getByRole('button', { name: 'Recolher detalhes' }))
-      expect(screen.queryByText(/Situação alterada em/)).not.toBeInTheDocument()
+      expect(within(detalhes).getByText('Situação alterada em 20/10/2026 11:05 por Ana Costa')).toBeInTheDocument()
+      expect(detalhesDe('Relatório mensal entregue')).toBeNull()
+      expect(screen.queryByText(/^Situação alterada em 28\/10\/2026/)).not.toBeInTheDocument()
     })
 
     it('cada linha expande o próprio registro', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       renderizar()
 
-      await user.click(within(linhaDoApontamento('Relatório mensal entregue')).getByRole('button', { name: 'Expandir detalhes' }))
+      const detalhes = await verDetalhes(user, 'Relatório mensal entregue')
 
-      expect(screen.getByText('Situação alterada em 28/10/2026 10:00 por Maria Souza')).toBeInTheDocument()
+      expect(within(detalhes).getByText('Situação alterada em 28/10/2026 10:00 por Maria Souza')).toBeInTheDocument()
       expect(screen.queryByText(/por Ana Costa/)).not.toBeInTheDocument()
+    })
+
+    it('aberto, o item vira "Ocultar detalhes"; escolhê-lo recolhe a linha e o item volta a "Ver detalhes"', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await verDetalhes(user, 'Conciliação bancária concluída')
+
+      const menu = await abrirMenuAcoes(user, rotuloAcoesApontamento('Conciliação bancária concluída'))
+      expect(within(menu).queryByRole('menuitem', { name: 'Ver detalhes' })).not.toBeInTheDocument()
+      await user.click(within(menu).getByRole('menuitem', { name: 'Ocultar detalhes' }))
+
+      expect(detalhesDe('Conciliação bancária concluída')).toBeNull()
+      expect(screen.queryByText(/Situação alterada em/)).not.toBeInTheDocument()
+      expect((await itensDoMenuAcoes(user, rotuloAcoesApontamento('Conciliação bancária concluída')))[0]).toBe('Ver detalhes')
+    })
+
+    it('o rótulo "Ocultar detalhes" vale só para a linha aberta', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await verDetalhes(user, 'Conciliação bancária concluída')
+
+      expect((await itensDoMenuAcoes(user, rotuloAcoesApontamento('Relatório mensal entregue')))[0]).toBe('Ver detalhes')
+      expect((await itensDoMenuAcoes(user, rotuloAcoesApontamento('Conciliação bancária concluída')))[0]).toBe('Ocultar detalhes')
+    })
+
+    it('duas linhas podem ficar abertas; recolher uma não afeta a outra', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await verDetalhes(user, 'Conciliação bancária concluída')
+      await verDetalhes(user, 'Relatório mensal entregue')
+
+      expect(detalhesDe('Conciliação bancária concluída')).not.toBeNull()
+      expect(detalhesDe('Relatório mensal entregue')).not.toBeNull()
+
+      await escolherAcao(user, rotuloAcoesApontamento('Conciliação bancária concluída'), 'Ocultar detalhes')
+
+      expect(detalhesDe('Conciliação bancária concluída')).toBeNull()
+      expect(detalhesDe('Relatório mensal entregue')).not.toBeNull()
+    })
+
+    it('linha sem situação alterada não tem "Ver detalhes" no menu', async () => {
+      const user = usuarioRapido()
+      renderizar()
+
+      for (const nome of SEM_DETALHES) {
+        const itens = await itensDoMenuAcoes(user, rotuloAcoesApontamento(nome))
+        expect(itens).not.toContain('Ver detalhes')
+        expect(itens).not.toContain('Ocultar detalhes')
+      }
+    })
+
+    it('"Ver detalhes" não chama nenhum callback', async () => {
+      const user = usuarioRapido()
+      const { onAlterarSituacao, onExcluir } = renderizar()
+
+      await verDetalhes(user, 'Conciliação bancária concluída')
+
+      expect(onAlterarSituacao).not.toHaveBeenCalled()
+      expect(onExcluir).not.toHaveBeenCalled()
     })
   })
 
-  describe('coluna Ações por permissão', () => {
-    it('com podeAlterarSituacao, mostra "Desativar" nos ativos e "Ativar" nos inativos, com aria-label nomeando o apontamento', () => {
+  describe('itens do menu de ações por permissão e por existência de detalhes', () => {
+    it('com todas as permissões: Ver detalhes (se houver), Desativar/Ativar e Excluir, nesta ordem', async () => {
+      const user = usuarioRapido()
+      renderizar()
+
+      expect(await itensDoMenuAcoes(user, rotuloAcoesApontamento('Roteiro de visitas elaborado'))).toEqual(['Desativar', 'Excluir'])
+      expect(await itensDoMenuAcoes(user, rotuloAcoesApontamento('Chamados resolvidos no prazo'))).toEqual(['Desativar', 'Excluir'])
+      expect(await itensDoMenuAcoes(user, rotuloAcoesApontamento('Conciliação bancária concluída'))).toEqual([
+        'Ver detalhes',
+        'Ativar',
+        'Excluir',
+      ])
+      expect(await itensDoMenuAcoes(user, rotuloAcoesApontamento('Relatório mensal entregue'))).toEqual([
+        'Ver detalhes',
+        'Ativar',
+        'Excluir',
+      ])
+    })
+
+    it('"Excluir" é o item de perigo; os demais não', async () => {
+      const user = usuarioRapido()
+      renderizar()
+
+      const menu = await abrirMenuAcoes(user, rotuloAcoesApontamento('Conciliação bancária concluída'))
+
+      expect(within(menu).getByRole('menuitem', { name: 'Excluir' })).toHaveClass('menu-acoes__item--perigo')
+      expect(within(menu).getByRole('menuitem', { name: 'Ativar' })).not.toHaveClass('menu-acoes__item--perigo')
+      expect(within(menu).getByRole('menuitem', { name: 'Ver detalhes' })).not.toHaveClass('menu-acoes__item--perigo')
+    })
+
+    it('só com podeAlterarSituacao: "Desativar" nos ativos e "Ativar" nos inativos, sem "Excluir"', async () => {
+      const user = usuarioRapido()
       renderizar({ podeExcluir: false })
 
-      const desativar = within(celula('Roteiro de visitas elaborado', 6)).getByRole('button', { name: 'Desativar apontamento Roteiro de visitas elaborado' })
-      expect(desativar).toHaveTextContent('Desativar')
-      const ativar = within(celula('Conciliação bancária concluída', 6)).getByRole('button', { name: 'Ativar apontamento Conciliação bancária concluída' })
-      expect(ativar).toHaveTextContent('Ativar')
-
-      expect(screen.getAllByRole('button', { name: /^Desativar apontamento / })).toHaveLength(3)
-      expect(screen.getAllByRole('button', { name: /^Ativar apontamento / })).toHaveLength(2)
+      for (const nome of SEM_DETALHES) {
+        expect(await itensDoMenuAcoes(user, rotuloAcoesApontamento(nome))).toEqual(['Desativar'])
+      }
+      for (const nome of COM_DETALHES) {
+        expect(await itensDoMenuAcoes(user, rotuloAcoesApontamento(nome))).toEqual(['Ver detalhes', 'Ativar'])
+      }
     })
 
-    it('com podeExcluir, mostra "Excluir" em todas as linhas com aria-label "Excluir apontamento {nome}"', () => {
+    it('só com podeExcluir: "Excluir" em todas as linhas, sem Desativar/Ativar', async () => {
+      const user = usuarioRapido()
       renderizar({ podeAlterarSituacao: false })
 
-      const botoes = screen.getAllByRole('button', { name: /^Excluir apontamento / })
-      expect(botoes.map((botao) => botao.getAttribute('aria-label'))).toEqual(
-        NOMES_APONTAMENTOS.map((nome) => `Excluir apontamento ${nome}`),
-      )
-      expect(botoes[0]).toHaveTextContent('Excluir')
-      expect(botoes[0]).toHaveClass('botao--perigo')
+      for (const nome of SEM_DETALHES) {
+        expect(await itensDoMenuAcoes(user, rotuloAcoesApontamento(nome))).toEqual(['Excluir'])
+      }
+      for (const nome of COM_DETALHES) {
+        expect(await itensDoMenuAcoes(user, rotuloAcoesApontamento(nome))).toEqual(['Ver detalhes', 'Excluir'])
+      }
     })
 
-    it('sem podeAlterarSituacao não há botões Desativar/Ativar', () => {
-      renderizar({ podeAlterarSituacao: false })
-
-      expect(screen.queryByRole('button', { name: /^Desativar apontamento / })).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: /^Ativar apontamento / })).not.toBeInTheDocument()
-    })
-
-    it('sem podeExcluir não há botões Excluir', () => {
-      renderizar({ podeExcluir: false })
-
-      expect(screen.queryByRole('button', { name: /^Excluir apontamento / })).not.toBeInTheDocument()
-    })
-
-    it('sem nenhuma permissão, a célula Ações não tem botão algum (as linhas expansíveis continuam)', () => {
+    it('sem nenhuma permissão: linhas com detalhes têm só "Ver detalhes"', async () => {
+      const user = usuarioRapido()
       renderizar({ podeAlterarSituacao: false, podeExcluir: false })
 
-      for (const nome of NOMES_APONTAMENTOS) {
-        expect(within(celula(nome, 6)).queryByRole('button')).not.toBeInTheDocument()
+      for (const nome of COM_DETALHES) {
+        expect(await itensDoMenuAcoes(user, rotuloAcoesApontamento(nome), celula(nome, COL_ACOES))).toEqual(['Ver detalhes'])
       }
-      expect(within(linhaDoApontamento('Conciliação bancária concluída')).getByRole('button', { name: 'Expandir detalhes' })).toBeInTheDocument()
     })
 
-    it('nunca oferece uma ação "Editar" (RF-20)', () => {
+    it('sem nenhuma permissão e sem detalhes, a célula Ações fica vazia (sem menu)', () => {
+      renderizar({ podeAlterarSituacao: false, podeExcluir: false })
+
+      for (const nome of SEM_DETALHES) {
+        const acoes = celula(nome, COL_ACOES)
+        expect(within(acoes).queryByRole('button')).not.toBeInTheDocument()
+        expect(acoes).toHaveTextContent(/^$/)
+      }
+      expect(screen.getAllByRole('button', { name: /^Ações do apontamento / })).toHaveLength(COM_DETALHES.length)
+    })
+
+    it('nunca oferece uma ação "Editar" (RF-20)', async () => {
+      const user = usuarioRapido()
       renderizar()
 
       expect(screen.queryByRole('button', { name: /editar/i })).not.toBeInTheDocument()
+      for (const nome of NOMES_APONTAMENTOS) {
+        const itens = await itensDoMenuAcoes(user, rotuloAcoesApontamento(nome))
+        expect(itens.some((item) => /editar/i.test(item))).toBe(false)
+      }
     })
   })
 
   describe('callbacks', () => {
-    it('clicar em Desativar chama onAlterarSituacao com o apontamento da linha', async () => {
-      const user = userEvent.setup()
+    it('"Desativar" chama onAlterarSituacao com o apontamento da linha e fecha o menu', async () => {
+      const user = usuarioRapido()
       const { onAlterarSituacao, onExcluir } = renderizar()
 
-      await user.click(screen.getByRole('button', { name: 'Desativar apontamento Chamados resolvidos no prazo' }))
+      await escolherAcao(user, rotuloAcoesApontamento('Chamados resolvidos no prazo'), 'Desativar')
 
       expect(onAlterarSituacao).toHaveBeenCalledTimes(1)
       expect(onAlterarSituacao).toHaveBeenCalledWith(CHAMADOS)
       expect(onExcluir).not.toHaveBeenCalled()
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     })
 
-    it('clicar em Ativar chama onAlterarSituacao com o apontamento inativo da linha', async () => {
-      const user = userEvent.setup()
+    it('"Ativar" chama onAlterarSituacao com o apontamento inativo da linha', async () => {
+      const user = usuarioRapido()
       const { onAlterarSituacao } = renderizar()
 
-      await user.click(screen.getByRole('button', { name: 'Ativar apontamento Relatório mensal entregue' }))
+      await escolherAcao(user, rotuloAcoesApontamento('Relatório mensal entregue'), 'Ativar')
 
       expect(onAlterarSituacao).toHaveBeenCalledWith(RELATORIO)
       expect(onAlterarSituacao.mock.calls[0][0]).toBe(APONTAMENTOS[4])
     })
 
-    it('clicar em Excluir chama onExcluir com o apontamento da linha (inclusive os que têm indicadores)', async () => {
-      const user = userEvent.setup()
+    it('"Excluir" chama onExcluir com o apontamento da linha (inclusive os que têm indicadores)', async () => {
+      const user = usuarioRapido()
       const { onAlterarSituacao, onExcluir } = renderizar()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir apontamento Horas de treinamento realizadas' }))
+      await escolherAcao(user, rotuloAcoesApontamento('Horas de treinamento realizadas'), 'Excluir')
 
       expect(onExcluir).toHaveBeenCalledTimes(1)
       expect(onExcluir).toHaveBeenCalledWith(TREINAMENTOS)
       expect(onAlterarSituacao).not.toHaveBeenCalled()
     })
 
-    it('o botão Excluir aparece também no vinculado a dashboard e no desativado-mas-usado (o bloqueio é decidido no diálogo)', async () => {
-      const user = userEvent.setup()
+    it('"Excluir" aparece também no vinculado a dashboard e no desativado-mas-usado (o bloqueio é decidido no diálogo)', async () => {
+      const user = usuarioRapido()
       const { onExcluir } = renderizar()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir apontamento Roteiro de visitas elaborado' }))
-      await user.click(screen.getByRole('button', { name: 'Excluir apontamento Conciliação bancária concluída' }))
+      await escolherAcao(user, rotuloAcoesApontamento('Roteiro de visitas elaborado'), 'Excluir')
+      await escolherAcao(user, rotuloAcoesApontamento('Conciliação bancária concluída'), 'Excluir')
 
       expect(onExcluir.mock.calls.map(([apontamento]) => apontamento)).toEqual([ROTEIRO, CONCILIACAO])
+    })
+
+    it('depois de escolher uma ação, o foco volta ao gatilho do menu da linha', async () => {
+      const user = usuarioRapido()
+      renderizar()
+
+      await escolherAcao(user, rotuloAcoesApontamento('Chamados resolvidos no prazo'), 'Excluir')
+
+      expect(screen.getByRole('button', { name: rotuloAcoesApontamento('Chamados resolvidos no prazo') })).toHaveFocus()
     })
   })
 })

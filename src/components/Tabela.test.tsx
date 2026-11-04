@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../test/usuario'
 import { describe, expect, it } from 'vitest'
 import { Tabela, type ColunaTabela } from './Tabela'
 
@@ -97,7 +97,7 @@ describe('F1.7 — Tabela', () => {
     })
 
     it('ao clicar, exibe o conteúdo expandido e troca o botão para "Recolher detalhes"', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       render(<Tabela colunas={colunas} dados={dados} obterChave={(linha) => linha.id} expandir={expandir} />)
 
       await user.click(screen.getByRole('button', { name: 'Expandir detalhes' }))
@@ -125,7 +125,7 @@ describe('F1.7 — Tabela', () => {
     })
 
     it('permite duas linhas expandidas ao mesmo tempo', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const todasExpansiveis = (linha: Apontamento) => <p>Histórico de {linha.nome}</p>
       render(
         <Tabela colunas={colunas} dados={dados} obterChave={(linha) => linha.id} expandir={todasExpansiveis} />,
@@ -142,7 +142,7 @@ describe('F1.7 — Tabela', () => {
     })
 
     it('recolher uma linha não afeta a outra que continua expandida', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const todasExpansiveis = (linha: Apontamento) => <p>Histórico de {linha.nome}</p>
       render(
         <Tabela colunas={colunas} dados={dados} obterChave={(linha) => linha.id} expandir={todasExpansiveis} />,
@@ -161,7 +161,7 @@ describe('F1.7 — Tabela', () => {
     })
 
     it('o botão aberto aponta via aria-controls para a linha de detalhes existente no documento', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       render(<Tabela colunas={colunas} dados={dados} obterChave={(linha) => linha.id} expandir={expandir} />)
 
       await user.click(screen.getByRole('button', { name: 'Expandir detalhes' }))
@@ -175,7 +175,7 @@ describe('F1.7 — Tabela', () => {
     })
 
     it('aceita rótulos personalizados para expandir e recolher', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       render(
         <Tabela
           colunas={colunas}

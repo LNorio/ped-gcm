@@ -1,0 +1,12 @@
+/* Diálogo de concluir a construção de um dado externo (F5.7). */
+
+.dialogo-concluir {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dialogo-concluir__texto {
+  margin: 0;
+  color: var(--cor-texto-secundario);
+}

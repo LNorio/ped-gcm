@@ -1,5 +1,5 @@
 import { act, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EVENTO_SESSAO_EXPIRADA, apiFetch } from '../services/api'
 import { limparToken, obterToken } from '../services/sessao'
@@ -33,7 +33,7 @@ describe('F2.5 — Sair e sessão expirada (integração)', () => {
 
   describe('Sair', () => {
     it('encerra a sessão (token e estado) e volta ao login, sem mensagem de erro', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularSessaoValida()
       renderizarApp('/tipos')
       await screen.findByRole('heading', { level: 1, name: 'Tipos' })
@@ -49,7 +49,7 @@ describe('F2.5 — Sair e sessão expirada (integração)', () => {
     })
 
     it('depois de sair, abrir uma aba continua exigindo login', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularSessaoValida()
       const { roteador } = renderizarApp('/')
       await screen.findByRole('heading', { level: 1, name: 'Início' })
@@ -66,7 +66,7 @@ describe('F2.5 — Sair e sessão expirada (integração)', () => {
     })
 
     it('depois de sair, um novo login entra normalmente', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularSessaoValida({
         'POST /api/valida-usuario': () => respostaJson({ token: 'token-novo' }),
       })
@@ -118,7 +118,7 @@ describe('F2.5 — Sair e sessão expirada (integração)', () => {
     })
 
     it('após a sessão expirar, entrar de novo abre o Início e remove o aviso', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularSessaoValida({
         'POST /api/valida-usuario': () => respostaJson({ token: 'token-novo' }),
       })

@@ -1,5 +1,5 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MENSAGEM_SEM_CONEXAO, mensagemPadraoPorStatus } from '../../services/api'
 import { definirToken, limparToken } from '../../services/sessao'
@@ -72,7 +72,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
 
   describe('confirmação (RNF-07)', () => {
     it('clicar em "Excluir tipo Logística" abre o diálogo "Excluir tipo" com o impacto e os botões Excluir (perigo) e Cancelar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComEstado()
       await abrirTela()
 
@@ -89,7 +89,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
     })
 
     it('"Cancelar" fecha o diálogo sem chamar a API e mantém a linha', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const chamadas = simularApiComEstado()
       await abrirTela()
 
@@ -103,7 +103,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
     })
 
     it('Esc fecha o diálogo sem chamar a API', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const chamadas = simularApiComEstado()
       await abrirTela()
 
@@ -116,7 +116,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
     })
 
     it('o diálogo descreve o tipo clicado (não o primeiro personalizado)', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComEstado()
       await abrirTela()
 
@@ -132,7 +132,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
 
   describe('bloqueio por apontamentos vinculados (RN-13)', () => {
     it('tipo personalizado com apontamentos abre o diálogo em modo bloqueio, com o motivo e só o botão "Entendi"', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const chamadas = simularApiComEstado()
       await abrirTela()
 
@@ -147,7 +147,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
     })
 
     it('"Entendi" fecha o diálogo sem chamar a API e a linha permanece', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const chamadas = simularApiComEstado()
       await abrirTela()
 
@@ -160,7 +160,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
     })
 
     it('o motivo usa a quantidade de apontamentos do tipo clicado', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApi(fetchFalso, {
         'GET /api/ped/tipos-apontamento': () =>
           respostaJson([{ ...TIPO_LOGISTICA_API, 'quantidade apontamentos': 1 }, TIPO_MARKETING_API]),
@@ -179,7 +179,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
 
   describe('exclusão confirmada', () => {
     it('confirmar chama DELETE /api/ped/tipos-apontamento/{id} com o token, desabilita Excluir durante a chamada, fecha o diálogo, notifica "Tipo excluído." e remove a linha', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       let liberar: () => void = () => {}
       const chamadas = simularApiComEstado(
         () =>
@@ -214,7 +214,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
     })
 
     it('Cancelar e Esc são ignorados enquanto a exclusão está em andamento; o diálogo fecha quando a API responde', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       let liberar: () => void = () => {}
       const chamadas = simularApiComEstado(
         () =>
@@ -244,7 +244,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
     })
 
     it('clicar duas vezes em Excluir dispara uma única chamada DELETE', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       let liberar: () => void = () => {}
       const chamadas = simularApiComEstado(
         () =>
@@ -266,7 +266,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
     })
 
     it('após a exclusão, a contagem do filtro Personalizado é atualizada', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComEstado()
       await abrirTela()
 
@@ -286,7 +286,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
 
   describe('erros da API na exclusão', () => {
     it('400: fecha o diálogo, mostra a mensagem da API em um alerta de erro e mantém a linha, sem notificação de sucesso', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const chamadas = simularApiComEstado(() => respostaErro(400, 'Tipo possui apontamentos vinculados.'))
       await abrirTela()
 
@@ -303,7 +303,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
     })
 
     it('403 ao Validador: mostra a mensagem da API (a tela não bloqueia o Validador; quem decide é a API)', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComEstado(() => respostaErro(403, 'Apenas o administrador pode excluir tipos.'))
       await abrirTela('validador')
 
@@ -316,7 +316,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
     })
 
     it('erro sem mensagem usa a mensagem padrão do status', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComEstado(() => respostaErro(403))
       await abrirTela()
 
@@ -327,7 +327,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
     })
 
     it('falha de rede mostra a mensagem padrão de conexão e mantém a linha', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComEstado(() => Promise.reject(new TypeError('Failed to fetch')))
       await abrirTela()
 
@@ -339,7 +339,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
     })
 
     it('depois de um erro, uma nova exclusão bem-sucedida remove o alerta e notifica o sucesso', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       let tentativa = 0
       simularApiComEstado(() => {
         tentativa += 1
@@ -362,7 +362,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
 
   describe('perfis', () => {
     it('Validador vê os botões Excluir dos personalizados e abre a confirmação como o Admin', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       simularApiComEstado()
       await abrirTela('validador')
 

@@ -3,9 +3,9 @@
  *
  * Lista os apontamentos filtrados pela API (busca, situação e tipo), permite cadastrar novos
  * (todos os perfis), ativar/desativar e excluir conforme a matriz de ações (`usePermissoes().podeAcao`),
- * sempre com confirmação (`useAcaoConfirmada`). Apontamentos não são editáveis.
+ * sempre com confirmação (`useAcoesSituacaoExclusao`, sobre `useAcaoConfirmada`). Apontamentos não são editáveis.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Aviso } from '../../components/Aviso'
 import { BarraFiltros, type BotaoFiltro, type OpcaoSituacao } from '../../components/BarraFiltros'
 import { Botao } from '../../components/Botao'
@@ -13,7 +13,7 @@ import { Card } from '../../components/Card'
 import { Dialogo } from '../../components/Dialogo'
 import { EstadoCarga } from '../../components/EstadoCarga'
 import { Notificacao } from '../../components/Notificacao'
-import { useAcaoConfirmada } from '../../hooks/useAcaoConfirmada'
+import { useAcoesSituacaoExclusao } from '../../hooks/useAcoesSituacaoExclusao'
 import { mensagemDeErro } from '../../services/api'
 import { ROTULOS_SITUACAO_FILTRO, SITUACOES_FILTRO, type SituacaoFiltro } from '../../services/apontamentosService'
 import { useSessao } from '../../sessao/SessaoProvider'
@@ -69,44 +69,17 @@ export function ApontamentosPage() {
   const [erroCadastro, setErroCadastro] = useState<string | null>(null)
   const salvandoRef = useRef(false)
 
-  /** Limpa o erro das duas ações (chamado no sucesso de qualquer ação ou do cadastro). */
-  const limparErrosDasAcoesRef = useRef<() => void>(() => {})
-
-  const situacao = useAcaoConfirmada<Apontamento>(
-    async (apontamento) => {
-      await alterarSituacao(apontamento.id, !apontamento.ativo)
-    },
-    {
-      onSucesso: () => {
-        limparErrosDasAcoesRef.current()
-        setNotificacao(MENSAGEM_SITUACAO_ALTERADA)
-      },
-    },
-  )
-
-  const exclusao = useAcaoConfirmada<Apontamento>(
-    async (apontamento) => {
-      await excluir(apontamento.id)
-    },
-    {
-      onSucesso: () => {
-        limparErrosDasAcoesRef.current()
-        setNotificacao(MENSAGEM_EXCLUIDO)
-      },
-    },
-  )
-
-  const limparErroSituacao = situacao.limparErro
-  const limparErroExclusao = exclusao.limparErro
-  useEffect(() => {
-    limparErrosDasAcoesRef.current = () => {
-      limparErroSituacao()
-      limparErroExclusao()
-    }
-  }, [limparErroSituacao, limparErroExclusao])
-
-  /** Erro da última alteração de situação ou exclusão, exibido na página. */
-  const erroAcao = situacao.erro ?? exclusao.erro
+  const {
+    situacao,
+    exclusao,
+    erro: erroAcao,
+    limparErros,
+  } = useAcoesSituacaoExclusao<Apontamento>({
+    alterarSituacao: (apontamento) => alterarSituacao(apontamento.id, !apontamento.ativo),
+    excluir: (apontamento) => excluir(apontamento.id),
+    onNotificar: setNotificacao,
+    mensagens: { situacao: MENSAGEM_SITUACAO_ALTERADA, exclusao: MENSAGEM_EXCLUIDO },
+  })
 
   const filtroAtivo =
     filtros.busca !== FILTROS_PADRAO.busca ||
@@ -139,7 +112,7 @@ export function ApontamentosPage() {
     try {
       await criar(dados)
       setCadastroAberto(false)
-      limparErrosDasAcoesRef.current()
+      limparErros()
       setNotificacao(MENSAGEM_CADASTRADO)
     } catch (falha) {
       setErroCadastro(mensagemDeErro(falha))
@@ -147,17 +120,6 @@ export function ApontamentosPage() {
       salvandoRef.current = false
       setSalvando(false)
     }
-  }
-
-  function confirmarSituacao() {
-    // Mantém um único erro de ação na tela: a nova tentativa substitui o erro da outra ação.
-    exclusao.limparErro()
-    void situacao.confirmar()
-  }
-
-  function confirmarExclusao() {
-    situacao.limparErro()
-    void exclusao.confirmar()
   }
 
   return (
@@ -206,7 +168,12 @@ export function ApontamentosPage() {
         ) : null}
       </Card>
 
-      <Dialogo aberto={cadastroAberto} titulo="Novo apontamento" onFechar={fecharCadastro}>
+      <Dialogo
+        aberto={cadastroAberto}
+        titulo="Novo apontamento"
+        onFechar={fecharCadastro}
+        className="dialogo--largo"
+      >
         <FormularioApontamento
           tipos={tiposDoUsuario}
           salvando={salvando}
@@ -219,14 +186,14 @@ export function ApontamentosPage() {
       <DialogoSituacaoApontamento
         apontamento={situacao.alvo}
         alterando={situacao.executando}
-        onConfirmar={confirmarSituacao}
+        onConfirmar={() => void situacao.confirmar()}
         onCancelar={situacao.cancelar}
       />
 
       <DialogoExcluirApontamento
         apontamento={exclusao.alvo}
         excluindo={exclusao.executando}
-        onConfirmar={confirmarExclusao}
+        onConfirmar={() => void exclusao.confirmar()}
         onCancelar={exclusao.cancelar}
       />
 

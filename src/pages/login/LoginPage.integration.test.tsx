@@ -1,5 +1,5 @@
 import { screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MENSAGEM_SEM_CONEXAO } from '../../services/api'
 import { limparToken, obterToken } from '../../services/sessao'
@@ -22,7 +22,7 @@ describe('F2.2 — Tela de login (integração: login → Início)', () => {
   })
 
   async function preencherEEntrar(usuario: string, senha: string) {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     await user.type(await screen.findByLabelText('Usuário'), usuario)
     await user.type(screen.getByLabelText('Senha'), senha)
     await user.click(screen.getByRole('button', { name: 'Entrar' }))
@@ -133,7 +133,7 @@ describe('F2.2 — Tela de login (integração: login → Início)', () => {
       'GET /api/ped/acesso': () => respostaJson(acessoApi()),
     })
     renderizarApp('/login')
-    const user = userEvent.setup()
+    const user = usuarioRapido()
 
     await preencherEEntrar('fulano', 'errada')
     await screen.findByRole('alert')

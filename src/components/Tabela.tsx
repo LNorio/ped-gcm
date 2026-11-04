@@ -32,6 +32,12 @@ export interface TabelaProps<T> {
   rotuloExpandir?: string
   /** Rótulo do botão quando a linha está expandida. */
   rotuloRecolher?: string
+  /**
+   * Expansão controlada pelo pai: chaves (de `obterChave`) das linhas abertas. Quando informada,
+   * a tabela não mostra a coluna nem o botão de expandir e segue o conjunto a cada renderização.
+   * Sem ela, a expansão usa estado interno e um botão por linha.
+   */
+  expandidas?: ReadonlySet<string | number>
   className?: string
 }
 
@@ -55,12 +61,16 @@ export function Tabela<T>({
   expandir,
   rotuloExpandir = 'Expandir detalhes',
   rotuloRecolher = 'Recolher detalhes',
+  expandidas: expandidasControladas,
   className,
 }: TabelaProps<T>) {
   const idBase = useId()
-  const [expandidas, setExpandidas] = useState<Set<string | number>>(() => new Set())
+  const [expandidasInternas, setExpandidas] = useState<Set<string | number>>(() => new Set())
 
-  const totalColunas = colunas.length + (expandir ? 1 : 0)
+  const controlada = expandidasControladas !== undefined
+  const expandidas: ReadonlySet<string | number> = expandidasControladas ?? expandidasInternas
+  const comColunaExpandir = Boolean(expandir) && !controlada
+  const totalColunas = colunas.length + (comColunaExpandir ? 1 : 0)
 
   function alternar(chave: string | number) {
     setExpandidas((atual) => {
@@ -89,7 +99,7 @@ export function Tabela<T>({
                 {coluna.titulo}
               </th>
             ))}
-            {expandir ? (
+            {comColunaExpandir ? (
               <th scope="col" className="rotulo-secao tabela__coluna-expandir">
                 <span className="visualmente-oculto">Detalhes</span>
               </th>
@@ -121,7 +131,7 @@ export function Tabela<T>({
                       {coluna.render ? coluna.render(linha) : valorPadrao(linha, coluna.chave)}
                     </td>
                   ))}
-                  {expandir ? (
+                  {comColunaExpandir ? (
                     <td className="tabela__coluna-expandir">
                       {expansivel ? (
                         <Botao

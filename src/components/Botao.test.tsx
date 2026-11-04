@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import { Botao } from './Botao'
 
@@ -19,7 +19,7 @@ describe('F1.6 — Componentes base: Botao', () => {
   })
 
   it('chama onClick ao ser clicado', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const onClick = vi.fn()
     render(<Botao onClick={onClick}>Salvar</Botao>)
 
@@ -29,7 +29,7 @@ describe('F1.6 — Componentes base: Botao', () => {
   })
 
   it('não chama onClick quando desabilitado', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const onClick = vi.fn()
     render(
       <Botao onClick={onClick} disabled>

@@ -27,13 +27,6 @@
   color: var(--cor-texto-suave);
 }
 
-.tabela-apontamentos__acoes {
-  display: inline-flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
 .tabela-apontamentos__detalhe {
   margin: 0;
   color: var(--cor-texto-secundario);

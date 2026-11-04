@@ -1,0 +1,47 @@
+/*
+ * Aba "Dados Externos" (F5.2–F5.9): cabeçalho com título e "Novo dado externo", estado de carga,
+ * avisos da página, card com a barra de filtros e a tabela (corpo sem padding) e o resumo do
+ * pedido enviado à TI.
+ */
+
+.dados-externos-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.dados-externos-page__cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.dados-externos-page h1 {
+  margin: 0;
+}
+
+.dados-externos-page__card {
+  overflow: hidden;
+}
+
+.dados-externos-page__pedido {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dados-externos-page__pedido p {
+  margin: 0;
+}
+
+.dados-externos-page__pedido-titulo {
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .dados-externos-page {
+    gap: 1rem;
+  }
+}

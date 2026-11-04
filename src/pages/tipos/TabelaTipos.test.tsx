@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import { paraTipoApontamento } from '../../services/adaptadores'
 import { NOMES_TIPOS_FIXOS, TIPO_LOGISTICA_API, TIPO_MARKETING_API, tiposApi } from '../../test/tiposFalsos'
@@ -121,7 +121,7 @@ describe('F3.2 — TabelaTipos (tabela da listagem de tipos)', () => {
   })
 
   it('clicar em Excluir chama onExcluir com o tipo da linha clicada', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const onExcluir = renderizar()
 
     await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
@@ -131,7 +131,7 @@ describe('F3.2 — TabelaTipos (tabela da listagem de tipos)', () => {
   })
 
   it('cada botão passa o próprio tipo (não o primeiro personalizado)', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const onExcluir = renderizar()
 
     await user.click(screen.getByRole('button', { name: 'Excluir tipo Marketing' }))

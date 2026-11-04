@@ -357,21 +357,92 @@ describe('F4.1 — Serviço de apontamentos', () => {
       })
     })
 
-    it('resposta 2xx fora do formato (sem id/nome) rejeita com ApiError de resposta inválida', async () => {
-      simularApi(fetchFalso, { [`POST ${ROTA}`]: () => respostaJson({ mensagem: 'Apontamento criado.' }, 201) })
+    it('envelope { apontamento } (sem mensagem) devolve o apontamento convertido', async () => {
+      simularApi(fetchFalso, { [`POST ${ROTA}`]: () => respostaJson({ apontamento: RESPOSTA_CRIADO }, 201) })
+
+      const criado = await criarApontamento({ nome: 'Visitas a clientes novos', idTipo: 1, tipoValor: 'numeral' })
+
+      expect(criado).toMatchObject({ id: 10, nome: 'Visitas a clientes novos', ativo: true, idTipo: 1, tipoValor: 'numeral' })
+    })
+
+    it('envelope { mensagem, apontamento } devolve o apontamento convertido', async () => {
+      simularApi(fetchFalso, {
+        [`POST ${ROTA}`]: () => respostaJson({ mensagem: 'Apontamento cadastrado.', apontamento: RESPOSTA_CRIADO }, 201),
+      })
+
+      const criado = await criarApontamento({ nome: 'Visitas a clientes novos', idTipo: 1, tipoValor: 'numeral' })
+
+      expect(criado).toMatchObject({
+        id: 10,
+        nome: 'Visitas a clientes novos',
+        tipo: 'Comercial',
+        tipoValor: 'numeral',
+        cadastradoPor: 'Fulano',
+      })
+    })
+
+    it('resposta 2xx só com { mensagem } resolve null, sem erro (o apontamento foi gravado)', async () => {
+      simularApi(fetchFalso, { [`POST ${ROTA}`]: () => respostaJson({ mensagem: 'apontamento cadastrado' }, 201) })
+
+      await expect(criarApontamento({ nome: 'Visitas', idTipo: 1, tipoValor: 'numeral' })).resolves.toBeNull()
+    })
+
+    it('resposta 201 com corpo vazio resolve null, sem erro', async () => {
+      simularApi(fetchFalso, { [`POST ${ROTA}`]: () => new Response('', { status: 201 }) })
+
+      await expect(criarApontamento({ nome: 'Visitas', idTipo: 1, tipoValor: 'numeral' })).resolves.toBeNull()
+    })
+
+    it('resposta 204 sem corpo resolve null, sem erro', async () => {
+      simularApi(fetchFalso, { [`POST ${ROTA}`]: () => new Response(null, { status: 204 }) })
+
+      await expect(criarApontamento({ nome: 'Visitas', idTipo: 1, tipoValor: 'numeral' })).resolves.toBeNull()
+    })
+
+    it('resposta 2xx só com { id } resolve null, sem erro', async () => {
+      simularApi(fetchFalso, { [`POST ${ROTA}`]: () => respostaJson({ id: 9 }, 201) })
+
+      await expect(criarApontamento({ nome: 'Visitas', idTipo: 1, tipoValor: 'numeral' })).resolves.toBeNull()
+    })
+
+    it('apontamento incompleto na raiz (sem "id tipo" e "tipo") resolve null, sem erro', async () => {
+      const incompleto = { id: 10, nome: 'Visitas', ativo: true, 'tipo de valor': 'Numeral' }
+      simularApi(fetchFalso, { [`POST ${ROTA}`]: () => respostaJson(incompleto, 201) })
+
+      await expect(criarApontamento({ nome: 'Visitas', idTipo: 1, tipoValor: 'numeral' })).resolves.toBeNull()
+    })
+
+    it('apontamento com tipo de valor desconhecido resolve null, sem erro', async () => {
+      simularApi(fetchFalso, {
+        [`POST ${ROTA}`]: () => respostaJson({ ...RESPOSTA_CRIADO, 'tipo de valor': 'Moeda' }, 201),
+      })
+
+      await expect(criarApontamento({ nome: 'Visitas', idTipo: 1, tipoValor: 'numeral' })).resolves.toBeNull()
+    })
+
+    it('envelope { mensagem, apontamento } com apontamento incompleto resolve null, sem erro', async () => {
+      simularApi(fetchFalso, {
+        [`POST ${ROTA}`]: () => respostaJson({ mensagem: 'Apontamento cadastrado.', apontamento: { id: 10, nome: 'Visitas' } }, 201),
+      })
+
+      await expect(criarApontamento({ nome: 'Visitas', idTipo: 1, tipoValor: 'numeral' })).resolves.toBeNull()
+    })
+
+    it('resposta 2xx com lista ou texto solto resolve null, sem erro', async () => {
+      simularApi(fetchFalso, { [`POST ${ROTA}`]: () => respostaJson([RESPOSTA_CRIADO], 201) })
+      await expect(criarApontamento({ nome: 'Visitas', idTipo: 1, tipoValor: 'numeral' })).resolves.toBeNull()
+
+      simularApi(fetchFalso, { [`POST ${ROTA}`]: () => respostaJson('ok', 201) })
+      await expect(criarApontamento({ nome: 'Visitas', idTipo: 1, tipoValor: 'numeral' })).resolves.toBeNull()
+    })
+
+    it('500 rejeita com ApiError e a mensagem padrão do status', async () => {
+      simularApi(fetchFalso, { [`POST ${ROTA}`]: () => respostaErro(500) })
 
       const erro = await criarApontamento({ nome: 'Visitas', idTipo: 1, tipoValor: 'numeral' }).catch((e: unknown) => e)
 
       expect(erro).toBeInstanceOf(ApiError)
-      expect(erro).toMatchObject({ mensagem: MENSAGEM_RESPOSTA_INVALIDA })
-    })
-
-    it('resposta 201 com corpo vazio rejeita com ApiError de resposta inválida', async () => {
-      simularApi(fetchFalso, { [`POST ${ROTA}`]: () => new Response('', { status: 201 }) })
-
-      await expect(criarApontamento({ nome: 'Visitas', idTipo: 1, tipoValor: 'numeral' })).rejects.toMatchObject({
-        mensagem: MENSAGEM_RESPOSTA_INVALIDA,
-      })
+      expect(erro).toMatchObject({ status: 500, mensagem: mensagemPadraoPorStatus(500) })
     })
 
     it('403 (Preenchedor em tipo que não é dele) rejeita com ApiError e a mensagem da API', async () => {

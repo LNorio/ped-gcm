@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../test/usuario'
 import { useMemo, useState } from 'react'
 import { describe, expect, it } from 'vitest'
 import { normalizarBusca } from '../utils/formato'
@@ -126,7 +126,7 @@ describe('F1.10 — Barra de filtros + tabela (integração)', () => {
   })
 
   it('a busca ignora acentos e maiúsculas (RNF-09) e procura em vários campos', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     render(<TelaApontamentos />)
 
     await user.type(screen.getByRole('searchbox', { name: 'Buscar apontamento' }), 'COBERTÚRA')
@@ -142,7 +142,7 @@ describe('F1.10 — Barra de filtros + tabela (integração)', () => {
   })
 
   it('a busca sem resultado mostra o estado vazio da tabela', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     render(<TelaApontamentos />)
 
     await user.type(screen.getByRole('searchbox', { name: 'Buscar apontamento' }), 'inexistente')
@@ -154,7 +154,7 @@ describe('F1.10 — Barra de filtros + tabela (integração)', () => {
   })
 
   it('o chip de situação filtra a lista e marca a opção selecionada', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     render(<TelaApontamentos />)
 
     await user.click(screen.getByRole('option', { name: /Inativos/ }))
@@ -165,7 +165,7 @@ describe('F1.10 — Barra de filtros + tabela (integração)', () => {
   })
 
   it('o botão de tipo filtra a lista e clicar de novo desmarca', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     render(<TelaApontamentos />)
 
     await user.click(screen.getByRole('button', { name: /Comercial/ }))
@@ -178,7 +178,7 @@ describe('F1.10 — Barra de filtros + tabela (integração)', () => {
   })
 
   it('busca, situação e tipo combinam, e as contagens dos tipos refletem a busca e a situação', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     render(<TelaApontamentos />)
 
     await user.type(screen.getByRole('searchbox', { name: 'Buscar apontamento' }), 'clientes')
@@ -193,7 +193,7 @@ describe('F1.10 — Barra de filtros + tabela (integração)', () => {
   })
 
   it('"Limpar filtros" aparece com filtros ativos e restaura a lista completa', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     render(<TelaApontamentos />)
     expect(screen.queryByRole('button', { name: 'Limpar filtros' })).not.toBeInTheDocument()
 

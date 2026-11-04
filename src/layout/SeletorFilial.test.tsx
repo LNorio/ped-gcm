@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import type { Filial } from '../types/dominio'
 import { SeletorFilial } from './SeletorFilial'
@@ -33,7 +33,7 @@ describe('F2.4 — Seletor de filial', () => {
     })
 
     it('ao escolher uma filial chama onChange com o código', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const onChange = vi.fn()
       render(<SeletorFilial filiais={FILIAIS} todasAsFiliais valor="todas" onChange={onChange} />)
 
@@ -44,7 +44,7 @@ describe('F2.4 — Seletor de filial', () => {
     })
 
     it('ao escolher "Todas as filiais" chama onChange com "todas"', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const onChange = vi.fn()
       render(<SeletorFilial filiais={FILIAIS} todasAsFiliais valor="101" onChange={onChange} />)
 
@@ -103,7 +103,7 @@ describe('F2.4 — Seletor de filial', () => {
     })
 
     it('ao trocar a filial chama onChange com o código escolhido', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const onChange = vi.fn()
       render(
         <SeletorFilial filiais={[FILIAIS[1], FILIAIS[2]]} todasAsFiliais={false} valor="101" onChange={onChange} />,

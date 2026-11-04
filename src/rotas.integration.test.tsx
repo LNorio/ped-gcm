@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from './test/usuario'
 import { RouterProvider, createMemoryRouter, type RouteObject } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CAMINHOS, rotas } from './rotas'
@@ -113,7 +113,7 @@ describe('F2.3 — Rotas e layout principal (integração: token salvo → acess
 
   it('navegar pelas abas troca a página e a aba ativa, sem nova chamada de acesso', async () => {
     const chamadas = comTokenSalvo('validador')
-    const user = userEvent.setup()
+    const user = usuarioRapido()
 
     renderizarApp('/')
     await screen.findByRole('heading', { level: 1, name: 'Início' })
@@ -169,7 +169,7 @@ describe('F2.3 — Rotas e layout principal (integração: token salvo → acess
 
     it('"Voltar ao Início" na página não encontrada leva ao Início sem nova chamada de acesso', async () => {
       const chamadas = comTokenSalvo('admin')
-      const user = userEvent.setup()
+      const user = usuarioRapido()
 
       renderizarApp('/nao-existe')
       await screen.findByRole('heading', { level: 1, name: 'Página não encontrada' })
@@ -199,7 +199,7 @@ describe('F2.3 — Rotas e layout principal (integração: token salvo → acess
     it('um erro ao renderizar uma aba mostra a página de erro em português e "Voltar ao Início" recupera a aplicação', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {})
       comTokenSalvo('admin')
-      const user = userEvent.setup()
+      const user = usuarioRapido()
 
       const roteador = renderizarAppComRotaQueLanca('/explode')
 

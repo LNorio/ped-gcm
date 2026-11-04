@@ -89,14 +89,29 @@ export function podeAcessar(perfil: Perfil | null, aba: Aba): boolean {
  * | excluir-tipo                  |   x   |     x     |             |
  * | alterar-situacao-apontamento  |   x   |     x     |             |
  * | excluir-apontamento           |   x   |           |             |
+ * | cadastrar-dado-externo-ativo  |   x   |           |             |
+ * | concluir-dado-externo         |   x   |           |             |
+ * | alterar-situacao-dado-externo |   x   |     x     |             |
+ * | excluir-dado-externo          |   x   |           |             |
  */
-export type AcaoPermissao = 'excluir-tipo' | 'alterar-situacao-apontamento' | 'excluir-apontamento'
+export type AcaoPermissao =
+  | 'excluir-tipo'
+  | 'alterar-situacao-apontamento'
+  | 'excluir-apontamento'
+  | 'cadastrar-dado-externo-ativo'
+  | 'concluir-dado-externo'
+  | 'alterar-situacao-dado-externo'
+  | 'excluir-dado-externo'
 
 /** Matriz de ações: perfis autorizados por ação. Único ponto que conhece essa regra. */
 const PERFIS_POR_ACAO: Readonly<Record<AcaoPermissao, readonly Perfil[]>> = {
   'excluir-tipo': ['admin', 'validador'],
   'alterar-situacao-apontamento': ['admin', 'validador'],
   'excluir-apontamento': ['admin'],
+  'cadastrar-dado-externo-ativo': ['admin'],
+  'concluir-dado-externo': ['admin'],
+  'alterar-situacao-dado-externo': ['admin', 'validador'],
+  'excluir-dado-externo': ['admin'],
 }
 
 /** Indica se o perfil pode executar a ação. `null` nunca pode. */

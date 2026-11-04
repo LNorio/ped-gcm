@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { useState, type ReactNode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -90,7 +90,7 @@ describe('F2.2 — Tela de login', () => {
 
   describe('mostrar/ocultar senha', () => {
     it('o botão "Mostrar senha" troca o campo para texto e passa a se chamar "Ocultar senha"', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       renderizar()
 
       await user.click(screen.getByRole('button', { name: 'Mostrar senha' }))
@@ -101,7 +101,7 @@ describe('F2.2 — Tela de login', () => {
     })
 
     it('o botão "Ocultar senha" volta o campo para password', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       renderizar()
 
       await user.click(screen.getByRole('button', { name: 'Mostrar senha' }))
@@ -112,7 +112,7 @@ describe('F2.2 — Tela de login', () => {
     })
 
     it('mostrar a senha não envia o formulário', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const entrar = vi.fn().mockResolvedValue(undefined)
       renderizar({ entrar })
 
@@ -126,7 +126,7 @@ describe('F2.2 — Tela de login', () => {
 
   describe('envio', () => {
     it('chama entrar(usuario, senha) com o que foi digitado', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const entrar = vi.fn().mockResolvedValue(undefined)
       renderizar({ entrar })
 
@@ -139,7 +139,7 @@ describe('F2.2 — Tela de login', () => {
     })
 
     it('Enter no campo de senha envia o formulário', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const entrar = vi.fn().mockResolvedValue(undefined)
       renderizar({ entrar })
 
@@ -150,7 +150,7 @@ describe('F2.2 — Tela de login', () => {
     })
 
     it('desabilita o botão "Entrar" enquanto o login está em andamento', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       let concluir: () => void = () => {}
       const entrar = vi.fn(
         () =>
@@ -171,7 +171,7 @@ describe('F2.2 — Tela de login', () => {
     })
 
     it('não envia duas vezes com cliques repetidos durante o envio', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const entrar = vi.fn(() => new Promise<void>(() => {}))
       renderizar({ entrar })
 
@@ -184,7 +184,7 @@ describe('F2.2 — Tela de login', () => {
     })
 
     it('com sucesso navega para "/"', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       renderizar({ entrar: vi.fn().mockResolvedValue(undefined) })
 
       await user.type(screen.getByLabelText('Usuário'), 'fulano')
@@ -209,7 +209,7 @@ describe('F2.2 — Tela de login', () => {
     })
 
     it('com credenciais inválidas mostra a mensagem da API, permanece no login e reabilita o botão', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const entrar = vi.fn().mockRejectedValue(new ApiError(401, 'Usuário ou senha inválidos.'))
       render(
         <ProvedorComErro entrar={entrar}>
@@ -230,7 +230,7 @@ describe('F2.2 — Tela de login', () => {
     })
 
     it('mantém o usuário digitado após o erro', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const entrar = vi.fn().mockRejectedValue(new ApiError(401, 'Usuário ou senha inválidos.'))
       render(
         <ProvedorComErro entrar={entrar}>

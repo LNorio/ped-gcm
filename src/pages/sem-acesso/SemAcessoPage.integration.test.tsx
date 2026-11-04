@@ -1,5 +1,5 @@
 import { act, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { limparToken, obterToken } from '../../services/sessao'
 import { acessoApi, respostaJson, simularApi } from '../../test/apiFalsa'
@@ -25,7 +25,7 @@ describe('F2.8 — Tela de usuário sem acesso (integração: perfil null → se
   const acessoSemPerfil = () => respostaJson(acessoApi({ perfil: null, tipos: [], filiais: [], 'periodo aberto': null }))
 
   it('login válido de usuário com perfil null leva à tela de sem acesso, sem abas nem cabeçalho', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     simularApi(fetchFalso, {
       'POST /api/valida-usuario': () => respostaJson({ token: 'token-123' }),
       'GET /api/ped/acesso': acessoSemPerfil,
@@ -63,7 +63,7 @@ describe('F2.8 — Tela de usuário sem acesso (integração: perfil null → se
   })
 
   it('"Voltar ao login" limpa a sessão e abre a tela de login', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     sessionStorage.setItem('ped.token', 'token-salvo')
     simularApi(fetchFalso, { 'GET /api/ped/acesso': acessoSemPerfil })
     renderizarApp('/')
@@ -78,7 +78,7 @@ describe('F2.8 — Tela de usuário sem acesso (integração: perfil null → se
   })
 
   it('depois de voltar ao login, tentar abrir uma aba continua exigindo login', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     sessionStorage.setItem('ped.token', 'token-salvo')
     simularApi(fetchFalso, { 'GET /api/ped/acesso': acessoSemPerfil })
     const { roteador } = renderizarApp('/')

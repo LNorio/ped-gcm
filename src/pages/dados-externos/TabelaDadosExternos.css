@@ -1,0 +1,48 @@
+/* Tabela da listagem de dados externos (F5.2). */
+
+.tabela-dados-externos__pilha {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.tabela-dados-externos__titulo {
+  color: var(--cor-texto);
+  font-weight: 600;
+}
+
+.tabela-dados-externos__secundario {
+  color: var(--cor-texto-secundario);
+  font-size: 0.875em;
+}
+
+.tabela-dados-externos__vazio {
+  color: var(--cor-texto-suave);
+}
+
+.tabela-dados-externos__campos {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+}
+
+.tabela-dados-externos__par {
+  display: contents;
+}
+
+.tabela-dados-externos__rotulo {
+  color: var(--cor-texto-secundario);
+  font-weight: 600;
+}
+
+.tabela-dados-externos__valor {
+  margin: 0;
+  color: var(--cor-texto);
+}
+
+.tabela-dados-externos__detalhe {
+  margin: 0;
+  color: var(--cor-texto-secundario);
+}

@@ -173,10 +173,11 @@
     {
       "id": "F1.7",
       "titulo": "Tabela responsiva",
-      "descricao": "RNF-04 — src/components/Tabela.tsx: tabela genérica com colunas (chave, título, render), dados, obterChave, legenda (nome acessível), estado vazio (padrão \"Nenhum registro encontrado.\" ou textoVazio), quadro com rolagem horizontal (.tabela-rolagem) e linhas expansíveis (expandir(linha) → conteúdo ou null; botão \"Expandir detalhes\"/\"Recolher detalhes\" com aria-expanded; rótulos personalizáveis).",
+      "descricao": "RNF-04 — src/components/Tabela.tsx: tabela genérica com colunas (chave, título, render), dados, obterChave, legenda (nome acessível), estado vazio (padrão \"Nenhum registro encontrado.\" ou textoVazio), quadro com rolagem horizontal (.tabela-rolagem) e linhas expansíveis (expandir(linha) → conteúdo ou null; botão \"Expandir detalhes\"/\"Recolher detalhes\" com aria-expanded; rótulos personalizáveis). Expansão controlada (opcional e retrocompatível): prop expandidas?: ReadonlySet<string | number>; quando informada, controla quais linhas ficam abertas (pelas chaves de obterChave) e a tabela não mostra a coluna nem o botão de expandir (a expansão passa a ser feita pelo pai); o conteúdo expandido fica na linha logo abaixo da sua, com id próprio e colSpan = número de colunas; linhas cujo expandir devolve null não abrem mesmo com a chave no conjunto; segue a prop a cada renderização. Sem a prop, o comportamento atual (estado interno e botão por linha) continua igual.",
       "status": "implementado",
       "testes": [
-        "src/components/Tabela.test.tsx"
+        "src/components/Tabela.test.tsx",
+        "src/components/Tabela.expandidas.test.tsx"
       ],
       "historico": [
         {
@@ -186,6 +187,14 @@
         {
           "data": "2026-11-03",
           "alteracao": "Implementação concluída: 11 de 11 testes passando (src/components/Tabela.tsx)."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Alteração: nova prop opcional expandidas (expansão controlada pelo pai, sem coluna nem botão de expandir), para a TabelaDadosExternos abrir os detalhes pelo item \"Ver detalhes\" do MenuAcoes (F1.16). Pedido do usuário: na aba Dados Externos a tabela ficou larga demais e poluída e as ações em linha ocupam espaço. Testes novos em src/components/Tabela.expandidas.test.tsx; Tabela.test.tsx (modo interno) não muda e garante a retrocompatibilidade com TabelaApontamentos."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído (menu de ações por linha e detalhes expandidos pelo menu); 100% dos testes do requisito passando."
         }
       ]
     },
@@ -311,6 +320,46 @@
         {
           "data": "2026-11-04",
           "alteracao": "Refatoração pós-revisão e decisões do usuário (item sai da lista ao deixar o filtro de situação; debounce de 500 ms na busca) implementadas; todos os testes passando."
+        }
+      ]
+    },
+    {
+      "id": "F1.14",
+      "titulo": "Hooks genéricos de filtros de consulta e de ações de situação/exclusão",
+      "descricao": "RNF-07, RNF-08, RNF-09 (atividade não planejada, pedida pelo usuário após a revisão da F5 para eliminar a duplicação entre useApontamentos/useDadosExternos e entre ApontamentosPage/DadosExternosPage antes da aba Indicadores). src/hooks/useFiltrosConsulta.ts: useFiltrosConsulta<F extends { busca: string }, R>({ carregar: (filtros: F) => Promise<R>, inicial: R, filtrosPadrao: F, atrasoBuscaMs?: number (padrão 500) }) → { dados, setDados, carregando, carregouUmaVez, erro, filtros: F, setBusca(texto), definirFiltro(chave, valor) (chave de F exceto busca), limparFiltros(), recarregar(): Promise<void> }, construído sobre useConsulta (recarregarAposMutacao padrão; carregar lê os filtros atuais por ref; nova referência de carregar ou de filtrosPadrao entre renders não dispara consulta e a próxima consulta usa o carregar mais recente). Carga inicial com filtrosPadrao. setBusca atualiza filtros.busca na hora e consulta após atrasoBuscaMs da última chamada (mudanças rápidas reiniciam a espera); mesmo valor atual → nada; voltar ao texto da última consulta disparada (qualquer consulta) cancela a espera e não consulta. definirFiltro consulta na hora com todos os filtros atuais e cancela a espera; mesmo valor sem espera pendente → nada; mesmo valor com espera pendente → consulta na hora. limparFiltros volta a filtrosPadrao (sem alterar o objeto recebido) e consulta na hora, cancelando a espera; já no padrão sem espera → nada. recarregar consulta com os filtros atuais, cancela a espera, nunca rejeita. Desmontar cancela a espera. Corrida, erro (mensagemDeErro) e setDados com recarga após mutação herdados de useConsulta. src/utils/filtros.ts: correspondeASituacao(situacaoFiltro: string, item: T, regras: Record<string, (item: T) => boolean>): boolean → true para 'todas' (sem chamar regras); senão o resultado da regra do filtro, chamada uma vez com o item (só a regra do filtro é usada). src/hooks/useAcoesSituacaoExclusao.ts: useAcoesSituacaoExclusao<T>({ alterarSituacao: (item: T) => Promise<unknown>, excluir: (item: T) => Promise<unknown>, onNotificar: (mensagem: string) => void, mensagens: { situacao: string, exclusao: string } }) → { situacao, exclusao (ambos UseAcaoConfirmadaResultado<T>), erro: string | null, limparErros() }: duas instâncias de useAcaoConfirmada; confirmar de uma limpa na hora o erro da outra; erro = erro da última ação que falhou (um único por vez); sucesso de qualquer uma → onNotificar(mensagem correspondente) e limpa os erros; falha → diálogo fecha, erro = mensagemDeErro, sem notificação; cancelar não limpa erro; clique duplo executa uma vez; usa as referências mais recentes das funções; nada após desmontar; limparErros() zera o erro (usado após cadastro/conclusão bem-sucedidos). Os testes das abas Apontamentos (F4.x) e Dados Externos (F5.x) não mudam e servem de rede de proteção da migração.",
+      "status": "implementado",
+      "testes": [
+        "src/hooks/useFiltrosConsulta.test.tsx",
+        "src/utils/filtros.situacao.test.ts",
+        "src/hooks/useAcoesSituacaoExclusao.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) como atividade não planejada: a revisão da F5 apontou ~70 linhas idênticas entre useApontamentos.ts e useDadosExternos.ts (filtros com espera na busca) e o par ativar/desativar + excluir repetido em ApontamentosPage.tsx e DadosExternosPage.tsx; o usuário pediu para componentizar antes da aba Indicadores. Semântica extraída dos hooks e páginas já testados (F4.3, F4.5, F4.6, F5.x). Testes em arquivos novos (filtros.situacao.test.ts separado de filtros.test.ts) para não deixar vermelhos F1.12, F1.13, F4.x e F5.x, já implementados."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Implementação concluída (useFiltrosConsulta, correspondeASituacao, useAcoesSituacaoExclusao); abas Apontamentos e Dados Externos migradas sem alterar testes."
+        }
+      ]
+    },
+    {
+      "id": "F1.16",
+      "titulo": "Menu de ações por linha (MenuAcoes)",
+      "descricao": "RNF-04, RNF-06 (atividade não planejada, pedido do usuário em 04/11/2026). src/components/MenuAcoes.tsx: MenuAcoes({ rotulo: string, itens: ItemMenuAcoes[] }), com ItemMenuAcoes = { rotulo: string; onSelecionar: () => void; perigo?: boolean }; reutilizável nas abas. Com itens vazio não renderiza nada. Gatilho: botão com aria-label = rotulo, ícone de três pontos verticais (svg aria-hidden, sem texto visível), aria-haspopup=\"menu\" e aria-expanded (false fechado / true aberto). O clique (ou Enter no gatilho) abre o menu flutuante role=\"menu\" com um role=\"menuitem\" por item, na ordem recebida, e o foco vai para o primeiro item. Teclado: seta para baixo/para cima navegam em ciclo; Home e End vão para o primeiro e o último item. Esc fecha e devolve o foco ao gatilho; clicar fora fecha; Tab fecha (sem selecionar nada). Selecionar um item (clique ou Enter) chama só o onSelecionar dele, uma vez, fecha o menu e devolve o foco ao gatilho. Um menu aberto por instância: abrir o de outra instância fecha o primeiro (clique fora); reabrir foca de novo o primeiro item. Item com perigo recebe a classe menu-acoes__item--perigo.",
+      "status": "implementado",
+      "testes": [
+        "src/components/MenuAcoes.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) como atividade não planejada. Pedido do usuário: na aba Dados Externos a tabela ficou larga demais e poluída e as ações em linha ocupam espaço. O usuário pediu trocar os botões de ação por um botão de três pontos verticais que abre um menu flutuante com as opções, com a expansão de detalhes dentro do menu. Decisões de teste: classe de destaque menu-acoes__item--perigo; Enter no item seleciona (padrão WAI-ARIA de menu); auxiliares de teste em src/test/menuAcoes.ts."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Implementação concluída (MenuAcoes); 100% dos testes do requisito passando."
         }
       ]
     },
@@ -576,7 +625,7 @@
     {
       "id": "F4.1",
       "titulo": "Serviço de apontamentos",
-      "descricao": "RF-17 a RF-22, INT-01 — src/services/apontamentosService.ts. Exporta SituacaoFiltro = 'todas' | 'ativos' | 'inativos' | 'problemas', SITUACOES_FILTRO (nessa ordem) e ROTULOS_SITUACAO_FILTRO (Todas, Ativos, Inativos, Com problemas). listarApontamentos(filtros?: { busca?, situacao?, tipo? }) faz GET /ped/apontamentos enviando na query somente os parâmetros informados (busca vazia ou só espaços e valores undefined são omitidos) e resolve { apontamentos: Apontamento[] (via paraApontamento, na ordem da API), contagemPorTipo: { id, nome, quantidade }[] (de \"contagem por tipo\"; ausente → []) }; resposta 2xx sem a lista \"apontamentos\" (objeto sem a chave, lista solta, corpo vazio) ou com item fora do formato (nulo, id não numérico, tipo de valor desconhecido) rejeita com ApiError(200, MENSAGEM_RESPOSTA_INVALIDA). criarApontamento(dados: NovoApontamento) faz POST /ped/apontamentos com paraCorpoNovoApontamento ({ nome, \"id tipo\", \"tipo de valor\", descricao null quando vazia }) e devolve o Apontamento criado convertido (corpo 2xx vazio ou inválido → ApiError resposta inválida). alterarSituacao(id, ativo) faz PUT /ped/apontamentos/{id}/situacao com { ativo } e devolve o Apontamento atualizado convertido (situacaoAlteradaEm/Por da resposta). excluirApontamento(id) faz DELETE /ped/apontamentos/{id} sem corpo e resolve undefined (204 ou 200); 400 com { mensagem, indicadores } chega como ApiError com a mensagem e dados.indicadores. Erros HTTP (400/403/404/500) e falha de rede chegam como ApiError com a mensagem da API ou a padrão do status. Fixture compartilhada em src/test/apontamentosFalsos.ts (5 apontamentos: vinculado a dashboard, desativado mas usado em indicador ativo, com dois indicadores, ativo sem indicador e inativo sem indicador; rotaListarApontamentos reproduz a filtragem da API).",
+      "descricao": "RF-17 a RF-22, INT-01 — src/services/apontamentosService.ts. Exporta SituacaoFiltro = 'todas' | 'ativos' | 'inativos' | 'problemas', SITUACOES_FILTRO (nessa ordem) e ROTULOS_SITUACAO_FILTRO (Todas, Ativos, Inativos, Com problemas). listarApontamentos(filtros?: { busca?, situacao?, tipo? }) faz GET /ped/apontamentos enviando na query somente os parâmetros informados (busca vazia ou só espaços e valores undefined são omitidos) e resolve { apontamentos: Apontamento[] (via paraApontamento, na ordem da API), contagemPorTipo: { id, nome, quantidade }[] (de \"contagem por tipo\"; ausente → []) }; resposta 2xx sem a lista \"apontamentos\" (objeto sem a chave, lista solta, corpo vazio) ou com item fora do formato (nulo, id não numérico, tipo de valor desconhecido) rejeita com ApiError(200, MENSAGEM_RESPOSTA_INVALIDA). criarApontamento(dados: NovoApontamento) faz POST /ped/apontamentos com paraCorpoNovoApontamento ({ nome, \"id tipo\", \"tipo de valor\", descricao null quando vazia }) e resolve Promise<Apontamento | null>: corpo 2xx com o apontamento válido na raiz ou no envelope { apontamento } (com ou sem mensagem ao lado) → Apontamento convertido; corpo 2xx vazio (201 sem corpo, 204) ou sem apontamento reconhecível (só { mensagem }, { id }, lista/texto solto, apontamento incompleto ou com tipo de valor desconhecido, envelope com apontamento incompleto) → null, sem erro (um 2xx significa que o apontamento foi gravado); erros HTTP e falha de rede continuam rejeitando com a ApiError. alterarSituacao(id, ativo) faz PUT /ped/apontamentos/{id}/situacao com { ativo } e devolve o Apontamento atualizado convertido (situacaoAlteradaEm/Por da resposta). excluirApontamento(id) faz DELETE /ped/apontamentos/{id} sem corpo e resolve undefined (204 ou 200); 400 com { mensagem, indicadores } chega como ApiError com a mensagem e dados.indicadores. Erros HTTP (400/403/404/500) e falha de rede chegam como ApiError com a mensagem da API ou a padrão do status. Fixture compartilhada em src/test/apontamentosFalsos.ts (5 apontamentos: vinculado a dashboard, desativado mas usado em indicador ativo, com dois indicadores, ativo sem indicador e inativo sem indicador; rotaListarApontamentos reproduz a filtragem da API).",
       "status": "implementado",
       "testes": [
         "src/services/apontamentosService.test.ts"
@@ -589,13 +638,21 @@
         {
           "data": "2026-11-04",
           "alteracao": "Implementação concluída; todos os testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Correção de bug relatado pelo usuário: ao cadastrar um apontamento a API gravava com sucesso, mas o front-end mostrava erro e não atualizava a lista, porque criarApontamento exigia o apontamento completo na raiz do corpo 2xx e rejeitava com ApiError(200, resposta inválida) caso contrário. A resposta do POST não é documentada em docs/backend/API (24).md e, pelo padrão do back-end (ex.: PUT preenchimento devolve { mensagem }), provavelmente é um envelope ou um apontamento parcial. Motivação: um 2xx significa que o apontamento foi gravado; o formato do corpo não pode gerar erro nem impedir a atualização da lista (mesmo critério já adotado em F5.1 para dados externos). Nova regra: apontamento válido na raiz ou em { apontamento } (com ou sem mensagem) → Apontamento; vazio ou sem apontamento reconhecível → null. Testes removidos de apontamentosService.test.ts (deixaram de ser requisito): \"resposta 2xx fora do formato (sem id/nome) rejeita com ApiError de resposta inválida\" e \"resposta 201 com corpo vazio rejeita com ApiError de resposta inválida\". Testes criados: envelope com e sem mensagem; só { mensagem }, 201 vazio, 204, só { id }, apontamento incompleto, tipo de valor desconhecido, envelope com apontamento incompleto, lista/texto solto → null; 500 rejeita com a mensagem padrão. listarApontamentos e alterarSituacao sem mudança."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído: POST 2xx sem apontamento reconhecível resolve null e a lista é recarregada; 100% dos testes do requisito passando."
         }
       ]
     },
     {
       "id": "F4.2",
       "titulo": "Listagem de apontamentos",
-      "descricao": "RF-17, RF-16 (consulta por perfil) — src/pages/apontamentos/useApontamentos.ts: useApontamentos() (construído sobre useConsulta da F1.13) → { apontamentos, contagemPorTipo, carregando, carregouUmaVez, erro: string | null, filtros: { busca: string, situacao: SituacaoFiltro, tipo: number | null }, setBusca, setSituacao, setTipo, limparFiltros, recarregar(), criar(dados), alterarSituacao(id, ativo), excluir(id) }; estado inicial carregando=true, listas vazias, erro null, filtros { busca: '', situacao: 'todas', tipo: null }; carrega GET /ped/apontamentos uma vez ao montar (sem busca nem tipo na query); erro via mensagemDeErro (mantido durante a recarga e limpo no sucesso); recarregar nunca rejeita; proteção de corrida (só a última resposta é aplicada); carregouUmaVez false até a primeira resposta (sucesso ou erro) e true depois, inclusive nas reconsultas; uma ação local (alterarSituacao/excluir) concluída com um GET de filtro pendente descarta a resposta pendente e reconsulta automaticamente com os filtros atuais, de modo que a lista final corresponde ao filtro novo (sem GET pendente, a ação local não reconsulta); desmontar durante a carga não gera console.error. src/pages/apontamentos/ApontamentosPage.tsx (export function ApontamentosPage, substitui o placeholder da F2.3): h1 \"Apontamentos\"; EstadoCarga (F1.13) com mensagemCarregando \"Carregando apontamentos...\", o carregando e o erro da consulta e onTentarNovamente = recarregar (RegiaoStatus durante a carga; erro em Aviso tipo=\"erro\" com \"Tentar novamente\" desabilitado durante a recarga, alerta mantido; tabela oculta enquanto há erro); a tabela aparece após a primeira resposta e permanece visível com a lista anterior durante as reconsultas filtradas; Card semPadding com BarraFiltros + TabelaApontamentos; textoVazio \"Nenhum apontamento cadastrado.\" sem filtros ativos. src/pages/apontamentos/TabelaApontamentos.tsx: TabelaApontamentos({ apontamentos, podeAlterarSituacao, podeExcluir, onAlterarSituacao(apontamento), onExcluir(apontamento), textoVazio? }) com legenda \"Apontamentos\" e colunas Nome (nome + descrição abaixo; Etiqueta tom=\"dourado\" \"Vinculado a dashboard\" quando vinculadoADashboard; Etiqueta tom=\"alerta\" \"Desativado, mas usado em indicador ativo\" quando desativadoMasUsadoEmIndicadorAtivo; sem descrição mostra só o nome), Tipo, Tipo de valor (ROTULOS_TIPO_VALOR), Situação (Etiqueta sucesso \"Ativo\" / neutro \"Inativo\"), Indicadores (nomes separados por \", \" ou \"—\"), Cadastro (formatarDataHora(cadastradoEm) e \"por {cadastradoPor}\") e Ações (botão \"Desativar\"/\"Ativar\" com aria-label \"Desativar apontamento {nome}\"/\"Ativar apontamento {nome}\" só com podeAlterarSituacao; botão \"Excluir\" variante perigo com aria-label \"Excluir apontamento {nome}\" só com podeExcluir; nunca \"Editar\"); linha expansível (expandir da Tabela) com \"Situação alterada em {formatarDataHora(situacaoAlteradaEm)} por {situacaoAlteradaPor}\" só quando houver. Preenchedor vê exatamente a lista devolvida pela API (o front não filtra por tipo). Integração via renderizarApp('/apontamentos') com Admin, Validador e Preenchedor; 401 ao listar volta ao login com \"Sua sessão expirou. Entre novamente.\".",
+      "descricao": "RF-17, RF-16 (consulta por perfil) — src/pages/apontamentos/useApontamentos.ts: useApontamentos() (construído sobre useConsulta da F1.13) → { apontamentos, contagemPorTipo, carregando, carregouUmaVez, erro: string | null, filtros: { busca: string, situacao: SituacaoFiltro, tipo: number | null }, setBusca, setSituacao, setTipo, limparFiltros, recarregar(), criar(dados), alterarSituacao(id, ativo), excluir(id) }; estado inicial carregando=true, listas vazias, erro null, filtros { busca: '', situacao: 'todas', tipo: null }; carrega GET /ped/apontamentos uma vez ao montar (sem busca nem tipo na query); erro via mensagemDeErro (mantido durante a recarga e limpo no sucesso); recarregar nunca rejeita; proteção de corrida (só a última resposta é aplicada); carregouUmaVez false até a primeira resposta (sucesso ou erro) e true depois, inclusive nas reconsultas; uma ação local (alterarSituacao/excluir) concluída com um GET de filtro pendente descarta a resposta pendente e reconsulta automaticamente com os filtros atuais, de modo que a lista final corresponde ao filtro novo (sem GET pendente, a ação local não reconsulta); desmontar durante a carga não gera console.error. src/pages/apontamentos/ApontamentosPage.tsx (export function ApontamentosPage, substitui o placeholder da F2.3): h1 \"Apontamentos\"; EstadoCarga (F1.13) com mensagemCarregando \"Carregando apontamentos...\", o carregando e o erro da consulta e onTentarNovamente = recarregar (RegiaoStatus durante a carga; erro em Aviso tipo=\"erro\" com \"Tentar novamente\" desabilitado durante a recarga, alerta mantido; tabela oculta enquanto há erro); a tabela aparece após a primeira resposta e permanece visível com a lista anterior durante as reconsultas filtradas; Card semPadding com BarraFiltros + TabelaApontamentos; textoVazio \"Nenhum apontamento cadastrado.\" sem filtros ativos. src/pages/apontamentos/TabelaApontamentos.tsx: TabelaApontamentos({ apontamentos, podeAlterarSituacao, podeExcluir, onAlterarSituacao(apontamento), onExcluir(apontamento), textoVazio? }) com legenda \"Apontamentos\" e colunas Nome (nome + descrição abaixo; Etiqueta tom=\"dourado\" \"Vinculado a dashboard\" quando vinculadoADashboard; Etiqueta tom=\"alerta\" \"Desativado, mas usado em indicador ativo\" quando desativadoMasUsadoEmIndicadorAtivo; sem descrição mostra só o nome), Tipo, Tipo de valor (ROTULOS_TIPO_VALOR), Situação (Etiqueta sucesso \"Ativo\" / neutro \"Inativo\"), Indicadores (nomes separados por \", \" ou \"—\"), Cadastro (formatarDataHora(cadastradoEm) e \"por {cadastradoPor}\") e Ações (colunas visíveis inalteradas na alteração de 04/11/2026). Coluna Ações: MenuAcoes (F1.16) com rotulo \"Ações do apontamento {nome}\" e itens nesta ordem: \"Ver detalhes\" (\"Ocultar detalhes\" quando aberto; só quando a linha tem detalhes, isto é, situacaoAlteradaEm preenchido; alterna a expansão só daquela linha; várias linhas podem ficar abertas; não chama callback); \"Desativar\" (ativo) / \"Ativar\" (inativo) só com podeAlterarSituacao → onAlterarSituacao(apontamento); \"Excluir\" (perigo) só com podeExcluir, em todas as linhas → onExcluir(apontamento); nunca \"Editar\". Sem nenhum item (sem permissão e sem detalhes) a célula Ações fica vazia (o MenuAcoes não renderiza nada). Escolher um item fecha o menu e devolve o foco ao gatilho. A expansão é controlada (prop expandidas da Tabela, F1.7): sem coluna nem botão \"Expandir detalhes\"/\"Recolher detalhes\" da Tabela; o conteúdo dos detalhes não muda: \"Situação alterada em {formatarDataHora(situacaoAlteradaEm)} por {situacaoAlteradaPor}\". Props e callbacks de TabelaApontamentos inalterados. Preenchedor vê exatamente a lista devolvida pela API (o front não filtra por tipo). Integração via renderizarApp('/apontamentos') com Admin, Validador e Preenchedor; 401 ao listar volta ao login com \"Sua sessão expirou. Entre novamente.\".",
       "status": "implementado",
       "testes": [
         "src/pages/apontamentos/useApontamentos.test.tsx",
@@ -621,6 +678,14 @@
         {
           "data": "2026-11-04",
           "alteracao": "Refatoração pós-revisão e decisões do usuário (item sai da lista ao deixar o filtro de situação; debounce de 500 ms na busca) implementadas; todos os testes passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Alteração: os botões \"Desativar/Ativar apontamento {nome}\" e \"Excluir apontamento {nome}\" e o botão \"Expandir detalhes\" da Tabela dão lugar ao MenuAcoes \"Ações do apontamento {nome}\" (F1.16) com \"Ver detalhes\"/\"Ocultar detalhes\" (só com situação alterada), \"Desativar\"/\"Ativar\" e \"Excluir\" (perigo); expansão controlada pela prop expandidas da Tabela; colunas, conteúdo dos detalhes, props e callbacks inalterados. Pedido do usuário em 04/11/2026: na aba Apontamentos, esconder os botões de ação em um menu, igual na aba Dados Externos, para manter o mesmo padrão entre as abas e deixar a tabela mais limpa (confirma a decisão em aberto no plano: aplicar o menu de ações na aba Apontamentos). Testes adequados: TabelaApontamentos.test.tsx (itens e ordem do menu por permissão e por detalhes, Ver/Ocultar detalhes, várias linhas abertas, ausência de \"Expandir detalhes\", célula vazia sem itens, foco de volta ao gatilho, callbacks pelo menu), ApontamentosPage.test.tsx e ApontamentosPage.integration.test.tsx (\"Ver detalhes\" pelo menu) e ApontamentosPage.consulta.test.tsx (exclusão pelo menu). Auxiliares rotuloAcoesApontamento(nome) e itensPorMenuAcoes(user, rotulos) em src/test/menuAcoes.ts."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído (ações da aba Apontamentos no menu de três pontos, com Ver detalhes no menu); 100% dos testes do requisito passando."
         }
       ]
     },
@@ -650,13 +715,21 @@
         {
           "data": "2026-11-04",
           "alteracao": "Refatoração pós-revisão e decisões do usuário (item sai da lista ao deixar o filtro de situação; debounce de 500 ms na busca) implementadas; todos os testes passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Adequação de teste por causa da alteração da F4.2 (menu de ações por linha): em ApontamentosPage.filtros.test.tsx a exclusão passa a ser aberta pelo item \"Excluir\" do menu \"Ações do apontamento {nome}\". Regras de filtro inalteradas. Pedido do usuário em 04/11/2026: na aba Apontamentos, esconder os botões de ação em um menu, igual na aba Dados Externos, para manter o mesmo padrão entre as abas e deixar a tabela mais limpa (confirma a decisão em aberto no plano: aplicar o menu de ações na aba Apontamentos)."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído (ações da aba Apontamentos no menu de três pontos, com Ver detalhes no menu); 100% dos testes do requisito passando."
         }
       ]
     },
     {
       "id": "F4.4",
       "titulo": "Cadastro de apontamento",
-      "descricao": "RF-19, RF-20 — Botão primário \"Novo apontamento\" no topo da ApontamentosPage, visível a Admin, Validador e Preenchedor; abre Dialogo \"Novo apontamento\" com src/pages/apontamentos/FormularioApontamento.tsx: FormularioApontamento({ tipos: { id, nome }[], salvando, erro: string | null, onSalvar(dados: NovoApontamento), onCancelar }) com Campo \"Nome\" (obrigatório; vazio ou só espaços → \"Informe o nome.\"), Select \"Tipo\" (placeholder \"Selecione\" desabilitado + tipos recebidos na ordem; obrigatório → \"Selecione o tipo.\"), Select \"Tipo de valor\" (placeholder \"Selecione\" + Porcentagem/Numeral/Booleano; obrigatório → \"Selecione o tipo de valor.\"), AreaTexto \"Descrição\" (opcional), botões \"Salvar\" (type=submit, desabilitado com salvando) e \"Cancelar\"; Nome, Tipo e Tipo de valor com obrigatorio (F1.13: aria-required=\"true\" e marca \" *\" no rótulo, sem mudar o nome acessível; Descrição sem marca); tipos vazio → Aviso tipo=\"alerta\" \"Você não tem tipos de apontamento disponíveis para cadastro.\" e \"Salvar\" desabilitado (Cancelar continua habilitado); validação no front sem chamar a API (campos com aria-invalid); onSalvar recebe { nome, idTipo: number, tipoValor: TipoValor, descricao } (descricao vazia/nula sem texto inventado); erro exibido em Aviso tipo=\"erro\" dentro do formulário sem apagar o que foi digitado; Enter envia. Na página: tipos do select = useSessao().acesso.tipos; useApontamentos.criar(dados) → criarApontamento (POST) → recarrega a lista com os filtros atuais e resolve com o criado; sucesso → diálogo fecha, Notificacao tipo=\"sucesso\" \"Apontamento cadastrado.\" e o novo apontamento aparece ativo na tabela; erro da API (403 em tipo alheio, 400, 500, rede) → mensagem em Aviso de erro dentro do diálogo, que permanece aberto com os campos preenchidos, sem notificação; Salvar desabilitado durante o POST (clique duplo gera um único POST); Cancelar/Esc fecham sem POST; reabrir mostra o formulário limpo; um erro de ação anterior exibido na página (alteração de situação ou exclusão recusada) é apagado após um cadastro bem-sucedido (um cadastro recusado não o apaga). Nenhuma ação \"Editar\" em lugar algum (RF-20). Integração com Admin, Validador e Preenchedor (403 em tipo alheio mostra a mensagem da API; 401 volta ao login).",
+      "descricao": "RF-19, RF-20 — Botão primário \"Novo apontamento\" no topo da ApontamentosPage, visível a Admin, Validador e Preenchedor; abre Dialogo \"Novo apontamento\" com src/pages/apontamentos/FormularioApontamento.tsx: FormularioApontamento({ tipos: { id, nome }[], salvando, erro: string | null, onSalvar(dados: NovoApontamento), onCancelar }) com Campo \"Nome\" (obrigatório; vazio ou só espaços → \"Informe o nome.\"), Select \"Tipo\" (placeholder \"Selecione\" desabilitado + tipos recebidos na ordem; obrigatório → \"Selecione o tipo.\"), Select \"Tipo de valor\" (placeholder \"Selecione\" + Porcentagem/Numeral/Booleano; obrigatório → \"Selecione o tipo de valor.\"), AreaTexto \"Descrição\" (opcional), botões \"Salvar\" (type=submit, desabilitado com salvando) e \"Cancelar\"; Nome, Tipo e Tipo de valor com obrigatorio (F1.13: aria-required=\"true\" e marca \" *\" no rótulo, sem mudar o nome acessível; Descrição sem marca); tipos vazio → Aviso tipo=\"alerta\" \"Você não tem tipos de apontamento disponíveis para cadastro.\" e \"Salvar\" desabilitado (Cancelar continua habilitado); validação no front sem chamar a API (campos com aria-invalid); onSalvar recebe { nome, idTipo: number, tipoValor: TipoValor, descricao } (descricao vazia/nula sem texto inventado); erro exibido em Aviso tipo=\"erro\" dentro do formulário sem apagar o que foi digitado; Enter envia. Na página: tipos do select = useSessao().acesso.tipos; useApontamentos.criar(dados) → criarApontamento (POST) → recarrega a lista com os filtros atuais e resolve com o criado ou null (assinatura (dados) => Promise<Apontamento | null>; depois de qualquer POST 2xx, inclusive com resposta null — corpo vazio, só { mensagem } ou apontamento incompleto —, recarrega a lista e resolve sem erro; a tela trata esses casos como sucesso); sucesso → diálogo fecha, Notificacao tipo=\"sucesso\" \"Apontamento cadastrado.\" e o novo apontamento aparece ativo na tabela; erro da API (403 em tipo alheio, 400, 500, rede) → mensagem em Aviso de erro dentro do diálogo, que permanece aberto com os campos preenchidos, sem notificação; Salvar desabilitado durante o POST (clique duplo gera um único POST); Cancelar/Esc fecham sem POST; reabrir mostra o formulário limpo; um erro de ação anterior exibido na página (alteração de situação ou exclusão recusada) é apagado após um cadastro bem-sucedido (um cadastro recusado não o apaga). Nenhuma ação \"Editar\" em lugar algum (RF-20). Integração com Admin, Validador e Preenchedor (403 em tipo alheio mostra a mensagem da API; 401 volta ao login).",
       "status": "implementado",
       "testes": [
         "src/pages/apontamentos/FormularioApontamento.test.tsx",
@@ -680,13 +753,29 @@
         {
           "data": "2026-11-04",
           "alteracao": "Refatoração pós-revisão e decisões do usuário (item sai da lista ao deixar o filtro de situação; debounce de 500 ms na busca) implementadas; todos os testes passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Correção de bug relatado pelo usuário: o POST de apontamento gravava, mas a tela mostrava erro e não atualizava a lista quando o corpo 2xx não trazia o apontamento completo na raiz (criar falhava antes de recarregar). Motivação: um 2xx significa que o apontamento foi gravado; o formato do corpo não pode gerar erro nem impedir a atualização (mesmo critério de F5.1). useApontamentos.criar passa a resolver Apontamento | null e recarrega a lista depois de qualquer POST 2xx. Testes criados em useApontamentos.cadastro.test.tsx (envelope { mensagem, apontamento } → apontamento; só { mensagem }, 201 vazio e apontamento incompleto → null com recarga e sem erro) e em ApontamentosPage.cadastro.integration.test.tsx (POST respondendo só { mensagem: \"apontamento cadastrado\" }, envelope e 201 vazio: diálogo fecha, notificação de sucesso, nenhum alerta de erro e o novo apontamento aparece na lista recarregada). Nenhum teste removido."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído: POST 2xx sem apontamento reconhecível resolve null e a lista é recarregada; 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Adequação de teste por causa da alteração da F4.2 (menu de ações por linha): em ApontamentosPage.cadastro.test.tsx a desativação e a exclusão do apontamento cadastrado passam a ser abertas pelos itens \"Desativar\" e \"Excluir\" do menu \"Ações do apontamento {nome}\". Regras de cadastro inalteradas. Pedido do usuário em 04/11/2026: na aba Apontamentos, esconder os botões de ação em um menu, igual na aba Dados Externos, para manter o mesmo padrão entre as abas e deixar a tabela mais limpa (confirma a decisão em aberto no plano: aplicar o menu de ações na aba Apontamentos)."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído (ações da aba Apontamentos no menu de três pontos, com Ver detalhes no menu); 100% dos testes do requisito passando."
         }
       ]
     },
     {
       "id": "F4.5",
       "titulo": "Ativar e desativar apontamento",
-      "descricao": "RF-21, RNF-01, RNF-07 — Botões \"Desativar\" (ativos) / \"Ativar\" (inativos) na coluna Ações, com aria-label \"Desativar apontamento {nome}\" / \"Ativar apontamento {nome}\", somente para quem tem a ação 'alterar-situacao-apontamento' na matriz da F1.13 (Admin e Validador; a página consulta usePermissoes().podeAcao, que delega a podeExecutar) (qualquer apontamento, inclusive vinculado a dashboard); Preenchedor não os vê. src/pages/apontamentos/DialogoSituacaoApontamento.tsx: DialogoSituacaoApontamento({ apontamento: Apontamento | null, alterando, onConfirmar, onCancelar }) sobre DialogoConfirmacao: apontamento ativo → título \"Desativar apontamento\", impacto \"Desativado, o apontamento sai do Preenchimento e dos próximos fechamentos. Lançamentos já feitos são mantidos.\", botão \"Desativar\"; inativo → \"Ativar apontamento\", \"Ativado, o apontamento volta ao Preenchimento.\", botão \"Ativar\"; Cancelar/Esc chamam onCancelar; alterando desabilita o confirmar; null não renderiza. useApontamentos.alterarSituacao(id, ativo) → alterarSituacao do serviço (PUT { ativo }) e, com sucesso, substitui o item da lista pela resposta (situação, situacaoAlteradaEm/Por) sem refazer o GET, mantendo posição e demais itens, e resolve com o atualizado; com filtro de situação ativo, se a resposta deixar de corresponder ao filtro (ativos ⇔ ativo; inativos ⇔ !ativo; problemas ⇔ desativadoMasUsadoEmIndicadorAtivo da resposta) o item sai da lista na hora e a contagemPorTipo do tipo dele é decrementada (tipo removido ao zerar), sem nova consulta; com \"todas\" (inclusive com filtro só de tipo) o item continua, só com a situação trocada, e a contagem não muda; falha rejeita com a ApiError original sem alterar a lista; corrida recarregar × alterarSituacao resolvida (GET antigo é descartado e não desfaz a alteração; ao fim dele a lista é reconsultada automaticamente — useConsulta da F1.13). Página: o diálogo é conduzido por useAcaoConfirmada (F1.13; comportamento observável igual); confirmar → PUT com o token; botão desabilitado durante a chamada; Cancelar/Esc ignorados e clique duplo gera um único PUT; sucesso → diálogo fecha, Notificacao \"Situação alterada.\", etiqueta muda (Ativo/Inativo), o botão da linha alterna (Desativar ↔ Ativar) e a linha ganha \"Expandir detalhes\" com \"Situação alterada em {data} por {usuário}\" da resposta; erro (403/500/rede) → diálogo fecha, Aviso tipo=\"erro\" com a mensagem, situação mantida, sem notificação; alteração posterior bem-sucedida remove o alerta; com filtro \"Ativos\"/\"Inativos\", a linha alterada sai da tabela e o botão do tipo é decrementado (some ao zerar); com \"Todas\" a linha permanece. Integração: Admin desativa, Validador ativa, Preenchedor sem botões, 403 mostra a mensagem, 401 volta ao login.",
+      "descricao": "RF-21, RNF-01, RNF-07 — Itens \"Desativar\" (ativos) / \"Ativar\" (inativos) no menu de ações da linha (MenuAcoes \"Ações do apontamento {nome}\", F4.2 — alteração de 04/11/2026), somente para quem tem a ação 'alterar-situacao-apontamento' na matriz da F1.13 (Admin e Validador; a página consulta usePermissoes().podeAcao, que delega a podeExecutar) (qualquer apontamento, inclusive vinculado a dashboard); Preenchedor não os vê. src/pages/apontamentos/DialogoSituacaoApontamento.tsx: DialogoSituacaoApontamento({ apontamento: Apontamento | null, alterando, onConfirmar, onCancelar }) sobre DialogoConfirmacao: apontamento ativo → título \"Desativar apontamento\", impacto \"Desativado, o apontamento sai do Preenchimento e dos próximos fechamentos. Lançamentos já feitos são mantidos.\", botão \"Desativar\"; inativo → \"Ativar apontamento\", \"Ativado, o apontamento volta ao Preenchimento.\", botão \"Ativar\"; Cancelar/Esc chamam onCancelar; alterando desabilita o confirmar; null não renderiza. useApontamentos.alterarSituacao(id, ativo) → alterarSituacao do serviço (PUT { ativo }) e, com sucesso, substitui o item da lista pela resposta (situação, situacaoAlteradaEm/Por) sem refazer o GET, mantendo posição e demais itens, e resolve com o atualizado; com filtro de situação ativo, se a resposta deixar de corresponder ao filtro (ativos ⇔ ativo; inativos ⇔ !ativo; problemas ⇔ desativadoMasUsadoEmIndicadorAtivo da resposta) o item sai da lista na hora e a contagemPorTipo do tipo dele é decrementada (tipo removido ao zerar), sem nova consulta; com \"todas\" (inclusive com filtro só de tipo) o item continua, só com a situação trocada, e a contagem não muda; falha rejeita com a ApiError original sem alterar a lista; corrida recarregar × alterarSituacao resolvida (GET antigo é descartado e não desfaz a alteração; ao fim dele a lista é reconsultada automaticamente — useConsulta da F1.13). Página: o diálogo é conduzido por useAcaoConfirmada (F1.13; comportamento observável igual); confirmar → PUT com o token; botão desabilitado durante a chamada; Cancelar/Esc ignorados e clique duplo gera um único PUT; sucesso → diálogo fecha, Notificacao \"Situação alterada.\", etiqueta muda (Ativo/Inativo), o item do menu da linha alterna (Desativar ↔ Ativar) e o menu ganha \"Ver detalhes\", que mostra \"Situação alterada em {data} por {usuário}\" da resposta; Cancelar devolve o foco ao gatilho do menu da linha; erro (403/500/rede) → diálogo fecha, Aviso tipo=\"erro\" com a mensagem, situação mantida, sem notificação; alteração posterior bem-sucedida remove o alerta; com filtro \"Ativos\"/\"Inativos\", a linha alterada sai da tabela e o botão do tipo é decrementado (some ao zerar); com \"Todas\" a linha permanece. Integração: Admin desativa, Validador ativa, Preenchedor sem botões, 403 mostra a mensagem, 401 volta ao login.",
       "status": "implementado",
       "testes": [
         "src/pages/apontamentos/DialogoSituacaoApontamento.test.tsx",
@@ -711,13 +800,21 @@
         {
           "data": "2026-11-04",
           "alteracao": "Refatoração pós-revisão e decisões do usuário (item sai da lista ao deixar o filtro de situação; debounce de 500 ms na busca) implementadas; todos os testes passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Alteração: Desativar/Ativar saem dos botões da linha e passam a itens do menu \"Ações do apontamento {nome}\" (F4.2); após a alteração, os detalhes com quem/quando abrem por \"Ver detalhes\" no menu (antes, \"Expandir detalhes\"). Pedido do usuário em 04/11/2026: na aba Apontamentos, esconder os botões de ação em um menu, igual na aba Dados Externos, para manter o mesmo padrão entre as abas e deixar a tabela mais limpa (confirma a decisão em aberto no plano: aplicar o menu de ações na aba Apontamentos). Testes adequados: ApontamentosPage.situacao.test.tsx (itens por perfil, novo teste de foco de volta ao gatilho ao cancelar), ApontamentosPage.situacao.integration.test.tsx e ApontamentosPage.situacao.permissoes.test.tsx (itens do menu conforme a matriz de ações)."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído (ações da aba Apontamentos no menu de três pontos, com Ver detalhes no menu); 100% dos testes do requisito passando."
         }
       ]
     },
     {
       "id": "F4.6",
       "titulo": "Exclusão de apontamento",
-      "descricao": "RF-22, RN-11, RN-12, RNF-07 — Botão \"Excluir\" (variante perigo) com aria-label \"Excluir apontamento {nome}\" em todas as linhas, somente para quem tem a ação 'excluir-apontamento' na matriz da F1.13 (só Admin; a página consulta usePermissoes().podeAcao, que delega a podeExecutar) (Validador e Preenchedor não o veem). src/pages/apontamentos/DialogoExcluirApontamento.tsx: DialogoExcluirApontamento({ apontamento: Apontamento | null, excluindo, onConfirmar, onCancelar }) sobre DialogoConfirmacao (título \"Excluir apontamento\"): sem indicadores → impacto \"O apontamento {nome} e todos os seus lançamentos e histórico serão apagados. Esta ação não pode ser desfeita.\", perigo, botões \"Excluir\" (desabilitado com excluindo) e \"Cancelar\"; com indicadores.length > 0 (inclusive vinculado a dashboard) → modo bloqueio \"Este apontamento compõe os indicadores: {nomes separados por \", \"} e não pode ser excluído.\" e só \"Entendi\", sem chamar a API; Cancelar/Esc/Entendi chamam onCancelar; null não renderiza. useApontamentos.excluir(id) → excluirApontamento (DELETE) e, com sucesso, remove o item da lista e decrementa a contagemPorTipo do tipo dele (tipo removido ao zerar), sem nova consulta (resolve undefined); falha rejeita com a ApiError original (400 traz mensagem e dados.indicadores) sem alterar a lista; corrida recarregar × excluir resolvida (GET antigo descartado, a linha não volta; ao fim dele a lista é reconsultada automaticamente — useConsulta da F1.13). Página: o diálogo é conduzido por useAcaoConfirmada (F1.13; comportamento observável igual); confirmar → DELETE com o token; botão desabilitado durante a chamada; Cancelar/Esc ignorados e clique duplo gera um único DELETE; sucesso → diálogo fecha, Notificacao \"Apontamento excluído.\" e a linha some; erro da API (400 { mensagem, indicadores } do caso \"já compôs\" — A-10 —, 403, 500, rede) → diálogo fecha, Aviso tipo=\"erro\" com a mensagem, linha mantida, sem notificação; exclusão posterior bem-sucedida remove o alerta; o botão do tipo do apontamento excluído é decrementado (some ao zerar) e uma exclusão recusada não muda os botões. Integração: Admin exclui e é bloqueado no front quando há indicadores; 400 da API mostra a mensagem; Validador e Preenchedor sem botão; 401 volta ao login.",
+      "descricao": "RF-22, RN-11, RN-12, RNF-07 — Item \"Excluir\" (perigo, último item) no menu de ações de todas as linhas (MenuAcoes \"Ações do apontamento {nome}\", F4.2 — alteração de 04/11/2026), somente para quem tem a ação 'excluir-apontamento' na matriz da F1.13 (só Admin; a página consulta usePermissoes().podeAcao, que delega a podeExecutar) (Validador e Preenchedor não o veem). src/pages/apontamentos/DialogoExcluirApontamento.tsx: DialogoExcluirApontamento({ apontamento: Apontamento | null, excluindo, onConfirmar, onCancelar }) sobre DialogoConfirmacao (título \"Excluir apontamento\"): sem indicadores → impacto \"O apontamento {nome} e todos os seus lançamentos e histórico serão apagados. Esta ação não pode ser desfeita.\", perigo, botões \"Excluir\" (desabilitado com excluindo) e \"Cancelar\"; com indicadores.length > 0 (inclusive vinculado a dashboard) → modo bloqueio \"Este apontamento compõe os indicadores: {nomes separados por \", \"} e não pode ser excluído.\" e só \"Entendi\", sem chamar a API; Cancelar/Esc/Entendi chamam onCancelar; null não renderiza. useApontamentos.excluir(id) → excluirApontamento (DELETE) e, com sucesso, remove o item da lista e decrementa a contagemPorTipo do tipo dele (tipo removido ao zerar), sem nova consulta (resolve undefined); falha rejeita com a ApiError original (400 traz mensagem e dados.indicadores) sem alterar a lista; corrida recarregar × excluir resolvida (GET antigo descartado, a linha não volta; ao fim dele a lista é reconsultada automaticamente — useConsulta da F1.13). Página: o diálogo é conduzido por useAcaoConfirmada (F1.13; comportamento observável igual); confirmar → DELETE com o token; botão desabilitado durante a chamada; Cancelar/Esc ignorados e clique duplo gera um único DELETE; sucesso → diálogo fecha, Notificacao \"Apontamento excluído.\" e a linha some; erro da API (400 { mensagem, indicadores } do caso \"já compôs\" — A-10 —, 403, 500, rede) → diálogo fecha, Aviso tipo=\"erro\" com a mensagem, linha mantida, sem notificação; exclusão posterior bem-sucedida remove o alerta; o botão do tipo do apontamento excluído é decrementado (some ao zerar) e uma exclusão recusada não muda os botões. Integração: Admin exclui e é bloqueado no front quando há indicadores; 400 da API mostra a mensagem; Validador e Preenchedor sem o item \"Excluir\"; 401 volta ao login. Cancelar devolve o foco ao gatilho do menu da linha.",
       "status": "implementado",
       "testes": [
         "src/pages/apontamentos/DialogoExcluirApontamento.test.tsx",
@@ -742,6 +839,293 @@
         {
           "data": "2026-11-04",
           "alteracao": "Refatoração pós-revisão e decisões do usuário (item sai da lista ao deixar o filtro de situação; debounce de 500 ms na busca) implementadas; todos os testes passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Alteração: \"Excluir\" sai do botão da linha e passa a item de perigo do menu \"Ações do apontamento {nome}\" (F4.2). Pedido do usuário em 04/11/2026: na aba Apontamentos, esconder os botões de ação em um menu, igual na aba Dados Externos, para manter o mesmo padrão entre as abas e deixar a tabela mais limpa (confirma a decisão em aberto no plano: aplicar o menu de ações na aba Apontamentos). Testes adequados: ApontamentosPage.exclusao.test.tsx (item por perfil, novo teste de foco de volta ao gatilho ao cancelar, contagem de linhas pelos gatilhos do menu), ApontamentosPage.exclusao.integration.test.tsx e ApontamentosPage.exclusao.permissoes.test.tsx (itens do menu conforme a matriz de ações)."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído (ações da aba Apontamentos no menu de três pontos, com Ver detalhes no menu); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F5.1",
+      "titulo": "Serviço de dados externos",
+      "descricao": "RF-23 a RF-31, INT-03 — src/services/dadosExternosService.ts: SITUACOES_FILTRO_DADO_EXTERNO = ['todas','ativos','inativos','construcao','problemas'] (tipo SituacaoFiltroDadoExterno) e ROTULOS_SITUACAO_FILTRO_DADO_EXTERNO (Todas, Ativos, Inativos, Em construção, Com problemas); listarDadosExternos({ busca?, situacao? }) → DadoExterno[] (GET /api/ped/dados-externos-cadastro; busca vazia/espaços e undefined omitidos; aceita { \"dados externos\": [...] } ou a lista pura; item fora do formato — sem id, situação/origem/referência/coleta/sentido/tipo de valor desconhecidos — rejeita a resposta inteira com ApiError(200, MENSAGEM_RESPOSTA_INVALIDA)); listarIdentificadores() → { identificador, quantidade }[] (GET .../identificadores; lista pura ou { identificadores }); criarDadoExterno(NovoDadoExterno) → { dadoExterno: DadoExterno | null, tarefa: { id|null, titulo, descricao|null, status|null } | null } (POST com paraCorpoNovoDadoExterno; dado válido em { \"dado externo\", tarefa } ou na raiz com \"tarefa\" ao lado → convertido; corpo 2xx vazio (201 sem corpo, 204), não objeto (lista, texto) ou sem dado reconhecível (só { mensagem }, { id }, dado incompleto, tipo de valor desconhecido, envelope com dado incompleto) → dadoExterno null, sem erro; \"tarefa\" pode vir na raiz mesmo sem o dado; tarefa fora do formato (sem título, título não textual, texto/número solto) → tarefa null, sem erro; erros HTTP e de rede continuam rejeitando com a ApiError); concluirConstrucao(id, identificador) → { dadoExterno, indicadorCriado: { id, nome } | null } (PUT .../{id}/concluir { identificador } em maiúsculas e sem espaços nas pontas; resposta { \"dado externo\", \"indicador criado\" } ou o dado na raiz); alterarSituacaoDadoExterno(id, ativo) → DadoExterno (PUT .../{id}/situacao { ativo }; dado na raiz ou em \"dado externo\"); excluirDadoExterno(id) → void (DELETE; 400 traz dados.indicadores); obterRealizado(id, { filial?, mesDeReferencia? }) → { valor|null, mesesConsiderados: { mes, valor }[], janelaRetroativa|null, sentidoCalculo|null, coletaDisponivel } (GET .../{id}/realizado?filial=&mes_de_referencia=; só serviço). Erros HTTP/rede propagados como ApiError.",
+      "status": "implementado",
+      "testes": [
+        "src/services/dadosExternosService.test.ts"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F5.1 do plano e da seção \"fase 3: dados externos\" da API. Formatos não documentados assumidos e aceitos nas duas formas prováveis (lista pura ou objeto com chave): listagem, identificadores, resposta do POST (tarefa) e do concluir (indicador criado) — ver dúvidas da F5."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Implementação concluída; todos os testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Bug relatado pelo usuário: ao cadastrar um dado externo a API gravava com sucesso, mas a tela não atualizava a lista, porque criarDadoExterno exigia o dado externo completo (na raiz ou em \"dado externo\") e a tarefa num formato exato, rejeitando com ApiError(200, \"Resposta inválida do servidor.\") caso contrário; useDadosExternos.criar falhava antes de recarregar(). Motivação: um 2xx significa que o dado foi gravado e o formato da resposta do POST não é documentado em docs/backend/API (24).md (mesma correção já feita em F4.1/F4.4 para apontamentos). Nova regra: POST 2xx nunca rejeita por formato; dadoExterno null quando o corpo não traz o dado reconhecível e tarefa null quando fora do formato. Teste removido de dadosExternosService.test.ts (deixou de ser requisito): \"resposta 2xx fora do formato vira ApiError \\\"resposta inválida\\\"\" (POST { ok: true }). Testes criados: só { mensagem }, 201 vazio, 204, { id }/{ ok: true }, dado incompleto na raiz, envelope com dado incompleto, tipo de valor desconhecido, lista/texto solto → { dadoExterno: null, tarefa: null }; { mensagem, tarefa } sem dado → dadoExterno null com a tarefa convertida; tarefa fora do formato com dado válido → tarefa null mantendo o dado; tarefa fora do formato sem dado → ambos null; 500 rejeita com a mensagem padrão; falha de rede rejeita com status 0. Listagem, identificadores, concluir, situação, exclusão e realizado sem mudança (continuam estritos)."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído: POST 2xx sem dado externo reconhecível resolve dadoExterno null, a lista é recarregada e o título padrão do pedido usa o nome digitado; 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F5.2",
+      "titulo": "Listagem de dados externos",
+      "descricao": "RF-23 — src/pages/dados-externos/useDadosExternos.ts (sobre useConsulta, como useApontamentos): { dadosExternos, carregando, carregouUmaVez, erro, filtros, setBusca, setSituacao, limparFiltros, recarregar, criar, concluir, alterarSituacao, excluir }; GET inicial sem query. DadosExternosPage.tsx substitui o placeholder: h1 \"Dados Externos\", botão \"Novo dado externo\" (todos os perfis), EstadoCarga (\"Carregando dados externos...\", Aviso de erro com \"Tentar novamente\", tabela oculta no erro e até a primeira carga), Card semPadding com BarraFiltros + TabelaDadosExternos; textos vazios \"Nenhum dado externo cadastrado.\" / \"Nenhum dado externo encontrado para os filtros.\"; sem ação de editar (RF-29). TabelaDadosExternos({ dados, podeConcluir, podeAlterarSituacao, podeExcluir, onConcluir, onAlterarSituacao, onExcluir, textoVazio? }) (props e callbacks inalterados): legenda \"Dados externos\"; colunas visíveis (alteração de 04/11/2026) Nome (com o tipo abaixo), Situação (Etiqueta Ativo=sucesso, Inativo=neutro, \"Em construção (TI)\"=info, + \"Tarefa nº {id}\" só quando tarefaBitrix existir), Origem (rótulo), Identificador (ou \"a definir pela TI\"), Cadastro (data/hora + \"por {autor}\") e Ações; sem coluna nem botão de expandir da Tabela (usa Tabela com expandidas controlado). Toda linha tem detalhes: pares rótulo/valor em <dl> (<dt>/<dd>) Campo/cálculo (ou \"—\"), Referência (Filial/Colaborador/Zona de venda), Coleta (coletaDescricao ou rótulo), Janela retroativa (\"Somente o mês\", \"{n} meses\", \"—\" quando null) e Tipo de valor; mais \"Comentários: {texto}\" e \"Situação alterada em {dd/mm/aaaa hh:mm} por {nome}\" quando existem. Coluna Ações: MenuAcoes (F1.16) com rotulo \"Ações do dado externo {nome}\" e itens nesta ordem: \"Ver detalhes\" (\"Ocultar detalhes\" quando aberto; alterna a expansão só daquela linha; várias linhas podem ficar abertas); \"Concluir construção\" (podeConcluir e em_construcao) → onConcluir(dado); \"Desativar\"/\"Ativar\" (podeAlterarSituacao e não em_construcao — RF-30) → onAlterarSituacao(dado); \"Excluir\" (perigo; podeExcluir; todas as linhas) → onExcluir(dado). Página: Admin vê os três; Validador só Ativar/Desativar; Preenchedor só \"Ver detalhes\". Integração: Admin/Validador/Preenchedor, 500 e 401.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/dados-externos/TabelaDadosExternos.test.tsx",
+        "src/pages/dados-externos/useDadosExternos.test.tsx",
+        "src/pages/dados-externos/DadosExternosPage.test.tsx",
+        "src/pages/dados-externos/DadosExternosPage.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F5.2 do plano e de RF-23, seguindo o padrão das abas de listagem e as mesmas regras da aba Apontamentos (decisão do orquestrador). Decisões de teste: janela 1 exibida como \"Somente o mês\" (texto do RF-25) em vez de \"1 meses\"; comentários na linha expansível; número da tarefa só quando a API devolve tarefa bitrix."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Implementação concluída; todos os testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Alteração: colunas Campo/cálculo, Referência, Coleta, Janela retroativa e Tipo de valor saem da tabela e passam aos detalhes da linha (pares rótulo/valor; toda linha tem detalhes); os botões de ação viram o MenuAcoes \"Ações do dado externo {nome}\" (F1.16) com \"Ver detalhes\"/\"Ocultar detalhes\", \"Concluir construção\", \"Desativar\"/\"Ativar\" e \"Excluir\" (perigo). Pedido do usuário: na aba Dados Externos a tabela ficou larga demais e poluída e as ações em linha ocupam espaço. Testes adequados: TabelaDadosExternos.test.tsx (colunas, detalhes e menu), DadosExternosPage.test.tsx e DadosExternosPage.integration.test.tsx (permissões pelo menu; novo teste de \"Ver detalhes\")."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído (menu de ações por linha e detalhes expandidos pelo menu); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F5.3",
+      "titulo": "Filtros dos dados externos",
+      "descricao": "RF-24, RNF-09 — filtros pela API como em Apontamentos: BarraFiltros com busca rótulo \"Buscar\" e placeholder \"Nome, origem, identificador, campo, tipo ou referência\"; seletor \"Situação\" com Todas, Ativos, Inativos, Em construção, Com problemas (valores todas/ativos/inativos/construcao/problemas; \"todas\" omitida da query); \"Limpar filtros\". useDadosExternos exporta FILTROS_PADRAO { busca: \"\", situacao: \"todas\" } e ATRASO_BUSCA_MS = 500: setBusca atualiza filtros na hora e consulta 500 ms após a última mudança (enviada como digitada); setSituacao e limparFiltros consultam na hora e cancelam a espera; mesmo valor não reconsulta; proteção de corrida; erro da consulta vai para erro e recarregar repete com os filtros atuais; desmontar cancela a espera.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/dados-externos/useDadosExternos.filtros.test.tsx",
+        "src/pages/dados-externos/DadosExternosPage.filtros.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F5.3 do plano e de RF-24/RNF-09, com as mesmas regras de filtro da aba Apontamentos (busca com espera de 500 ms; situação consulta na hora) — decisão do orquestrador por consistência."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Implementação concluída; todos os testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F5.4",
+      "titulo": "Formulário de dado externo — campos comuns",
+      "descricao": "RF-25, RF-29 — src/pages/dados-externos/FormularioDadoExterno.tsx({ tipos, variante: \"admin\" | \"solicitacao\", identificadores, salvando, erro, onSalvar(NovoDadoExterno), onCancelar }), aberto pelo botão \"Novo dado externo\" no Dialogo \"Novo dado externo\". Campos (selects com \"Selecione\"): Nome*, Tipo* (tipos recebidos), Sistema de origem* (Senior ERP (Sapiens), Senior HCM, Bitrix24, Outro sistema), Tipo de valor* (Porcentagem, Numeral, Booleano), Referência* (Filial, Colaborador, Zona de venda — as três habilitadas), Coleta* (Diária, Data específica do mês → campo numérico \"Dia\"* 1–31), Sentido do cálculo* (Somar, Fazer a média, Usar só o último valor), Janela retroativa* (Somente o mês, 2, 3, 6, 12, 24 meses; oculta e enviada como null quando o sentido é \"ultimo\"), Comentários (AreaTexto; obrigatório só com \"Outro sistema\"), \"Campo ou cálculo\"* (AreaTexto, nas duas variantes; regras em F5.5/F5.6); obrigatorio → aria-required. Mensagens: \"Informe o nome.\", \"Selecione o tipo.\", \"Selecione o sistema de origem.\", \"Selecione o tipo de valor.\", \"Selecione a referência.\", \"Selecione a coleta.\", \"Informe o dia da coleta, de 1 a 31.\", \"Selecione o sentido do cálculo.\", \"Selecione a janela retroativa.\", \"Informe nos comentários qual é o sistema de origem.\". Envio com textos sem espaços nas pontas, comentários vazios → null, diaDaColeta null na coleta diária. Salvar desabilitado com salvando; erro da API em alerta no formulário sem perder os dados; sem campo de situação nem edição. useDadosExternos.criar(dados) → POST e recarga, resolve com o resultado do serviço { dadoExterno: DadoExterno | null, tarefa: TarefaConstrucao | null }; depois de qualquer POST 2xx, inclusive com dadoExterno null (só { mensagem }, corpo vazio, dado incompleto), recarrega a lista e resolve sem erro; falha (HTTP/rede) rejeita com a ApiError sem recarregar nem alterar a lista ou o erro de carga. Integração: Cancelar sem POST; validação local; 400 \"ainda não está disponível\" (referência não liberada — A-11) exibido como mensagem da API para os três perfis; rede; 401.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/dados-externos/FormularioDadoExterno.cadastro.test.tsx",
+        "src/pages/dados-externos/useDadosExternos.cadastro.test.tsx",
+        "src/pages/dados-externos/DadosExternosPage.cadastro.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F5.4 do plano e de RF-25/RF-29. Decisão do usuário: as três referências ficam habilitadas no front; a restrição atual é da API (A-11) e o 400 é mostrado com a mensagem da API. Dia de 1 a 31 conforme o documento (o protótipo usa 1–28). Testes de envio usam a variante Admin (identificador preenchido)."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Implementação concluída; todos os testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Bug relatado pelo usuário: ao cadastrar um dado externo a API gravava com sucesso, mas a tela não atualizava a lista, porque criarDadoExterno exigia o dado externo completo (na raiz ou em \"dado externo\") e a tarefa num formato exato, rejeitando com ApiError(200, \"Resposta inválida do servidor.\") caso contrário; useDadosExternos.criar falhava antes de recarregar(). Motivação: um 2xx significa que o dado foi gravado e o formato da resposta do POST não é documentado em docs/backend/API (24).md (mesma correção já feita em F4.1/F4.4 para apontamentos). useDadosExternos.criar passa a recarregar a lista e resolver com { dadoExterno: null, tarefa } depois de qualquer POST 2xx. Testes criados em useDadosExternos.cadastro.test.tsx: POST 2xx com só { mensagem }, 201 vazio e dado incompleto → resolve { dadoExterno: null, tarefa: null }, recarrega e o novo item aparece, sem erro; POST com só { mensagem, tarefa } → resolve dadoExterno null com a tarefa e recarrega. Nenhum teste removido."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído: POST 2xx sem dado externo reconhecível resolve dadoExterno null, a lista é recarregada e o título padrão do pedido usa o nome digitado; 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Pedido do usuário: mostrar o campo \"Campo ou cálculo\" também para o perfil Admin no cadastro de dado externo, com preenchimento obrigatório. Motivação: o Admin também precisa registrar qual campo buscar ou qual cálculo fazer; hoje esse dado se perde no cadastro feito pelo Admin e a coluna \"Campo/cálculo\" fica \"—\" nos detalhes. Como o campo passa a ser obrigatório também na variante Admin, os testes que enviam o formulário pela variante Admin passam a preenchê-lo: FormularioDadoExterno.cadastro.test.tsx (preencherValido) e DadosExternosPage.cadastro.integration.test.tsx (preencher, agora para os três perfis). Nenhum teste criado ou removido neste requisito."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído (Campo ou cálculo obrigatório também para o Admin; identificador só com A–Z, 0–9 e _); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F5.5",
+      "titulo": "Cadastro de dado externo pelo Admin",
+      "descricao": "RF-26 — variante \"admin\" (página usa podeAcao(\"cadastrar-dado-externo-ativo\")): campo \"Identificador da consulta\"* (só A–Z, 0–9 e \"_\": limparIdentificador(texto) de src/utils/identificador.ts converte para maiúsculas e descarta na hora, ao digitar, ao colar e ao escolher uma sugestão, tudo o que não for A–Z, 0–9 ou \"_\" (acentos, ç, espaço, símbolos), sem transliterar; o campo nunca mostra caractere inválido e o valor enviado já sai limpo) (\"Informe o identificador da consulta.\" quando vazio); campo \"Campo ou cálculo\"* (AreaTexto, mesmo rótulo e mensagem da variante de solicitação: \"Descreva o campo a buscar ou o cálculo a fazer.\" quando vazio ou só com espaços; enviado sem espaços nas pontas em campoCalculo / \"campo calculo\"); sem \"Observação para a TI\" (observacao null); sugestões em role=\"group\" \"Identificadores existentes\" com botões \"{IDENTIFICADOR} — usado por {n} dado(s)\" (em maiúsculas, filtradas pelo texto digitado, clicar preenche o campo; sem lista quando não há identificadores). A página carrega GET .../identificadores para o Admin; falha nessa consulta não impede o cadastro. Sucesso (qualquer POST 2xx, inclusive quando a resposta não traz o dado — dadoExterno null, ex.: só { mensagem } ou 201 vazio): diálogo fecha, Notificacao \"Dado externo cadastrado.\", nenhum alerta de erro e a lista recarrega com o dado Ativo.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/dados-externos/FormularioDadoExterno.admin.test.tsx",
+        "src/pages/dados-externos/DadosExternosPage.admin.integration.test.tsx",
+        "src/utils/identificador.test.ts"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F5.5 do plano e de RF-26. Decisão de teste: sugestões como botões num grupo nomeado (em vez de <datalist>, cujas opções não são acessíveis nos testes)."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Implementação concluída; todos os testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Bug relatado pelo usuário: ao cadastrar um dado externo a API gravava com sucesso, mas a tela não atualizava a lista, porque criarDadoExterno exigia o dado externo completo (na raiz ou em \"dado externo\") e a tarefa num formato exato, rejeitando com ApiError(200, \"Resposta inválida do servidor.\") caso contrário; useDadosExternos.criar falhava antes de recarregar(). Motivação: um 2xx significa que o dado foi gravado e o formato da resposta do POST não é documentado em docs/backend/API (24).md (mesma correção já feita em F4.1/F4.4 para apontamentos). Com dadoExterno null o Admin vê o mesmo sucesso. Testes criados em DadosExternosPage.admin.integration.test.tsx: POST respondendo só { mensagem: \"dado externo cadastrado\" } e 201 vazio → diálogo fecha, notificação \"Dado externo cadastrado.\", nenhum role=\"alert\" e o novo dado aparece Ativo na lista recarregada. Nenhum teste removido."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído: POST 2xx sem dado externo reconhecível resolve dadoExterno null, a lista é recarregada e o título padrão do pedido usa o nome digitado; 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Pedido do usuário: mostrar o campo \"Campo ou cálculo\" também para o perfil Admin no cadastro de dado externo, com preenchimento obrigatório. Motivação: o Admin também precisa registrar qual campo buscar ou qual cálculo fazer; hoje esse dado se perde no cadastro feito pelo Admin e a coluna \"Campo/cálculo\" fica \"—\" nos detalhes. Testes alterados em FormularioDadoExterno.admin.test.tsx: \"não tem Campo ou cálculo nem Observação para a TI\" passa a verificar só a ausência de \"Observação para a TI\"; o envio espera campoCalculo com o texto sem espaços nas pontas (antes null); preencherComuns preenche o campo. Testes criados: Admin tem \"Campo ou cálculo\" (TEXTAREA, aria-required); vazio e só com espaços mostram \"Descreva o campo a buscar ou o cálculo a fazer.\" (aria-invalid) e não salvam; sem identificador e sem campo mostram as duas mensagens. Em DadosExternosPage.admin.integration.test.tsx: o teste da variante Admin verifica o campo obrigatório (e a ausência de \"Observação para a TI\"); o POST do cadastro espera \"campo calculo\" sem espaços nas pontas (antes null), também no teste da sugestão; criado teste de integração: sem o campo (vazio e só espaços) mostra a mensagem e não faz o POST. Nenhum teste removido (só a asserção de ausência do campo, que deixou de ser requisito)."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Pedido do usuário: o identificador do dado externo não pode ter acentuação, caracteres especiais nem espaço. Motivação: o identificador aponta para o código da coleta no back-end (ex.: FATURAMENTO, NOVOS_CLIENTES); acento, espaço e símbolo geram códigos que não batem com nenhuma coleta. Regra: só A–Z, 0–9 e \"_\", em maiúsculas; os caracteres inválidos são descartados na hora, ao digitar, ao colar e ao escolher uma sugestão (sem transliteração: \"ação ok\" → \"AOOK\", \"NOVOS-CLIENTES 2\" → \"NOVOSCLIENTES2\", \"novos_clientes\" → \"NOVOS_CLIENTES\"); o campo nunca mostra caractere inválido e o valor enviado já sai limpo. Função pura reutilizável limparIdentificador(texto) em src/utils/identificador.ts. Testes criados: src/utils/identificador.test.ts (unitário de limparIdentificador, vinculado a este requisito e usado também pela F5.7: exemplos do pedido, válidos mantidos, minúsculas, acentos/ç/ñ removidos, \"ß\" não vira \"SS\", espaços/tab/quebra, símbolos e emoji, vazio, idempotência); em FormularioDadoExterno.admin.test.tsx: digitar e colar os três exemplos, campo nunca com caractere inválido, envio do valor limpo, só caracteres inválidos conta como vazio, sugestão com caracteres inválidos (\"vendas líq-2\" → \"VENDASLQ2\"); em DadosExternosPage.admin.integration.test.tsx: colar e digitar caracteres inválidos e o POST com o identificador limpo. Teste alterado: \"convertido para maiúsculas no próprio campo\" passa a esperar \"FAT_LIQFILIAL1\" para \"fat_liq.filial-1\" (antes \"FAT_LIQ.FILIAL-1\"). Nenhum teste removido."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído (Campo ou cálculo obrigatório também para o Admin; identificador só com A–Z, 0–9 e _); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F5.6",
+      "titulo": "Pedido de construção de dado externo (Validador/Preenchedor)",
+      "descricao": "RF-27, INT-04 — variante \"solicitacao\": \"Campo ou cálculo\"* (AreaTexto; \"Descreva o campo a buscar ou o cálculo a fazer.\") e \"Observação para a TI\" opcional (AreaTexto; vazio → null); sem identificador (null) e sem consultar GET .../identificadores. Sucesso (qualquer POST 2xx, inclusive com dadoExterno null, ex.: só { mensagem } ou { mensagem, tarefa }): o formulário fecha e abre o Dialogo \"Pedido enviado à TI\" com \"Pedido de construção enviado à TI.\", o título da tarefa (tarefa.titulo ou, sem tarefa válida na resposta, \"[PED] Construir dado externo: {nome digitado no formulário}\" — não depende do dado vir na resposta), a descrição quando houver e \"Tarefa nº {id}\" só quando a API devolver o id; botão \"Entendi\" fecha; a lista recarrega com o dado \"Em construção (TI)\" e \"a definir pela TI\"; sem a notificação do cadastro do Admin.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/dados-externos/FormularioDadoExterno.solicitacao.test.tsx",
+        "src/pages/dados-externos/DadosExternosPage.solicitacao.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F5.6 do plano, de RF-27 e INT-04. Bitrix24 ainda não integrado (fase 8 da API): o número só aparece quando a API devolver."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Implementação concluída; todos os testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Bug relatado pelo usuário: ao cadastrar um dado externo a API gravava com sucesso, mas a tela não atualizava a lista, porque criarDadoExterno exigia o dado externo completo (na raiz ou em \"dado externo\") e a tarefa num formato exato, rejeitando com ApiError(200, \"Resposta inválida do servidor.\") caso contrário; useDadosExternos.criar falhava antes de recarregar(). Motivação: um 2xx significa que o dado foi gravado e o formato da resposta do POST não é documentado em docs/backend/API (24).md (mesma correção já feita em F4.1/F4.4 para apontamentos). Além disso, a página montava o título padrão com dadoExterno.nome, que pode não vir na resposta: passa a usar o nome digitado no formulário. Testes criados em DadosExternosPage.solicitacao.integration.test.tsx: Preenchedor e Validador com POST respondendo só { mensagem: \"dado externo cadastrado\" } → \"Pedido enviado à TI\" com \"[PED] Construir dado externo: Bonificações\", sem \"Tarefa nº\", nenhum role=\"alert\" e o novo dado na lista recarregada; { mensagem, tarefa } sem o dado → título, descrição e número da tarefa da resposta; tarefa fora do formato sem o dado → título montado com o nome digitado, sem erro. Nenhum teste removido."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído: POST 2xx sem dado externo reconhecível resolve dadoExterno null, a lista é recarregada e o título padrão do pedido usa o nome digitado; 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F5.7",
+      "titulo": "Concluir construção de dado externo",
+      "descricao": "RF-28, RF-36 — só Admin (podeAcao(\"concluir-dado-externo\")) e só em dados em_construcao. DialogoConcluirConstrucao({ dado | null, identificadores, concluindo, erro, onConfirmar(identificador), onCancelar }): Dialogo \"Concluir construção\" citando o dado, campo \"Identificador da consulta\"* (mesma regra da F5.5: só A–Z, 0–9 e \"_\": limparIdentificador(texto) de src/utils/identificador.ts converte para maiúsculas e descarta na hora, ao digitar, ao colar e ao escolher uma sugestão, tudo o que não for A–Z, 0–9 ou \"_\" (acentos, ç, espaço, símbolos), sem transliterar; o campo nunca mostra caractere inválido e o valor enviado já sai limpo) com as mesmas sugestões da F5.5, botões \"Concluir\" (desabilitado com concluindo) e \"Cancelar\"; vazio → \"Informe o identificador da consulta.\"; erro em alerta dentro do diálogo mantendo o texto. useDadosExternos.concluir(id, identificador) → PUT e troca do item (sai da lista se deixar de corresponder ao filtro de situação), resolve { dadoExterno, indicadorCriado }; falha rejeita com a ApiError. Página: sucesso → diálogo fecha, Notificacao \"Construção concluída.\", dado Ativo e, se a API devolver indicador criado, Aviso tipo=\"info\" \"Indicador {nome} criado automaticamente. Defina a meta na aba Indicadores.\"; erro da API fica no diálogo aberto; clique duplo → 1 PUT; Cancelar/Esc ignorados durante a chamada; 401 volta ao login.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/dados-externos/DialogoConcluirConstrucao.test.tsx",
+        "src/pages/dados-externos/useDadosExternos.concluir.test.tsx",
+        "src/pages/dados-externos/DadosExternosPage.concluir.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F5.7 do plano, de RF-28 e RF-36. Decisão de teste: erro da conclusão exibido dentro do diálogo (o usuário corrige o identificador), diferente de situação/exclusão."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Implementação concluída; todos os testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Alteração (só de testes): Testes adequados ao MenuAcoes (F5.2/F1.16): a conclusão é aberta pelo item \"Concluir construção\" do menu \"Ações do dado externo {nome}\", e após concluir o menu passa a ter \"Ver detalhes\", \"Desativar\" e \"Excluir\" (DadosExternosPage.concluir.integration.test.tsx). Regras da conclusão inalteradas. Pedido do usuário: na aba Dados Externos a tabela ficou larga demais e poluída e as ações em linha ocupam espaço."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído (menu de ações por linha e detalhes expandidos pelo menu); 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Pedido do usuário: o identificador do dado externo não pode ter acentuação, caracteres especiais nem espaço. Motivação: o identificador aponta para o código da coleta no back-end (ex.: FATURAMENTO, NOVOS_CLIENTES); acento, espaço e símbolo geram códigos que não batem com nenhuma coleta. Regra: só A–Z, 0–9 e \"_\", em maiúsculas; os caracteres inválidos são descartados na hora, ao digitar, ao colar e ao escolher uma sugestão (sem transliteração: \"ação ok\" → \"AOOK\", \"NOVOS-CLIENTES 2\" → \"NOVOSCLIENTES2\", \"novos_clientes\" → \"NOVOS_CLIENTES\"); o campo nunca mostra caractere inválido e o valor enviado já sai limpo. Função pura reutilizável limparIdentificador(texto) em src/utils/identificador.ts. Testes alterados em DialogoConcluirConstrucao.test.tsx: digitar \" devolucoes_venda \" passa a mostrar \"DEVOLUCOES_VENDA\" (antes \" DEVOLUCOES_VENDA \", com os espaços); \"sem identificador\" cobre também só caracteres inválidos (\"çã -.!\" → campo vazio). Testes criados: digitar e colar os três exemplos, confirmar com o valor limpo e sugestão com caracteres inválidos; em DadosExternosPage.concluir.integration.test.tsx: colar e digitar caracteres inválidos e o PUT com o identificador limpo. A função limparIdentificador é testada em src/utils/identificador.test.ts (F5.5). Nenhum teste removido."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído (Campo ou cálculo obrigatório também para o Admin; identificador só com A–Z, 0–9 e _); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F5.8",
+      "titulo": "Ativar/desativar dado externo",
+      "descricao": "RF-30, RNF-01, RNF-07 — AcaoPermissao ganha \"cadastrar-dado-externo-ativo\" (admin), \"concluir-dado-externo\" (admin), \"alterar-situacao-dado-externo\" (admin, validador) e \"excluir-dado-externo\" (admin) (src/sessao/permissoes.ts). DialogoSituacaoDadoExterno({ dado | null, alterando, onConfirmar, onCancelar }) sobre DialogoConfirmacao: ativo → \"Desativar dado externo\", impacto \"Desativado, o dado deixa de ser coletado e de compor os indicadores dos próximos fechamentos. Imagens já congeladas são mantidas.\", botão \"Desativar\"; inativo → \"Ativar dado externo\", \"Ativado, o dado volta a ser coletado.\", botão \"Ativar\". Botão ausente para dados em construção. useDadosExternos.alterarSituacao(id, ativo) → PUT e troca do item pela resposta (sai da lista se deixar de corresponder ao filtro), sem nova consulta. Página via useAcaoConfirmada: sucesso → Notificacao \"Situação alterada.\" e detalhe \"Situação alterada em … por …\"; erro → diálogo fecha e Aviso de erro com a mensagem; Preenchedor sem botão.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/dados-externos/DialogoSituacaoDadoExterno.test.tsx",
+        "src/pages/dados-externos/useDadosExternos.situacao.test.tsx",
+        "src/pages/dados-externos/DadosExternosPage.situacao.integration.test.tsx",
+        "src/sessao/permissoes.dadosExternos.test.ts"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F5.8 do plano e de RF-30/RNF-01/RNF-07. As novas ações da matriz de permissões da aba Dados Externos (inclusive as usadas por F5.5, F5.7 e F5.9) são testadas em permissoes.dadosExternos.test.ts, vinculado a este requisito, sem alterar os testes de F1.13."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Implementação concluída; todos os testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Alteração (só de testes): Testes adequados ao MenuAcoes (F5.2/F1.16): Ativar/Desativar pelo item do menu \"Ações do dado externo {nome}\"; quem/quando da alteração visto por \"Ver detalhes\"; ao cancelar o diálogo o foco volta ao gatilho do menu (DadosExternosPage.situacao.integration.test.tsx). Regras de situação inalteradas. Pedido do usuário: na aba Dados Externos a tabela ficou larga demais e poluída e as ações em linha ocupam espaço."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído (menu de ações por linha e detalhes expandidos pelo menu); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F5.9",
+      "titulo": "Exclusão de dado externo",
+      "descricao": "RF-31, RN-12, RNF-07 — só Admin (podeAcao(\"excluir-dado-externo\")), em qualquer dado. DialogoExcluirDadoExterno({ dado | null, excluindo, onConfirmar, onCancelar }) sobre DialogoConfirmacao \"Excluir dado externo\": sem indicadores → impacto \"O dado externo {nome} será excluído. Esta ação não pode ser desfeita.\", botão \"Excluir\" (perigo, desabilitado com excluindo) e \"Cancelar\"; com indicadores → bloqueio \"Este dado externo compõe os indicadores: {nomes separados por \", \"} e não pode ser excluído.\" e só \"Entendi\", sem chamar a API. useDadosExternos.excluir(id) → DELETE e remoção do item, sem nova consulta; falha rejeita com a ApiError. Página via useAcaoConfirmada: sucesso → Notificacao \"Dado externo excluído.\"; 400 da API (caso \"já compôs\" — A-10) → diálogo fecha e Aviso de erro com a mensagem; clique duplo → 1 DELETE; Cancelar/Esc ignorados durante a chamada; um único aviso de erro de ação por vez; 401 volta ao login.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/dados-externos/DialogoExcluirDadoExterno.test.tsx",
+        "src/pages/dados-externos/useDadosExternos.exclusao.test.tsx",
+        "src/pages/dados-externos/DadosExternosPage.exclusao.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F5.9 do plano e de RF-31/RN-12/RNF-07, no mesmo padrão da exclusão de apontamento (F4.6). O caso \"já compôs\" depende do ajuste A-10 na API e é exibido como mensagem de erro."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Implementação concluída; todos os testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Alteração (só de testes): Testes adequados ao MenuAcoes (F5.2/F1.16): Excluir (e Desativar, no teste de erro único) pelo item do menu \"Ações do dado externo {nome}\"; Validador/Preenchedor sem o item Excluir (DadosExternosPage.exclusao.integration.test.tsx). Regras de exclusão inalteradas. Pedido do usuário: na aba Dados Externos a tabela ficou larga demais e poluída e as ações em linha ocupam espaço."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Ajuste concluído (menu de ações por linha e detalhes expandidos pelo menu); 100% dos testes do requisito passando."
         }
       ]
     }

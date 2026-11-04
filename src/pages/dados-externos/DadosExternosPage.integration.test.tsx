@@ -1,0 +1,124 @@
+import { screen, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { limparToken, obterToken } from '../../services/sessao'
+import { FILIAIS_API, acessoApi, cabecalhoDaChamada, respostaErro, respostaJson, simularApi } from '../../test/apiFalsa'
+import { TIPOS_DO_USUARIO_API } from '../../test/apontamentosFalsos'
+import {
+  DADO_FATURAMENTO_API,
+  NOMES_DADOS_EXTERNOS,
+  dadosExternosApi,
+  identificadoresApi,
+  rotaListarDadosExternos,
+} from '../../test/dadosExternosFalsos'
+import { escolherAcao, itensDoMenuAcoes, rotuloAcoesDadoExterno } from '../../test/menuAcoes'
+import { renderizarApp } from '../../test/renderizarApp'
+import { usuarioRapido } from '../../test/usuario'
+
+const ROTA = '/api/ped/dados-externos-cadastro'
+const MENSAGEM_SESSAO_EXPIRADA = 'Sua sessão expirou. Entre novamente.'
+
+describe('F5.2 — Listagem de dados externos (integração: /dados-externos com Admin, Validador e Preenchedor)', () => {
+  let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
+
+  beforeEach(() => {
+    sessionStorage.clear()
+    limparToken()
+    sessionStorage.setItem('ped.token', 'token-salvo')
+    vi.stubEnv('VITE_API_URL', undefined)
+    fetchFalso = vi.spyOn(globalThis, 'fetch')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+  })
+
+  function simularSessao(perfil: 'admin' | 'validador' | 'preenchedor', lista = dadosExternosApi(), listar?: () => Response) {
+    const acesso =
+      perfil === 'preenchedor'
+        ? acessoApi({ perfil, tipos: [TIPOS_DO_USUARIO_API[0]], 'todas as filiais': false, filiais: [FILIAIS_API[1]] })
+        : acessoApi({ perfil, tipos: TIPOS_DO_USUARIO_API, 'todas as filiais': true, filiais: FILIAIS_API })
+    return simularApi(fetchFalso, {
+      'GET /api/ped/acesso': () => respostaJson(acesso),
+      [`GET ${ROTA}`]: listar ?? rotaListarDadosExternos(() => lista),
+      [`GET ${ROTA}/identificadores`]: () => respostaJson(identificadoresApi()),
+    })
+  }
+
+  it('Admin abre /dados-externos: GET da listagem com o Bearer e todas as linhas com as colunas do RF-23', async () => {
+    const chamadas = simularSessao('admin')
+    renderizarApp('/dados-externos')
+
+    const tabela = await screen.findByRole('table', { name: 'Dados externos' })
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Dados Externos' })).toBeInTheDocument()
+    for (const nome of NOMES_DADOS_EXTERNOS) expect(within(tabela).getByText(nome)).toBeInTheDocument()
+    const get = chamadas.find((c) => c.metodo === 'GET' && c.caminho === ROTA)!
+    expect(cabecalhoDaChamada(get, 'Authorization')).toBe('Bearer token-salvo')
+    expect(get.url.search).toBe('')
+
+    const linhaDevolucoes = within(tabela).getByText('Devoluções de venda').closest('tr')!
+    expect(within(linhaDevolucoes).getByText('Em construção (TI)')).toBeInTheDocument()
+    expect(within(linhaDevolucoes).getByText('Tarefa nº 1044')).toBeInTheDocument()
+    expect(within(linhaDevolucoes).getByText('a definir pela TI')).toBeInTheDocument()
+    expect(within(tabela).queryByRole('columnheader', { name: 'Campo/cálculo' })).not.toBeInTheDocument()
+  })
+
+  it('Admin abre "Ver detalhes" de um dado: os campos fora da tabela aparecem na linha de detalhes', async () => {
+    const user = usuarioRapido()
+    simularSessao('admin')
+    renderizarApp('/dados-externos')
+    const tabela = await screen.findByRole('table', { name: 'Dados externos' })
+
+    await escolherAcao(user, rotuloAcoesDadoExterno('Devoluções de venda'), 'Ver detalhes')
+
+    const detalhes = within(tabela).getByText('Devoluções de venda').closest('tr')!.nextElementSibling as HTMLElement
+    expect(detalhes).toHaveTextContent('Soma do valor líquido das notas de devolução de venda, por filial, no período.')
+    expect(within(detalhes).getByText('Campo/cálculo', { selector: 'dt' })).toBeInTheDocument()
+    expect(within(detalhes).getByText('Janela retroativa', { selector: 'dt' })).toBeInTheDocument()
+    expect(within(detalhes).getByText('Somente o mês')).toBeInTheDocument()
+  })
+
+  it('Preenchedor vê os dados devolvidos pela API (dos seus tipos), sem ações de linha além de "Ver detalhes"', async () => {
+    const user = usuarioRapido()
+    simularSessao('preenchedor', [DADO_FATURAMENTO_API])
+    renderizarApp('/dados-externos')
+
+    const tabela = await screen.findByRole('table', { name: 'Dados externos' })
+
+    expect(screen.getByText('Preenchedor')).toBeInTheDocument()
+    expect(within(tabela).getByText('Faturamento líquido')).toBeInTheDocument()
+    expect(await itensDoMenuAcoes(user, rotuloAcoesDadoExterno('Faturamento líquido'))).toEqual(['Ver detalhes'])
+    expect(screen.getByRole('button', { name: 'Novo dado externo' })).toBeInTheDocument()
+  })
+
+  it('Validador vê Ativar/Desativar mas não Concluir construção nem Excluir', async () => {
+    const user = usuarioRapido()
+    simularSessao('validador')
+    renderizarApp('/dados-externos')
+
+    await screen.findByRole('table', { name: 'Dados externos' })
+
+    expect(await itensDoMenuAcoes(user, rotuloAcoesDadoExterno('Faturamento líquido'))).toEqual(['Ver detalhes', 'Desativar'])
+    expect(await itensDoMenuAcoes(user, rotuloAcoesDadoExterno('Cobertura de clientes'))).toEqual(['Ver detalhes', 'Ativar'])
+    expect(await itensDoMenuAcoes(user, rotuloAcoesDadoExterno('Devoluções de venda'))).toEqual(['Ver detalhes'])
+  })
+
+  it('500 na listagem: Aviso de erro com a mensagem da API e "Tentar novamente"', async () => {
+    simularSessao('admin', [], () => respostaErro(500, 'Falha ao consultar os dados externos.'))
+    renderizarApp('/dados-externos')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Falha ao consultar os dados externos.')
+    expect(screen.getByRole('button', { name: 'Tentar novamente' })).toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: 'Dados externos' })).not.toBeInTheDocument()
+  })
+
+  it('401 na listagem encerra a sessão e volta ao login com "Sua sessão expirou. Entre novamente."', async () => {
+    simularSessao('admin', [], () => respostaErro(401))
+    renderizarApp('/dados-externos')
+
+    expect(await screen.findByRole('heading', { name: 'Programa de Excelência em Distribuição' })).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent(MENSAGEM_SESSAO_EXPIRADA)
+    expect(obterToken()).toBeNull()
+  })
+})

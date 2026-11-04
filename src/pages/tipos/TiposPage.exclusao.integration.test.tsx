@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { type Usuario, usuarioRapido } from '../../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { limparToken, obterToken } from '../../services/sessao'
 import {
@@ -62,14 +62,14 @@ describe('F3.3 — Exclusão de tipo personalizado (integração: /tipos com Adm
     await screen.findByRole('cell', { name: 'Logística' })
   }
 
-  async function confirmarExclusao(user: ReturnType<typeof userEvent.setup>, nome: string) {
+  async function confirmarExclusao(user: Usuario, nome: string) {
     await user.click(screen.getByRole('button', { name: `Excluir tipo ${nome}` }))
     const dialogo = screen.getByRole('dialog', { name: 'Excluir tipo' })
     await user.click(within(dialogo).getByRole('button', { name: 'Excluir' }))
   }
 
   it('Admin exclui um tipo personalizado: confirmação → DELETE com o token → notificação "Tipo excluído." → linha removida', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const chamadas = simularSessao('admin')
     await abrirTipos()
 
@@ -94,7 +94,7 @@ describe('F3.3 — Exclusão de tipo personalizado (integração: /tipos com Adm
   })
 
   it('Validador exclui um tipo personalizado do mesmo modo que o Admin (documento de requisitos prevalece)', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const chamadas = simularSessao('validador')
     await abrirTipos()
     expect(screen.getByText('Validador')).toBeInTheDocument()
@@ -108,7 +108,7 @@ describe('F3.3 — Exclusão de tipo personalizado (integração: /tipos com Adm
   })
 
   it('Validador recusado pela API (403): a mensagem da API é exibida, o diálogo fecha e a linha permanece', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const chamadas = simularSessao('validador', () => respostaErro(403, 'Apenas o administrador pode excluir tipos.'))
     await abrirTipos()
 
@@ -124,7 +124,7 @@ describe('F3.3 — Exclusão de tipo personalizado (integração: /tipos com Adm
   })
 
   it('Admin recebe 400 da API (regra do back-end): a mensagem é exibida e a linha permanece', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     simularSessao('admin', () => respostaErro(400, 'Tipo possui apontamentos vinculados.'))
     await abrirTipos()
 
@@ -135,7 +135,7 @@ describe('F3.3 — Exclusão de tipo personalizado (integração: /tipos com Adm
   })
 
   it('tipo com apontamentos: diálogo bloqueado com o motivo e "Entendi"; nenhuma chamada DELETE', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const chamadas = simularSessao('admin')
     await abrirTipos()
 
@@ -154,7 +154,7 @@ describe('F3.3 — Exclusão de tipo personalizado (integração: /tipos com Adm
   })
 
   it('Cancelar na confirmação não chama a API e mantém a linha', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const chamadas = simularSessao('validador')
     await abrirTipos()
 
@@ -177,7 +177,7 @@ describe('F3.3 — Exclusão de tipo personalizado (integração: /tipos com Adm
   })
 
   it('401 ao excluir (token recusado) encerra a sessão e volta ao login com "Sua sessão expirou. Entre novamente."', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     simularSessao('admin', () => respostaErro(401))
     await abrirTipos()
 

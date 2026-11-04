@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { type Usuario, usuarioRapido } from '../../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import { TIPOS_DO_USUARIO_API } from '../../test/apontamentosFalsos'
 import type { NovoApontamento } from '../../types/dominio'
@@ -27,7 +27,7 @@ describe('F4.4 — FormularioApontamento (cadastro de apontamento)', () => {
   const campoDescricao = () => screen.getByRole('textbox', { name: 'Descrição' })
   const botaoSalvar = () => screen.getByRole('button', { name: 'Salvar' })
 
-  async function preencherValido(user: ReturnType<typeof userEvent.setup>) {
+  async function preencherValido(user: Usuario) {
     await user.type(campoNome(), 'Visitas a clientes novos')
     await user.selectOptions(selectTipo(), within(selectTipo()).getByRole('option', { name: 'Comercial' }))
     await user.selectOptions(selectTipoValor(), within(selectTipoValor()).getByRole('option', { name: 'Numeral' }))
@@ -93,7 +93,7 @@ describe('F4.4 — FormularioApontamento (cadastro de apontamento)', () => {
 
   describe('validação (sem chamar onSalvar)', () => {
     it('enviar vazio mostra "Informe o nome.", "Selecione o tipo." e "Selecione o tipo de valor." e não chama onSalvar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onSalvar } = renderizar()
 
       await user.click(botaoSalvar())
@@ -108,7 +108,7 @@ describe('F4.4 — FormularioApontamento (cadastro de apontamento)', () => {
     })
 
     it('nome só com espaços conta como vazio', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onSalvar } = renderizar()
 
       await user.type(campoNome(), '   ')
@@ -121,7 +121,7 @@ describe('F4.4 — FormularioApontamento (cadastro de apontamento)', () => {
     })
 
     it('só o tipo faltando mostra apenas "Selecione o tipo."', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onSalvar } = renderizar()
 
       await user.type(campoNome(), 'Visitas')
@@ -135,7 +135,7 @@ describe('F4.4 — FormularioApontamento (cadastro de apontamento)', () => {
     })
 
     it('só o tipo de valor faltando mostra apenas "Selecione o tipo de valor."', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onSalvar } = renderizar()
 
       await user.type(campoNome(), 'Visitas')
@@ -149,7 +149,7 @@ describe('F4.4 — FormularioApontamento (cadastro de apontamento)', () => {
     })
 
     it('a descrição é opcional: sem ela o formulário é válido', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onSalvar } = renderizar()
 
       await preencherValido(user)
@@ -160,7 +160,7 @@ describe('F4.4 — FormularioApontamento (cadastro de apontamento)', () => {
     })
 
     it('depois de corrigir os campos, enviar de novo chama onSalvar e as mensagens somem', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onSalvar } = renderizar()
 
       await user.click(botaoSalvar())
@@ -178,7 +178,7 @@ describe('F4.4 — FormularioApontamento (cadastro de apontamento)', () => {
 
   describe('envio', () => {
     it('chama onSalvar com { nome, idTipo (número), tipoValor (enum da aplicação), descricao }', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onSalvar } = renderizar()
 
       await preencherValido(user)
@@ -195,7 +195,7 @@ describe('F4.4 — FormularioApontamento (cadastro de apontamento)', () => {
     })
 
     it('envia o tipo e o tipo de valor escolhidos (não o primeiro da lista)', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onSalvar } = renderizar()
 
       await user.type(campoNome(), 'Conciliação diária')
@@ -207,7 +207,7 @@ describe('F4.4 — FormularioApontamento (cadastro de apontamento)', () => {
     })
 
     it('sem descrição, envia descricao vazia ou nula (nunca texto inventado)', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onSalvar } = renderizar()
 
       await preencherValido(user)
@@ -218,7 +218,7 @@ describe('F4.4 — FormularioApontamento (cadastro de apontamento)', () => {
     })
 
     it('Enter no campo Nome envia o formulário', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onSalvar } = renderizar()
 
       await preencherValido(user)
@@ -228,7 +228,7 @@ describe('F4.4 — FormularioApontamento (cadastro de apontamento)', () => {
     })
 
     it('Cancelar chama onCancelar e não chama onSalvar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onSalvar, onCancelar } = renderizar()
 
       await preencherValido(user)
@@ -241,7 +241,7 @@ describe('F4.4 — FormularioApontamento (cadastro de apontamento)', () => {
 
   describe('estados salvando e erro', () => {
     it('com salvando, o botão Salvar fica desabilitado e o clique não chama onSalvar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onSalvar } = renderizar({ salvando: true })
 
       expect(botaoSalvar()).toBeDisabled()
@@ -265,7 +265,7 @@ describe('F4.4 — FormularioApontamento (cadastro de apontamento)', () => {
     })
 
     it('o erro da API não apaga o que o usuário digitou (rerender com erro mantém os campos)', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { rerender, onSalvar, onCancelar } = renderizar()
       await preencherValido(user)
 
@@ -319,7 +319,7 @@ describe('F4.4 — FormularioApontamento (cadastro de apontamento)', () => {
     })
 
     it('com tipos vazio, enviar o formulário (Enter no Nome) não chama onSalvar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onSalvar } = renderizar({ tipos: [] })
 
       await user.type(campoNome(), 'Visitas{Enter}')
@@ -328,7 +328,7 @@ describe('F4.4 — FormularioApontamento (cadastro de apontamento)', () => {
     })
 
     it('com tipos vazio, "Cancelar" continua habilitado e chama onCancelar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onCancelar } = renderizar({ tipos: [] })
 
       const cancelar = screen.getByRole('button', { name: 'Cancelar' })

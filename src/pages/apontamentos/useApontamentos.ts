@@ -2,9 +2,9 @@
  * Hook da aba Apontamentos (F4.2–F4.6): lista filtrada pela API, contagem por tipo, filtros e
  * ações de cadastro, troca de situação e exclusão.
  *
- * Construído sobre `useConsulta` (dados = `{ apontamentos, contagemPorTipo }`), que cuida da proteção
- * de corrida, do `erro`/`carregando`/`carregouUmaVez` e da recarga automática quando uma ação local
- * é confirmada com um GET pendente. A função de carga lê os filtros atuais de uma ref.
+ * Construído sobre `useFiltrosConsulta` (dados = `{ apontamentos, contagemPorTipo }`), que cuida dos
+ * filtros, da espera da busca, da proteção de corrida, do `erro`/`carregando`/`carregouUmaVez` e da
+ * recarga automática quando uma ação local é confirmada com um GET pendente.
  *
  * Decisões:
  * - Busca com espera de 500 ms (decisão de 04/11/2026): `setBusca` atualiza `filtros.busca` na hora e
@@ -17,10 +17,12 @@
  *   substituído.
  * - Se o tipo selecionado sair da contagem (após exclusão ou alteração de situação), `filtros.tipo`
  *   volta a `null` e a lista é reconsultada.
+ * - `criar` (F4.4): o POST 2xx pode não trazer um apontamento reconhecível; nesse caso o serviço
+ *   devolve `null`, a lista é recarregada do mesmo jeito e `criar` resolve com `null`.
  * - Falhas das ações rejeitam com a `ApiError` original, sem alterar a lista nem o `erro` de carga.
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useConsulta } from '../../hooks/useConsulta'
+import { useCallback, useEffect, useRef } from 'react'
+import { useFiltrosConsulta } from '../../hooks/useFiltrosConsulta'
 import {
   type ContagemPorTipo,
   type FiltrosApontamentos,
@@ -32,6 +34,7 @@ import {
   listarApontamentos,
 } from '../../services/apontamentosService'
 import type { Apontamento, NovoApontamento } from '../../types/dominio'
+import { type RegraSituacao, correspondeASituacao } from '../../utils/filtros'
 
 export interface FiltrosTelaApontamentos {
   busca: string
@@ -59,8 +62,12 @@ export interface UseApontamentosResultado {
   limparFiltros: () => void
   /** Repete a consulta com os filtros atuais. Nunca rejeita: falhas vão para `erro`. */
   recarregar: () => Promise<void>
-  /** POST e recarga da lista; resolve com o apontamento criado. */
-  criar: (dados: NovoApontamento) => Promise<Apontamento>
+  /**
+   * POST e recarga da lista. Após qualquer resposta 2xx (mesmo sem um apontamento reconhecível no
+   * corpo) recarrega a lista e resolve com o valor do serviço: o apontamento criado ou `null`.
+   * Falhas do POST rejeitam com a `ApiError` original, sem recarregar.
+   */
+  criar: (dados: NovoApontamento) => Promise<Apontamento | null>
   /** PUT da situação e troca (ou remoção, se sair do filtro) do item na lista, sem nova consulta. */
   alterarSituacao: (id: number, ativo: boolean) => Promise<Apontamento>
   /** DELETE e remoção do item da lista. */
@@ -77,6 +84,10 @@ function paraFiltrosApi(filtros: FiltrosTelaApontamentos): FiltrosApontamentos {
   }
 }
 
+function carregarApontamentos(filtros: FiltrosTelaApontamentos): Promise<ResultadoListagemApontamentos> {
+  return listarApontamentos(paraFiltrosApi(filtros))
+}
+
 /** Desconta um apontamento da contagem do seu tipo (remove o tipo ao zerar). */
 function descontarDaContagem(contagem: ContagemPorTipo[], idTipo: number): ContagemPorTipo[] {
   return contagem
@@ -84,18 +95,11 @@ function descontarDaContagem(contagem: ContagemPorTipo[], idTipo: number): Conta
     .filter((item) => item.quantidade > 0)
 }
 
-/** Indica se o apontamento corresponde ao filtro de situação. */
-function correspondeASituacao(apontamento: Apontamento, situacao: SituacaoFiltro): boolean {
-  switch (situacao) {
-    case 'ativos':
-      return apontamento.ativo
-    case 'inativos':
-      return !apontamento.ativo
-    case 'problemas':
-      return apontamento.desativadoMasUsadoEmIndicadorAtivo
-    default:
-      return true
-  }
+/** Regras de cada filtro de situação ("todas" corresponde a qualquer apontamento). */
+const REGRAS_SITUACAO: Partial<Record<SituacaoFiltro, RegraSituacao<Apontamento>>> = {
+  ativos: (a) => a.ativo,
+  inativos: (a) => !a.ativo,
+  problemas: (a) => a.desativadoMasUsadoEmIndicadorAtivo,
 }
 
 /** Remove o apontamento da lista e o desconta da contagem do seu tipo. */
@@ -109,89 +113,42 @@ function removerDoResultado(resultado: ResultadoListagemApontamentos, id: number
 }
 
 export function useApontamentos(): UseApontamentosResultado {
-  const [filtros, setFiltrosEstado] = useState<FiltrosTelaApontamentos>(FILTROS_PADRAO)
-  const filtrosRef = useRef<FiltrosTelaApontamentos>(FILTROS_PADRAO)
-  /** Busca usada na última consulta disparada. */
-  const buscaConsultadaRef = useRef(FILTROS_PADRAO.busca)
-  /** Espera pendente da busca. */
-  const esperaRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const montadoRef = useRef(false)
+  const {
+    dados,
+    setDados,
+    carregando,
+    carregouUmaVez,
+    erro,
+    filtros,
+    setBusca,
+    definirFiltro,
+    limparFiltros,
+    recarregar,
+  } = useFiltrosConsulta<FiltrosTelaApontamentos, ResultadoListagemApontamentos>({
+    carregar: carregarApontamentos,
+    inicial: RESULTADO_INICIAL,
+    filtrosPadrao: FILTROS_PADRAO,
+    atrasoBuscaMs: ATRASO_BUSCA_MS,
+  })
 
-  const carregar = useCallback(() => {
-    const atuais = filtrosRef.current
-    buscaConsultadaRef.current = atuais.busca
-    return listarApontamentos(paraFiltrosApi(atuais))
-  }, [])
-
-  const consulta = useConsulta<ResultadoListagemApontamentos>(carregar, RESULTADO_INICIAL)
-  const { dados, setDados, carregando, carregouUmaVez, erro, recarregar: recarregarConsulta } = consulta
-
-  /** Cópia dos dados atuais para as ações calcularem o resultado de forma síncrona. */
+  /** Cópias dos dados e filtros atuais para as ações calcularem o resultado de forma síncrona. */
   const dadosRef = useRef(dados)
+  const filtrosRef = useRef(filtros)
+  const montadoRef = useRef(false)
   useEffect(() => {
     dadosRef.current = dados
-  }, [dados])
-
-  const cancelarEspera = useCallback(() => {
-    if (esperaRef.current !== null) {
-      clearTimeout(esperaRef.current)
-      esperaRef.current = null
-    }
-  }, [])
+    filtrosRef.current = filtros
+  }, [dados, filtros])
 
   useEffect(() => {
     montadoRef.current = true
     return () => {
       montadoRef.current = false
-      cancelarEspera()
     }
-  }, [cancelarEspera])
-
-  const recarregar = useCallback(async (): Promise<void> => {
-    if (!montadoRef.current) return
-    cancelarEspera()
-    await recarregarConsulta()
-  }, [cancelarEspera, recarregarConsulta])
-
-  const definirFiltros = useCallback((novos: FiltrosTelaApontamentos) => {
-    filtrosRef.current = novos
-    setFiltrosEstado(novos)
   }, [])
 
-  /** Aplica filtros que consultam na hora (situação, tipo, limpar). */
-  const aplicarFiltrosAgora = useCallback(
-    (novos: FiltrosTelaApontamentos) => {
-      const atuais = filtrosRef.current
-      const iguais = atuais.busca === novos.busca && atuais.situacao === novos.situacao && atuais.tipo === novos.tipo
-      if (iguais && esperaRef.current === null) return
-      definirFiltros(novos)
-      void recarregar()
-    },
-    [definirFiltros, recarregar],
-  )
-
-  const setBusca = useCallback(
-    (busca: string) => {
-      if (busca === filtrosRef.current.busca) return
-      definirFiltros({ ...filtrosRef.current, busca })
-      cancelarEspera()
-      if (busca === buscaConsultadaRef.current) return
-      esperaRef.current = setTimeout(() => {
-        esperaRef.current = null
-        void recarregar()
-      }, ATRASO_BUSCA_MS)
-    },
-    [cancelarEspera, definirFiltros, recarregar],
-  )
-  const setSituacao = useCallback(
-    (situacao: SituacaoFiltro) => aplicarFiltrosAgora({ ...filtrosRef.current, situacao }),
-    [aplicarFiltrosAgora],
-  )
-  const setTipo = useCallback(
-    (tipo: number | null) => aplicarFiltrosAgora({ ...filtrosRef.current, tipo }),
-    [aplicarFiltrosAgora],
-  )
-  const limparFiltros = useCallback(() => aplicarFiltrosAgora({ ...FILTROS_PADRAO }), [aplicarFiltrosAgora])
+  const setSituacao = useCallback((situacao: SituacaoFiltro) => definirFiltro('situacao', situacao), [definirFiltro])
+  const setTipo = useCallback((tipo: number | null) => definirFiltro('tipo', tipo), [definirFiltro])
 
   /**
    * Aplica uma alteração local confirmada pela API. Se o tipo selecionado saiu da contagem, volta o
@@ -211,7 +168,7 @@ export function useApontamentos(): UseApontamentosResultado {
   )
 
   const criar = useCallback(
-    async (dadosNovos: NovoApontamento): Promise<Apontamento> => {
+    async (dadosNovos: NovoApontamento): Promise<Apontamento | null> => {
       const criado = await criarApontamento(dadosNovos)
       await recarregar()
       return criado
@@ -224,7 +181,7 @@ export function useApontamentos(): UseApontamentosResultado {
       const atualizado = await alterarSituacaoApi(id, ativo)
       if (!montadoRef.current) return atualizado
       const atual = dadosRef.current
-      if (correspondeASituacao(atualizado, filtrosRef.current.situacao)) {
+      if (correspondeASituacao(filtrosRef.current.situacao, atualizado, REGRAS_SITUACAO)) {
         alterarLocalmente({
           ...atual,
           apontamentos: atual.apontamentos.map((a) => (a.id === id ? atualizado : a)),

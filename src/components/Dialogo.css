@@ -26,6 +26,12 @@
   outline: none;
 }
 
+/* Variante larga para diálogos com formulários de cadastro */
+
+.dialogo--largo {
+  max-width: 800px;
+}
+
 .dialogo:focus-visible {
   box-shadow: var(--sombra-modal), var(--anel-foco);
 }

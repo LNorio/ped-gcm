@@ -8,7 +8,13 @@
  * - `DELETE /api/ped/apontamentos/{id}`          Admin — só sem indicadores (400 traz `indicadores`)
  *
  * Erros HTTP e de rede chegam como `ApiError` (ver `api.ts`) e são propagados sem alteração.
- * Respostas 2xx fora do formato esperado viram `ApiError(200, MENSAGEM_RESPOSTA_INVALIDA)`.
+ * Na listagem e na troca de situação, respostas 2xx fora do formato esperado viram
+ * `ApiError(200, MENSAGEM_RESPOSTA_INVALIDA)`.
+ *
+ * Exceção: o POST de cadastro. O corpo da resposta não é documentado, e um 2xx já significa que o
+ * apontamento foi gravado. Rejeitar a resposta faria a tela mostrar erro e não recarregar a lista
+ * mesmo com o cadastro feito. Por isso `criarApontamento` aceita o apontamento na raiz ou em
+ * `resposta.apontamento` e, sem um apontamento reconhecível, resolve `null`, sem lançar erro.
  */
 
 import type { Apontamento, NovoApontamento } from '../types/dominio'
@@ -111,13 +117,36 @@ export async function listarApontamentos(filtros: FiltrosApontamentos = {}): Pro
   }
 }
 
-/** Cadastra um apontamento (nasce ativo). */
-export async function criarApontamento(dados: NovoApontamento): Promise<Apontamento> {
+/** Converte o apontamento se ele estiver completo e válido; caso contrário devolve `null`. */
+function converterApontamentoOuNulo(valor: unknown): Apontamento | null {
+  if (!ehApontamentoApi(valor)) return null
+  try {
+    return paraApontamento(valor)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Cadastra um apontamento (nasce ativo).
+ *
+ * A resposta do POST não é documentada na API, e um 2xx significa que o apontamento foi gravado.
+ * Por isso a resposta não é validada de forma estrita:
+ * - apontamento válido na raiz ou em `resposta.apontamento` (com ou sem `mensagem`): devolve o
+ *   apontamento convertido;
+ * - corpo vazio (201/204) ou sem apontamento reconhecível (só `mensagem`, `{ id }`, incompleto,
+ *   tipo de valor desconhecido, lista, texto): devolve `null`, sem erro. Quem chama deve recarregar
+ *   a lista para obter o apontamento criado.
+ *
+ * Erros HTTP e de rede são propagados como `ApiError`, sem alteração.
+ */
+export async function criarApontamento(dados: NovoApontamento): Promise<Apontamento | null> {
   const resposta = await apiFetch<unknown>(ROTA_APONTAMENTOS, {
     method: 'POST',
     body: paraCorpoNovoApontamento(dados),
   })
-  return converterApontamentoDaResposta(resposta)
+  if (!ehObjeto(resposta)) return null
+  return converterApontamentoOuNulo(resposta) ?? converterApontamentoOuNulo(resposta.apontamento)
 }
 
 /** Ativa ou desativa um apontamento; devolve o apontamento atualizado (com quem alterou e quando). */

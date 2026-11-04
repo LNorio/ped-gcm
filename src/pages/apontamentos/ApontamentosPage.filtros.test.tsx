@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { escolherAcao, rotuloAcoesApontamento } from '../../test/menuAcoes'
 import { definirToken, limparToken } from '../../services/sessao'
 import { ProvedorSessaoFalso } from '../../test/ProvedorSessaoFalso'
 import { respostaErro, respostaJson, simularApi, type ChamadaRegistrada } from '../../test/apiFalsa'
@@ -549,7 +550,7 @@ describe('F4.3 — Filtros da listagem de apontamentos (ApontamentosPage)', () =
       await user.click(chipTipo('Tecnologia da Informação'))
       await waitFor(() => expect(nomesListados()).toEqual(['Chamados resolvidos no prazo']))
 
-      await user.click(screen.getByRole('button', { name: 'Excluir apontamento Chamados resolvidos no prazo' }))
+      await escolherAcao(user, rotuloAcoesApontamento('Chamados resolvidos no prazo'), 'Excluir')
       await user.click(within(screen.getByRole('dialog', { name: 'Excluir apontamento' })).getByRole('button', { name: 'Excluir' }))
       await screen.findByText('Apontamento excluído.')
 

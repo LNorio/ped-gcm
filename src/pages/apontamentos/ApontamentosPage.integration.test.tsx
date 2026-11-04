@@ -1,6 +1,7 @@
 import { screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { escolherAcao, rotuloAcoesApontamento } from '../../test/menuAcoes'
 import { limparToken, obterToken } from '../../services/sessao'
 import { FILIAIS_API, acessoApi, cabecalhoDaChamada, respostaErro, respostaJson, simularApi } from '../../test/apiFalsa'
 import {
@@ -71,8 +72,8 @@ describe('F4.2 — Listagem de apontamentos (integração: /apontamentos com Adm
     expect(gets[0].url.searchParams.has('tipo')).toBe(false)
   })
 
-  it('Admin vê as etiquetas de vínculo e de problema e expande a linha com a alteração de situação', async () => {
-    const user = userEvent.setup()
+  it('Admin vê as etiquetas de vínculo e de problema e abre, pelo menu de ações, os detalhes com a alteração de situação', async () => {
+    const user = usuarioRapido()
     simularSessao('admin')
 
     renderizarApp('/apontamentos')
@@ -81,8 +82,9 @@ describe('F4.2 — Listagem de apontamentos (integração: /apontamentos com Adm
     expect(screen.getByText('Vinculado a dashboard')).toHaveClass('etiqueta--dourado')
     expect(screen.getByText('Desativado, mas usado em indicador ativo')).toHaveClass('etiqueta--alerta')
 
+    expect(screen.queryByRole('button', { name: /^(Expandir|Recolher) detalhes$/ })).not.toBeInTheDocument()
     const linha = screen.getByText('Conciliação bancária concluída').closest('tr')!
-    await user.click(within(linha).getByRole('button', { name: 'Expandir detalhes' }))
+    await escolherAcao(user, rotuloAcoesApontamento('Conciliação bancária concluída'), 'Ver detalhes', linha)
     expect(screen.getByText('Situação alterada em 20/10/2026 11:05 por Ana Costa')).toBeInTheDocument()
   })
 
@@ -110,7 +112,7 @@ describe('F4.2 — Listagem de apontamentos (integração: /apontamentos com Adm
   })
 
   it('erro 500 ao listar mostra a mensagem da API e "Tentar novamente" recupera a lista', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     let tentativa = 0
     simularApi(fetchFalso, {
       'GET /api/ped/acesso': () =>

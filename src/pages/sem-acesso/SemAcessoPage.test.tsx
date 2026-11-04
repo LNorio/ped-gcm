@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import type { Sessao } from '../../sessao/SessaoProvider'
@@ -38,7 +38,7 @@ describe('F2.8 — Tela de usuário sem acesso', () => {
   })
 
   it('"Voltar ao login" encerra a sessão (sair) e navega para /login', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const sair = vi.fn()
     renderizar({ sair })
 

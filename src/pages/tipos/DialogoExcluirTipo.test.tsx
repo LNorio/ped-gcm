@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import { paraTipoApontamento } from '../../services/adaptadores'
 import { TIPO_LOGISTICA_API, TIPO_MARKETING_API } from '../../test/tiposFalsos'
@@ -54,7 +54,7 @@ describe('F3.3 — DialogoExcluirTipo (confirmação da exclusão de tipo)', () 
     })
 
     it('clicar em Excluir chama onConfirmar uma vez e não chama onCancelar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onConfirmar, onCancelar } = renderizar(LOGISTICA)
 
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }))
@@ -64,7 +64,7 @@ describe('F3.3 — DialogoExcluirTipo (confirmação da exclusão de tipo)', () 
     })
 
     it('clicar em Cancelar chama onCancelar e não chama onConfirmar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onConfirmar, onCancelar } = renderizar(LOGISTICA)
 
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancelar' }))
@@ -74,7 +74,7 @@ describe('F3.3 — DialogoExcluirTipo (confirmação da exclusão de tipo)', () 
     })
 
     it('Esc chama onCancelar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onConfirmar, onCancelar } = renderizar(LOGISTICA)
 
       await user.keyboard('{Escape}')
@@ -84,7 +84,7 @@ describe('F3.3 — DialogoExcluirTipo (confirmação da exclusão de tipo)', () 
     })
 
     it('com excluindo, o botão Excluir fica desabilitado e o clique não chama onConfirmar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onConfirmar } = renderizar(LOGISTICA, { excluindo: true })
 
       const confirmar = within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' })
@@ -116,7 +116,7 @@ describe('F3.3 — DialogoExcluirTipo (confirmação da exclusão de tipo)', () 
     })
 
     it('"Entendi" chama onCancelar e nunca onConfirmar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onConfirmar, onCancelar } = renderizar(MARKETING)
 
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Entendi' }))

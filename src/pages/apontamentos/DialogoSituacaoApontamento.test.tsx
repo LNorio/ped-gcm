@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import { paraApontamento } from '../../services/adaptadores'
 import { APONTAMENTO_CHAMADOS_API, APONTAMENTO_RELATORIO_API } from '../../test/apontamentosFalsos'
@@ -52,7 +52,7 @@ describe('F4.5 — DialogoSituacaoApontamento (confirmação de ativar/desativar
     })
 
     it('clicar em Desativar chama onConfirmar uma vez e não chama onCancelar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onConfirmar, onCancelar } = renderizar(ATIVO)
 
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Desativar' }))
@@ -75,7 +75,7 @@ describe('F4.5 — DialogoSituacaoApontamento (confirmação de ativar/desativar
     })
 
     it('clicar em Ativar chama onConfirmar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onConfirmar } = renderizar(INATIVO)
 
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Ativar' }))
@@ -86,7 +86,7 @@ describe('F4.5 — DialogoSituacaoApontamento (confirmação de ativar/desativar
 
   describe('cancelamento', () => {
     it('Cancelar chama onCancelar e não chama onConfirmar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onConfirmar, onCancelar } = renderizar(ATIVO)
 
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancelar' }))
@@ -96,7 +96,7 @@ describe('F4.5 — DialogoSituacaoApontamento (confirmação de ativar/desativar
     })
 
     it('Esc chama onCancelar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onConfirmar, onCancelar } = renderizar(INATIVO)
 
       await user.keyboard('{Escape}')
@@ -108,7 +108,7 @@ describe('F4.5 — DialogoSituacaoApontamento (confirmação de ativar/desativar
 
   describe('alterando', () => {
     it('com alterando, o botão de confirmar fica desabilitado e o clique não chama onConfirmar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const { onConfirmar } = renderizar(ATIVO, { alterando: true })
 
       const confirmar = within(screen.getByRole('dialog')).getByRole('button', { name: 'Desativar' })

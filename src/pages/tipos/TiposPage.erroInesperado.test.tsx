@@ -1,5 +1,5 @@
 import { render, renderHook, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { paraTipoApontamento } from '../../services/adaptadores'
 import { listarTipos } from '../../services/tiposService'
@@ -60,7 +60,7 @@ describe('F3.2 — Listagem de tipos: erro inesperado (não ApiError) na carga',
   })
 
   it('"Tentar novamente" depois do erro inesperado recupera a listagem e remove o alerta', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     listarTiposFalso.mockRejectedValueOnce(new Error('falha interna')).mockResolvedValueOnce(tiposApi().map(paraTipoApontamento))
     renderizar()
     await screen.findByRole('alert')

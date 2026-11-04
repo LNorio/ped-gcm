@@ -1,0 +1,26 @@
+/* Formulário de cadastro de dado externo (F5.4–F5.6). */
+
+.formulario-dado-externo {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.formulario-dado-externo__grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
+}
+
+.formulario-dado-externo__identificador {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.formulario-dado-externo__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}

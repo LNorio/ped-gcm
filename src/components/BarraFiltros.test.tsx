@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import { BarraFiltros } from './BarraFiltros'
 
@@ -46,7 +46,7 @@ describe('F1.10 — BarraFiltros', () => {
     })
 
     it('ao digitar, chama onBuscaChange com o texto digitado e a versão normalizada (sem acento e minúscula)', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const onBuscaChange = vi.fn()
       render(<BarraFiltros busca="" onBuscaChange={onBuscaChange} />)
 
@@ -56,7 +56,7 @@ describe('F1.10 — BarraFiltros', () => {
     })
 
     it('normaliza acentos e maiúsculas no segundo argumento', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const onBuscaChange = vi.fn()
       render(<BarraFiltros busca="Faturamento Líquid" onBuscaChange={onBuscaChange} />)
 
@@ -97,7 +97,7 @@ describe('F1.10 — BarraFiltros', () => {
     })
 
     it('ao clicar em uma situação, chama onSituacaoChange com o valor', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const onSituacaoChange = vi.fn()
       render(
         <BarraFiltros
@@ -159,7 +159,7 @@ describe('F1.10 — BarraFiltros', () => {
       })
 
       it('ArrowRight avança para a próxima situação e move o foco', async () => {
-        const user = userEvent.setup()
+        const user = usuarioRapido()
         const { onSituacaoChange, opcao } = renderizarComSituacao('todas')
 
         opcao(/Todas/).focus()
@@ -171,7 +171,7 @@ describe('F1.10 — BarraFiltros', () => {
       })
 
       it('ArrowDown avança para a próxima situação', async () => {
-        const user = userEvent.setup()
+        const user = usuarioRapido()
         const { onSituacaoChange, opcao } = renderizarComSituacao('ativos')
 
         opcao(/Ativos/).focus()
@@ -182,7 +182,7 @@ describe('F1.10 — BarraFiltros', () => {
       })
 
       it('ArrowRight na última situação volta para a primeira (ciclo)', async () => {
-        const user = userEvent.setup()
+        const user = usuarioRapido()
         const { onSituacaoChange, opcao } = renderizarComSituacao('problemas')
 
         opcao(/Com problemas/).focus()
@@ -193,7 +193,7 @@ describe('F1.10 — BarraFiltros', () => {
       })
 
       it('ArrowLeft volta para a situação anterior e move o foco', async () => {
-        const user = userEvent.setup()
+        const user = usuarioRapido()
         const { onSituacaoChange, opcao } = renderizarComSituacao('inativos')
 
         opcao(/Inativos/).focus()
@@ -204,7 +204,7 @@ describe('F1.10 — BarraFiltros', () => {
       })
 
       it('ArrowUp volta para a situação anterior', async () => {
-        const user = userEvent.setup()
+        const user = usuarioRapido()
         const { onSituacaoChange, opcao } = renderizarComSituacao('ativos')
 
         opcao(/Ativos/).focus()
@@ -215,7 +215,7 @@ describe('F1.10 — BarraFiltros', () => {
       })
 
       it('ArrowLeft na primeira situação vai para a última (ciclo)', async () => {
-        const user = userEvent.setup()
+        const user = usuarioRapido()
         const { onSituacaoChange, opcao } = renderizarComSituacao('todas')
 
         opcao(/Todas/).focus()
@@ -226,7 +226,7 @@ describe('F1.10 — BarraFiltros', () => {
       })
 
       it('Home vai para a primeira situação e End para a última', async () => {
-        const user = userEvent.setup()
+        const user = usuarioRapido()
         const { onSituacaoChange, opcao } = renderizarComSituacao('ativos')
 
         opcao(/Ativos/).focus()
@@ -240,7 +240,7 @@ describe('F1.10 — BarraFiltros', () => {
       })
 
       it('Enter seleciona a situação em foco', async () => {
-        const user = userEvent.setup()
+        const user = usuarioRapido()
         const { onSituacaoChange, opcao } = renderizarComSituacao('todas')
 
         opcao(/Inativos/).focus()
@@ -251,7 +251,7 @@ describe('F1.10 — BarraFiltros', () => {
       })
 
       it('Espaço seleciona a situação em foco', async () => {
-        const user = userEvent.setup()
+        const user = usuarioRapido()
         const { onSituacaoChange, opcao } = renderizarComSituacao('todas')
 
         opcao(/Com problemas/).focus()
@@ -262,7 +262,7 @@ describe('F1.10 — BarraFiltros', () => {
       })
 
       it('outras teclas não alteram a situação', async () => {
-        const user = userEvent.setup()
+        const user = usuarioRapido()
         const { onSituacaoChange, opcao } = renderizarComSituacao('todas')
 
         opcao(/Todas/).focus()
@@ -318,7 +318,7 @@ describe('F1.10 — BarraFiltros', () => {
     })
 
     it('ao clicar em um botão inativo, chama onBotaoChange com o valor', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const onBotaoChange = vi.fn()
       render(
         <BarraFiltros busca="" onBuscaChange={() => {}} botoes={tipos} botaoAtivo={null} onBotaoChange={onBotaoChange} />,
@@ -330,7 +330,7 @@ describe('F1.10 — BarraFiltros', () => {
     })
 
     it('ao clicar no botão já ativo, chama onBotaoChange com null (desmarca)', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const onBotaoChange = vi.fn()
       render(
         <BarraFiltros busca="" onBuscaChange={() => {}} botoes={tipos} botaoAtivo="1" onBotaoChange={onBotaoChange} />,
@@ -413,7 +413,7 @@ describe('F1.10 — BarraFiltros', () => {
     })
 
     it('ao clicar em "Limpar filtros", chama onLimpar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const onLimpar = vi.fn()
       render(<BarraFiltros busca="cob" onBuscaChange={() => {}} onLimpar={onLimpar} />)
 

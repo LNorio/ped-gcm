@@ -1,5 +1,5 @@
 import { act, render, renderHook, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../test/usuario'
 import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EVENTO_SESSAO_EXPIRADA, apiFetch } from '../services/api'
@@ -273,7 +273,7 @@ describe('F2.1 — Autenticação e sessão (SessaoProvider / useSessao)', () =>
 
   describe('entrar', () => {
     it('com credenciais válidas guarda o token, obtém o acesso e fica "autenticado" sem erro', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const chamadas = simularApi(fetchFalso, {
         'POST /api/valida-usuario': () => respostaJson({ token: 'token-123' }),
         'GET /api/ped/acesso': () => respostaJson(acessoApi()),
@@ -353,7 +353,7 @@ describe('F2.1 — Autenticação e sessão (SessaoProvider / useSessao)', () =>
 
   describe('filial selecionada', () => {
     it('usuário com todas as filiais começa em "todas" e pode escolher uma filial ou voltar a "todas"', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       sessionStorage.setItem('ped.token', 'token-salvo')
       simularApi(fetchFalso, {
         'GET /api/ped/acesso': () => respostaJson(acessoApi({ perfil: 'admin', 'todas as filiais': true, filiais: FILIAIS_API })),
@@ -382,7 +382,7 @@ describe('F2.1 — Autenticação e sessão (SessaoProvider / useSessao)', () =>
     })
 
     it('usuário com várias filiais (sem todas) começa na primeira da lista e pode trocar entre elas', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       sessionStorage.setItem('ped.token', 'token-salvo')
       simularApi(fetchFalso, {
         'GET /api/ped/acesso': () => respostaJson(acessoApi({ filiais: [FILIAIS_API[1], FILIAIS_API[2]] })),
@@ -455,7 +455,7 @@ describe('F2.1 — Autenticação e sessão (SessaoProvider / useSessao)', () =>
 
   describe('sair e sessão expirada', () => {
     it('sair limpa o token (memória e sessionStorage), o acesso e a filial, e volta a "anonimo" sem erro', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       sessionStorage.setItem('ped.token', 'token-salvo')
       simularApi(fetchFalso, {
         'GET /api/ped/acesso': () => respostaJson(acessoApi()),
@@ -510,7 +510,7 @@ describe('F2.1 — Autenticação e sessão (SessaoProvider / useSessao)', () =>
     })
 
     it('um 401 tardio (evento "sessao-expirada") depois de sair deliberadamente não expõe "Sua sessão expirou"', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       sessionStorage.setItem('ped.token', 'token-salvo')
       simularApi(fetchFalso, {
         'GET /api/ped/acesso': () => respostaJson(acessoApi()),

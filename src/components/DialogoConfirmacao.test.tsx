@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import { DialogoConfirmacao } from './DialogoConfirmacao'
 
@@ -55,7 +55,7 @@ describe('F1.8 — DialogoConfirmacao', () => {
     })
 
     it('chama onConfirmar ao confirmar e onCancelar ao cancelar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const onConfirmar = vi.fn()
       const onCancelar = vi.fn()
       render(
@@ -71,7 +71,7 @@ describe('F1.8 — DialogoConfirmacao', () => {
     })
 
     it('Esc cancela', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const onConfirmar = vi.fn()
       const onCancelar = vi.fn()
       render(
@@ -154,7 +154,7 @@ describe('F1.8 — DialogoConfirmacao', () => {
     })
 
     it('"Entendi" chama onCancelar e nunca onConfirmar', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const onConfirmar = vi.fn()
       const onCancelar = vi.fn()
       render(

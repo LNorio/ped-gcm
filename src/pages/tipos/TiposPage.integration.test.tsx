@@ -1,5 +1,5 @@
 import { act, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { limparToken, obterToken } from '../../services/sessao'
 import { FILIAIS_API, acessoApi, cabecalhoDaChamada, respostaErro, respostaJson, simularApi, type RotaFalsa } from '../../test/apiFalsa'
@@ -103,7 +103,7 @@ describe('F3.2 — Listagem de tipos (integração: /tipos com sessão Admin e V
   })
 
   it('navegar do Início até a aba Tipos carrega a listagem', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const chamadas = simularSessao('admin')
     renderizarApp('/')
     await screen.findByRole('heading', { level: 1, name: 'Início' })
@@ -117,7 +117,7 @@ describe('F3.2 — Listagem de tipos (integração: /tipos com sessão Admin e V
   })
 
   it('busca sem acento e filtro de origem funcionam na tela completa', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     simularSessao('admin')
     renderizarApp('/tipos')
     const tabela = await aguardarTabela()
@@ -134,7 +134,7 @@ describe('F3.2 — Listagem de tipos (integração: /tipos com sessão Admin e V
   })
 
   it('erro 500 ao listar: alerta com a mensagem da API e "Tentar novamente" recupera a listagem', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     let tentativa = 0
     simularSessao('admin', {
       'GET /api/ped/tipos-apontamento': () => {

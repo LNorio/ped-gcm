@@ -1,12 +1,13 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { escolherAcao, itensPorMenuAcoes, rotuloAcoesApontamento } from '../../test/menuAcoes'
 import { useAcaoConfirmada } from '../../hooks/useAcaoConfirmada'
 import { definirToken, limparToken } from '../../services/sessao'
 import { podeExecutar } from '../../sessao/permissoes'
 import { ProvedorSessaoFalso } from '../../test/ProvedorSessaoFalso'
 import { simularApi } from '../../test/apiFalsa'
-import { TIPOS_DO_USUARIO_API, apontamentosApi, rotaListarApontamentos } from '../../test/apontamentosFalsos'
+import { NOMES_APONTAMENTOS, TIPOS_DO_USUARIO_API, apontamentosApi, rotaListarApontamentos } from '../../test/apontamentosFalsos'
 import { FILIAIS, acessoFalso } from '../../test/sessaoFalsa'
 import type { Perfil } from '../../types/dominio'
 import { ApontamentosPage } from './ApontamentosPage'
@@ -73,26 +74,32 @@ describe('F4.6 — ApontamentosPage: permissão de excluir pela matriz de açõe
     expect(podeExecutar).toHaveBeenCalledWith('admin', 'excluir-apontamento')
   })
 
-  it('quem decide é a matriz de ações: com a exclusão negada, nem o Admin vê Excluir', async () => {
+  it('quem decide é a matriz de ações: com a exclusão negada, nem o Admin vê Excluir no menu', async () => {
+    const user = usuarioRapido()
     vi.mocked(podeExecutar).mockImplementation((_perfil, acao) => acao !== 'excluir-apontamento')
     await abrirTela('admin')
 
-    expect(screen.queryByRole('button', { name: /^Excluir apontamento / })).not.toBeInTheDocument()
+    const menus = await itensPorMenuAcoes(user, NOMES_APONTAMENTOS.map(rotuloAcoesApontamento))
+    expect(menus.flat()).not.toContain('Excluir')
+    expect(menus.flat()).toContain('Desativar')
   })
 
-  it('com a exclusão liberada pela matriz, o Validador passa a ver Excluir', async () => {
+  it('com a exclusão liberada pela matriz, o Validador passa a ver Excluir no menu de todas as linhas', async () => {
+    const user = usuarioRapido()
     vi.mocked(podeExecutar).mockImplementation((_perfil, acao) => acao === 'excluir-apontamento')
     await abrirTela('validador')
 
-    expect(screen.getAllByRole('button', { name: /^Excluir apontamento / })).toHaveLength(5)
+    const menus = await itensPorMenuAcoes(user, NOMES_APONTAMENTOS.map(rotuloAcoesApontamento))
+    expect(menus).toHaveLength(5)
+    for (const itens of menus) expect(itens).toContain('Excluir')
   })
 
   it('o diálogo de exclusão é conduzido por useAcaoConfirmada: abrir define o alvo e confirmar exclui', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     await abrirTela('admin')
     expect(useAcaoConfirmada).toHaveBeenCalled()
 
-    await user.click(screen.getByRole('button', { name: 'Excluir apontamento Chamados resolvidos no prazo' }))
+    await escolherAcao(user, rotuloAcoesApontamento('Chamados resolvidos no prazo'), 'Excluir')
 
     const alvos = vi.mocked(useAcaoConfirmada).mock.results.map((resultado) => (resultado.value as { alvo: unknown }).alvo)
     expect(alvos).toContainEqual(expect.objectContaining({ id: 4, nome: 'Chamados resolvidos no prazo' }))

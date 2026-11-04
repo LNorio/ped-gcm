@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { escolherAcao, rotuloAcoesApontamento } from '../../test/menuAcoes'
 import { MENSAGEM_SEM_CONEXAO, mensagemPadraoPorStatus } from '../../services/api'
 import { definirToken, limparToken } from '../../services/sessao'
 import { ProvedorSessaoFalso } from '../../test/ProvedorSessaoFalso'
@@ -173,14 +174,15 @@ describe('F4.2 — Listagem de apontamentos (ApontamentosPage)', () => {
       expect(problema.closest('tr')).toHaveTextContent('Conciliação bancária concluída')
     })
 
-    it('a linha com situação alterada pode ser expandida para ver quem alterou e quando', async () => {
-      const user = userEvent.setup()
+    it('a linha com situação alterada mostra quem alterou e quando pelo item "Ver detalhes" do menu de ações', async () => {
+      const user = usuarioRapido()
       simularLista()
       renderizar()
       await aguardarTabela()
 
+      expect(screen.queryByRole('button', { name: /^(Expandir|Recolher) detalhes$/ })).not.toBeInTheDocument()
       const linha = screen.getByText('Conciliação bancária concluída').closest('tr')!
-      await user.click(within(linha).getByRole('button', { name: 'Expandir detalhes' }))
+      await escolherAcao(user, rotuloAcoesApontamento('Conciliação bancária concluída'), 'Ver detalhes', linha)
 
       expect(screen.getByText('Situação alterada em 20/10/2026 11:05 por Ana Costa')).toBeInTheDocument()
     })
@@ -209,7 +211,7 @@ describe('F4.2 — Listagem de apontamentos (ApontamentosPage)', () => {
     })
 
     it('"Tentar novamente" chama a API de novo e, com sucesso, mostra a tabela e remove o alerta', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       let tentativa = 0
       const chamadas = simularApi(fetchFalso, {
         [ROTA_LISTA]: () => {
@@ -229,7 +231,7 @@ describe('F4.2 — Listagem de apontamentos (ApontamentosPage)', () => {
     })
 
     it('"Tentar novamente" fica desabilitado, com o alerta ainda visível, enquanto a recarga está em andamento', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       let liberar: () => void = () => {}
       let tentativa = 0
       simularApi(fetchFalso, {

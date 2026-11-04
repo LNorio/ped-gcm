@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import { Chip } from './Chip'
 
@@ -33,7 +33,7 @@ describe('F1.6 — Componentes base: Chip (filtro)', () => {
   })
 
   it('chama onClick ao ser clicado', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const onClick = vi.fn()
     render(<Chip onClick={onClick}>Todas</Chip>)
 

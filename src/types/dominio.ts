@@ -232,6 +232,37 @@ export interface DadoExterno extends Auditoria {
   indicadores: ReferenciaNomeada[]
 }
 
+/** Tarefa gerada para a TI ao pedir a construção de um dado externo (POST de Validador/Preenchedor). */
+export interface TarefaConstrucao {
+  /** `null` quando a tarefa ainda não foi registrada no Bitrix24. */
+  id: number | null
+  status: string | null
+  titulo: string
+  descricao: string | null
+}
+
+/** Coleta existente que um identificador pode apontar, com quantos dados externos já a usam. */
+export interface IdentificadorColeta {
+  identificador: string
+  quantidade: number
+}
+
+/** Valor de um mês considerado no realizado de um dado externo. */
+export interface MesConsiderado {
+  mes: DataApi
+  valor: number
+}
+
+/** Realizado de um dado externo em uma filial e mês (RN-05). */
+export interface RealizadoDadoExterno {
+  /** `null` sem valores no período ou sem coleta disponível. */
+  valor: number | null
+  mesesConsiderados: MesConsiderado[]
+  janelaRetroativa: JanelaRetroativa | null
+  sentidoCalculo: SentidoCalculo
+  coletaDisponivel: boolean
+}
+
 export interface ComponenteIndicador {
   id: number
   nome: string

@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { type Usuario, usuarioRapido } from '../../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { escolherAcao, itensPorMenuAcoes, rotuloAcoesApontamento } from '../../test/menuAcoes'
 import { limparToken, obterToken } from '../../services/sessao'
 import {
   FILIAIS_API,
@@ -13,6 +14,7 @@ import {
 } from '../../test/apiFalsa'
 import {
   APONTAMENTO_CHAMADOS_API,
+  NOMES_APONTAMENTOS,
   TIPOS_DO_USUARIO_API,
   apontamentosApi,
   rotaListarApontamentos,
@@ -63,17 +65,17 @@ describe('F4.6 — Exclusão de apontamento (integração: /apontamentos com Adm
     await screen.findByRole('table', { name: 'Apontamentos' })
   }
 
-  async function confirmarExclusao(user: ReturnType<typeof userEvent.setup>, nome: string) {
-    await user.click(screen.getByRole('button', { name: `Excluir apontamento ${nome}` }))
+  async function confirmarExclusao(user: Usuario, nome: string) {
+    await escolherAcao(user, rotuloAcoesApontamento(nome), 'Excluir')
     await user.click(within(screen.getByRole('dialog', { name: 'Excluir apontamento' })).getByRole('button', { name: 'Excluir' }))
   }
 
   it('Admin exclui um apontamento sem indicadores: confirmação → DELETE com o Bearer → "Apontamento excluído." → linha removida', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const chamadas = simularSessao('admin')
     await abrirTela()
 
-    await user.click(screen.getByRole('button', { name: 'Excluir apontamento Chamados resolvidos no prazo' }))
+    await escolherAcao(user, rotuloAcoesApontamento('Chamados resolvidos no prazo'), 'Excluir')
     const dialogo = screen.getByRole('dialog', { name: 'Excluir apontamento' })
     expect(
       within(dialogo).getByText(
@@ -95,11 +97,11 @@ describe('F4.6 — Exclusão de apontamento (integração: /apontamentos com Adm
   })
 
   it('Admin tenta excluir um apontamento com indicadores: diálogo bloqueado com a lista e "Entendi"; nenhum DELETE', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const chamadas = simularSessao('admin')
     await abrirTela()
 
-    await user.click(screen.getByRole('button', { name: 'Excluir apontamento Horas de treinamento realizadas' }))
+    await escolherAcao(user, rotuloAcoesApontamento('Horas de treinamento realizadas'), 'Excluir')
 
     const dialogo = screen.getByRole('dialog', { name: 'Excluir apontamento' })
     expect(
@@ -113,7 +115,7 @@ describe('F4.6 — Exclusão de apontamento (integração: /apontamentos com Adm
   })
 
   it('API recusa com 400 { mensagem, indicadores } ("já compôs", A-10): mensagem exibida, linha mantida', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     simularSessao('admin', () =>
       respostaJson(
         {
@@ -135,15 +137,18 @@ describe('F4.6 — Exclusão de apontamento (integração: /apontamentos com Adm
     expect(screen.queryByText('Apontamento excluído.')).not.toBeInTheDocument()
   })
 
-  it.each(['validador', 'preenchedor'] as const)('%s não vê botão Excluir em nenhuma linha', async (perfil) => {
+  it.each(['validador', 'preenchedor'] as const)('%s não vê "Excluir" no menu de ações de nenhuma linha', async (perfil) => {
+    const user = usuarioRapido()
     simularSessao(perfil)
     await abrirTela()
 
-    expect(screen.queryByRole('button', { name: /^Excluir apontamento / })).not.toBeInTheDocument()
+    const menus = await itensPorMenuAcoes(user, NOMES_APONTAMENTOS.map(rotuloAcoesApontamento))
+    expect(menus.flat()).not.toContain('Excluir')
+    expect(menus.flat().length).toBeGreaterThan(0)
   })
 
   it('401 ao excluir (token recusado) encerra a sessão e volta ao login com "Sua sessão expirou. Entre novamente."', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     simularSessao('admin', () => respostaErro(401))
     await abrirTela()
 

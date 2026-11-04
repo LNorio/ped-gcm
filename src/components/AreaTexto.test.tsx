@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from '../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import { AreaTexto } from './AreaTexto'
 
@@ -22,7 +22,7 @@ describe('F1.6 — Componentes base: AreaTexto', () => {
   })
 
   it('chama onChange ao digitar', async () => {
-    const user = userEvent.setup()
+    const user = usuarioRapido()
     const onChange = vi.fn()
     render(<AreaTexto rotulo="Motivo" onChange={onChange} />)
 

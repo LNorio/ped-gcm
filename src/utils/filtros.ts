@@ -32,3 +32,23 @@ export function contarPor<T, K extends string>(itens: readonly T[], obterChave: 
   }
   return contagem
 }
+
+/** Regra que diz se um item pertence a uma situação de filtro (ex.: "ativos", "problemas"). */
+export type RegraSituacao<T> = (item: T) => boolean
+
+/**
+ * Indica se `item` corresponde ao filtro de situação `filtro` (F1.14).
+ *
+ * - `'todas'` aceita qualquer item, sem consultar as regras;
+ * - havendo regra para o filtro, devolve o resultado dela (chamada só com o próprio item);
+ * - filtro sem regra aceita o item (preserva o comportamento anterior das abas).
+ */
+export function correspondeASituacao<T, F extends string>(
+  filtro: F,
+  item: T,
+  regras: Partial<Record<F, RegraSituacao<T>>>,
+): boolean {
+  if (filtro === 'todas') return true
+  const regra: RegraSituacao<T> | undefined = regras[filtro]
+  return regra ? regra(item) : true
+}

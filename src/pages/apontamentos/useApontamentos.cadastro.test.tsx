@@ -49,8 +49,15 @@ describe('F4.4 — useApontamentos.criar (cadastro de apontamento)', () => {
     limparToken()
   })
 
-  /** API com estado: o POST acrescenta o apontamento à lista devolvida pelo GET. */
-  function simularApiComEstado(aoCriar?: () => Response | Promise<Response> | undefined) {
+  /**
+   * API com estado: o POST acrescenta o apontamento à lista devolvida pelo GET.
+   * `aoCriar` substitui a resposta sem gravar (erros); `respostaGravado` grava e responde com
+   * outro corpo 2xx (envelope, só mensagem, vazio).
+   */
+  function simularApiComEstado(
+    aoCriar?: () => Response | Promise<Response> | undefined,
+    respostaGravado: () => Response = () => respostaJson(CRIADO_API, 201),
+  ) {
     let lista = apontamentosApi()
     return simularApi(fetchFalso, {
       [`GET ${ROTA}`]: rotaListarApontamentos(() => lista),
@@ -58,7 +65,7 @@ describe('F4.4 — useApontamentos.criar (cadastro de apontamento)', () => {
         const personalizada = aoCriar?.()
         if (personalizada) return personalizada
         lista = [...lista, CRIADO_API]
-        return respostaJson(CRIADO_API, 201)
+        return respostaGravado()
       },
     })
   }
@@ -101,6 +108,73 @@ describe('F4.4 — useApontamentos.criar (cadastro de apontamento)', () => {
     expect(gets(chamadas)).toHaveLength(2)
     await waitFor(() => expect(result.current.contagemPorTipo.find((c) => c.id === 1)?.quantidade).toBe(3))
     expect(result.current.erro).toBeNull()
+  })
+
+  it('POST 2xx com envelope { mensagem, apontamento } resolve com o apontamento convertido e recarrega a lista', async () => {
+    const chamadas = simularApiComEstado(undefined, () =>
+      respostaJson({ mensagem: 'Apontamento cadastrado.', apontamento: CRIADO_API }, 201),
+    )
+    const { result } = renderHook(() => useApontamentos())
+    await waitFor(() => expect(result.current.carregando).toBe(false))
+
+    let criado: unknown
+    await act(async () => {
+      criado = await result.current.criar(NOVO)
+    })
+
+    expect(criado).toMatchObject({ id: 10, nome: 'Visitas a clientes novos', ativo: true })
+    expect(gets(chamadas)).toHaveLength(2)
+    await waitFor(() => expect(result.current.apontamentos).toHaveLength(6))
+    expect(result.current.erro).toBeNull()
+  })
+
+  it('POST 2xx só com { mensagem } resolve null, sem erro, e recarrega a lista com o novo apontamento', async () => {
+    const chamadas = simularApiComEstado(undefined, () => respostaJson({ mensagem: 'apontamento cadastrado' }, 201))
+    const { result } = renderHook(() => useApontamentos())
+    await waitFor(() => expect(result.current.carregando).toBe(false))
+
+    let criado: unknown = 'não resolvido'
+    await act(async () => {
+      criado = await result.current.criar(NOVO)
+    })
+
+    expect(criado).toBeNull()
+    expect(posts(chamadas)).toHaveLength(1)
+    expect(gets(chamadas)).toHaveLength(2)
+    await waitFor(() => expect(result.current.apontamentos).toHaveLength(6))
+    expect(result.current.apontamentos.find((a) => a.id === 10)).toMatchObject({ nome: 'Visitas a clientes novos', ativo: true })
+    expect(result.current.erro).toBeNull()
+  })
+
+  it('POST 201 com corpo vazio resolve null, sem erro, e recarrega a lista', async () => {
+    const chamadas = simularApiComEstado(undefined, () => new Response('', { status: 201 }))
+    const { result } = renderHook(() => useApontamentos())
+    await waitFor(() => expect(result.current.carregando).toBe(false))
+
+    let criado: unknown = 'não resolvido'
+    await act(async () => {
+      criado = await result.current.criar(NOVO)
+    })
+
+    expect(criado).toBeNull()
+    expect(gets(chamadas)).toHaveLength(2)
+    await waitFor(() => expect(result.current.apontamentos).toHaveLength(6))
+    expect(result.current.erro).toBeNull()
+  })
+
+  it('POST 2xx com apontamento incompleto resolve null, sem erro, e recarrega a lista', async () => {
+    const chamadas = simularApiComEstado(undefined, () => respostaJson({ id: 10, nome: NOVO.nome }, 201))
+    const { result } = renderHook(() => useApontamentos())
+    await waitFor(() => expect(result.current.carregando).toBe(false))
+
+    let criado: unknown = 'não resolvido'
+    await act(async () => {
+      criado = await result.current.criar(NOVO)
+    })
+
+    expect(criado).toBeNull()
+    expect(gets(chamadas)).toHaveLength(2)
+    await waitFor(() => expect(result.current.apontamentos).toHaveLength(6))
   })
 
   it('a recarga após criar respeita os filtros atuais (mesma query)', async () => {

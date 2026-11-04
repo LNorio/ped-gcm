@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { usuarioRapido } from './test/usuario'
 import { MemoryRouter, Route, RouterProvider, Routes, createMemoryRouter, type RouteObject } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CAMINHOS, RotaProtegida, rotas } from './rotas'
@@ -196,7 +196,7 @@ describe('F2.3 — Rotas e layout principal (rotas)', () => {
     })
 
     it('a página não encontrada oferece o link "Voltar ao Início" apontando para "/"', async () => {
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const roteador = renderizarRotas('/nao-existe', { estado: 'autenticado', acesso: admin() })
 
       const voltar = screen.getByRole('link', { name: 'Voltar ao Início' })
@@ -252,7 +252,7 @@ describe('F2.3 — Rotas e layout principal (rotas)', () => {
 
     it('a página de erro oferece "Voltar ao Início" que leva ao Início e sai do estado de erro', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {})
-      const user = userEvent.setup()
+      const user = usuarioRapido()
       const roteador = renderizarRotas('/explode', { estado: 'autenticado', acesso: admin() }, rotasComRotaQueLanca())
 
       const voltar = screen.getByRole('link', { name: 'Voltar ao Início' })
