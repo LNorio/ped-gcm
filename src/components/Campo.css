@@ -122,3 +122,8 @@ textarea.campo__controle {
   line-height: 1.4;
   color: var(--cor-texto-suave);
 }
+
+/* Marca visual de campo obrigatório (" *" no rótulo, oculta para leitores de tela) */
+.campo__obrigatorio {
+  color: var(--cor-perigo);
+}

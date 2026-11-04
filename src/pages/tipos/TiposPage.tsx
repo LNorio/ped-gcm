@@ -8,11 +8,10 @@
 import { useMemo, useState } from 'react'
 import { Aviso } from '../../components/Aviso'
 import { BarraFiltros, type OpcaoSituacao } from '../../components/BarraFiltros'
-import { Botao } from '../../components/Botao'
 import { Card } from '../../components/Card'
+import { EstadoCarga } from '../../components/EstadoCarga'
 import { Notificacao } from '../../components/Notificacao'
-import { RegiaoStatus } from '../../components/RegiaoStatus'
-import { mensagemDeErro } from '../../services/api'
+import { useAcaoConfirmada } from '../../hooks/useAcaoConfirmada'
 import { ORIGEM_FIXO, ORIGEM_PERSONALIZADO, TIPOS_FIXOS } from '../../services/tiposService'
 import type { TipoApontamento } from '../../types/dominio'
 import { contarPor, filtrarPorBusca } from '../../utils/filtros'
@@ -38,10 +37,11 @@ export function TiposPage() {
   const [busca, setBusca] = useState('')
   const [origem, setOrigem] = useState(ORIGEM_TODOS)
 
-  const [tipoParaExcluir, setTipoParaExcluir] = useState<TipoApontamento | null>(null)
-  const [excluindo, setExcluindo] = useState(false)
-  const [erroExclusao, setErroExclusao] = useState<string | null>(null)
   const [notificacao, setNotificacao] = useState<string | null>(null)
+
+  const exclusao = useAcaoConfirmada((tipo: TipoApontamento) => excluir(tipo.id), {
+    onSucesso: () => setNotificacao(MENSAGEM_EXCLUIDO),
+  })
 
   const tiposVisiveis = useMemo(() => {
     const porOrigem = origem === ORIGEM_TODOS ? tipos : tipos.filter((tipo) => tipo.origem === origem)
@@ -63,44 +63,20 @@ export function TiposPage() {
     setOrigem(ORIGEM_TODOS)
   }
 
-  function fecharDialogo() {
-    if (excluindo) return
-    setTipoParaExcluir(null)
-  }
-
-  async function confirmarExclusao() {
-    if (!tipoParaExcluir || excluindo) return
-    setExcluindo(true)
-    try {
-      await excluir(tipoParaExcluir.id)
-      setErroExclusao(null)
-      setNotificacao(MENSAGEM_EXCLUIDO)
-    } catch (falha) {
-      setErroExclusao(mensagemDeErro(falha))
-    } finally {
-      setExcluindo(false)
-      setTipoParaExcluir(null)
-    }
-  }
-
   return (
     <div className="tipos-page">
       <h1>Tipos</h1>
 
       <Aviso tipo="info">{MENSAGEM_TIPOS_FIXOS}</Aviso>
 
-      <RegiaoStatus mensagem={carregando ? 'Carregando tipos...' : null} />
+      <EstadoCarga
+        carregando={carregando}
+        mensagemCarregando="Carregando tipos..."
+        erro={erro}
+        onTentarNovamente={() => void recarregar()}
+      />
 
-      {erro !== null ? (
-        <div className="tipos-page__erro">
-          <Aviso tipo="erro">{erro}</Aviso>
-          <Botao variante="contorno" onClick={() => void recarregar()} disabled={carregando}>
-            Tentar novamente
-          </Botao>
-        </div>
-      ) : null}
-
-      {erroExclusao !== null ? <Aviso tipo="erro">{erroExclusao}</Aviso> : null}
+      {exclusao.erro !== null ? <Aviso tipo="erro">{exclusao.erro}</Aviso> : null}
 
       {!carregando && erro === null ? (
         <Card semPadding className="tipos-page__card">
@@ -115,15 +91,15 @@ export function TiposPage() {
             rotuloSituacoes="Origem"
             onLimpar={limparFiltros}
           />
-          <TabelaTipos tipos={tiposVisiveis} onExcluir={setTipoParaExcluir} textoVazio={textoVazio} />
+          <TabelaTipos tipos={tiposVisiveis} onExcluir={exclusao.abrir} textoVazio={textoVazio} />
         </Card>
       ) : null}
 
       <DialogoExcluirTipo
-        tipo={tipoParaExcluir}
-        excluindo={excluindo}
-        onConfirmar={() => void confirmarExclusao()}
-        onCancelar={fecharDialogo}
+        tipo={exclusao.alvo}
+        excluindo={exclusao.executando}
+        onConfirmar={() => void exclusao.confirmar()}
+        onCancelar={exclusao.cancelar}
       />
 
       <Notificacao tipo="sucesso" mensagem={notificacao} onFechar={() => setNotificacao(null)} />

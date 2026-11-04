@@ -30,6 +30,9 @@ export default defineConfig(({ mode }) => {
             include: ['src/**/*.test.{ts,tsx}'],
             exclude: ['src/**/*.integration.test.{ts,tsx}'],
             setupFiles: ['./src/test/setup.ts'],
+            // Telas com muita digitação (user.type) levam ~4 s sob carga; o padrão de 5 s gerava
+            // falsos negativos e o estouro de um teste vazava digitação para o seguinte.
+            testTimeout: 15000,
           },
         },
         {

@@ -291,6 +291,30 @@
       ]
     },
     {
+      "id": "F1.13",
+      "titulo": "Infraestrutura de consulta, ações confirmadas, permissões de ação e campos obrigatórios",
+      "descricao": "RNF-05, RNF-07, RNF-08 (atividade não planejada, extraída na revisão pós-F4 como infraestrutura genérica para as próximas abas) — src/hooks/useConsulta.ts: useConsulta<R>(carregar: () => Promise<R>, inicial: R, opcoes?: { recarregarAposMutacao?: boolean }) → { dados: R, setDados: Dispatch<SetStateAction<R>>, carregando, carregouUmaVez, erro: string | null, recarregar(): Promise<void> }: carrega no mount; dados começa com inicial; carregando true no mount e durante recarregar; carregouUmaVez false até a primeira resposta (sucesso ou erro) e true depois, inclusive durante recargas; erro via mensagemDeErro, mantido durante a recarga e limpo no sucesso; recarregar nunca rejeita; corrida por versão (só a última requisição aplica dados/erro; carregando só cai quando a última responde); mudanças na referência de carregar não disparam carga e recarregar usa a última referência; nada é aplicado após a desmontagem; StrictMode consistente. setDados sem carga pendente só troca os dados. setDados com carga pendente descarta o resultado pendente (sucesso ou falha) e, com recarregarAposMutacao (padrão true), dispara recarregar() automaticamente quando a carga pendente termina (uma única recarga mesmo com várias mutações; usa a referência mais recente de carregar; não recarrega após desmontar); com recarregarAposMutacao: false mantém a semântica do useListagem (descarta sem recarregar). src/hooks/useListagem.ts passa a ser um invólucro de useConsulta com recarregarAposMutacao: false (interface e testes da F1.12 inalterados). src/hooks/useAcaoConfirmada.ts: useAcaoConfirmada<T>(acao: (alvo: T) => Promise<void>, opcoes?: { onSucesso?: (alvo: T) => void }) → { alvo: T | null, abrir(alvo), cancelar(), confirmar(): Promise<void>, executando, erro: string | null, limparErro() }: abrir define o alvo sem executar; cancelar fecha (alvo null) e é ignorado enquanto executando; confirmar sem alvo não faz nada; confirmar chamado duas vezes seguidas executa a ação uma única vez; executando true durante a ação; sucesso → alvo null, erro null, onSucesso(alvo); falha → alvo null, erro = mensagemDeErro(falha), sem onSucesso; confirmar nunca rejeita; usa a referência mais recente de acao e onSucesso; limparErro zera o erro; sem setState/console.error após desmontar. src/components/EstadoCarga.tsx: EstadoCarga({ carregando, mensagemCarregando, erro: string | null, onTentarNovamente }) → RegiaoStatus (sempre no DOM) com mensagemCarregando enquanto carregando; com erro, Aviso tipo=\"erro\" com a mensagem + Botao variante=\"contorno\" \"Tentar novamente\" (desabilitado durante carregando) que chama onTentarNovamente. src/sessao/permissoes.ts: type AcaoPermissao = 'excluir-tipo' | 'alterar-situacao-apontamento' | 'excluir-apontamento' e podeExecutar(perfil: Perfil | null, acao): boolean (excluir-tipo: admin e validador; alterar-situacao-apontamento: admin e validador; excluir-apontamento: só admin; null → false). src/sessao/usePermissoes.ts: usePermissoes() ganha podeAcao(acao) = podeExecutar(perfil da sessão, acao) (abas e pode da F2.6 inalterados). Campos obrigatórios: Campo, Select e AreaTexto ganham obrigatorio?: boolean → aria-required=\"true\" no controle e marca visual \" *\" (span aria-hidden=\"true\", classe campo__obrigatorio) dentro do rótulo, sem mudar o nome acessível; sem obrigatorio (ou false) não há aria-required nem marca; a prop não chega ao elemento nativo (sem aviso do React).",
+      "status": "implementado",
+      "testes": [
+        "src/hooks/useConsulta.test.tsx",
+        "src/hooks/useAcaoConfirmada.test.tsx",
+        "src/components/EstadoCarga.test.tsx",
+        "src/sessao/permissoes.acoes.test.ts",
+        "src/sessao/usePermissoes.acoes.test.tsx",
+        "src/components/Campo.obrigatorio.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) como atividade não planejada da revisão pós-F4: hook genérico de consulta (useConsulta, com recarga automática quando uma mutação local descarta um GET pendente — decisão da revisão, item 2, para a lista não ficar com o resultado de um filtro antigo), ação com confirmação (useAcaoConfirmada), EstadoCarga, matriz de permissões de ação (podeExecutar/podeAcao) e marca de campo obrigatório. Decisão de teste: a recarga automática quebraria o teste \"alteração local via setItens durante uma carga em andamento prevalece\" da F1.12 (a terceira chamada de carregar não existe no mock), por isso useListagem usa useConsulta com recarregarAposMutacao: false e os testes da F1.12 não mudam. Testes em arquivos próprios (permissoes.acoes, usePermissoes.acoes, Campo.obrigatorio) para não deixar vermelhos F2.6 e F1.6, já implementados."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Refatoração pós-revisão e decisões do usuário (item sai da lista ao deixar o filtro de situação; debounce de 500 ms na busca) implementadas; todos os testes passando."
+        }
+      ]
+    },
+    {
       "id": "F2.1",
       "titulo": "Autenticação e sessão",
       "descricao": "RF-03, RF-04, INT-01 — src/services/autenticacao.ts: entrar(usuario, senha) faz POST /api/valida-usuario com { usuario, senha } (sem Authorization), devolve o token da resposta { token } e o guarda com definirToken (resposta 200 sem token rejeita com ApiError \"Resposta inválida do servidor.\"); credenciais inválidas rejeitam com ApiError e a mensagem da API, sem guardar token; a senha nunca é armazenada. obterAcesso() faz GET /api/ped/acesso com o Bearer e devolve Acesso via paraAcesso (perfil null não é erro). src/sessao/SessaoProvider.tsx: SessaoProvider + useSessao() → { estado: 'carregando'|'anonimo'|'autenticado'|'sem-acesso', acesso, erro, filialSelecionada: Filial|'todas'|null, entrar, sair, selecionarFilial }. Ao montar com token salvo chama obterAcesso (perfil null → sem-acesso; 401/403 → anonimo com token limpo); sem token → anonimo sem chamar a API. entrar com falha expõe a mensagem em erro e rejeita; sucesso limpa erro. Filial inicial: 'todas' quando todasAsFiliais, senão a primeira da lista. sair limpa token, acesso, filial e erro. Evento window 'sessao-expirada' encerra a sessão e expõe erro \"Sua sessão expirou. Entre novamente.\"; se o evento chegar com a sessão já 'anonimo' (401 tardio depois de sair deliberadamente, ou sessão nunca autenticada), erro permanece null; o ouvinte é removido ao desmontar. Restauração com falha de rede (status 0), 5xx ou 403 → 'anonimo', token limpo e erro com a mensagem da API ({mensagem}) ou a padrão do status. selecionarFilial com código inexistente, 'todas' sem todasAsFiliais ou sem acesso não altera a filial. Em <StrictMode> a restauração termina 'autenticado' sem erro; desmontar com obterAcesso pendente não gera erro nem aviso. useSessao fora do provider lança erro.",
@@ -546,6 +570,178 @@
         {
           "data": "2026-11-03",
           "alteracao": "Refatoração concluída: DialogoExcluirTipo. Todos os testes passando."
+        }
+      ]
+    },
+    {
+      "id": "F4.1",
+      "titulo": "Serviço de apontamentos",
+      "descricao": "RF-17 a RF-22, INT-01 — src/services/apontamentosService.ts. Exporta SituacaoFiltro = 'todas' | 'ativos' | 'inativos' | 'problemas', SITUACOES_FILTRO (nessa ordem) e ROTULOS_SITUACAO_FILTRO (Todas, Ativos, Inativos, Com problemas). listarApontamentos(filtros?: { busca?, situacao?, tipo? }) faz GET /ped/apontamentos enviando na query somente os parâmetros informados (busca vazia ou só espaços e valores undefined são omitidos) e resolve { apontamentos: Apontamento[] (via paraApontamento, na ordem da API), contagemPorTipo: { id, nome, quantidade }[] (de \"contagem por tipo\"; ausente → []) }; resposta 2xx sem a lista \"apontamentos\" (objeto sem a chave, lista solta, corpo vazio) ou com item fora do formato (nulo, id não numérico, tipo de valor desconhecido) rejeita com ApiError(200, MENSAGEM_RESPOSTA_INVALIDA). criarApontamento(dados: NovoApontamento) faz POST /ped/apontamentos com paraCorpoNovoApontamento ({ nome, \"id tipo\", \"tipo de valor\", descricao null quando vazia }) e devolve o Apontamento criado convertido (corpo 2xx vazio ou inválido → ApiError resposta inválida). alterarSituacao(id, ativo) faz PUT /ped/apontamentos/{id}/situacao com { ativo } e devolve o Apontamento atualizado convertido (situacaoAlteradaEm/Por da resposta). excluirApontamento(id) faz DELETE /ped/apontamentos/{id} sem corpo e resolve undefined (204 ou 200); 400 com { mensagem, indicadores } chega como ApiError com a mensagem e dados.indicadores. Erros HTTP (400/403/404/500) e falha de rede chegam como ApiError com a mensagem da API ou a padrão do status. Fixture compartilhada em src/test/apontamentosFalsos.ts (5 apontamentos: vinculado a dashboard, desativado mas usado em indicador ativo, com dois indicadores, ativo sem indicador e inativo sem indicador; rotaListarApontamentos reproduz a filtragem da API).",
+      "status": "implementado",
+      "testes": [
+        "src/services/apontamentosService.test.ts"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F4.1 do plano e da seção \"Apontamentos\" de docs/backend/API (24).md. Decisões de teste: a filtragem (busca, situação e tipo) é feita pela API via query, não localmente; busca vazia não entra na query; \"contagem por tipo\" ausente vira []; itens fora do formato não são ignorados (ApiError de resposta inválida, como em F3.1)."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Implementação concluída; todos os testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F4.2",
+      "titulo": "Listagem de apontamentos",
+      "descricao": "RF-17, RF-16 (consulta por perfil) — src/pages/apontamentos/useApontamentos.ts: useApontamentos() (construído sobre useConsulta da F1.13) → { apontamentos, contagemPorTipo, carregando, carregouUmaVez, erro: string | null, filtros: { busca: string, situacao: SituacaoFiltro, tipo: number | null }, setBusca, setSituacao, setTipo, limparFiltros, recarregar(), criar(dados), alterarSituacao(id, ativo), excluir(id) }; estado inicial carregando=true, listas vazias, erro null, filtros { busca: '', situacao: 'todas', tipo: null }; carrega GET /ped/apontamentos uma vez ao montar (sem busca nem tipo na query); erro via mensagemDeErro (mantido durante a recarga e limpo no sucesso); recarregar nunca rejeita; proteção de corrida (só a última resposta é aplicada); carregouUmaVez false até a primeira resposta (sucesso ou erro) e true depois, inclusive nas reconsultas; uma ação local (alterarSituacao/excluir) concluída com um GET de filtro pendente descarta a resposta pendente e reconsulta automaticamente com os filtros atuais, de modo que a lista final corresponde ao filtro novo (sem GET pendente, a ação local não reconsulta); desmontar durante a carga não gera console.error. src/pages/apontamentos/ApontamentosPage.tsx (export function ApontamentosPage, substitui o placeholder da F2.3): h1 \"Apontamentos\"; EstadoCarga (F1.13) com mensagemCarregando \"Carregando apontamentos...\", o carregando e o erro da consulta e onTentarNovamente = recarregar (RegiaoStatus durante a carga; erro em Aviso tipo=\"erro\" com \"Tentar novamente\" desabilitado durante a recarga, alerta mantido; tabela oculta enquanto há erro); a tabela aparece após a primeira resposta e permanece visível com a lista anterior durante as reconsultas filtradas; Card semPadding com BarraFiltros + TabelaApontamentos; textoVazio \"Nenhum apontamento cadastrado.\" sem filtros ativos. src/pages/apontamentos/TabelaApontamentos.tsx: TabelaApontamentos({ apontamentos, podeAlterarSituacao, podeExcluir, onAlterarSituacao(apontamento), onExcluir(apontamento), textoVazio? }) com legenda \"Apontamentos\" e colunas Nome (nome + descrição abaixo; Etiqueta tom=\"dourado\" \"Vinculado a dashboard\" quando vinculadoADashboard; Etiqueta tom=\"alerta\" \"Desativado, mas usado em indicador ativo\" quando desativadoMasUsadoEmIndicadorAtivo; sem descrição mostra só o nome), Tipo, Tipo de valor (ROTULOS_TIPO_VALOR), Situação (Etiqueta sucesso \"Ativo\" / neutro \"Inativo\"), Indicadores (nomes separados por \", \" ou \"—\"), Cadastro (formatarDataHora(cadastradoEm) e \"por {cadastradoPor}\") e Ações (botão \"Desativar\"/\"Ativar\" com aria-label \"Desativar apontamento {nome}\"/\"Ativar apontamento {nome}\" só com podeAlterarSituacao; botão \"Excluir\" variante perigo com aria-label \"Excluir apontamento {nome}\" só com podeExcluir; nunca \"Editar\"); linha expansível (expandir da Tabela) com \"Situação alterada em {formatarDataHora(situacaoAlteradaEm)} por {situacaoAlteradaPor}\" só quando houver. Preenchedor vê exatamente a lista devolvida pela API (o front não filtra por tipo). Integração via renderizarApp('/apontamentos') com Admin, Validador e Preenchedor; 401 ao listar volta ao login com \"Sua sessão expirou. Entre novamente.\".",
+      "status": "implementado",
+      "testes": [
+        "src/pages/apontamentos/useApontamentos.test.tsx",
+        "src/pages/apontamentos/TabelaApontamentos.test.tsx",
+        "src/pages/apontamentos/ApontamentosPage.test.tsx",
+        "src/pages/apontamentos/ApontamentosPage.integration.test.tsx",
+        "src/pages/apontamentos/useApontamentos.consulta.test.tsx",
+        "src/pages/apontamentos/ApontamentosPage.consulta.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F4.2 do plano, de RF-17 e do protótipo da aba Apontamentos (Main.dc.html). Decisões de teste: a célula Nome agrega nome, descrição e etiquetas (linhas localizadas pelo texto do nome, não por role cell); o detalhe de auditoria fica na linha expansível da Tabela; textoVazio \"Nenhum apontamento cadastrado.\" / \"Nenhum apontamento encontrado para os filtros.\" (este último testado em F4.3)."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Implementação concluída; todos os testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Revisão pós-F4: useApontamentos passa a ser construído sobre useConsulta (F1.13), expõe carregouUmaVez e, quando uma ação local conclui com um GET de filtro pendente, descarta a resposta pendente e reconsulta automaticamente (decisão da revisão, item 2: a lista não pode ficar com o resultado de um filtro antigo enquanto a barra mostra o filtro novo); a página usa EstadoCarga. Novos testes em useApontamentos.consulta.test.tsx e ApontamentosPage.consulta.test.tsx (inclui a tabela visível com a lista anterior durante a reconsulta filtrada); testes existentes inalterados."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Refatoração pós-revisão e decisões do usuário (item sai da lista ao deixar o filtro de situação; debounce de 500 ms na busca) implementadas; todos os testes passando."
+        }
+      ]
+    },
+    {
+      "id": "F4.3",
+      "titulo": "Filtros da listagem de apontamentos",
+      "descricao": "RF-18, RNF-09 — Filtros resolvidos pela API: cada mudança de situação ou tipo refaz GET /ped/apontamentos na hora e cada mudança de busca refaz o GET 500 ms após a última mudança (debounce; o valor do campo e filtros.busca atualizam na hora, só a consulta espera) com a query correspondente (busca=<texto como digitado>, situacao=<todas|ativos|inativos|problemas>, tipo=<id>); a lista e a contagem por tipo exibidas são sempre as da última resposta (proteção de corrida: resposta atrasada de um filtro antigo é descartada). useApontamentos: setBusca atualiza filtros.busca na hora e agenda a consulta para 500 ms depois (cada nova mudança reinicia a espera; \"abc\" digitado rápido gera um único GET com busca=abc; nada é consultado antes de 500 ms; desmontar cancela a espera); setSituacao/setTipo atualizam filtros e reconsultam na hora, já com a busca digitada, cancelando a espera pendente; setTipo(null) remove o tipo; limparFiltros volta a { busca: '', situacao: 'todas', tipo: null }, cancela a espera pendente da busca e reconsulta na hora; se o tipo selecionado some da contagem por tipo após uma exclusão (quantidade zerada), filtros.tipo volta a null e a lista é reconsultada sem tipo (o botão do tipo some e nenhum fica marcado); excluir um apontamento de um tipo que continua na contagem mantém o tipo selecionado sem reconsultar; recarregar() repete a consulta com os filtros atuais; erro na consulta filtrada vai para erro. ApontamentosPage: BarraFiltros com busca (rótulo \"Buscar\", placeholder \"Nome, tipo, descrição ou tipo de valor\"), seletor \"Situação\" (listbox) com Todas/Ativos/Inativos/Com problemas sem contagem (Todas padrão), grupo \"Tipo\" com um botão (Chip, aria-pressed) por item de contagemPorTipo com a quantidade (clicar seleciona o tipo; clicar no ativo desmarca; um único tipo ativo) e \"Limpar filtros\" (visível com qualquer filtro ativo). A barra permanece montada, com o texto digitado, enquanto a consulta filtrada está em andamento. Sem resultado com filtros ativos a tabela mostra \"Nenhum apontamento encontrado para os filtros.\". Erro ao filtrar mostra o Aviso de erro com \"Tentar novamente\" (repete a consulta com os mesmos filtros). Testes com vi.useFakeTimers({ shouldAdvanceTime: true }) e userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).",
+      "status": "implementado",
+      "testes": [
+        "src/pages/apontamentos/useApontamentos.filtros.test.tsx",
+        "src/pages/apontamentos/ApontamentosPage.filtros.test.tsx",
+        "src/pages/apontamentos/ApontamentosPage.filtros.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F4.3 do plano e de RF-18. Decisão do orquestrador: filtragem pela API (query), não local; a fixture rotaListarApontamentos reproduz a filtragem da API (busca sem acento/maiúsculas em nome, tipo, descrição e tipo de valor; contagem considera busca e situação, não o tipo) para os testes verificarem a tela e a URL do fetch."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Implementação concluída; todos os testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Revisão pós-F4 — decisão do usuário (b): a busca espera 500 ms após a última tecla antes de consultar a API (debounce), para não disparar um GET por tecla; situação, tipo e \"Limpar filtros\" consultam na hora e cancelam a espera pendente; o valor do campo atualiza imediatamente. Testes existentes que esperavam um GET por tecla ajustados (relógio falso; corrida da busca agora com \"v\" consultado após a espera e \"visitas\" depois); novos testes de debounce no hook, na página e na integração (um único GET com busca). Também acrescentado: tipo selecionado que some da contagem após exclusão volta filtros.tipo a null e reconsulta (revisão pós-F4)."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Refatoração pós-revisão e decisões do usuário (item sai da lista ao deixar o filtro de situação; debounce de 500 ms na busca) implementadas; todos os testes passando."
+        }
+      ]
+    },
+    {
+      "id": "F4.4",
+      "titulo": "Cadastro de apontamento",
+      "descricao": "RF-19, RF-20 — Botão primário \"Novo apontamento\" no topo da ApontamentosPage, visível a Admin, Validador e Preenchedor; abre Dialogo \"Novo apontamento\" com src/pages/apontamentos/FormularioApontamento.tsx: FormularioApontamento({ tipos: { id, nome }[], salvando, erro: string | null, onSalvar(dados: NovoApontamento), onCancelar }) com Campo \"Nome\" (obrigatório; vazio ou só espaços → \"Informe o nome.\"), Select \"Tipo\" (placeholder \"Selecione\" desabilitado + tipos recebidos na ordem; obrigatório → \"Selecione o tipo.\"), Select \"Tipo de valor\" (placeholder \"Selecione\" + Porcentagem/Numeral/Booleano; obrigatório → \"Selecione o tipo de valor.\"), AreaTexto \"Descrição\" (opcional), botões \"Salvar\" (type=submit, desabilitado com salvando) e \"Cancelar\"; Nome, Tipo e Tipo de valor com obrigatorio (F1.13: aria-required=\"true\" e marca \" *\" no rótulo, sem mudar o nome acessível; Descrição sem marca); tipos vazio → Aviso tipo=\"alerta\" \"Você não tem tipos de apontamento disponíveis para cadastro.\" e \"Salvar\" desabilitado (Cancelar continua habilitado); validação no front sem chamar a API (campos com aria-invalid); onSalvar recebe { nome, idTipo: number, tipoValor: TipoValor, descricao } (descricao vazia/nula sem texto inventado); erro exibido em Aviso tipo=\"erro\" dentro do formulário sem apagar o que foi digitado; Enter envia. Na página: tipos do select = useSessao().acesso.tipos; useApontamentos.criar(dados) → criarApontamento (POST) → recarrega a lista com os filtros atuais e resolve com o criado; sucesso → diálogo fecha, Notificacao tipo=\"sucesso\" \"Apontamento cadastrado.\" e o novo apontamento aparece ativo na tabela; erro da API (403 em tipo alheio, 400, 500, rede) → mensagem em Aviso de erro dentro do diálogo, que permanece aberto com os campos preenchidos, sem notificação; Salvar desabilitado durante o POST (clique duplo gera um único POST); Cancelar/Esc fecham sem POST; reabrir mostra o formulário limpo; um erro de ação anterior exibido na página (alteração de situação ou exclusão recusada) é apagado após um cadastro bem-sucedido (um cadastro recusado não o apaga). Nenhuma ação \"Editar\" em lugar algum (RF-20). Integração com Admin, Validador e Preenchedor (403 em tipo alheio mostra a mensagem da API; 401 volta ao login).",
+      "status": "implementado",
+      "testes": [
+        "src/pages/apontamentos/FormularioApontamento.test.tsx",
+        "src/pages/apontamentos/useApontamentos.cadastro.test.tsx",
+        "src/pages/apontamentos/ApontamentosPage.cadastro.test.tsx",
+        "src/pages/apontamentos/ApontamentosPage.cadastro.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F4.4 do plano, de RF-19/RF-20 e do formulário do protótipo. Decisões de teste: criar(dados) resolve com o Apontamento criado e recarrega a lista (a API com estado dos testes aceita também a inclusão local); nome só com espaços é inválido; o formulário é limpo ao reabrir."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Implementação concluída; todos os testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Revisão pós-F4: Nome, Tipo e Tipo de valor marcados como obrigatórios (aria-required + marca visual, F1.13) para comunicar a obrigatoriedade antes do envio; usuário sem tipos disponíveis vê um aviso de alerta e \"Salvar\" desabilitado em vez de um select vazio; cobertura do erro de ação anterior apagado após cadastro bem-sucedido. Testes acrescentados em FormularioApontamento.test.tsx e ApontamentosPage.cadastro.test.tsx; nenhum teste removido."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Refatoração pós-revisão e decisões do usuário (item sai da lista ao deixar o filtro de situação; debounce de 500 ms na busca) implementadas; todos os testes passando."
+        }
+      ]
+    },
+    {
+      "id": "F4.5",
+      "titulo": "Ativar e desativar apontamento",
+      "descricao": "RF-21, RNF-01, RNF-07 — Botões \"Desativar\" (ativos) / \"Ativar\" (inativos) na coluna Ações, com aria-label \"Desativar apontamento {nome}\" / \"Ativar apontamento {nome}\", somente para quem tem a ação 'alterar-situacao-apontamento' na matriz da F1.13 (Admin e Validador; a página consulta usePermissoes().podeAcao, que delega a podeExecutar) (qualquer apontamento, inclusive vinculado a dashboard); Preenchedor não os vê. src/pages/apontamentos/DialogoSituacaoApontamento.tsx: DialogoSituacaoApontamento({ apontamento: Apontamento | null, alterando, onConfirmar, onCancelar }) sobre DialogoConfirmacao: apontamento ativo → título \"Desativar apontamento\", impacto \"Desativado, o apontamento sai do Preenchimento e dos próximos fechamentos. Lançamentos já feitos são mantidos.\", botão \"Desativar\"; inativo → \"Ativar apontamento\", \"Ativado, o apontamento volta ao Preenchimento.\", botão \"Ativar\"; Cancelar/Esc chamam onCancelar; alterando desabilita o confirmar; null não renderiza. useApontamentos.alterarSituacao(id, ativo) → alterarSituacao do serviço (PUT { ativo }) e, com sucesso, substitui o item da lista pela resposta (situação, situacaoAlteradaEm/Por) sem refazer o GET, mantendo posição e demais itens, e resolve com o atualizado; com filtro de situação ativo, se a resposta deixar de corresponder ao filtro (ativos ⇔ ativo; inativos ⇔ !ativo; problemas ⇔ desativadoMasUsadoEmIndicadorAtivo da resposta) o item sai da lista na hora e a contagemPorTipo do tipo dele é decrementada (tipo removido ao zerar), sem nova consulta; com \"todas\" (inclusive com filtro só de tipo) o item continua, só com a situação trocada, e a contagem não muda; falha rejeita com a ApiError original sem alterar a lista; corrida recarregar × alterarSituacao resolvida (GET antigo é descartado e não desfaz a alteração; ao fim dele a lista é reconsultada automaticamente — useConsulta da F1.13). Página: o diálogo é conduzido por useAcaoConfirmada (F1.13; comportamento observável igual); confirmar → PUT com o token; botão desabilitado durante a chamada; Cancelar/Esc ignorados e clique duplo gera um único PUT; sucesso → diálogo fecha, Notificacao \"Situação alterada.\", etiqueta muda (Ativo/Inativo), o botão da linha alterna (Desativar ↔ Ativar) e a linha ganha \"Expandir detalhes\" com \"Situação alterada em {data} por {usuário}\" da resposta; erro (403/500/rede) → diálogo fecha, Aviso tipo=\"erro\" com a mensagem, situação mantida, sem notificação; alteração posterior bem-sucedida remove o alerta; com filtro \"Ativos\"/\"Inativos\", a linha alterada sai da tabela e o botão do tipo é decrementado (some ao zerar); com \"Todas\" a linha permanece. Integração: Admin desativa, Validador ativa, Preenchedor sem botões, 403 mostra a mensagem, 401 volta ao login.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/apontamentos/DialogoSituacaoApontamento.test.tsx",
+        "src/pages/apontamentos/useApontamentos.situacao.test.tsx",
+        "src/pages/apontamentos/ApontamentosPage.situacao.test.tsx",
+        "src/pages/apontamentos/ApontamentosPage.situacao.integration.test.tsx",
+        "src/pages/apontamentos/ApontamentosPage.situacao.permissoes.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F4.5 do plano, de RF-21/RNF-01/RNF-07 e da matriz de permissões. Decisões de teste: textos dos botões de confirmação \"Desativar\"/\"Ativar\" (não especificados pelo orquestrador); a alteração atualiza o item com a resposta do PUT sem novo GET."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Implementação concluída; todos os testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Revisão pós-F4 — decisão do usuário (a): ao ativar/desativar com filtro de situação ativo, o item que deixa de corresponder ao filtro sai da lista na hora e a contagem do tipo cai (tipo removido ao zerar); com \"todas\" o item continua. Motivo: a lista filtrada não pode exibir itens que não correspondem ao filtro escolhido. A página passa a usar podeAcao('alterar-situacao-apontamento') e useAcaoConfirmada (F1.13). Teste ajustado: \"corrida recarregar × alterarSituacao\" agora espera também a recarga automática ao fim do GET descartado (decisão da revisão, item 2). Novos testes no hook, na página, na integração e em ApontamentosPage.situacao.permissoes.test.tsx."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Refatoração pós-revisão e decisões do usuário (item sai da lista ao deixar o filtro de situação; debounce de 500 ms na busca) implementadas; todos os testes passando."
+        }
+      ]
+    },
+    {
+      "id": "F4.6",
+      "titulo": "Exclusão de apontamento",
+      "descricao": "RF-22, RN-11, RN-12, RNF-07 — Botão \"Excluir\" (variante perigo) com aria-label \"Excluir apontamento {nome}\" em todas as linhas, somente para quem tem a ação 'excluir-apontamento' na matriz da F1.13 (só Admin; a página consulta usePermissoes().podeAcao, que delega a podeExecutar) (Validador e Preenchedor não o veem). src/pages/apontamentos/DialogoExcluirApontamento.tsx: DialogoExcluirApontamento({ apontamento: Apontamento | null, excluindo, onConfirmar, onCancelar }) sobre DialogoConfirmacao (título \"Excluir apontamento\"): sem indicadores → impacto \"O apontamento {nome} e todos os seus lançamentos e histórico serão apagados. Esta ação não pode ser desfeita.\", perigo, botões \"Excluir\" (desabilitado com excluindo) e \"Cancelar\"; com indicadores.length > 0 (inclusive vinculado a dashboard) → modo bloqueio \"Este apontamento compõe os indicadores: {nomes separados por \", \"} e não pode ser excluído.\" e só \"Entendi\", sem chamar a API; Cancelar/Esc/Entendi chamam onCancelar; null não renderiza. useApontamentos.excluir(id) → excluirApontamento (DELETE) e, com sucesso, remove o item da lista e decrementa a contagemPorTipo do tipo dele (tipo removido ao zerar), sem nova consulta (resolve undefined); falha rejeita com a ApiError original (400 traz mensagem e dados.indicadores) sem alterar a lista; corrida recarregar × excluir resolvida (GET antigo descartado, a linha não volta; ao fim dele a lista é reconsultada automaticamente — useConsulta da F1.13). Página: o diálogo é conduzido por useAcaoConfirmada (F1.13; comportamento observável igual); confirmar → DELETE com o token; botão desabilitado durante a chamada; Cancelar/Esc ignorados e clique duplo gera um único DELETE; sucesso → diálogo fecha, Notificacao \"Apontamento excluído.\" e a linha some; erro da API (400 { mensagem, indicadores } do caso \"já compôs\" — A-10 —, 403, 500, rede) → diálogo fecha, Aviso tipo=\"erro\" com a mensagem, linha mantida, sem notificação; exclusão posterior bem-sucedida remove o alerta; o botão do tipo do apontamento excluído é decrementado (some ao zerar) e uma exclusão recusada não muda os botões. Integração: Admin exclui e é bloqueado no front quando há indicadores; 400 da API mostra a mensagem; Validador e Preenchedor sem botão; 401 volta ao login.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/apontamentos/DialogoExcluirApontamento.test.tsx",
+        "src/pages/apontamentos/useApontamentos.exclusao.test.tsx",
+        "src/pages/apontamentos/ApontamentosPage.exclusao.test.tsx",
+        "src/pages/apontamentos/ApontamentosPage.exclusao.integration.test.tsx",
+        "src/pages/apontamentos/ApontamentosPage.exclusao.permissoes.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-04",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F4.6 do plano, de RF-22/RN-11/RN-12/RNF-07 e da matriz de permissões. Decisões de teste: bloqueio decidido no front a partir de indicadores.length (como em F3.3 com quantidadeApontamentos); o caso \"já compôs\" (sem indicadores atuais) vem da API como 400 e é exibido como Aviso de erro; a exclusão remove a linha localmente (a contagem por tipo não é reavaliada nos testes)."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Implementação concluída; todos os testes do requisito passando."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Revisão pós-F4: a página passa a usar podeAcao('excluir-apontamento') e useAcaoConfirmada (F1.13), para que a matriz de permissões fique num único ponto e os fluxos confirmados compartilhem o mesmo hook (comportamento observável igual). Cobertura acrescentada para o decremento da contagem por tipo ao excluir e a remoção do tipo ao zerar (comportamento já existente, sem teste). Teste ajustado: \"corrida recarregar × excluir\" agora espera também a recarga automática ao fim do GET descartado (decisão da revisão, item 2). Novo arquivo ApontamentosPage.exclusao.permissoes.test.tsx."
+        },
+        {
+          "data": "2026-11-04",
+          "alteracao": "Refatoração pós-revisão e decisões do usuário (item sai da lista ao deixar o filtro de situação; debounce de 500 ms na busca) implementadas; todos os testes passando."
         }
       ]
     }

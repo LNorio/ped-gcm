@@ -80,3 +80,27 @@ export function podeAcessar(perfil: Perfil | null, aba: Aba): boolean {
   if (perfil === null) return false
   return ABAS_POR_PERFIL[perfil].includes(aba)
 }
+
+/**
+ * Ações sensíveis controladas por perfil (F1.13 — seção 2 do documento de requisitos).
+ *
+ * | Ação                          | Admin | Validador | Preenchedor |
+ * | ----------------------------- | :---: | :-------: | :---------: |
+ * | excluir-tipo                  |   x   |     x     |             |
+ * | alterar-situacao-apontamento  |   x   |     x     |             |
+ * | excluir-apontamento           |   x   |           |             |
+ */
+export type AcaoPermissao = 'excluir-tipo' | 'alterar-situacao-apontamento' | 'excluir-apontamento'
+
+/** Matriz de ações: perfis autorizados por ação. Único ponto que conhece essa regra. */
+const PERFIS_POR_ACAO: Readonly<Record<AcaoPermissao, readonly Perfil[]>> = {
+  'excluir-tipo': ['admin', 'validador'],
+  'alterar-situacao-apontamento': ['admin', 'validador'],
+  'excluir-apontamento': ['admin'],
+}
+
+/** Indica se o perfil pode executar a ação. `null` nunca pode. */
+export function podeExecutar(perfil: Perfil | null, acao: AcaoPermissao): boolean {
+  if (perfil === null) return false
+  return PERFIS_POR_ACAO[acao].includes(perfil)
+}

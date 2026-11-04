@@ -1,0 +1,14 @@
+/* Formulário de cadastro de apontamento (F4.4). */
+
+.formulario-apontamento {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.formulario-apontamento__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}

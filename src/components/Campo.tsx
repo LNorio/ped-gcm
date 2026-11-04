@@ -7,6 +7,8 @@ export interface CampoProps extends ComponentProps<'input'> {
   rotulo: string
   /** Mensagem de validação; quando presente, marca o campo como inválido. */
   erro?: string | null
+  /** Marca o campo como obrigatório: `aria-required` no controle e " *" visual (aria-hidden) no rótulo. */
+  obrigatorio?: boolean
   /** Texto auxiliar exibido abaixo do campo e usado como descrição acessível. */
   dica?: string
   /** Esconde o rótulo visualmente, mantendo-o para leitores de tela (contexto já evidente na tela). */
@@ -25,6 +27,7 @@ export interface CampoProps extends ComponentProps<'input'> {
 export function Campo({
   rotulo,
   erro,
+  obrigatorio = false,
   dica,
   rotuloOculto = false,
   sufixo,
@@ -35,6 +38,7 @@ export function Campo({
   const idGerado = useId()
   const id = idInformado ?? idGerado
   const idErro = `${id}-erro`
+  const idRotulo = `${id}-rotulo`
   const idDica = `${id}-dica`
 
   const descricoes: string[] = []
@@ -49,13 +53,21 @@ export function Campo({
   return (
     <div className="campo">
       <label className={rotuloOculto ? 'campo__rotulo visualmente-oculto' : 'campo__rotulo'} htmlFor={id}>
-        {rotulo}
+        {/* Com a marca " *", o nome acessível vem só do texto do rótulo (aria-labelledby). */}
+        {obrigatorio ? <span id={idRotulo}>{rotulo}</span> : rotulo}
+        {obrigatorio ? (
+          <span aria-hidden="true" className="campo__obrigatorio">
+            {' *'}
+          </span>
+        ) : null}
       </label>
       <div className="campo__entrada">
         <input
           id={id}
           className={classes.join(' ')}
           aria-invalid={erro ? true : undefined}
+          aria-required={obrigatorio ? true : undefined}
+          aria-labelledby={obrigatorio ? idRotulo : undefined}
           aria-describedby={descricoes.length > 0 ? descricoes.join(' ') : undefined}
           {...resto}
         />

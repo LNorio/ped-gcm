@@ -17,6 +17,8 @@ export interface SelectProps extends Omit<ComponentProps<'select'>, 'children'> 
   placeholder?: string
   /** Mensagem de validação; quando presente, marca o campo como inválido. */
   erro?: string | null
+  /** Marca o campo como obrigatório: `aria-required` no controle e " *" visual (aria-hidden) no rótulo. */
+  obrigatorio?: boolean
   /** Esconde o rótulo visualmente, mantendo-o para leitores de tela (contexto já evidente na tela). */
   rotuloOculto?: boolean
 }
@@ -29,6 +31,7 @@ export function Select({
   opcoes,
   placeholder,
   erro,
+  obrigatorio = false,
   rotuloOculto = false,
   id: idInformado,
   className,
@@ -37,6 +40,7 @@ export function Select({
   const idGerado = useId()
   const id = idInformado ?? idGerado
   const idErro = `${id}-erro`
+  const idRotulo = `${id}-rotulo`
 
   const classes = ['campo__controle', 'foco-interno']
   if (className) classes.push(className)
@@ -44,12 +48,20 @@ export function Select({
   return (
     <div className="campo">
       <label className={rotuloOculto ? 'campo__rotulo visualmente-oculto' : 'campo__rotulo'} htmlFor={id}>
-        {rotulo}
+        {/* Com a marca " *", o nome acessível vem só do texto do rótulo (aria-labelledby). */}
+        {obrigatorio ? <span id={idRotulo}>{rotulo}</span> : rotulo}
+        {obrigatorio ? (
+          <span aria-hidden="true" className="campo__obrigatorio">
+            {' *'}
+          </span>
+        ) : null}
       </label>
       <select
         id={id}
         className={classes.join(' ')}
         aria-invalid={erro ? true : undefined}
+        aria-required={obrigatorio ? true : undefined}
+        aria-labelledby={obrigatorio ? idRotulo : undefined}
         aria-describedby={erro ? idErro : undefined}
         {...resto}
       >
