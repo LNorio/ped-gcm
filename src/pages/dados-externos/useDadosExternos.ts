@@ -12,7 +12,8 @@
  *   `limparFiltros` e `recarregar` consultam na hora e cancelam a espera; desmontar também cancela.
  * - Mudar a situação para o mesmo valor não reconsulta.
  * - `concluir` e `alterarSituacao`: se o item, pela resposta da API, deixa de corresponder ao filtro
- *   de situação, sai da lista; senão é substituído (sem nova consulta).
+ *   de situação, sai da lista; senão é substituído (sem nova consulta). Se o 2xx não traz o dado
+ *   (serviço devolve `null`), recarrega a lista e resolve `null` sem erro.
  * - Falhas das ações rejeitam com a `ApiError` original, sem alterar a lista nem o `erro` de carga.
  */
 import { useCallback, useEffect, useRef } from 'react'
@@ -59,10 +60,16 @@ export interface UseDadosExternosResultado {
    * `null`). Em falha, rejeita com a `ApiError` original, sem recarregar.
    */
   criar: (dados: NovoDadoExterno) => Promise<ResultadoCriacaoDadoExterno>
-  /** PUT de conclusão e troca (ou remoção, se sair do filtro) do item na lista, sem nova consulta. */
-  concluir: (id: number, identificador: string) => Promise<ResultadoConclusaoDadoExterno>
-  /** PUT da situação e troca (ou remoção, se sair do filtro) do item na lista, sem nova consulta. */
-  alterarSituacao: (id: number, ativo: boolean) => Promise<DadoExterno>
+  /**
+   * PUT de conclusão e troca (ou remoção, se sair do filtro) do item na lista, sem nova consulta. Se a
+   * resposta 2xx não traz o dado, recarrega a lista e resolve `null`. Erro HTTP rejeita sem recarregar.
+   */
+  concluir: (id: number, identificador: string) => Promise<ResultadoConclusaoDadoExterno | null>
+  /**
+   * PUT da situação e troca (ou remoção, se sair do filtro) do item na lista, sem nova consulta. Se a
+   * resposta 2xx não traz o dado, recarrega a lista e resolve `null`. Erro HTTP rejeita sem recarregar.
+   */
+  alterarSituacao: (id: number, ativo: boolean) => Promise<DadoExterno | null>
   /** DELETE e remoção do item da lista. */
   excluir: (id: number) => Promise<void>
 }
@@ -141,21 +148,29 @@ export function useDadosExternos(): UseDadosExternosResultado {
   )
 
   const concluir = useCallback(
-    async (id: number, identificador: string): Promise<ResultadoConclusaoDadoExterno> => {
+    async (id: number, identificador: string): Promise<ResultadoConclusaoDadoExterno | null> => {
       const resultado = await concluirConstrucao(id, identificador)
+      if (resultado === null) {
+        await recarregar()
+        return null
+      }
       aplicarAtualizado(resultado.dadoExterno)
       return resultado
     },
-    [aplicarAtualizado],
+    [aplicarAtualizado, recarregar],
   )
 
   const alterarSituacao = useCallback(
-    async (id: number, ativo: boolean): Promise<DadoExterno> => {
+    async (id: number, ativo: boolean): Promise<DadoExterno | null> => {
       const atualizado = await alterarSituacaoDadoExterno(id, ativo)
+      if (atualizado === null) {
+        await recarregar()
+        return null
+      }
       aplicarAtualizado(atualizado)
       return atualizado
     },
-    [aplicarAtualizado],
+    [aplicarAtualizado, recarregar],
   )
 
   const excluir = useCallback(

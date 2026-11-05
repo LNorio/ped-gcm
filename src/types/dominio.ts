@@ -229,7 +229,8 @@ export interface DadoExterno extends Auditoria {
   tipoValor: TipoValor
   /** O identificador tem coleta cadastrada no backend. */
   coletaDisponivel: boolean
-  indicadores: ReferenciaNomeada[]
+  /** Nomes dos indicadores que o dado externo compõe (a API devolve só o nome na listagem). */
+  indicadores: string[]
 }
 
 /** Tarefa gerada para a TI ao pedir a construção de um dado externo (POST de Validador/Preenchedor). */

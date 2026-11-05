@@ -1,0 +1,20 @@
+/* Histórico de metas de um indicador (F6.8). Somente leitura. */
+
+.dialogo-historico {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dialogo-historico__indicador {
+  font-weight: 600;
+  color: var(--cor-texto);
+}
+
+.dialogo-historico__filial {
+  font-size: 0.9375rem;
+}
+
+.dialogo-historico__vazio {
+  color: var(--cor-texto-secundario);
+}

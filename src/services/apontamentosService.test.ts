@@ -521,14 +521,6 @@ describe('F4.1 — Serviço de apontamentos', () => {
       })
     })
 
-    it('resposta 2xx fora do formato ou vazia rejeita com ApiError de resposta inválida', async () => {
-      simularApi(fetchFalso, { [`PUT ${ROTA}/4/situacao`]: () => respostaJson({ mensagem: 'Situação alterada.' }) })
-      await expect(alterarSituacao(4, false)).rejects.toMatchObject({ mensagem: MENSAGEM_RESPOSTA_INVALIDA })
-
-      simularApi(fetchFalso, { [`PUT ${ROTA}/4/situacao`]: () => new Response('', { status: 200 }) })
-      await expect(alterarSituacao(4, false)).rejects.toMatchObject({ mensagem: MENSAGEM_RESPOSTA_INVALIDA })
-    })
-
     it('403 (Preenchedor) rejeita com ApiError e a mensagem da API', async () => {
       simularApi(fetchFalso, {
         [`PUT ${ROTA}/4/situacao`]: () => respostaErro(403, 'Apenas Admin e Validador alteram a situação.'),

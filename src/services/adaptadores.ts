@@ -145,7 +145,8 @@ export interface DadoExternoApi extends AuditoriaApi {
   comentarios?: string | null
   'tipo de valor': string
   'coleta disponivel'?: boolean | null
-  indicadores?: ReferenciaNomeadaApi[] | null
+  /** Nomes dos indicadores que o dado externo compõe (texto na listagem). */
+  indicadores?: string[] | null
 }
 
 export interface ComponenteIndicadorApi {
@@ -494,7 +495,7 @@ export function paraDadoExterno(dado: DadoExternoApi): DadoExterno {
     comentarios: ouNulo(dado.comentarios),
     tipoValor: paraTipoValor(dado['tipo de valor']),
     coletaDisponivel: dado['coleta disponivel'] === true,
-    indicadores: lista(dado.indicadores, paraReferenciaNomeada),
+    indicadores: lista(dado.indicadores, (nome) => nome),
     ...paraAuditoria(dado),
   }
 }

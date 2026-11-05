@@ -20,7 +20,7 @@ export interface DialogoExcluirDadoExternoProps {
 
 function textoBloqueio(dado: DadoExterno): string | undefined {
   if (dado.indicadores.length === 0) return undefined
-  const nomes = dado.indicadores.map((indicador) => indicador.nome).join(', ')
+  const nomes = dado.indicadores.join(', ')
   return `Este dado externo compõe os indicadores: ${nomes} e não pode ser excluído.`
 }
 

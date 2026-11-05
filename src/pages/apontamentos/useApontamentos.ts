@@ -14,7 +14,8 @@
  * - Mudar situação ou tipo para o mesmo valor não reconsulta.
  * - `alterarSituacao` (decisão de 04/11/2026): se o item, pela resposta do PUT, deixa de corresponder
  *   ao filtro de situação, sai da lista e é descontado da contagem do seu tipo; com "todas", só é
- *   substituído.
+ *   substituído. Se o 2xx não traz o apontamento (serviço devolve `null`), recarrega a lista e resolve
+ *   `null` sem erro.
  * - Se o tipo selecionado sair da contagem (após exclusão ou alteração de situação), `filtros.tipo`
  *   volta a `null` e a lista é reconsultada.
  * - `criar` (F4.4): o POST 2xx pode não trazer um apontamento reconhecível; nesse caso o serviço
@@ -68,8 +69,12 @@ export interface UseApontamentosResultado {
    * Falhas do POST rejeitam com a `ApiError` original, sem recarregar.
    */
   criar: (dados: NovoApontamento) => Promise<Apontamento | null>
-  /** PUT da situação e troca (ou remoção, se sair do filtro) do item na lista, sem nova consulta. */
-  alterarSituacao: (id: number, ativo: boolean) => Promise<Apontamento>
+  /**
+   * PUT da situação e troca (ou remoção, se sair do filtro) do item na lista, sem nova consulta. Se a
+   * resposta 2xx não traz o apontamento, recarrega a lista e resolve `null`. Erro HTTP rejeita sem
+   * recarregar.
+   */
+  alterarSituacao: (id: number, ativo: boolean) => Promise<Apontamento | null>
   /** DELETE e remoção do item da lista. */
   excluir: (id: number) => Promise<void>
 }
@@ -177,8 +182,12 @@ export function useApontamentos(): UseApontamentosResultado {
   )
 
   const alterarSituacao = useCallback(
-    async (id: number, ativo: boolean): Promise<Apontamento> => {
+    async (id: number, ativo: boolean): Promise<Apontamento | null> => {
       const atualizado = await alterarSituacaoApi(id, ativo)
+      if (atualizado === null) {
+        await recarregar()
+        return null
+      }
       if (!montadoRef.current) return atualizado
       const atual = dadosRef.current
       if (correspondeASituacao(filtrosRef.current.situacao, atualizado, REGRAS_SITUACAO)) {
@@ -191,7 +200,7 @@ export function useApontamentos(): UseApontamentosResultado {
       }
       return atualizado
     },
-    [alterarLocalmente],
+    [alterarLocalmente, recarregar],
   )
 
   const excluir = useCallback(

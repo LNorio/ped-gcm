@@ -165,3 +165,16 @@
     padding: 0 0.875rem;
   }
 }
+
+/* Sinal de alerta na aba (F6.3, RF-33): ponto dourado após o rótulo, sem texto (não altera o nome do link) */
+.layout-principal__alerta {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-left: 0.5rem;
+  border-radius: 50%;
+  background-color: var(--cor-dourado-escuro);
+  box-shadow: 0 0 0 2px var(--cor-primaria-escura);
+  flex-shrink: 0;
+}
+

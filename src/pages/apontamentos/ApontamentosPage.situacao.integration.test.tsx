@@ -42,7 +42,11 @@ describe('F4.5 — Ativar/desativar apontamento (integração: /apontamentos com
     vi.restoreAllMocks()
   })
 
-  function simularSessao(perfil: 'admin' | 'validador' | 'preenchedor', aoAlterar?: () => Response | undefined) {
+  function simularSessao(
+    perfil: 'admin' | 'validador' | 'preenchedor',
+    aoAlterar?: () => Response | undefined,
+    respostaPut?: () => Response,
+  ) {
     const acesso =
       perfil === 'preenchedor'
         ? acessoApi({ perfil, tipos: [TIPOS_DO_USUARIO_API[0]], 'todas as filiais': false, filiais: [FILIAIS_API[1]] })
@@ -58,7 +62,7 @@ describe('F4.5 — Ativar/desativar apontamento (integração: /apontamentos com
         atualizado = { ...a, ativo, 'situacao alterada em': '2026-11-03 11:20:00', 'situacao alterada por': acesso.nome }
         return atualizado
       })
-      return respostaJson(atualizado)
+      return respostaPut ? respostaPut() : respostaJson(atualizado)
     }
     return simularApi(fetchFalso, {
       'GET /api/ped/acesso': () => respostaJson(acesso),
@@ -179,4 +183,53 @@ describe('F4.5 — Ativar/desativar apontamento (integração: /apontamentos com
     expect(chips.find((chip) => within(chip).queryByText('Tecnologia da Informação') !== null)).toBeUndefined()
     expect(chamadas.filter((c) => c.metodo === 'GET' && c.caminho === ROTA)).toHaveLength(getsAntes)
   })
+  describe('F4.5 — resposta 2xx sem o apontamento (só mensagem ou vazia): a tela recarrega a lista', () => {
+    it('Admin ativa com o PUT respondendo só { mensagem }: "Situação alterada.", sem alerta de erro e a lista recarregada mostra Ativo', async () => {
+      const user = usuarioRapido()
+      const chamadas = simularSessao('admin', undefined, () => respostaJson({ mensagem: 'situação alterada' }))
+      await abrirTela()
+      const getsAntes = chamadas.filter((c) => c.metodo === 'GET' && c.caminho === ROTA).length
+
+      await escolherAcao(user, rotuloAcoesApontamento('Relatório mensal entregue'), 'Ativar')
+      await user.click(within(screen.getByRole('dialog', { name: 'Ativar apontamento' })).getByRole('button', { name: 'Ativar' }))
+
+      const notificacao = await screen.findByText('Situação alterada.')
+      expect(notificacao.closest('[role="status"]')).not.toBeNull()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(screen.queryByText('Resposta inválida do servidor.')).not.toBeInTheDocument()
+      expect(corpoDaChamada(puts(chamadas)[0])).toEqual({ ativo: true })
+      await waitFor(() => expect(within(linha('Relatório mensal entregue')).getByText('Ativo')).toHaveClass('etiqueta--sucesso'))
+      expect(chamadas.filter((c) => c.metodo === 'GET' && c.caminho === ROTA)).toHaveLength(getsAntes + 1)
+    })
+
+    it('Admin ativa com o PUT respondendo 200 vazio: "Situação alterada.", sem alerta e a lista recarregada mostra Ativo', async () => {
+      const user = usuarioRapido()
+      const chamadas = simularSessao('admin', undefined, () => new Response('', { status: 200 }))
+      await abrirTela()
+      const getsAntes = chamadas.filter((c) => c.metodo === 'GET' && c.caminho === ROTA).length
+
+      await escolherAcao(user, rotuloAcoesApontamento('Relatório mensal entregue'), 'Ativar')
+      await user.click(within(screen.getByRole('dialog', { name: 'Ativar apontamento' })).getByRole('button', { name: 'Ativar' }))
+
+      const notificacao = await screen.findByText('Situação alterada.')
+      expect(notificacao.closest('[role="status"]')).not.toBeNull()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      await waitFor(() => expect(within(linha('Relatório mensal entregue')).getByText('Ativo')).toHaveClass('etiqueta--sucesso'))
+      expect(chamadas.filter((c) => c.metodo === 'GET' && c.caminho === ROTA)).toHaveLength(getsAntes + 1)
+    })
+
+    it('Admin desativa com o PUT respondendo só { mensagem }: sem alerta e a lista recarregada mostra Inativo', async () => {
+      const user = usuarioRapido()
+      simularSessao('admin', undefined, () => respostaJson({ mensagem: 'situação alterada' }))
+      await abrirTela()
+
+      await escolherAcao(user, rotuloAcoesApontamento('Chamados resolvidos no prazo'), 'Desativar')
+      await user.click(within(screen.getByRole('dialog', { name: 'Desativar apontamento' })).getByRole('button', { name: 'Desativar' }))
+
+      await screen.findByText('Situação alterada.')
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      await waitFor(() => expect(within(linha('Chamados resolvidos no prazo')).getByText('Inativo')).toHaveClass('etiqueta--neutro'))
+    })
+  })
+
 })

@@ -3,6 +3,9 @@
  * o seletor de filial e os dados do usuário; barra de abas conforme as permissões do perfil;
  * conteúdo da rota filha (`Outlet`) e rodapé institucional.
  *
+ * F6.3 (RF-33): monta o `AlertasMenuProvider` em volta das abas e do conteúdo; a aba que estiver em
+ * `abasComAlerta` ganha o marcador "Com alertas" e a classe `layout-principal__aba--com-alerta`.
+ *
  * Deve ser usado dentro de `SessaoProvider` e de um roteador. Tolera `acesso === null`
  * (sessão ainda carregando) sem quebrar: o cabeçalho fica sem os dados do usuário.
  */
@@ -12,13 +15,50 @@ import { Botao } from '../components/Botao'
 import { Etiqueta } from '../components/Etiqueta'
 import { Marca } from '../components/Marca'
 import { Rodape } from '../components/Rodape'
-import { ROTULOS_ABA } from '../sessao/permissoes'
+import { ROTULOS_ABA, type Aba } from '../sessao/permissoes'
 import { useSessao } from '../sessao/SessaoProvider'
 import { usePermissoes } from '../sessao/usePermissoes'
 import { ROTULOS_PERFIL } from '../types/dominio'
 import { TODAS_AS_FILIAIS } from '../sessao/filial'
+import { AlertasMenuProvider, useAlertasMenu } from './AlertasMenu'
 import { SeletorFilial } from './SeletorFilial'
 import './LayoutPrincipal.css'
+
+/** Barra de abas; lê o sinal de alerta do contexto (precisa estar dentro do `AlertasMenuProvider`). */
+function BarraAbas({ abas }: { abas: readonly Aba[] }) {
+  const { abasComAlerta } = useAlertasMenu()
+
+  return (
+    <nav className="layout-principal__abas" aria-label="Abas">
+      <ul className="layout-principal__lista-abas">
+        {abas.map((aba) => {
+          const comAlerta = abasComAlerta.has(aba)
+          return (
+            <li key={aba}>
+              <NavLink
+                to={CAMINHO_DA_ABA[aba]}
+                end={aba === 'inicio'}
+                className={({ isActive }) =>
+                  [
+                    isActive ? 'layout-principal__aba layout-principal__aba--ativa' : 'layout-principal__aba',
+                    comAlerta ? 'layout-principal__aba--com-alerta' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')
+                }
+              >
+                {ROTULOS_ABA[aba]}
+                {comAlerta ? (
+                  <span role="img" aria-label="Com alertas" className="layout-principal__alerta" />
+                ) : null}
+              </NavLink>
+            </li>
+          )
+        })}
+      </ul>
+    </nav>
+  )
+}
 
 export function LayoutPrincipal() {
   const { acesso, filialSelecionada, selecionarFilial, sair } = useSessao()
@@ -53,27 +93,13 @@ export function LayoutPrincipal() {
         </div>
       </header>
 
-      <nav className="layout-principal__abas" aria-label="Abas">
-        <ul className="layout-principal__lista-abas">
-          {abas.map((aba) => (
-            <li key={aba}>
-              <NavLink
-                to={CAMINHO_DA_ABA[aba]}
-                end={aba === 'inicio'}
-                className={({ isActive }) =>
-                  isActive ? 'layout-principal__aba layout-principal__aba--ativa' : 'layout-principal__aba'
-                }
-              >
-                {ROTULOS_ABA[aba]}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      <AlertasMenuProvider>
+        <BarraAbas abas={abas} />
 
-      <main className="layout-principal__conteudo">
-        <Outlet />
-      </main>
+        <main className="layout-principal__conteudo">
+          <Outlet />
+        </main>
+      </AlertasMenuProvider>
 
       <Rodape />
     </div>

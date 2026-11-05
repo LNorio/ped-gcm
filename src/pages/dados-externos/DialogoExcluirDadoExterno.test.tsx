@@ -2,7 +2,12 @@ import { render, screen, within } from '@testing-library/react'
 import { usuarioRapido } from '../../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import { paraDadoExterno } from '../../services/adaptadores'
-import { DADO_DEVOLUCOES_API, DADO_FATURAMENTO_API, DADO_VOLUME_API } from '../../test/dadosExternosFalsos'
+import {
+  DADO_DEVOLUCOES_API,
+  DADO_FATURAMENTO_API,
+  DADO_VOLUME_API,
+  RESPOSTA_REAL_LISTAGEM_API,
+} from '../../test/dadosExternosFalsos'
 import type { DadoExterno } from '../../types/dominio'
 import { DialogoExcluirDadoExterno } from './DialogoExcluirDadoExterno'
 
@@ -39,6 +44,16 @@ describe('F5.9 — DialogoExcluirDadoExterno (confirmação e bloqueio da exclus
     renderizar(DEVOLUCOES)
 
     expect(screen.getByRole('button', { name: 'Excluir' })).toBeEnabled()
+  })
+
+  it('resposta real da API (indicadores em texto ["teste externo"]): bloqueio listando o nome', () => {
+    renderizar(paraDadoExterno(RESPOSTA_REAL_LISTAGEM_API[1]))
+
+    const dialogo = screen.getByRole('dialog', { name: 'Excluir dado externo' })
+    expect(
+      within(dialogo).getByText('Este dado externo compõe os indicadores: teste externo e não pode ser excluído.'),
+    ).toBeInTheDocument()
+    expect(within(dialogo).queryByRole('button', { name: 'Excluir' })).not.toBeInTheDocument()
   })
 
   it('com indicadores: bloqueio listando os indicadores e só "Entendi", sem Excluir', async () => {

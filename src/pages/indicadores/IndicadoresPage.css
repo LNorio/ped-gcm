@@ -1,0 +1,32 @@
+/*
+ * Aba "Indicadores" (F6.2–F6.9): cabeçalho com título e "Novo indicador", estado de carga, avisos da
+ * página, card com a barra de filtros e a tabela (corpo sem padding).
+ */
+
+.indicadores-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.indicadores-page__cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.indicadores-page h1 {
+  margin: 0;
+}
+
+.indicadores-page__card {
+  overflow: hidden;
+}
+
+@media (max-width: 600px) {
+  .indicadores-page {
+    gap: 1rem;
+  }
+}

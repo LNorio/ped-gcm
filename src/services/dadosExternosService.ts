@@ -18,11 +18,16 @@
  *   do POST não é documentada e um 2xx significa que o dado foi gravado, ela é lida de forma
  *   tolerante: corpo vazio, fora do formato ou incompleto vira `dadoExterno: null` (e tarefa fora do
  *   formato vira `tarefa: null`), sem erro;
- * - concluir: `{ "dado externo": {...}, "indicador criado" }` ou o dado na raiz com `"indicador criado"` ao lado;
- * - situação: o dado na raiz ou dentro de `"dado externo"`.
+ * - concluir: `{ "dado externo": {...}, "indicador criado" }` ou o dado na raiz com `"indicador criado"` ao lado.
+ *   Como a resposta não é documentada e um 2xx significa que a conclusão foi gravada, ela é lida de forma
+ *   tolerante: dado não reconhecível resolve `null`, sem erro; dado válido com `"indicador criado"`
+ *   malformado ou ausente resolve `indicadorCriado: null`, sem erro;
+ * - situação: o dado na raiz ou dentro de `"dado externo"`. Como a resposta não é documentada e um 2xx
+ *   significa que a situação foi gravada, ela é lida de forma tolerante: dado não reconhecível resolve
+ *   `null`, sem erro.
  *
  * Erros HTTP e de rede chegam como `ApiError` (ver `api.ts`) e são propagados sem alteração.
- * Nas demais rotas, respostas 2xx fora do formato esperado viram
+ * Nas demais rotas (listagem, identificadores e realizado), respostas 2xx fora do formato esperado viram
  * `ApiError(200, MENSAGEM_RESPOSTA_INVALIDA)`; um único item inválido rejeita a resposta inteira.
  */
 
@@ -143,7 +148,7 @@ function ehDadoExternoApi(valor: unknown): valor is DadoExternoApi {
     opcional(valor['janela retroativa'], (v) => ehUmDe(JANELAS_RETROATIVAS, v)) &&
     opcional(valor.comentarios, ehTexto) &&
     opcional(valor['coleta disponivel'], (v) => typeof v === 'boolean') &&
-    opcional(valor.indicadores, (v) => Array.isArray(v) && v.every(ehReferenciaNomeada))
+    opcional(valor.indicadores, (v) => Array.isArray(v) && v.every(ehTexto))
   )
 }
 
@@ -157,13 +162,7 @@ function converterDadoExterno(resposta: unknown): DadoExterno {
   }
 }
 
-/** Dado externo dentro de `"dado externo"` ou na própria raiz da resposta. */
-function extrairDadoExterno(resposta: Record<string, unknown>): DadoExterno {
-  const envelopado = resposta['dado externo']
-  return converterDadoExterno(ehObjeto(envelopado) ? envelopado : resposta)
-}
-
-/** Converte um dado externo completo e válido; caso contrário devolve `null` (uso no POST). */
+/** Converte um dado externo completo e válido; caso contrário devolve `null` (uso nas respostas tolerantes). */
 function converterDadoExternoOuNulo(valor: unknown): DadoExterno | null {
   if (!ehDadoExternoApi(valor)) return null
   try {
@@ -192,9 +191,9 @@ function converterTarefaOuNula(valor: unknown): TarefaConstrucao | null {
   }
 }
 
-function converterIndicadorCriado(valor: unknown): ReferenciaNomeada | null {
-  if (valor === undefined || valor === null) return null
-  if (!ehReferenciaNomeada(valor)) throw respostaInvalida()
+/** Indicador criado na conclusão; ausente ou fora do formato vira `null`, sem erro. */
+function converterIndicadorCriadoOuNulo(valor: unknown): ReferenciaNomeada | null {
+  if (!ehReferenciaNomeada(valor)) return null
   return { id: valor.id, nome: valor.nome }
 }
 
@@ -284,27 +283,52 @@ export async function criarDadoExterno(dados: NovoDadoExterno): Promise<Resultad
   }
 }
 
-/** Conclui a construção (Admin): grava o identificador (maiúsculas, sem espaços nas pontas) e ativa o dado. */
-export async function concluirConstrucao(id: number, identificador: string): Promise<ResultadoConclusaoDadoExterno> {
+/**
+ * Conclui a construção (Admin): grava o identificador (maiúsculas, sem espaços nas pontas) e ativa o dado.
+ *
+ * A resposta não é documentada, e um 2xx significa que a conclusão foi gravada. Por isso não é validada
+ * de forma estrita:
+ * - dado válido na raiz ou em `"dado externo"`: devolve o dado e o indicador criado (ou
+ *   `indicadorCriado: null` quando ausente ou malformado);
+ * - dado não reconhecível (corpo vazio, 204, só `mensagem`, `{ id }`, incompleto, tipo de valor
+ *   desconhecido, lista ou texto): devolve `null`, sem erro. Quem chama deve recarregar a lista.
+ *
+ * Erros HTTP e de rede são propagados como `ApiError`, sem alteração.
+ */
+export async function concluirConstrucao(
+  id: number,
+  identificador: string,
+): Promise<ResultadoConclusaoDadoExterno | null> {
   const resposta = await apiFetch<unknown>(`${ROTA_DADOS_EXTERNOS}/${id}/concluir`, {
     method: 'PUT',
     body: { identificador: identificador.trim().toUpperCase() },
   })
-  if (!ehObjeto(resposta)) throw respostaInvalida()
+  if (!ehObjeto(resposta)) return null
+  const dadoExterno = converterDadoExternoOuNulo(resposta) ?? converterDadoExternoOuNulo(resposta['dado externo'])
+  if (dadoExterno === null) return null
   return {
-    dadoExterno: extrairDadoExterno(resposta),
-    indicadorCriado: converterIndicadorCriado(resposta['indicador criado']),
+    dadoExterno,
+    indicadorCriado: converterIndicadorCriadoOuNulo(resposta['indicador criado']),
   }
 }
 
-/** Ativa ou desativa um dado externo; devolve o dado atualizado (com quem alterou e quando). */
-export async function alterarSituacaoDadoExterno(id: number, ativo: boolean): Promise<DadoExterno> {
+/**
+ * Ativa ou desativa um dado externo; devolve o dado atualizado (com quem alterou e quando).
+ *
+ * A resposta não é documentada, e um 2xx significa que a situação foi gravada. Por isso não é validada
+ * de forma estrita: dado válido na raiz ou em `"dado externo"` é devolvido convertido; qualquer outro 2xx
+ * (corpo vazio, 204, só `mensagem`, `{ id }`, incompleto, tipo de valor desconhecido, lista ou texto)
+ * resolve `null`, sem erro. Quem chama deve recarregar a lista para obter a situação gravada.
+ *
+ * Erros HTTP e de rede são propagados como `ApiError`, sem alteração.
+ */
+export async function alterarSituacaoDadoExterno(id: number, ativo: boolean): Promise<DadoExterno | null> {
   const resposta = await apiFetch<unknown>(`${ROTA_DADOS_EXTERNOS}/${id}/situacao`, {
     method: 'PUT',
     body: { ativo },
   })
-  if (!ehObjeto(resposta)) throw respostaInvalida()
-  return extrairDadoExterno(resposta)
+  if (!ehObjeto(resposta)) return null
+  return converterDadoExternoOuNulo(resposta) ?? converterDadoExternoOuNulo(resposta['dado externo'])
 }
 
 /**

@@ -9,6 +9,7 @@ import {
   identificadoresApi,
   respostaConclusaoApi,
   respostaCriacaoApi,
+  RESPOSTA_REAL_LISTAGEM_API,
   respostaDadosExternosApi,
 } from '../test/dadosExternosFalsos'
 import type { NovoDadoExterno } from '../types/dominio'
@@ -176,9 +177,20 @@ describe('F5.1 — Serviço de dados externos', () => {
       const dados = await listarDadosExternos()
 
       expect(dados.map((d) => d.nome)).toEqual(['Volume de vendas'])
-      expect(dados[0].indicadores).toEqual([
-        { id: 5, nome: 'Volume mensal' },
-        { id: 6, nome: 'Crescimento de vendas' },
+      expect(dados[0].indicadores).toEqual(['Volume mensal', 'Crescimento de vendas'])
+    })
+
+    it('resposta real da API com "indicadores" em texto converte os dois itens (indicadores como nomes)', async () => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}`]: () => respostaJson(respostaDadosExternosApi(RESPOSTA_REAL_LISTAGEM_API)),
+      })
+
+      const dados = await listarDadosExternos()
+
+      expect(dados).toHaveLength(2)
+      expect(dados.map((d) => [d.id, d.nome, d.identificador, d.indicadores])).toEqual([
+        [2, 'teste', 'TESTE', []],
+        [3, 'teste 2', 'TESTE2', ['teste externo']],
       ])
     })
 
@@ -212,6 +224,7 @@ describe('F5.1 — Serviço de dados externos', () => {
       ['com coleta desconhecida', { ...DADO_FATURAMENTO_API, coleta: 'semanal' }],
       ['com sentido do cálculo desconhecido', { ...DADO_FATURAMENTO_API, 'sentido do calculo': 'maximo' }],
       ['com tipo de valor desconhecido', { ...DADO_FATURAMENTO_API, 'tipo de valor': 'Texto' }],
+      ['com indicador em forma de objeto { id, nome }', { ...DADO_FATURAMENTO_API, indicadores: [{ id: 5, nome: 'Volume mensal' }] }],
     ])('item %s rejeita a resposta inteira com ApiError "resposta inválida"', async (_caso, item) => {
       simularApi(fetchFalso, {
         [`GET ${ROTA}`]: () => respostaJson(respostaDadosExternosApi([DADO_CHAMADOS_API, item as typeof DADO_CHAMADOS_API])),
@@ -523,9 +536,9 @@ describe('F5.1 — Serviço de dados externos', () => {
 
       const resultado = await concluirConstrucao(3, 'DEVOLUCOES')
 
-      expect(resultado.dadoExterno.situacao).toBe('ativo')
-      expect(resultado.dadoExterno.identificador).toBe('DEVOLUCOES')
-      expect(resultado.indicadorCriado).toEqual({ id: 30, nome: 'Devoluções de venda' })
+      expect(resultado?.dadoExterno.situacao).toBe('ativo')
+      expect(resultado?.dadoExterno.identificador).toBe('DEVOLUCOES')
+      expect(resultado?.indicadorCriado).toEqual({ id: 30, nome: 'Devoluções de venda' })
     })
 
     it('"indicador criado" null ou ausente → indicadorCriado null', async () => {
@@ -543,8 +556,8 @@ describe('F5.1 — Serviço de dados externos', () => {
 
       const resultado = await concluirConstrucao(3, 'DEVOLUCOES')
 
-      expect(resultado.dadoExterno.id).toBe(3)
-      expect(resultado.indicadorCriado).toEqual({ id: 31, nome: 'Devoluções de venda' })
+      expect(resultado?.dadoExterno.id).toBe(3)
+      expect(resultado?.indicadorCriado).toEqual({ id: 31, nome: 'Devoluções de venda' })
     })
 
     it('400 da API (identificador inválido) chega como ApiError com a mensagem', async () => {
@@ -553,11 +566,6 @@ describe('F5.1 — Serviço de dados externos', () => {
       await expect(concluirConstrucao(3, 'X Y')).rejects.toMatchObject({ status: 400, mensagem: 'Identificador inválido.' })
     })
 
-    it('resposta 2xx fora do formato vira ApiError "resposta inválida"', async () => {
-      simularApi(fetchFalso, { [`PUT ${ROTA}/3/concluir`]: () => respostaJson({ ok: true }) })
-
-      await expect(concluirConstrucao(3, 'DEVOLUCOES')).rejects.toMatchObject({ mensagem: MENSAGEM_RESPOSTA_INVALIDA })
-    })
   })
 
   describe('alterarSituacaoDadoExterno(id, ativo)', () => {
@@ -575,8 +583,8 @@ describe('F5.1 — Serviço de dados externos', () => {
       expect(chamadas[0].metodo).toBe('PUT')
       expect(chamadas[0].caminho).toBe(`${ROTA}/1/situacao`)
       expect(corpoDaChamada(chamadas[0])).toEqual({ ativo: false })
-      expect(resultado.situacao).toBe('inativo')
-      expect(resultado.situacaoAlteradaPor).toBe('Beltrano')
+      expect(resultado?.situacao).toBe('inativo')
+      expect(resultado?.situacaoAlteradaPor).toBe('Beltrano')
     })
 
     it('ativar envia { ativo: true }', async () => {
@@ -606,11 +614,6 @@ describe('F5.1 — Serviço de dados externos', () => {
       })
     })
 
-    it('resposta 2xx fora do formato vira ApiError "resposta inválida"', async () => {
-      simularApi(fetchFalso, { [`PUT ${ROTA}/1/situacao`]: () => respostaJson({ ok: true }) })
-
-      await expect(alterarSituacaoDadoExterno(1, false)).rejects.toMatchObject({ mensagem: MENSAGEM_RESPOSTA_INVALIDA })
-    })
   })
 
   describe('excluirDadoExterno(id)', () => {

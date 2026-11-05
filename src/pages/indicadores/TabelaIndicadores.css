@@ -1,0 +1,54 @@
+/* Tabela da listagem de indicadores (F6.2). */
+
+.tabela-indicadores__pilha {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.tabela-indicadores__etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.tabela-indicadores__titulo {
+  color: var(--cor-texto);
+  font-weight: 600;
+}
+
+.tabela-indicadores__secundario {
+  color: var(--cor-texto-secundario);
+  font-size: 0.875em;
+}
+
+.tabela-indicadores__componente--desativado {
+  text-decoration: line-through;
+}
+
+.tabela-indicadores__campos {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+}
+
+.tabela-indicadores__par {
+  display: contents;
+}
+
+.tabela-indicadores__rotulo {
+  color: var(--cor-texto-secundario);
+  font-weight: 600;
+}
+
+.tabela-indicadores__valor {
+  margin: 0;
+  color: var(--cor-texto);
+}
+
+.tabela-indicadores__detalhe {
+  margin: 0;
+  color: var(--cor-texto-secundario);
+}

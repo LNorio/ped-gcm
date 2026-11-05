@@ -47,6 +47,8 @@ describe('F5.7 — Concluir construção de dado externo (Admin; integração: /
   interface Opcoes {
     indicadorCriado?: { id: number; nome: string } | null
     aoConcluir?: () => Response | Promise<Response> | undefined
+    /** Resposta do PUT de conclusão depois de gravar o dado (2xx sem o dado, por exemplo). */
+    respostaConcluir?: () => Response
   }
 
   function simularAdmin(opcoes: Opcoes = {}) {
@@ -68,6 +70,7 @@ describe('F5.7 — Concluir construção de dado externo (Admin; integração: /
           'coleta disponivel': true,
         }
         lista = lista.map((d) => (d.id === concluido.id ? concluido : d))
+        if (opcoes.respostaConcluir) return opcoes.respostaConcluir()
         const indicador = opcoes.indicadorCriado === undefined ? { id: 30, nome: 'Devoluções de venda' } : opcoes.indicadorCriado
         return respostaJson(respostaConclusaoApi(concluido, indicador))
       },
@@ -220,4 +223,42 @@ describe('F5.7 — Concluir construção de dado externo (Admin; integração: /
     expect(screen.getByRole('alert')).toHaveTextContent(MENSAGEM_SESSAO_EXPIRADA)
     expect(obterToken()).toBeNull()
   })
+  describe('F5.7 — resposta 2xx sem o dado (só mensagem ou vazia): a tela recarrega a lista', () => {
+    it('Admin conclui com o PUT respondendo só { mensagem }: "Construção concluída.", sem alerta e a lista recarregada mostra Ativo', async () => {
+      const user = usuarioRapido()
+      const chamadas = simularAdmin({ respostaConcluir: () => respostaJson({ mensagem: 'Construção concluída.' }) })
+      const dialogo = await abrirConclusao(user)
+
+      await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'devolucoes')
+      await user.click(within(dialogo).getByRole('button', { name: 'Concluir' }))
+
+      const notificacao = await screen.findByText('Construção concluída.')
+      expect(notificacao.closest('[role="status"]')).not.toBeNull()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(screen.queryByText('Resposta inválida do servidor.')).not.toBeInTheDocument()
+      expect(corpoDaChamada(puts(chamadas)[0])).toEqual({ identificador: 'DEVOLUCOES' })
+      await waitFor(() => expect(within(linha('Devoluções de venda')).getByText('Ativo')).toBeInTheDocument())
+      expect(within(linha('Devoluções de venda')).getByText('DEVOLUCOES')).toBeInTheDocument()
+      expect(screen.queryByText(/criado automaticamente/)).not.toBeInTheDocument()
+    })
+
+    it('Admin conclui com o PUT respondendo 200 vazio: "Construção concluída.", sem alerta e a lista recarregada mostra Ativo', async () => {
+      const user = usuarioRapido()
+      const chamadas = simularAdmin({ respostaConcluir: () => new Response('', { status: 200 }) })
+      const dialogo = await abrirConclusao(user)
+
+      await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'DEVOLUCOES')
+      await user.click(within(dialogo).getByRole('button', { name: 'Concluir' }))
+
+      const notificacao = await screen.findByText('Construção concluída.')
+      expect(notificacao.closest('[role="status"]')).not.toBeNull()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+      expect(puts(chamadas)).toHaveLength(1)
+      await waitFor(() => expect(within(linha('Devoluções de venda')).getByText('Ativo')).toBeInTheDocument())
+      expect(within(linha('Devoluções de venda')).getByText('DEVOLUCOES')).toBeInTheDocument()
+    })
+  })
+
 })

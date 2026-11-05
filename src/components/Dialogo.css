@@ -37,6 +37,7 @@
 }
 
 .dialogo__cabecalho {
+  flex: none;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -102,6 +103,7 @@
 }
 
 .dialogo__acoes {
+  flex: none;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;

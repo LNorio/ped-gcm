@@ -1,0 +1,346 @@
+/* Formulário de indicador (F6.4) e diálogos que reusam a caixa de seleção (F6.5). */
+
+/*
+ * Modal "Novo indicador" (estilo do protótipo). Os seletores usam :has() para atingir somente o
+ * diálogo que contém este formulário; os demais diálogos (Dialogo, dialogo--largo) não mudam.
+ */
+
+.dialogo-fundo:has(> .dialogo > .dialogo__corpo > .formulario-indicador) {
+  align-items: flex-start;
+  padding: 40px 16px;
+}
+
+/*
+ * Altura limitada pelo espaço do overlay (40px em cima e embaixo). Assim a rolagem fica no corpo
+ * da modal, e o overlay não rola junto (sem rolagem dupla).
+ */
+.dialogo:has(> .dialogo__corpo > .formulario-indicador) {
+  max-width: 680px;
+  max-height: calc(100vh - 80px);
+  max-height: calc(100dvh - 80px);
+  gap: 0;
+  padding: 0;
+  border-radius: 10px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.dialogo:has(> .dialogo__corpo > .formulario-indicador) > .dialogo__cabecalho {
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--cor-borda-suave);
+}
+
+.dialogo:has(> .dialogo__corpo > .formulario-indicador) .dialogo__titulo {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.dialogo:has(> .dialogo__corpo > .formulario-indicador) .dialogo__fechar {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  border-radius: var(--raio);
+  border-color: var(--cor-borda);
+  color: var(--cor-texto-secundario);
+}
+
+.dialogo:has(> .dialogo__corpo > .formulario-indicador) > .dialogo__corpo {
+  overflow-y: auto;
+  padding: 20px;
+  color: var(--cor-texto);
+  line-height: 1.5;
+}
+
+.formulario-indicador {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Nome e Descrição ocupam a linha inteira; Meta e Sentido ficam lado a lado quando há espaço. */
+.formulario-indicador__grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px 20px;
+}
+
+.formulario-indicador__grade > :first-child,
+.formulario-indicador__grade > :last-child {
+  grid-column: 1 / -1;
+}
+
+.formulario-indicador .campo__rotulo {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.formulario-indicador__caixa {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+/* Caixa "Meta editável no preenchimento" (filha direta do formulário, não as caixas da composição) */
+.formulario-indicador > .formulario-indicador__caixa {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background-color: var(--cor-superficie-suave);
+  color: var(--cor-texto);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.formulario-indicador > .formulario-indicador__caixa > input[type='checkbox'] {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  accent-color: var(--cor-primaria);
+  cursor: pointer;
+}
+
+.formulario-indicador__nota {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #cadff0;
+  border-radius: var(--raio);
+  background-color: #f3f8fd;
+  color: #1f466d;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.formulario-indicador__composicao {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.formulario-indicador__composicao > legend {
+  padding: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.formulario-indicador__grupo {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.formulario-indicador__grupo-titulo {
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cor-texto-secundario);
+}
+
+/* Contagem ao lado do título da seção */
+.formulario-indicador__contagem {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.formulario-indicador__contagem.etiqueta--dourado {
+  color: #6e4e12;
+}
+
+.formulario-indicador__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Área de itens escolhidos: caixa com borda, como o "sel-list" do protótipo (vazia ou com itens) */
+.formulario-indicador__selecionados {
+  border: 1px solid #e1e7ee;
+  border-radius: var(--raio);
+  background-color: var(--cor-superficie-suave);
+}
+
+.formulario-indicador__selecionados .formulario-indicador__lista {
+  gap: 0;
+}
+
+.formulario-indicador__vazio {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--cor-texto-suave);
+}
+
+/* Dropdown com busca (dd / dd-btn / dd-panel / dd-opt do protótipo, bloco indModal) */
+.formulario-indicador__dd {
+  position: relative;
+}
+
+.formulario-indicador__dd-botao {
+  width: 100%;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--cor-borda-controle);
+  border-radius: var(--raio);
+  background-color: var(--cor-superficie);
+  color: var(--cor-texto);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.formulario-indicador__dd-botao:hover,
+.formulario-indicador__dd-botao[aria-expanded='true'] {
+  border-color: var(--cor-primaria);
+}
+
+.formulario-indicador__dd-botao svg {
+  flex: none;
+}
+
+/* Painel absoluto sobre a lista de escolhidos, como no protótipo */
+.formulario-indicador__dd-painel {
+  position: absolute;
+  top: 46px;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  max-height: 280px;
+  overflow-y: auto;
+  background-color: var(--cor-superficie);
+  border: 1px solid var(--cor-borda-controle);
+  border-radius: var(--raio);
+  box-shadow: 0 12px 28px rgba(0, 30, 60, 0.18);
+}
+
+.formulario-indicador__dd-busca {
+  position: sticky;
+  top: 0;
+  padding: 8px;
+  border-bottom: 1px solid var(--cor-borda-suave);
+  background-color: var(--cor-superficie);
+}
+
+.formulario-indicador__dd-busca .campo__controle {
+  min-height: 38px;
+  height: 38px;
+}
+
+.formulario-indicador__dd-opcoes {
+  display: flex;
+  flex-direction: column;
+}
+
+.formulario-indicador__dd-opcao {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid #f0f3f6;
+  background: none;
+  color: var(--cor-texto);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.formulario-indicador__dd-opcao:hover {
+  background-color: #f1f6fb;
+}
+
+.formulario-indicador__dd-opcao small {
+  font-size: 12px;
+  color: var(--cor-texto-secundario);
+}
+
+.formulario-indicador__dd-vazio {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--cor-texto-suave);
+}
+
+.formulario-indicador__escolhido {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 8px 8px 14px;
+  font-size: 14px;
+}
+
+.formulario-indicador__escolhido + .formulario-indicador__escolhido {
+  border-top: 1px solid #e9eef3;
+}
+
+.formulario-indicador__escolhido-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.formulario-indicador__escolhido-texto small {
+  font-size: 12px;
+  color: var(--cor-texto-secundario);
+}
+
+.formulario-indicador .formulario-indicador__remover {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: var(--raio);
+}
+
+.formulario-indicador__aviso {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--cor-borda-controle);
+  border-radius: var(--raio);
+  color: var(--cor-texto-suave);
+  font-size: 13px;
+}
+
+.formulario-indicador__acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 16px;
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+/* Estilos compartilhados com DialogoDefinirMeta (caixa de seleção e origem) */
+
+.formulario-indicador__origem {
+  color: var(--cor-texto-secundario);
+  font-size: 0.9375rem;
+}

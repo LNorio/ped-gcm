@@ -6,7 +6,8 @@
  * - cadastro (todos): o Admin cadastra o dado já ativo, informando o identificador da consulta (com
  *   sugestões dos existentes); Validador/Preenchedor enviam um pedido de construção à TI e veem a
  *   tarefa gerada;
- * - concluir construção (Admin): erro exibido dentro do diálogo; avisa o indicador criado;
+ * - concluir construção (Admin): erro exibido dentro do diálogo; avisa o indicador criado (quando a
+ *   resposta traz o indicador; sem o dado na resposta, a conclusão ainda conta como sucesso);
  * - ativar/desativar e excluir, sempre com confirmação (`useAcoesSituacaoExclusao`), com um único aviso
  *   de erro de ação na página.
  * Dados externos não são editáveis (RF-29).
@@ -203,7 +204,7 @@ export function DadosExternosPage() {
       if (!montadoRef.current) return
       setConcluindoDado(null)
       limparErrosDasAcoes()
-      setIndicadorCriado(resultado.indicadorCriado?.nome ?? null)
+      setIndicadorCriado(resultado?.indicadorCriado?.nome ?? null)
       setNotificacao(MENSAGEM_CONCLUIDA)
     } catch (falha) {
       if (montadoRef.current) setErroConclusao(mensagemDeErro(falha))

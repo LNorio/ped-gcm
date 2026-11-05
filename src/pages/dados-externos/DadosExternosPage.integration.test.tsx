@@ -3,9 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { limparToken, obterToken } from '../../services/sessao'
 import { FILIAIS_API, acessoApi, cabecalhoDaChamada, respostaErro, respostaJson, simularApi } from '../../test/apiFalsa'
 import { TIPOS_DO_USUARIO_API } from '../../test/apontamentosFalsos'
+import { MENSAGEM_RESPOSTA_INVALIDA } from '../../services/api'
 import {
   DADO_FATURAMENTO_API,
   NOMES_DADOS_EXTERNOS,
+  RESPOSTA_REAL_LISTAGEM_API,
   dadosExternosApi,
   identificadoresApi,
   rotaListarDadosExternos,
@@ -62,6 +64,17 @@ describe('F5.2 — Listagem de dados externos (integração: /dados-externos com
     expect(within(linhaDevolucoes).getByText('Tarefa nº 1044')).toBeInTheDocument()
     expect(within(linhaDevolucoes).getByText('a definir pela TI')).toBeInTheDocument()
     expect(within(tabela).queryByRole('columnheader', { name: 'Campo/cálculo' })).not.toBeInTheDocument()
+  })
+
+  it('resposta real da API com "indicadores" em texto: a tabela carrega, sem "Resposta inválida do servidor."', async () => {
+    simularSessao('admin', RESPOSTA_REAL_LISTAGEM_API)
+    renderizarApp('/dados-externos')
+
+    const tabela = await screen.findByRole('table', { name: 'Dados externos' })
+
+    expect(within(tabela).getByText('teste')).toBeInTheDocument()
+    expect(within(tabela).getByText('teste 2')).toBeInTheDocument()
+    expect(screen.queryByText(MENSAGEM_RESPOSTA_INVALIDA)).not.toBeInTheDocument()
   })
 
   it('Admin abre "Ver detalhes" de um dado: os campos fora da tabela aparecem na linha de detalhes', async () => {

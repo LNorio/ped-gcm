@@ -8,13 +8,13 @@
  * - `DELETE /api/ped/apontamentos/{id}`          Admin — só sem indicadores (400 traz `indicadores`)
  *
  * Erros HTTP e de rede chegam como `ApiError` (ver `api.ts`) e são propagados sem alteração.
- * Na listagem e na troca de situação, respostas 2xx fora do formato esperado viram
- * `ApiError(200, MENSAGEM_RESPOSTA_INVALIDA)`.
+ * Na listagem, respostas 2xx fora do formato esperado viram `ApiError(200, MENSAGEM_RESPOSTA_INVALIDA)`.
  *
- * Exceção: o POST de cadastro. O corpo da resposta não é documentado, e um 2xx já significa que o
- * apontamento foi gravado. Rejeitar a resposta faria a tela mostrar erro e não recarregar a lista
- * mesmo com o cadastro feito. Por isso `criarApontamento` aceita o apontamento na raiz ou em
- * `resposta.apontamento` e, sem um apontamento reconhecível, resolve `null`, sem lançar erro.
+ * Exceção: o POST de cadastro e a troca de situação. Os corpos dessas respostas não são
+ * documentados, e um 2xx já significa que a alteração foi gravada. Rejeitar a resposta faria a tela
+ * mostrar erro e não recarregar a lista mesmo com a gravação feita. Por isso `criarApontamento` e
+ * `alterarSituacao` aceitam o apontamento na raiz ou em `resposta.apontamento` e, sem um apontamento
+ * reconhecível, resolvem `null`, sem lançar erro.
  */
 
 import type { Apontamento, NovoApontamento } from '../types/dominio'
@@ -149,13 +149,26 @@ export async function criarApontamento(dados: NovoApontamento): Promise<Apontame
   return converterApontamentoOuNulo(resposta) ?? converterApontamentoOuNulo(resposta.apontamento)
 }
 
-/** Ativa ou desativa um apontamento; devolve o apontamento atualizado (com quem alterou e quando). */
-export async function alterarSituacao(id: number, ativo: boolean): Promise<Apontamento> {
+/**
+ * Ativa ou desativa um apontamento; devolve o apontamento atualizado (com quem alterou e quando).
+ *
+ * A resposta não é documentada, e um 2xx significa que a situação foi gravada. Por isso não é
+ * validada de forma estrita:
+ * - apontamento válido na raiz ou em `resposta.apontamento` (com ou sem `mensagem`): devolve o
+ *   apontamento convertido;
+ * - qualquer outro 2xx (corpo vazio, 204, só `mensagem`, `{ id }`, incompleto, tipo de valor
+ *   desconhecido, lista ou texto): devolve `null`, sem erro. Quem chama deve recarregar a lista
+ *   para obter a situação gravada.
+ *
+ * Erros HTTP e de rede são propagados como `ApiError`, sem alteração.
+ */
+export async function alterarSituacao(id: number, ativo: boolean): Promise<Apontamento | null> {
   const resposta = await apiFetch<unknown>(`${ROTA_APONTAMENTOS}/${id}/situacao`, {
     method: 'PUT',
     body: { ativo },
   })
-  return converterApontamentoDaResposta(resposta)
+  if (!ehObjeto(resposta)) return null
+  return converterApontamentoOuNulo(resposta) ?? converterApontamentoOuNulo(resposta.apontamento)
 }
 
 /**

@@ -13,6 +13,9 @@ export const rotuloAcoesDadoExterno = (nome: string) => `Ações do dado externo
 /** Rótulo do gatilho do menu de ações de um apontamento (F4.2). */
 export const rotuloAcoesApontamento = (nome: string) => `Ações do apontamento ${nome}`
 
+/** Rótulo do gatilho do menu de ações de um indicador (F6.2). */
+export const rotuloAcoesIndicador = (nome: string) => `Ações do indicador ${nome}`
+
 /** Abre o menu pelo gatilho com o nome informado e devolve o elemento `role="menu"`. */
 export async function abrirMenuAcoes(user: Usuario, rotulo: string, escopo: HTMLElement = document.body) {
   await user.click(within(escopo).getByRole('button', { name: rotulo }))

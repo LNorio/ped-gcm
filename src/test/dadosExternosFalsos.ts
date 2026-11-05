@@ -10,6 +10,9 @@
  * - Chamados atendidos no prazo — "Outro sistema" com comentário, ativo, sentido "último valor";
  * - Volume de vendas — ativo, compõe dois indicadores (exclusão bloqueada).
  *
+ * `indicadores` é a lista de NOMES em texto, como a API devolve na listagem (ex.: `["teste externo"]`).
+ * `RESPOSTA_REAL_LISTAGEM_API` é a resposta real colada pelo usuário em 05/11/2026 (bug da aba).
+ *
  * `rotaListarDadosExternos` reproduz a filtragem da API (busca e situação) a partir da query string.
  *
  * Formatos assumidos (não documentados em `docs/backend/API (24).md`; ver dúvidas da F5):
@@ -49,7 +52,7 @@ export interface DadoExternoApiFalso {
   comentarios: string | null
   'tipo de valor': 'Porcentagem' | 'Numeral' | 'Booleano'
   'coleta disponivel': boolean
-  indicadores: Array<{ id: number; nome: string }>
+  indicadores: string[]
   'cadastrado em': string | null
   'cadastrado por': string | null
   'situacao alterada em': string | null
@@ -120,7 +123,7 @@ export const DADO_COBERTURA_API: DadoExternoApiFalso = {
   comentarios: null,
   'tipo de valor': 'Porcentagem',
   'coleta disponivel': true,
-  indicadores: [{ id: 7, nome: 'Cobertura da carteira' }],
+  indicadores: ['Cobertura da carteira'],
   'cadastrado em': '2026-09-12 14:30:00',
   'cadastrado por': 'João Lima',
   'situacao alterada em': '2026-10-20 11:05:00',
@@ -236,15 +239,70 @@ export const DADO_VOLUME_API: DadoExternoApiFalso = {
   comentarios: null,
   'tipo de valor': 'Numeral',
   'coleta disponivel': true,
-  indicadores: [
-    { id: 5, nome: 'Volume mensal' },
-    { id: 6, nome: 'Crescimento de vendas' },
-  ],
+  indicadores: ['Volume mensal', 'Crescimento de vendas'],
   'cadastrado em': '2026-08-01 10:00:00',
   'cadastrado por': 'Maria Souza',
   'situacao alterada em': null,
   'situacao alterada por': null,
 }
+
+/** Resposta real de GET /api/ped/dados-externos-cadastro (05/11/2026): `indicadores` em texto. */
+export const RESPOSTA_REAL_LISTAGEM_API: DadoExternoApiFalso[] = [
+  {
+    id: 2,
+    nome: 'teste',
+    'id tipo': 7,
+    tipo: 'Contabilidade',
+    situacao: 'ativo',
+    'situacao descricao': 'Ativo',
+    'tarefa bitrix': null,
+    'sistema de origem': 'senior_erp',
+    'sistema de origem descricao': 'Senior ERP (Sapiens)',
+    identificador: 'TESTE',
+    'campo calculo': null,
+    referencia: 'filial',
+    coleta: 'diaria',
+    'dia da coleta': null,
+    'coleta descricao': 'Diaria',
+    'sentido do calculo': 'soma',
+    'janela retroativa': 2,
+    comentarios: 'teste',
+    'tipo de valor': 'Porcentagem',
+    'coleta disponivel': false,
+    indicadores: [],
+    'cadastrado em': '2026-11-04 14:40:53-04:00',
+    'cadastrado por': 'master',
+    'situacao alterada em': null,
+    'situacao alterada por': null,
+  },
+  {
+    id: 3,
+    nome: 'teste 2',
+    'id tipo': 7,
+    tipo: 'Contabilidade',
+    situacao: 'ativo',
+    'situacao descricao': 'Ativo',
+    'tarefa bitrix': null,
+    'sistema de origem': 'senior_hcm',
+    'sistema de origem descricao': 'Senior HCM',
+    identificador: 'TESTE2',
+    'campo calculo': 'teste teste',
+    referencia: 'filial',
+    coleta: 'dia do mes',
+    'dia da coleta': 12,
+    'coleta descricao': 'Dia 12 do mes',
+    'sentido do calculo': 'soma',
+    'janela retroativa': 1,
+    comentarios: 'teste',
+    'tipo de valor': 'Porcentagem',
+    'coleta disponivel': false,
+    indicadores: ['teste externo'],
+    'cadastrado em': '2026-11-04 16:18:35-04:00',
+    'cadastrado por': 'master',
+    'situacao alterada em': null,
+    'situacao alterada por': null,
+  },
+]
 
 export const NOMES_DADOS_EXTERNOS = [
   'Faturamento líquido',
@@ -259,7 +317,7 @@ function copiar(dado: DadoExternoApiFalso): DadoExternoApiFalso {
   return {
     ...dado,
     'tarefa bitrix': dado['tarefa bitrix'] ? { ...dado['tarefa bitrix'] } : null,
-    indicadores: dado.indicadores.map((indicador) => ({ ...indicador })),
+    indicadores: [...dado.indicadores],
   }
 }
 

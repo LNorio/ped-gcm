@@ -128,7 +128,7 @@ export function Dialogo({ aberto, titulo, onFechar, children, acoes, descricao, 
         tabIndex={-1}
         className={classes.join(' ')}
       >
-        <header className="dialogo__cabecalho">
+        <div className="dialogo__cabecalho">
           <div className="dialogo__titulos">
             <h2 id={idTitulo} className="dialogo__titulo">
               {titulo}
@@ -154,7 +154,7 @@ export function Dialogo({ aberto, titulo, onFechar, children, acoes, descricao, 
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </Botao>
-        </header>
+        </div>
         <div className="dialogo__corpo">{children}</div>
         {acoes ? <footer className="dialogo__acoes">{acoes}</footer> : null}
       </div>

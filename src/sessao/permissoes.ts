@@ -93,6 +93,11 @@ export function podeAcessar(perfil: Perfil | null, aba: Aba): boolean {
  * | concluir-dado-externo         |   x   |           |             |
  * | alterar-situacao-dado-externo |   x   |     x     |             |
  * | excluir-dado-externo          |   x   |           |             |
+ * | cadastrar-indicador           |   x   |     x     |             |
+ * | definir-meta-indicador        |   x   |     x     |             |
+ * | alterar-situacao-indicador    |   x   |     x     |             |
+ * | excluir-indicador             |   x   |     x     |             |
+ * | ver-historico-metas-indicador |   x   |     x     |             |
  */
 export type AcaoPermissao =
   | 'excluir-tipo'
@@ -102,6 +107,11 @@ export type AcaoPermissao =
   | 'concluir-dado-externo'
   | 'alterar-situacao-dado-externo'
   | 'excluir-dado-externo'
+  | 'cadastrar-indicador'
+  | 'definir-meta-indicador'
+  | 'alterar-situacao-indicador'
+  | 'excluir-indicador'
+  | 'ver-historico-metas-indicador'
 
 /** Matriz de ações: perfis autorizados por ação. Único ponto que conhece essa regra. */
 const PERFIS_POR_ACAO: Readonly<Record<AcaoPermissao, readonly Perfil[]>> = {
@@ -112,6 +122,11 @@ const PERFIS_POR_ACAO: Readonly<Record<AcaoPermissao, readonly Perfil[]>> = {
   'concluir-dado-externo': ['admin'],
   'alterar-situacao-dado-externo': ['admin', 'validador'],
   'excluir-dado-externo': ['admin'],
+  'cadastrar-indicador': ['admin', 'validador'],
+  'definir-meta-indicador': ['admin', 'validador'],
+  'alterar-situacao-indicador': ['admin', 'validador'],
+  'excluir-indicador': ['admin', 'validador'],
+  'ver-historico-metas-indicador': ['admin', 'validador'],
 }
 
 /** Indica se o perfil pode executar a ação. `null` nunca pode. */

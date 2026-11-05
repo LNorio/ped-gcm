@@ -321,3 +321,115 @@ describe('F4.5 — useApontamentos.alterarSituacao (ativar/desativar)', () => {
     })
   })
 })
+
+describe('F4.5 — useApontamentos.alterarSituacao com 2xx sem o apontamento na resposta (resolve null)', () => {
+  let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
+
+  beforeEach(() => {
+    sessionStorage.clear()
+    limparToken()
+    definirToken('token-123')
+    vi.stubEnv('VITE_API_URL', undefined)
+    fetchFalso = vi.spyOn(globalThis, 'fetch')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+    limparToken()
+  })
+
+  const gets = (chamadas: ChamadaRegistrada[]) => chamadas.filter((c) => c.metodo === 'GET' && c.caminho === ROTA)
+
+  /** API com estado: o PUT grava a situação na lista do GET, mas responde com `resposta`. */
+  function simularPutSemItem(resposta: () => Response) {
+    let lista = apontamentosApi()
+    const rotaAlterar = (id: number) => (init: RequestInit | undefined) => {
+      const { ativo } = JSON.parse(String(init?.body)) as { ativo: boolean }
+      lista = lista.map((a) =>
+        a.id === id ? { ...a, ativo, 'situacao alterada em': '2026-11-05 09:00:00', 'situacao alterada por': 'Fulano' } : a,
+      )
+      return resposta()
+    }
+    return simularApi(fetchFalso, {
+      [`GET ${ROTA}`]: rotaListarApontamentos(() => lista),
+      [`PUT ${ROTA}/${APONTAMENTO_ROTEIRO_API.id}/situacao`]: rotaAlterar(APONTAMENTO_ROTEIRO_API.id),
+      [`PUT ${ROTA}/${APONTAMENTO_CONCILIACAO_API.id}/situacao`]: rotaAlterar(APONTAMENTO_CONCILIACAO_API.id),
+      [`PUT ${ROTA}/${APONTAMENTO_CHAMADOS_API.id}/situacao`]: rotaAlterar(APONTAMENTO_CHAMADOS_API.id),
+      [`PUT ${ROTA}/${APONTAMENTO_RELATORIO_API.id}/situacao`]: rotaAlterar(APONTAMENTO_RELATORIO_API.id),
+    })
+  }
+
+  async function montar(resposta: () => Response) {
+    const chamadas = simularPutSemItem(resposta)
+    const resultado = renderHook(() => useApontamentos())
+    await waitFor(() => expect(resultado.result.current.carregando).toBe(false))
+    return { ...resultado, chamadas }
+  }
+
+  it('resposta 2xx só com { mensagem } resolve null, sem erro e sem rejeitar', async () => {
+    const { result } = await montar(() => respostaJson({ mensagem: 'situação alterada' }))
+
+    let valor: unknown = 'nao chamado'
+    await act(async () => {
+      valor = await result.current.alterarSituacao(4, false)
+    })
+
+    expect(valor).toBeNull()
+    expect(result.current.erro).toBeNull()
+  })
+
+  it('com null, recarrega a lista: nova consulta e o item mostra a situação gravada no servidor', async () => {
+    const { result, chamadas } = await montar(() => respostaJson({ mensagem: 'situação alterada' }))
+    expect(gets(chamadas)).toHaveLength(1)
+
+    await act(async () => {
+      await result.current.alterarSituacao(4, false)
+    })
+
+    expect(gets(chamadas)).toHaveLength(2)
+    expect(result.current.apontamentos.find((a) => a.id === 4)).toMatchObject({ ativo: false, situacaoAlteradaPor: 'Fulano' })
+    expect(result.current.erro).toBeNull()
+  })
+
+  it('200 com corpo vazio resolve null, sem erro, e recarrega a lista', async () => {
+    const { result, chamadas } = await montar(() => new Response('', { status: 200 }))
+
+    let valor: unknown = 'nao chamado'
+    await act(async () => {
+      valor = await result.current.alterarSituacao(4, false)
+    })
+
+    expect(valor).toBeNull()
+    expect(gets(chamadas)).toHaveLength(2)
+    expect(result.current.apontamentos.find((a) => a.id === 4)).toMatchObject({ ativo: false })
+    expect(result.current.erro).toBeNull()
+  })
+
+  it('com o filtro "ativos", a recarga tira da lista o item que deixou de estar ativo', async () => {
+    const { result } = await montar(() => respostaJson({ mensagem: 'situação alterada' }))
+    act(() => {
+      result.current.setSituacao('ativos')
+    })
+    await waitFor(() => expect(result.current.apontamentos.map((a) => a.id)).toEqual([1, 3, 4]))
+
+    await act(async () => {
+      await result.current.alterarSituacao(4, false)
+    })
+
+    expect(result.current.apontamentos.map((a) => a.id)).toEqual([1, 3])
+  })
+
+  it('erro 500 rejeita com ApiError e não recarrega a lista', async () => {
+    const { result, chamadas } = await montar(() => respostaErro(500))
+
+    let erro: unknown
+    await act(async () => {
+      erro = await result.current.alterarSituacao(4, false).catch((e: unknown) => e)
+    })
+
+    expect(erro).toBeInstanceOf(ApiError)
+    expect(erro).toMatchObject({ status: 500 })
+    expect(gets(chamadas)).toHaveLength(1)
+  })
+})

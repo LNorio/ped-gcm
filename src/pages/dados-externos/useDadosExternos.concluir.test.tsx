@@ -5,6 +5,7 @@ import { definirToken, limparToken } from '../../services/sessao'
 import { corpoDaChamada, respostaErro, respostaJson, simularApi, type ChamadaRegistrada } from '../../test/apiFalsa'
 import {
   DADO_DEVOLUCOES_API,
+  type DadoExternoApiFalso,
   dadosExternosApi,
   respostaConclusaoApi,
   rotaListarDadosExternos,
@@ -99,5 +100,112 @@ describe('F5.7 — useDadosExternos.concluir (concluir construção — RF-28)',
     expect(erro).toMatchObject({ status: 400, mensagem: 'Identificador sem coleta cadastrada.' })
     expect(result.current.dadosExternos).toEqual(antes)
     expect(result.current.erro).toBeNull()
+  })
+})
+
+describe('F5.7 — useDadosExternos.concluir com 2xx sem o dado na resposta (resolve null)', () => {
+  let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
+
+  beforeEach(() => {
+    sessionStorage.clear()
+    limparToken()
+    definirToken('token-123')
+    vi.stubEnv('VITE_API_URL', undefined)
+    fetchFalso = vi.spyOn(globalThis, 'fetch')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+    limparToken()
+  })
+
+  const gets = (chamadas: ChamadaRegistrada[]) => chamadas.filter((c) => c.metodo === 'GET' && c.caminho === ROTA)
+
+  /** API com estado: o PUT conclui o dado 3 na lista do GET, mas responde com `resposta`. */
+  function simularConclusaoSemItem(resposta: () => Response) {
+    let lista = dadosExternosApi()
+    return simularApi(fetchFalso, {
+      [`GET ${ROTA}`]: rotaListarDadosExternos(() => lista),
+      [`PUT ${ROTA}/3/concluir`]: (init) => {
+        const { identificador } = JSON.parse(String(init?.body)) as { identificador: string }
+        lista = lista.map((d): DadoExternoApiFalso =>
+          d.id === 3 ? { ...d, situacao: 'ativo', 'situacao descricao': 'Ativo', identificador, 'coleta disponivel': true } : d,
+        )
+        return resposta()
+      },
+    })
+  }
+
+  async function montar(resposta: () => Response) {
+    const chamadas = simularConclusaoSemItem(resposta)
+    const resultado = renderHook(() => useDadosExternos())
+    await waitFor(() => expect(resultado.result.current.carregando).toBe(false))
+    return { ...resultado, chamadas }
+  }
+
+  it('resposta 2xx só com { mensagem } resolve null, sem erro', async () => {
+    const { result } = await montar(() => respostaJson({ mensagem: 'Construção concluída.' }))
+
+    let valor: unknown = 'nao chamado'
+    await act(async () => {
+      valor = await result.current.concluir(3, 'devolucoes')
+    })
+
+    expect(valor).toBeNull()
+    expect(result.current.erro).toBeNull()
+  })
+
+  it('com null, recarrega a lista: nova consulta e o dado aparece ativo, com o identificador gravado', async () => {
+    const { result, chamadas } = await montar(() => respostaJson({ mensagem: 'Construção concluída.' }))
+    expect(gets(chamadas)).toHaveLength(1)
+
+    await act(async () => {
+      await result.current.concluir(3, 'devolucoes')
+    })
+
+    expect(gets(chamadas)).toHaveLength(2)
+    expect(result.current.dadosExternos.find((d) => d.id === 3)).toMatchObject({ situacao: 'ativo', identificador: 'DEVOLUCOES' })
+    expect(result.current.erro).toBeNull()
+  })
+
+  it('200 com corpo vazio resolve null, sem erro, e recarrega a lista', async () => {
+    const { result, chamadas } = await montar(() => new Response('', { status: 200 }))
+
+    let valor: unknown = 'nao chamado'
+    await act(async () => {
+      valor = await result.current.concluir(3, 'DEVOLUCOES')
+    })
+
+    expect(valor).toBeNull()
+    expect(gets(chamadas)).toHaveLength(2)
+    expect(result.current.dadosExternos.find((d) => d.id === 3)).toMatchObject({ situacao: 'ativo' })
+  })
+
+  it('com o filtro "Em construção", a recarga tira da lista o dado concluído', async () => {
+    const { result } = await montar(() => respostaJson({ mensagem: 'Construção concluída.' }))
+    act(() => {
+      result.current.setSituacao('construcao')
+    })
+    await waitFor(() => expect(result.current.dadosExternos.map((d) => d.id)).toEqual([3, 4]))
+
+    await act(async () => {
+      await result.current.concluir(3, 'DEVOLUCOES')
+    })
+
+    expect(result.current.dadosExternos.map((d) => d.id)).toEqual([4])
+  })
+
+  it('erro 400 rejeita com ApiError e não recarrega a lista', async () => {
+    const { result, chamadas } = await montar(() => respostaErro(400, 'Identificador sem coleta cadastrada.'))
+
+    let erro: unknown
+    await act(async () => {
+      erro = await result.current.concluir(3, 'XPTO').catch((e: unknown) => e)
+    })
+
+    expect(erro).toBeInstanceOf(ApiError)
+    expect(erro).toMatchObject({ status: 400, mensagem: 'Identificador sem coleta cadastrada.' })
+    expect(gets(chamadas)).toHaveLength(1)
   })
 })

@@ -248,7 +248,7 @@ describe('F1.3 — Adaptadores da API (ida: resposta → tipo)', () => {
       comentarios: null,
       'tipo de valor': 'Porcentagem',
       'coleta disponivel': true,
-      indicadores: [{ id: 20, nome: 'Cobertura' }],
+      indicadores: ['Cobertura'],
     })
 
     expect(dado.tarefaBitrix).toBeNull()
@@ -258,7 +258,7 @@ describe('F1.3 — Adaptadores da API (ida: resposta → tipo)', () => {
     expect(dado.sentidoCalculo).toBe('ultimo')
     expect(dado.tipoValor).toBe('porcentagem')
     expect(dado.coletaDisponivel).toBe(true)
-    expect(dado.indicadores).toEqual([{ id: 20, nome: 'Cobertura' }])
+    expect(dado.indicadores).toEqual(['Cobertura'])
   })
 
   it('paraIndicador converte um item de GET /api/ped/indicadores-cadastro', () => {
