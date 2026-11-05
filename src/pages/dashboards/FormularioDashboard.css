@@ -1,0 +1,601 @@
+/* Formulário de dashboard (F7.4 a F7.8, protótipo dashModal) e pesos dos indicadores (F7.9). */
+
+/*
+ * Modal "Novo dashboard" / "Editar dashboard" (estilo do protótipo, como o formulário de indicador).
+ * Os seletores usam :has() para atingir somente o diálogo que contém este formulário; os demais
+ * diálogos (Dialogo, dialogo--largo) não mudam.
+ */
+.dialogo-fundo:has(> .dialogo > .dialogo__corpo > .formulario-dashboard) {
+  align-items: flex-start;
+  padding: 40px 16px;
+}
+
+/* Altura limitada pelo overlay (40px em cima e embaixo): a rolagem fica só no corpo da modal. */
+.dialogo:has(> .dialogo__corpo > .formulario-dashboard) {
+  max-width: 680px;
+  max-height: calc(100vh - 80px);
+  max-height: calc(100dvh - 80px);
+  gap: 0;
+  padding: 0;
+  border-radius: 10px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+
+.dialogo:has(> .dialogo__corpo > .formulario-dashboard) > .dialogo__cabecalho {
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e3e9ef;
+}
+
+.dialogo:has(> .dialogo__corpo > .formulario-dashboard) .dialogo__titulo {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.dialogo:has(> .dialogo__corpo > .formulario-dashboard) .dialogo__fechar {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  border-radius: var(--raio);
+  border-color: #d9e1ea;
+  color: #33414e;
+}
+
+.dialogo:has(> .dialogo__corpo > .formulario-dashboard) > .dialogo__corpo {
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.formulario-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  color: #1d2a36;
+  line-height: 1.5;
+}
+
+/* Rótulos "flabel" (13px, 500, #33414E) e dicas "hint" (12px, #56636F) */
+.formulario-dashboard .campo__rotulo,
+.formulario-dashboard__rotulo {
+  font-size: 13px;
+  font-weight: 500;
+  color: #33414e;
+}
+
+.formulario-dashboard .campo__dica {
+  font-size: 12px;
+  color: #56636f;
+}
+
+/* Nome, periodicidade e pontuação na grade "grid-f"; base da faixa e fórmula ocupam a linha. */
+.formulario-dashboard__grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px 20px;
+}
+
+.formulario-dashboard__linha-inteira {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+/* Pontuação travada na edição: fundo cinza, texto 500 e cadeado à direita */
+.formulario-dashboard .formulario-dashboard__travado {
+  background-color: #f1f4f7;
+  color: #4f5b67;
+  font-weight: 500;
+  cursor: not-allowed;
+}
+
+/* Cadeado de 14px (protótipo). Anula a altura de 42px herdada de .campo__sufixo, pensada para botões. */
+.formulario-dashboard .campo__entrada > .formulario-dashboard__cadeado {
+  width: 14px;
+  height: 14px;
+  min-height: 0;
+  right: 12px;
+  color: #4f5b67;
+  pointer-events: none;
+}
+
+.formulario-dashboard__secao {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Campo "field": rótulo, controle e lista */
+.formulario-dashboard__campo {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.formulario-dashboard__campo-cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.formulario-dashboard__acoes-campo,
+.formulario-dashboard__totais {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* "Selecionar todas" e "Limpar seleção" (btn-l btn-sm, altura 26px, sem padding) */
+.formulario-dashboard .formulario-dashboard__link {
+  min-height: 0;
+  height: 26px;
+  padding: 0;
+  font-size: 13px;
+  color: #0057a0;
+}
+
+/* Total dourado (tag gold do protótipo) */
+.formulario-dashboard__totais .etiqueta--dourado {
+  color: #6e4e12;
+}
+
+/* Etiqueta "⚠ {problema}" (tag warn: vermelho com texto branco) */
+.formulario-dashboard .formulario-dashboard__problema {
+  background-color: #c0392b;
+  color: #fff;
+}
+
+.formulario-dashboard__resumo {
+  margin: 0;
+  font-size: 13px;
+  color: #56636f;
+}
+
+/* Dropdown com busca (dd / dd-btn / dd-panel / dd-opt do protótipo) */
+.formulario-dashboard__dd {
+  position: relative;
+}
+
+.formulario-dashboard__dd-botao {
+  width: 100%;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid #bfcad6;
+  border-radius: 8px;
+  background-color: #fff;
+  color: #33414e;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.formulario-dashboard__dd-botao:hover,
+.formulario-dashboard__dd-botao[aria-expanded='true'] {
+  border-color: #0062af;
+}
+
+.formulario-dashboard__dd-botao svg {
+  flex: none;
+}
+
+.formulario-dashboard__dd-valor {
+  font-weight: 500;
+}
+
+.formulario-dashboard__dd-painel {
+  position: absolute;
+  top: 46px;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  max-height: 280px;
+  overflow-y: auto;
+  background-color: #fff;
+  border: 1px solid #bfcad6;
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(0, 30, 60, 0.18);
+}
+
+.formulario-dashboard__dd-busca {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px;
+  border-bottom: 1px solid #e3e9ef;
+  background-color: #fff;
+}
+
+.formulario-dashboard__dd-busca .campo__controle {
+  min-height: 38px;
+  height: 38px;
+}
+
+.formulario-dashboard__dd-opcoes {
+  display: flex;
+  flex-direction: column;
+}
+
+.formulario-dashboard__dd-opcao {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid #f0f3f6;
+  background: none;
+  color: #1d2a36;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.formulario-dashboard__dd-opcao:hover {
+  background-color: #f1f6fb;
+}
+
+.formulario-dashboard__dd-opcao small {
+  font-size: 12px;
+  color: #56636f;
+}
+
+/* Tipo atual (dd-opt.sel) */
+.formulario-dashboard__dd-opcao--atual,
+.formulario-dashboard__dd-opcao--atual:hover {
+  background-color: #e3eef9;
+  color: #00427a;
+  font-weight: 500;
+}
+
+/* "Selecionar todas as filiais (N)" */
+.formulario-dashboard__dd-opcao--acao,
+.formulario-dashboard__dd-opcao--acao:hover {
+  background-color: #f1f6fb;
+  color: #0b4f8a;
+  font-weight: 500;
+}
+
+/* Indicador indisponível (dd-opt.off + :disabled) */
+.formulario-dashboard__dd-opcao:disabled {
+  opacity: 0.45;
+  background: none;
+  cursor: not-allowed;
+}
+
+.formulario-dashboard__dd-opcao--indisponivel small {
+  color: #932a1d;
+}
+
+.formulario-dashboard__dd-vazio {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #56636f;
+}
+
+/* Itens escolhidos (sel-list / sel-item do protótipo) */
+.formulario-dashboard__selecionados {
+  margin-top: 1px;
+  border: 1px solid #e1e7ee;
+  border-radius: 8px;
+  background-color: #f9fbfc;
+}
+
+.formulario-dashboard__lista {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.formulario-dashboard__vazio {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #56636f;
+}
+
+.formulario-dashboard__escolhido,
+.formulario-dashboard__escolhido-linha,
+.formulario-dashboard__cabecalho-lista {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.formulario-dashboard__escolhido,
+.formulario-dashboard__cabecalho-lista {
+  padding: 8px 8px 8px 14px;
+  border-bottom: 1px solid #e9eef3;
+  font-size: 14px;
+}
+
+.formulario-dashboard__escolhido:last-child {
+  border-bottom: 0;
+}
+
+/* Indicador: linha (nome, pontos, remover) e o erro dos pontos abaixo */
+.formulario-dashboard__escolhido--indicador {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.formulario-dashboard__escolhido--indicador .erro-campo {
+  text-align: right;
+}
+
+/* Cabeçalho "Indicador | Pts base neste dashboard" */
+.formulario-dashboard__cabecalho-lista {
+  background-color: #f1f4f7;
+  color: #56636f;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.formulario-dashboard__cabecalho-pontos {
+  margin-right: 42px;
+}
+
+.formulario-dashboard__escolhido-texto {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.formulario-dashboard__escolhido-texto small {
+  font-size: 12px;
+  color: #56636f;
+}
+
+.formulario-dashboard__pontos {
+  flex: none;
+  width: 96px;
+}
+
+.formulario-dashboard__pontos .campo__controle {
+  min-height: 36px;
+  height: 36px;
+  text-align: right;
+}
+
+/* Remover (icon-btn 32 × 32) */
+.formulario-dashboard__remover {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #e3b1aa;
+  border-radius: 8px;
+  background-color: #fff;
+  color: #a3271a;
+  cursor: pointer;
+}
+
+.formulario-dashboard__remover:hover {
+  background-color: #fdf0ee;
+}
+
+/* Edição: caixa "Enviar tarefa à TI para realizar as modificações" e tarefas anteriores */
+.formulario-dashboard__caixa {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #d9e1ea;
+  border-radius: 8px;
+  background-color: #f9fbfc;
+  cursor: pointer;
+}
+
+.formulario-dashboard__caixa > input[type='checkbox'] {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  accent-color: #0062af;
+  cursor: pointer;
+}
+
+.formulario-dashboard__caixa:has(> input:disabled),
+.formulario-dashboard__caixa:has(> input:disabled) > input[type='checkbox'] {
+  cursor: not-allowed;
+}
+
+.formulario-dashboard__caixa-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.formulario-dashboard__caixa-titulo {
+  font-weight: 500;
+}
+
+.formulario-dashboard__caixa-apoio {
+  font-size: 13px;
+  color: #56636f;
+}
+
+.formulario-dashboard__tarefas {
+  margin: 0;
+  font-size: 13px;
+  color: #56636f;
+}
+
+/* Bloco da tarefa do Bitrix24 ("bx" do protótipo) */
+.formulario-dashboard__bx {
+  overflow: hidden;
+  border: 1px solid #9db6d1;
+  border-radius: 8px;
+}
+
+.formulario-dashboard__bx-cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 16px;
+  background-color: #1e3a5f;
+  color: #fff;
+  font-size: 13px;
+}
+
+.formulario-dashboard__bx-titulo {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.formulario-dashboard__bx-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background-color: #f7fafd;
+}
+
+/* A região de status do bloco continua no DOM (leitores de tela), sem somar espaço quando vazia. */
+.formulario-dashboard__bx-corpo > .regiao-status:empty {
+  margin-bottom: -12px;
+}
+
+.formulario-dashboard__bx-aviso {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #d4b272;
+  border-radius: 8px;
+  background-color: #fbf6ec;
+  color: #5c4210;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.formulario-dashboard__bx-orientacao {
+  margin: 0;
+  font-size: 13px;
+  color: #56636f;
+}
+
+/* Pares "kv": rótulo em caixa alta e valor com as quebras de linha preservadas */
+.formulario-dashboard__kv {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.formulario-dashboard__kv-rotulo {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #4f5b67;
+}
+
+.formulario-dashboard__kv-valor {
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.formulario-dashboard__kv-valor--destaque {
+  font-weight: 500;
+}
+
+.formulario-dashboard .formulario-dashboard__observacao {
+  min-height: 72px;
+  padding: 10px 12px;
+}
+
+.formulario-dashboard__acoes {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid #e3e9ef;
+}
+
+/* Pesos dos indicadores (linha expandida da tabela) */
+.pesos-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.pesos-dashboard__lista {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid #e1e7ee;
+  border-radius: var(--raio);
+  background-color: var(--cor-superficie);
+}
+
+.pesos-dashboard__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  font-size: 14px;
+}
+
+.pesos-dashboard__item + .pesos-dashboard__item {
+  border-top: 1px solid #e9eef3;
+}
+
+.pesos-dashboard__nome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pesos-dashboard__pontos {
+  flex: none;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.pesos-dashboard__vazio {
+  margin: 0;
+  font-size: 14px;
+  color: var(--cor-texto-suave);
+}
+
+.pesos-dashboard__rodape {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--cor-texto-secundario);
+}
+
+.pesos-dashboard__total {
+  font-weight: 600;
+  color: var(--cor-texto);
+}

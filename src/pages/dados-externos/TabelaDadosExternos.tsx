@@ -138,7 +138,7 @@ export function TabelaDadosExternos({
       render: (dado) => (
         <div className="tabela-dados-externos__pilha">
           <Etiqueta tom={TOM_SITUACAO[dado.situacao]}>{ROTULOS_SITUACAO_DADO_EXTERNO[dado.situacao]}</Etiqueta>
-          {dado.tarefaBitrix ? (
+          {dado.tarefaBitrix && dado.tarefaBitrix.id !== null ? (
             <span className="tabela-dados-externos__secundario">{`Tarefa nº ${dado.tarefaBitrix.id}`}</span>
           ) : null}
         </div>

@@ -1,0 +1,32 @@
+/*
+ * Aba "Dashboards" (F7.2–F7.10): cabeçalho com título e "Novo dashboard", estado de carga, avisos da
+ * página, card com a barra de filtros e a tabela (corpo sem padding).
+ */
+
+.dashboards-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.dashboards-page__cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.dashboards-page h1 {
+  margin: 0;
+}
+
+.dashboards-page__card {
+  overflow: hidden;
+}
+
+@media (max-width: 600px) {
+  .dashboards-page {
+    gap: 1rem;
+  }
+}

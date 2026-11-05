@@ -1,0 +1,112 @@
+/* Editor de faixas (F8.3, F8.4) — estilo do protótipo (fxModal: sel-list e frow). */
+
+.editor-faixas {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.editor-faixas__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid #e1e7ee;
+  border-radius: var(--raio);
+  background-color: var(--cor-superficie-suave);
+}
+
+.editor-faixas__linha {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) 44px;
+  gap: 10px;
+  align-items: center;
+}
+
+.editor-faixas__cabecalho {
+  font-size: 12px;
+  color: var(--cor-texto-suave);
+}
+
+.editor-faixas__numero {
+  color: var(--cor-texto-suave);
+}
+
+.editor-faixas__campo {
+  width: 100%;
+  min-width: 0;
+}
+
+.editor-faixas__remover {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+}
+
+.editor-faixas__remover:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+  .editor-faixas__linha {
+    grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) 40px;
+    gap: 6px;
+  }
+}
+
+/* Formulários de faixas (nova tabela e alterar faixas) */
+.formulario-faixas {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.formulario-faixas__grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px 20px;
+}
+
+.formulario-faixas__secao {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.formulario-faixas__secao > legend {
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.formulario-faixas__cabecalho {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.formulario-faixas__nome {
+  margin: 0;
+  font-weight: 700;
+}
+
+.formulario-faixas__versao {
+  margin: 0;
+  color: var(--cor-texto-secundario);
+  font-size: 14px;
+}
+
+.formulario-faixas__acoes {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--cor-borda-suave);
+}

@@ -12,7 +12,9 @@
  *
  * Os formatos das respostas não estão documentados na API; o serviço aceita os dois formatos
  * prováveis em cada rota (ver `src/test/dadosExternosFalsos.ts`):
- * - listagem: `{ "dados externos": [...] }` ou a lista pura;
+ * - listagem: `{ "dados externos": [...] }` ou a lista pura; `"tarefa bitrix"` opcional (ausente ou
+ *   `null`), no formato `{ id, status, titulo }`. O número da tarefa (`id`) só vem quando ela é enviada
+ *   ao Bitrix24; enquanto está só registrada (ex.: `aguardando_envio`), `id` é `null`;
  * - identificadores: lista pura ou `{ identificadores: [...] }`;
  * - POST: `{ "dado externo": {...}, tarefa }` ou o dado na raiz com `tarefa` ao lado. Como a resposta
  *   do POST não é documentada e um 2xx significa que o dado foi gravado, ela é lida de forma
@@ -122,8 +124,14 @@ function ehReferenciaNomeada(valor: unknown): valor is ReferenciaNomeada {
   return ehObjeto(valor) && ehNumero(valor.id) && ehTexto(valor.nome)
 }
 
+/** Tarefa do Bitrix24: `id` numérico ou `null` (só registrada, ainda não enviada). */
 function ehTarefaBitrixApi(valor: unknown): boolean {
-  return ehObjeto(valor) && ehNumero(valor.id) && ehTexto(valor.status) && ehTexto(valor.titulo)
+  return (
+    ehObjeto(valor) &&
+    (ehNumero(valor.id) || valor.id === null) &&
+    ehTexto(valor.status) &&
+    ehTexto(valor.titulo)
+  )
 }
 
 function ehDadoExternoApi(valor: unknown): valor is DadoExternoApi {

@@ -1,0 +1,29 @@
+/* Lista das tabelas de faixas (F8.2) e tabela de valores das faixas (F8.2/F8.5). */
+
+.lista-faixas__pilha {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.lista-faixas__titulo {
+  color: var(--cor-texto);
+  font-weight: 600;
+}
+
+.lista-faixas__secundario {
+  color: var(--cor-texto-secundario);
+  font-size: 0.875em;
+}
+
+.tabela-valores-faixas {
+  max-width: 40rem;
+}
+
+.dialogo-historico-faixas__versao {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-weight: 600;
+}

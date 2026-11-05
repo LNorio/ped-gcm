@@ -75,7 +75,7 @@
     {
       "id": "F1.3",
       "titulo": "Tipos do domínio e adaptadores da API",
-      "descricao": "INT-01, INT-02, INT-03 — Enums do domínio em src/types/dominio.ts (perfil, tipo de valor, periodicidade, sentido, cálculo, sentido do cálculo, referência Filial/Colaborador/Zona de venda, sistema de origem, coleta, janela retroativa, situações de dado externo e dashboard, tipo de vínculo) com listas e rótulos pt-BR. Adaptadores em src/services/adaptadores.ts convertendo as respostas da API (chaves em português com espaço, ex.: \"nome filial\", \"mes de referencia\") para tipos TS em camelCase (paraFilial, paraAcesso, paraPeriodo, paraTipoApontamento, paraApontamento, paraDadoExterno, paraIndicador, paraDashboard, paraTabelaFaixas, paraHistoricoMeta, paraFechamento, paraTipoValor) e dos tipos TS para os corpos das requisições (paraCorpoNovoApontamento, paraCorpoNovoDadoExterno com identificador em maiúsculas, paraCorpoNovoIndicador, paraCorpoDashboard, paraCorpoNovaTabelaFaixas, paraCorpoPreenchimento, paraCorpoAjusteMetas), usando os exemplos reais da API.",
+      "descricao": "INT-01, INT-02, INT-03 — Enums do domínio em src/types/dominio.ts (perfil, tipo de valor, periodicidade, sentido, cálculo, sentido do cálculo, referência Filial/Colaborador/Zona de venda, sistema de origem, coleta, janela retroativa, situações de dado externo e dashboard, tipo de vínculo) com listas e rótulos pt-BR. Adaptadores em src/services/adaptadores.ts convertendo as respostas da API (chaves em português com espaço, ex.: \"nome filial\", \"mes de referencia\") para tipos TS em camelCase (paraFilial, paraAcesso, paraPeriodo, paraTipoApontamento, paraApontamento, paraDadoExterno, paraIndicador, paraDashboard, paraTabelaFaixas, paraHistoricoMeta, paraFechamento, paraTipoValor) e dos tipos TS para os corpos das requisições (paraCorpoNovoApontamento, paraCorpoNovoDadoExterno com identificador em maiúsculas, paraCorpoNovoIndicador, paraCorpoDashboard, paraCorpoNovaTabelaFaixas, paraCorpoPreenchimento, paraCorpoAjusteMetas), usando os exemplos reais da API. Tarefa Bitrix (TarefaBitrix/TarefaBitrixApi): { id: number | null, status, titulo } — id null enquanto a tarefa não foi enviada ao Bitrix24 (alteração de 05/11/2026).",
       "status": "implementado",
       "testes": [
         "src/types/dominio.test.ts",
@@ -97,6 +97,14 @@
         {
           "data": "2026-11-05",
           "alteracao": "Correção concluída: a listagem de dados externos recebe indicadores como nomes em texto (formato real da API); 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Bug relatado pelo usuário em 05/11/2026: a aba Dashboards mostrava \"Resposta inválida do servidor.\", mas a API devolvia os dados. Causa: em GET /api/ped/dashboards a \"tarefa bitrix\" vem com \"id\": null enquanto a tarefa só está registrada localmente (status \"aguardando_envio\"), antes da fase do Bitrix24; o validador exigia id numérico e um item inválido rejeita a lista inteira. O mesmo validador existe em dadosExternosService (um dado externo em construção com tarefa sem número derrubaria a aba Dados Externos). Motivação: o documento (seção Bitrix24) e o plano já preveem que o número da tarefa só aparece quando a API o devolver. Nova regra: \"tarefa bitrix\" é válida com id numérico ou null (status e título continuam obrigatórios em texto); tarefa sem título, com título não textual, id em texto ou tarefa em texto solto continuam rejeitando. Tipo do domínio: TarefaBitrix.id passa a ser number | null (src/types/dominio.ts) e TarefaBitrixApi.id idem (src/services/adaptadores.ts); paraTarefaBitrix mantém o id null. Testes criados em src/services/adaptadores.test.ts: paraDashboard e paraDadoExterno com \"tarefa bitrix\" { id: null, ... } mantêm a tarefa com id null (passam em execução; a mudança pendente é de tipo)."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Correção concluída: tarefa Bitrix aceita com id nulo (tarefa só registrada) nas leituras de dashboards e dados externos; \"Tarefa nº\" só aparece com número; 100% dos testes do requisito passando."
         }
       ]
     },
@@ -874,7 +882,7 @@
     {
       "id": "F5.1",
       "titulo": "Serviço de dados externos",
-      "descricao": "RF-23 a RF-31, INT-03 — src/services/dadosExternosService.ts: SITUACOES_FILTRO_DADO_EXTERNO = ['todas','ativos','inativos','construcao','problemas'] (tipo SituacaoFiltroDadoExterno) e ROTULOS_SITUACAO_FILTRO_DADO_EXTERNO (Todas, Ativos, Inativos, Em construção, Com problemas); listarDadosExternos({ busca?, situacao? }) → DadoExterno[] (GET /api/ped/dados-externos-cadastro; busca vazia/espaços e undefined omitidos; aceita { \"dados externos\": [...] } ou a lista pura; indicadores de cada dado = lista de nomes em texto (string[]); item fora do formato — sem id, situação/origem/referência/coleta/sentido/tipo de valor desconhecidos, indicadores que não sejam textos — rejeita a resposta inteira com ApiError(200, MENSAGEM_RESPOSTA_INVALIDA)); listarIdentificadores() → { identificador, quantidade }[] (GET .../identificadores; lista pura ou { identificadores }); criarDadoExterno(NovoDadoExterno) → { dadoExterno: DadoExterno | null, tarefa: { id|null, titulo, descricao|null, status|null } | null } (POST com paraCorpoNovoDadoExterno; dado válido em { \"dado externo\", tarefa } ou na raiz com \"tarefa\" ao lado → convertido; corpo 2xx vazio (201 sem corpo, 204), não objeto (lista, texto) ou sem dado reconhecível (só { mensagem }, { id }, dado incompleto, tipo de valor desconhecido, envelope com dado incompleto) → dadoExterno null, sem erro; \"tarefa\" pode vir na raiz mesmo sem o dado; tarefa fora do formato (sem título, título não textual, texto/número solto) → tarefa null, sem erro; erros HTTP e de rede continuam rejeitando com a ApiError); concluirConstrucao(id, identificador) → { dadoExterno, indicadorCriado: { id, nome } | null } (PUT .../{id}/concluir { identificador } em maiúsculas e sem espaços nas pontas; resposta { \"dado externo\", \"indicador criado\" } ou o dado na raiz); alterarSituacaoDadoExterno(id, ativo) → DadoExterno (PUT .../{id}/situacao { ativo }; dado na raiz ou em \"dado externo\"); excluirDadoExterno(id) → void (DELETE; 400 traz dados.indicadores); obterRealizado(id, { filial?, mesDeReferencia? }) → { valor|null, mesesConsiderados: { mes, valor }[], janelaRetroativa|null, sentidoCalculo|null, coletaDisponivel } (GET .../{id}/realizado?filial=&mes_de_referencia=; só serviço). Erros HTTP/rede propagados como ApiError.",
+      "descricao": "RF-23 a RF-31, INT-03 — src/services/dadosExternosService.ts: SITUACOES_FILTRO_DADO_EXTERNO = ['todas','ativos','inativos','construcao','problemas'] (tipo SituacaoFiltroDadoExterno) e ROTULOS_SITUACAO_FILTRO_DADO_EXTERNO (Todas, Ativos, Inativos, Em construção, Com problemas); listarDadosExternos({ busca?, situacao? }) → DadoExterno[] (GET /api/ped/dados-externos-cadastro; busca vazia/espaços e undefined omitidos; aceita { \"dados externos\": [...] } ou a lista pura; indicadores de cada dado = lista de nomes em texto (string[]); item fora do formato — sem id, situação/origem/referência/coleta/sentido/tipo de valor desconhecidos, indicadores que não sejam textos — rejeita a resposta inteira com ApiError(200, MENSAGEM_RESPOSTA_INVALIDA)); listarIdentificadores() → { identificador, quantidade }[] (GET .../identificadores; lista pura ou { identificadores }); criarDadoExterno(NovoDadoExterno) → { dadoExterno: DadoExterno | null, tarefa: { id|null, titulo, descricao|null, status|null } | null } (POST com paraCorpoNovoDadoExterno; dado válido em { \"dado externo\", tarefa } ou na raiz com \"tarefa\" ao lado → convertido; corpo 2xx vazio (201 sem corpo, 204), não objeto (lista, texto) ou sem dado reconhecível (só { mensagem }, { id }, dado incompleto, tipo de valor desconhecido, envelope com dado incompleto) → dadoExterno null, sem erro; \"tarefa\" pode vir na raiz mesmo sem o dado; tarefa fora do formato (sem título, título não textual, texto/número solto) → tarefa null, sem erro; erros HTTP e de rede continuam rejeitando com a ApiError); concluirConstrucao(id, identificador) → { dadoExterno, indicadorCriado: { id, nome } | null } (PUT .../{id}/concluir { identificador } em maiúsculas e sem espaços nas pontas; resposta { \"dado externo\", \"indicador criado\" } ou o dado na raiz); alterarSituacaoDadoExterno(id, ativo) → DadoExterno (PUT .../{id}/situacao { ativo }; dado na raiz ou em \"dado externo\"); excluirDadoExterno(id) → void (DELETE; 400 traz dados.indicadores); obterRealizado(id, { filial?, mesDeReferencia? }) → { valor|null, mesesConsiderados: { mes, valor }[], janelaRetroativa|null, sentidoCalculo|null, coletaDisponivel } (GET .../{id}/realizado?filial=&mes_de_referencia=; só serviço). Erros HTTP/rede propagados como ApiError. Na listagem, \"tarefa bitrix\" (opcional) é { id: número ou null, status: texto, titulo: texto }; tarefa sem título, com título não textual, id em texto ou em texto solto rejeita a resposta inteira (alteração de 05/11/2026).",
       "status": "implementado",
       "testes": [
         "src/services/dadosExternosService.test.ts"
@@ -903,13 +911,21 @@
         {
           "data": "2026-11-05",
           "alteracao": "Correção concluída: a listagem de dados externos recebe indicadores como nomes em texto (formato real da API); 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Bug relatado pelo usuário em 05/11/2026: a aba Dashboards mostrava \"Resposta inválida do servidor.\", mas a API devolvia os dados. Causa: em GET /api/ped/dashboards a \"tarefa bitrix\" vem com \"id\": null enquanto a tarefa só está registrada localmente (status \"aguardando_envio\"), antes da fase do Bitrix24; o validador exigia id numérico e um item inválido rejeita a lista inteira. O mesmo validador existe em dadosExternosService (um dado externo em construção com tarefa sem número derrubaria a aba Dados Externos). Motivação: o documento (seção Bitrix24) e o plano já preveem que o número da tarefa só aparece quando a API o devolver. Nova regra: \"tarefa bitrix\" é válida com id numérico ou null (status e título continuam obrigatórios em texto); tarefa sem título, com título não textual, id em texto ou tarefa em texto solto continuam rejeitando. Testes em src/services/dadosExternosService.test.ts: criado \"dado em construção com tarefa bitrix sem número (id null) é convertido, sem derrubar a lista\" (fixture DADO_TAREFA_SEM_NUMERO_API em src/test/dadosExternosFalsos.ts); acrescentados à rejeição da listagem os casos tarefa sem título, título não textual, id em texto e tarefa como texto solto. Nenhum teste removido."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Correção concluída: tarefa Bitrix aceita com id nulo (tarefa só registrada) nas leituras de dashboards e dados externos; \"Tarefa nº\" só aparece com número; 100% dos testes do requisito passando."
         }
       ]
     },
     {
       "id": "F5.2",
       "titulo": "Listagem de dados externos",
-      "descricao": "RF-23 — src/pages/dados-externos/useDadosExternos.ts (sobre useConsulta, como useApontamentos): { dadosExternos, carregando, carregouUmaVez, erro, filtros, setBusca, setSituacao, limparFiltros, recarregar, criar, concluir, alterarSituacao, excluir }; GET inicial sem query. DadosExternosPage.tsx substitui o placeholder: h1 \"Dados Externos\", botão \"Novo dado externo\" (todos os perfis), EstadoCarga (\"Carregando dados externos...\", Aviso de erro com \"Tentar novamente\", tabela oculta no erro e até a primeira carga), Card semPadding com BarraFiltros + TabelaDadosExternos; textos vazios \"Nenhum dado externo cadastrado.\" / \"Nenhum dado externo encontrado para os filtros.\"; sem ação de editar (RF-29). TabelaDadosExternos({ dados, podeConcluir, podeAlterarSituacao, podeExcluir, onConcluir, onAlterarSituacao, onExcluir, textoVazio? }) (props e callbacks inalterados): legenda \"Dados externos\"; colunas visíveis (alteração de 04/11/2026) Nome (com o tipo abaixo), Situação (Etiqueta Ativo=sucesso, Inativo=neutro, \"Em construção (TI)\"=info, + \"Tarefa nº {id}\" só quando tarefaBitrix existir), Origem (rótulo), Identificador (ou \"a definir pela TI\"), Cadastro (data/hora + \"por {autor}\") e Ações; sem coluna nem botão de expandir da Tabela (usa Tabela com expandidas controlado). Toda linha tem detalhes: pares rótulo/valor em <dl> (<dt>/<dd>) Campo/cálculo (ou \"—\"), Referência (Filial/Colaborador/Zona de venda), Coleta (coletaDescricao ou rótulo), Janela retroativa (\"Somente o mês\", \"{n} meses\", \"—\" quando null) e Tipo de valor; mais \"Comentários: {texto}\" e \"Situação alterada em {dd/mm/aaaa hh:mm} por {nome}\" quando existem. Coluna Ações: MenuAcoes (F1.16) com rotulo \"Ações do dado externo {nome}\" e itens nesta ordem: \"Ver detalhes\" (\"Ocultar detalhes\" quando aberto; alterna a expansão só daquela linha; várias linhas podem ficar abertas); \"Concluir construção\" (podeConcluir e em_construcao) → onConcluir(dado); \"Desativar\"/\"Ativar\" (podeAlterarSituacao e não em_construcao — RF-30) → onAlterarSituacao(dado); \"Excluir\" (perigo; podeExcluir; todas as linhas) → onExcluir(dado). Página: Admin vê os três; Validador só Ativar/Desativar; Preenchedor só \"Ver detalhes\". Integração: Admin/Validador/Preenchedor, 500 e 401.",
+      "descricao": "RF-23 — src/pages/dados-externos/useDadosExternos.ts (sobre useConsulta, como useApontamentos): { dadosExternos, carregando, carregouUmaVez, erro, filtros, setBusca, setSituacao, limparFiltros, recarregar, criar, concluir, alterarSituacao, excluir }; GET inicial sem query. DadosExternosPage.tsx substitui o placeholder: h1 \"Dados Externos\", botão \"Novo dado externo\" (todos os perfis), EstadoCarga (\"Carregando dados externos...\", Aviso de erro com \"Tentar novamente\", tabela oculta no erro e até a primeira carga), Card semPadding com BarraFiltros + TabelaDadosExternos; textos vazios \"Nenhum dado externo cadastrado.\" / \"Nenhum dado externo encontrado para os filtros.\"; sem ação de editar (RF-29). TabelaDadosExternos({ dados, podeConcluir, podeAlterarSituacao, podeExcluir, onConcluir, onAlterarSituacao, onExcluir, textoVazio? }) (props e callbacks inalterados): legenda \"Dados externos\"; colunas visíveis (alteração de 04/11/2026) Nome (com o tipo abaixo), Situação (Etiqueta Ativo=sucesso, Inativo=neutro, \"Em construção (TI)\"=info, + \"Tarefa nº {id}\" só quando tarefaBitrix existir), Origem (rótulo), Identificador (ou \"a definir pela TI\"), Cadastro (data/hora + \"por {autor}\") e Ações; sem coluna nem botão de expandir da Tabela (usa Tabela com expandidas controlado). Toda linha tem detalhes: pares rótulo/valor em <dl> (<dt>/<dd>) Campo/cálculo (ou \"—\"), Referência (Filial/Colaborador/Zona de venda), Coleta (coletaDescricao ou rótulo), Janela retroativa (\"Somente o mês\", \"{n} meses\", \"—\" quando null) e Tipo de valor; mais \"Comentários: {texto}\" e \"Situação alterada em {dd/mm/aaaa hh:mm} por {nome}\" quando existem. Coluna Ações: MenuAcoes (F1.16) com rotulo \"Ações do dado externo {nome}\" e itens nesta ordem: \"Ver detalhes\" (\"Ocultar detalhes\" quando aberto; alterna a expansão só daquela linha; várias linhas podem ficar abertas); \"Concluir construção\" (podeConcluir e em_construcao) → onConcluir(dado); \"Desativar\"/\"Ativar\" (podeAlterarSituacao e não em_construcao — RF-30) → onAlterarSituacao(dado); \"Excluir\" (perigo; podeExcluir; todas as linhas) → onExcluir(dado). Página: Admin vê os três; Validador só Ativar/Desativar; Preenchedor só \"Ver detalhes\". Integração: Admin/Validador/Preenchedor, 500 e 401. \"Tarefa nº {id}\" só quando tarefaBitrix existir e o id não for null (tarefa ainda não enviada ao Bitrix24 não mostra número — alteração de 05/11/2026).",
       "status": "implementado",
       "testes": [
         "src/pages/dados-externos/TabelaDadosExternos.test.tsx",
@@ -941,6 +957,14 @@
         {
           "data": "2026-11-05",
           "alteracao": "Correção concluída: a listagem de dados externos recebe indicadores como nomes em texto (formato real da API); 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Bug relatado pelo usuário em 05/11/2026: a aba Dashboards mostrava \"Resposta inválida do servidor.\", mas a API devolvia os dados. Causa: em GET /api/ped/dashboards a \"tarefa bitrix\" vem com \"id\": null enquanto a tarefa só está registrada localmente (status \"aguardando_envio\"), antes da fase do Bitrix24; o validador exigia id numérico e um item inválido rejeita a lista inteira. O mesmo validador existe em dadosExternosService (um dado externo em construção com tarefa sem número derrubaria a aba Dados Externos). Motivação: o documento (seção Bitrix24) e o plano já preveem que o número da tarefa só aparece quando a API o devolver. Nova regra: \"tarefa bitrix\" é válida com id numérico ou null (status e título continuam obrigatórios em texto); tarefa sem título, com título não textual, id em texto ou tarefa em texto solto continuam rejeitando. Testes criados: TabelaDadosExternos.test.tsx — tarefa com id null mostra \"Em construção (TI)\" sem \"Tarefa nº\" (e sem \"null\"), com origem e identificador normais; DadosExternosPage.integration.test.tsx — lista com dado de tarefa sem número carrega a tabela, sem \"Resposta inválida do servidor.\" e sem \"Tarefa nº\" na linha."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Correção concluída: tarefa Bitrix aceita com id nulo (tarefa só registrada) nas leituras de dashboards e dados externos; \"Tarefa nº\" só aparece com número; 100% dos testes do requisito passando."
         }
       ]
     },
@@ -1451,6 +1475,448 @@
         {
           "data": "2026-11-05",
           "alteracao": "Implementação concluída (tela, hook, diálogos, formulário, meta, histórico, alertas no menu e serviço); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F7.1",
+      "titulo": "Serviço de dashboards",
+      "descricao": "RF-47 a RF-59, INT-02 — src/services/dashboardsService.ts (rotas da API (24).md, \"fase 6: dashboards\"). Exporta SITUACOES_FILTRO_DASHBOARD = [todas, ativos, inativos, construcao, problemas] e ROTULOS_SITUACAO_FILTRO_DASHBOARD (Todas, Ativos, Inativos, \"Em construção/modificação (TI)\", \"Com problemas\"); tipos FiltrosDashboards { busca?, situacao? }, DetalheDashboard (Dashboard + pontuacaoBaseMaxima, indicadorBaseDaFaixa: number | null, formulaDePontuacao (null → \"\"), observacaoParaTi, indicadores: { id, nome, pontosBase, ativo, problema: string | null }[], periodo: { codigo, inicio, fim } | null, codigosVinculados: string[] — códigos dos itens vinculados lidos de \"vinculos\": filiais pela chave \"filial\" (texto ou número; número vira texto), cargos pela chave \"cargo\", colaboradores pela chave \"id colaborador\" ou \"id\" (número vira texto), na ordem da API; sem \"vinculos\" → []; \"vinculos\" fora de lista ou item fora do formato (sem a chave do tipo, vazio, texto solto, valor booleano ou nulo) rejeita com ApiError(200, MENSAGEM_RESPOSTA_INVALIDA). itensVinculados continua com os rótulos de exibição. Suposição: o formato de cargos e colaboradores em \"vinculos\" não foi visto na API real e segue as listas de GET /vinculos), PreviaTarefa { titulo, descricao }, ResultadoGravacaoDashboard { dashboard: Dashboard | null; tarefa: TarefaConstrucao | null }, HistoricoDashboard { acao, acaoDescricao (\"\" quando ausente), data, usuario, alteracoes: string[], tarefa: number | null, observacao: string | null }, TarefaDashboard { id, tipo, status, titulo, descricao, criadaEm } (todos null quando ausentes, menos titulo), FilialVinculo { codigo, nome }, CargoVinculo { cargo, colaboradores (0 quando ausente) }, ColaboradorVinculo { id, nome, cargo | null, filial | null }. Funções: listarDashboards(filtros?) — GET /api/ped/dashboards (busca vazia e situacao \"todas\" omitidas; lista pura ou { dashboards }; item inválido rejeita tudo com ApiError(200, MENSAGEM_RESPOSTA_INVALIDA)); obterDashboard(id) — GET .../{id} (raiz ou { dashboard }; indicador base como id ou { id, nome }; problema como texto ou { mensagem }; \"id\" ou \"id indicador\"; estrito); obterPreviaTarefa(dados) — POST .../previa-tarefa com paraCorpoDashboard (raiz ou { tarefa }; estrito); criarDashboard(dados) — POST /api/ped/dashboards e atualizarDashboard(id, dados) — PUT .../{id} (com \"enviar tarefa ti\" quando informado), ambos com a regra \"2xx = gravado\": dashboard válido na raiz ou em { dashboard } é convertido, tarefa { id|null, status|null, titulo, descricao|null } ao lado; corpo sem item reconhecível → { dashboard: null, tarefa: null }; tarefa fora do formato → null; concluirDashboard(id) — PUT .../{id}/concluir e alterarSituacaoDashboard(id, ativo) — PUT .../{id}/situacao { ativo }, tolerantes (Dashboard | null); excluirDashboard(id) — DELETE, resolve sem valor em 200/204; listarHistoricoDashboard(id) — GET .../{id}/historico (lista ou { historico }; \"tarefa bitrix\" objeto → id, número → número; estrito); listarTarefasDashboard(id) — GET .../{id}/tarefas (lista ou { tarefas }; estrito); listarFiliaisVinculo(busca?), listarCargosVinculo(busca?), listarColaboradoresVinculo(busca?) — GET /api/ped/vinculos?tipo=filiais|cargos|colaboradores (busca vazia omitida; lista pura ou { [tipo]: [...] }; códigos numéricos viram texto; estritos). Erros HTTP e de rede chegam como ApiError. Fixture compartilhada: src/test/dashboardsFalsos.ts. Na listagem e no detalhe, \"tarefa bitrix\" (opcional) é { id: número ou null, status: texto, titulo: texto }; tarefa sem título, com título não textual, id em texto ou em texto solto rejeita (alteração de 05/11/2026).",
+      "status": "implementado",
+      "testes": [
+        "src/services/dashboardsService.test.ts",
+        "src/services/dashboardsService.acoes.test.ts",
+        "src/services/dashboardsService.vinculos.test.ts"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-05",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade da Fase 7 do plano. Regra \"2xx = gravado\" desde o início em POST/PUT (cadastro, edição, concluir, situação); leituras estritas. Formatos não documentados na API assumidos nos testes (envelopes, \"indicadores\" do detalhe, histórico, tarefas e vínculos) — ver dúvidas no retorno do gerador-testes. Tipos novos definidos no serviço (dominio.ts não tinha detalhe, histórico, tarefas nem vínculos). Fixture src/test/dashboardsFalsos.ts criada."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Implementação concluída (serviço, tela, tabela com menu de ações, formulário com vínculo, indicadores, prévia e edição, pesos, histórico e diálogos de situação, conclusão e exclusão); 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Bug relatado pelo usuário em 05/11/2026: a aba Dashboards mostrava \"Resposta inválida do servidor.\", mas a API devolvia os dados. Causa: em GET /api/ped/dashboards a \"tarefa bitrix\" vem com \"id\": null enquanto a tarefa só está registrada localmente (status \"aguardando_envio\"), antes da fase do Bitrix24; o validador exigia id numérico e um item inválido rejeita a lista inteira. O mesmo validador existe em dadosExternosService (um dado externo em construção com tarefa sem número derrubaria a aba Dados Externos). Motivação: o documento (seção Bitrix24) e o plano já preveem que o número da tarefa só aparece quando a API o devolver. Nova regra: \"tarefa bitrix\" é válida com id numérico ou null (status e título continuam obrigatórios em texto); tarefa sem título, com título não textual, id em texto ou tarefa em texto solto continuam rejeitando. Testes em src/services/dashboardsService.test.ts: criados \"resposta real da API com tarefa bitrix sem número converte o item\" (fixture RESPOSTA_REAL_LISTAGEM_DASHBOARDS_API em src/test/dashboardsFalsos.ts), \"tarefa sem número no meio da lista não derruba os demais itens\" e \"detalhe com tarefa bitrix sem número é aceito\" (obterDashboard); acrescentados à rejeição da listagem os casos tarefa sem número e sem título, título não textual, id em texto e tarefa como texto solto. Nenhum teste removido."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Correção concluída: tarefa Bitrix aceita com id nulo (tarefa só registrada) nas leituras de dashboards e dados externos; \"Tarefa nº\" só aparece com número; 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Bug relatado pelo usuário em 05/11/2026: ao editar um dashboard vinculado por filial, a filial vinculada não aparecia e salvar dava erro. Causa confirmada com a resposta real de GET /api/ped/dashboards/{id}: \"itens vinculados\" traz rótulos de exibição ([\"100 - Filial 100\"]) e \"vinculos\" traz os códigos ([{ \"filial\": \"100\" }]); o serviço ignorava \"vinculos\" e o formulário iniciava o vínculo com itensVinculados, então o rótulo não casava com a lista de filiais e, ao escolher a filial de novo, o PUT ia com [\"100 - Filial 100\", \"100\"] e a API recusava (o corpo do POST/PUT espera códigos: filiais = códigos, cargos = nomes, colaboradores = ids — API (24).md). Motivação: a edição precisa partir dos códigos que a API usa no envio; os rótulos da listagem servem só para exibição. Nova regra no serviço: DetalheDashboard ganha codigosVinculados: string[], lido de \"vinculos\" (filial; cargo; \"id colaborador\" ou \"id\"), sem \"vinculos\" → [], item fora do formato rejeita. Fixtures em src/test/dashboardsFalsos.ts: respostaRealDetalheDashboardApi() (resposta real colada pelo usuário), vinculosApi(tipo, itens) e detalheDashboardApi passando a montar \"vinculos\" com os códigos da lista padrão (antes []). Testes em src/services/dashboardsService.test.ts: o teste do detalhe convertido passa a esperar codigosVinculados (antes dizia que \"vinculos\" era ignorado); criados resposta real ([\"100\"] com itensVinculados mantendo o rótulo), filial numérica, cargos, colaboradores com \"id colaborador\" e com \"id\", sem \"vinculos\" e 6 casos de rejeição. Nenhum teste removido."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Correção concluída: a edição de dashboard parte dos códigos de \"vinculos\" do detalhe (codigosVinculados), não dos rótulos de \"itens vinculados\"; item fora da lista aparece pelo código; 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F7.2",
+      "titulo": "Listagem e filtros de dashboards",
+      "descricao": "RF-47, RN-16 — src/pages/dashboards/useDashboards.ts sobre useFiltrosConsulta: exporta FILTROS_PADRAO { busca: \"\", situacao: \"todas\" } e ATRASO_BUSCA_MS = 500; devolve { dashboards, carregando, carregouUmaVez, erro, filtros, setBusca, setSituacao, limparFiltros, recarregar, criar (F7.7), editar (F7.8), alterarSituacao, concluir, excluir (F7.10) }; busca com espera de 500 ms, situação/limpar consultam na hora; proteção de corrida; recarregar nunca rejeita. DashboardsPage.tsx substitui o placeholder: h1 \"Dashboards\", EstadoCarga (\"Carregando dashboards...\", erro com \"Tentar novamente\", tabela oculta até a primeira carga e no erro), Card semPadding com BarraFiltros (rotuloBusca \"Buscar\", placeholder \"Dashboard, item vinculado ou indicador\", situações do serviço, \"Limpar filtros\") e TabelaDashboards; textos vazios \"Nenhum dashboard cadastrado.\" / \"Nenhum dashboard encontrado para os filtros.\"; alerta geral (Aviso, não erro) quando há dashboard ATIVO com alertas na lista: \"1 dashboard com indicador com problema. Corrija na aba Indicadores antes do encerramento.\" / \"N dashboards com indicadores com problema. Corrija na aba Indicadores antes do encerramento.\". Os testes da página renderizam dentro de MemoryRouter (F7.3 navega). TabelaDashboards({ dashboards, podeEditar, podeAlterarSituacao, podeConcluir, podeExcluir, onEditar, onVerHistorico, onPreencher, onAlterarSituacao, onConcluir, onExcluir, textoVazio? }): legenda \"Dashboards\"; colunas Dashboard, Periodicidade, Vínculo, Indicadores, Período atual, Ações (estrutura do protótipo). Célula Dashboard: nome; etiqueta \"Por filial\"/\"Por cargo\"/\"Por colaborador\"; etiqueta ROTULOS_SITUACAO_DASHBOARD (\"Ativo\", \"Inativo\", \"Em construção (TI)\", \"Em modificação (TI)\"); \"Tarefa nº {id}\" quando há tarefaBitrix (número só quando a API devolve); \"Alterado em dd/mm/aaaa hh:mm\" (ultimaAlteracao) ou \"Cadastrado em dd/mm/aaaa hh:mm\"; só em dashboard ativo com alertas: etiqueta \"1 indicador com problema\"/\"N indicadores com problema\" e <ul aria-label=\"Indicadores com problema em {nome}\"> com <li> \"{indicador} — {motivo} · {pontos} pts\". Periodicidade: ROTULOS_PERIODICIDADE. Vínculo: \"Filiais: 100, 101\" / \"Cargos: A, B\" / \"N colaboradores\" (\"1 colaborador\"). Indicadores: \"N indicadores\" (\"1 indicador\") e \"{soma} de {máximo} pts\". Pontos: inteiro sem casas (\"100\"), decimal com 2 casas pt-BR (\"90,50\"). Período atual: periodoAtual como veio da API. Sem botão de expandir fora do menu (Tabela com expandidas controlado — usado na F7.9). \"Tarefa nº {id}\" só quando há tarefaBitrix com id não nulo (alteração de 05/11/2026: tarefa ainda não enviada ao Bitrix24 não mostra número).",
+      "status": "implementado",
+      "testes": [
+        "src/pages/dashboards/useDashboards.test.tsx",
+        "src/pages/dashboards/useDashboards.filtros.test.tsx",
+        "src/pages/dashboards/TabelaDashboards.test.tsx",
+        "src/pages/dashboards/DashboardsPage.test.tsx",
+        "src/pages/dashboards/DashboardsPage.integration.test.tsx",
+        "src/pages/dashboards/DashboardsPage.filtros.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-05",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade da Fase 7 do plano. Padrão das abas anteriores (useFiltrosConsulta, EstadoCarga, Card semPadding, MenuAcoes). Colunas do protótipo (Dashboard, Periodicidade, Vínculo, Indicadores, Período atual, Ações) com os campos do RF-47 dentro delas. Vínculo por colaboradores mostra a quantidade (a listagem só traz ids). Alertas só em dashboard ativo (a fixture traz um alerta num inativo para provar). Sem sinal no menu (AlertasMenu): o alerta é calculado sobre a lista filtrada — dúvida registrada."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Implementação concluída (serviço, tela, tabela com menu de ações, formulário com vínculo, indicadores, prévia e edição, pesos, histórico e diálogos de situação, conclusão e exclusão); 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Bug relatado pelo usuário em 05/11/2026: a aba Dashboards mostrava \"Resposta inválida do servidor.\", mas a API devolvia os dados. Causa: em GET /api/ped/dashboards a \"tarefa bitrix\" vem com \"id\": null enquanto a tarefa só está registrada localmente (status \"aguardando_envio\"), antes da fase do Bitrix24; o validador exigia id numérico e um item inválido rejeita a lista inteira. O mesmo validador existe em dadosExternosService (um dado externo em construção com tarefa sem número derrubaria a aba Dados Externos). Motivação: o documento (seção Bitrix24) e o plano já preveem que o número da tarefa só aparece quando a API o devolver. Nova regra: \"tarefa bitrix\" é válida com id numérico ou null (status e título continuam obrigatórios em texto); tarefa sem título, com título não textual, id em texto ou tarefa em texto solto continuam rejeitando. Testes criados: TabelaDashboards.test.tsx — com a resposta real (tarefa id null) a linha mostra \"Por filial\", \"Em construção (TI)\", periodicidade, indicadores, pontos e período, sem \"Tarefa nº\" (e sem \"null\"); DashboardsPage.integration.test.tsx — com a resposta real a tabela carrega, sem \"Resposta inválida do servidor.\" e sem \"Tarefa nº\"."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Correção concluída: tarefa Bitrix aceita com id nulo (tarefa só registrada) nas leituras de dashboards e dados externos; \"Tarefa nº\" só aparece com número; 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F7.3",
+      "titulo": "Menu de ações por dashboard",
+      "descricao": "RF-48 — Ações acrescentadas a AcaoPermissao em src/sessao/permissoes.ts: cadastrar-dashboard e editar-dashboard (Admin e Validador); alterar-situacao-dashboard, concluir-dashboard e excluir-dashboard (só Admin). DashboardsPage passa podeAcao(...) à tabela e mostra \"Novo dashboard\" com podeAcao(\"cadastrar-dashboard\"). TabelaDashboards: MenuAcoes com rotulo \"Ações do dashboard {nome}\" (rotuloAcoesDashboard em src/test/menuAcoes.ts) e itens nesta ordem, só quando cabem: \"Editar\" (podeEditar), \"Ver pesos dos indicadores\" (sempre; vira \"Ocultar pesos\" — F7.9), \"Histórico de modificações\" (sempre), \"Preencher apontamentos\" (situacao ativo), \"Desativar\"/\"Ativar\" (podeAlterarSituacao e situacao ativo/inativo), \"Concluir construção (TI)\"/\"Concluir modificação (TI)\" (podeConcluir e em_construcao/em_modificacao), \"Excluir\" (podeExcluir; perigo). Cada item chama o callback correspondente com o dashboard da linha. \"Preencher apontamentos\" navega para /preenchimento?dashboard={id} (useNavigate).",
+      "status": "implementado",
+      "testes": [
+        "src/sessao/permissoes.dashboards.test.ts",
+        "src/pages/dashboards/TabelaDashboards.menu.test.tsx",
+        "src/pages/dashboards/DashboardsPage.menu.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-05",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade da Fase 7 do plano. Rótulos do protótipo (dashMenu) e do RF-48; \"Ativar\"/\"Desativar\" curtos como nas demais abas. Destino de \"Preencher apontamentos\" definido como /preenchimento?dashboard={id} (a aba Preenchimento é da F9). Auxiliar rotuloAcoesDashboard acrescentado a src/test/menuAcoes.ts."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Implementação concluída (serviço, tela, tabela com menu de ações, formulário com vínculo, indicadores, prévia e edição, pesos, histórico e diálogos de situação, conclusão e exclusão); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F7.4",
+      "titulo": "Formulário de dashboard — dados básicos",
+      "descricao": "RF-49, RF-54 (alterado pelo usuário em 2026-11-05), RN-15 — src/pages/dashboards/FormularioDashboard.tsx exporta ListasFormularioDashboard { indicadores: Indicador[], dadosExternos: DadoExterno[], filiais: FilialVinculo[], cargos: CargoVinculo[], colaboradores: ColaboradorVinculo[] } e FormularioDashboard({ dashboard?: DetalheDashboard | null, tarefas?: TarefaDashboard[], listas, carregandoListas, erroListas, onPrevia: (dados) => Promise<PreviaTarefa>, salvando, erro, onSalvar, onCancelar }). Segue o dashModal do protótipo (títulos do diálogo \"Novo dashboard\"/\"Editar dashboard\" na página). Campos: \"Nome do dashboard\" (Campo obrigatorio, placeholder \"Ex.: PED Supervisor Comercial\"), \"Periodicidade de lançamento\" (Select só com Mensal, Bimestral, Trimestral, Semestral e Anual, sem \"Selecione\", começando em Mensal), \"Pontuação base máxima\" (Campo inputMode decimal, obrigatorio, placeholder \"Ex.: 120\", dica \"Não pode ser alterada depois do cadastro. A soma dos pontos base dos indicadores precisa ser igual a este valor.\"), e, por exceção ao protótipo (RF-54), \"Indicador base da faixa\" (Select obrigatorio) e \"Fórmula de pontuação\" (AreaTexto obrigatorio), posicionados abaixo da seção \"Indicadores vinculados\" (fora do grupo). Ordem na tela: nome, periodicidade e pontuação; vínculo; \"Indicadores vinculados\"; \"Indicador base da faixa\" e \"Fórmula de pontuação\"; bloco da tarefa (no cadastro) ou caixa \"Enviar tarefa à TI...\" (na edição). Opções do \"Indicador base da faixa\" (decisão do usuário de 2026-11-05, altera o RF-54): \"Selecione\" + somente os indicadores escolhidos em \"Indicadores vinculados\", na ordem da lista e pelo nome (os demais cadastrados não aparecem). Sem indicador escolhido, o campo fica desabilitado, vazio e com a orientação \"Vincule indicadores para escolher o indicador base.\" (descrição acessível do campo). Remover dos vinculados o indicador escolhido como base deixa o campo vazio; remover outro mantém a base; vincular outro acrescenta a opção sem perder a base. O valor precisa estar entre os vinculados. A \"Observação para a TI (opcional)\" fica no bloco da tarefa (F7.7/F7.8). Validação ao enviar: \"Informe o nome do dashboard.\" (vazio/espaços), \"Informe a pontuação base máxima do dashboard (número maior que zero).\" (lerDecimal; 0, negativo e texto recusados), \"Selecione o indicador base da faixa.\" (também quando a base foi removida dos vinculados), \"Informe a fórmula de pontuação.\"; erros associados aos campos (aria-describedby) e limpos ao corrigir o campo. Botão principal no cadastro: \"Salvar e criar tarefa no Bitrix\" (submit; não existe mais \"Ver prévia da tarefa\"); \"Cancelar\" chama onCancelar. Prop erro em Aviso de erro sem apagar o digitado; carregandoListas anuncia \"Carregando dados do formulário...\" (role status); erroListas em Aviso de erro.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/dashboards/FormularioDashboard.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-05",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade da Fase 7 do plano. Fórmula em texto livre e indicador base obrigatórios (RF-54; A-08 segue pendente na API). Rótulos do protótipo (dashModal) quando o documento não diz. O formulário recebe as listas prontas da página (componentes puros, sem consultar a API)."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Implementação concluída (serviço, tela, tabela com menu de ações, formulário com vínculo, indicadores, prévia e edição, pesos, histórico e diálogos de situação, conclusão e exclusão); 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Pedido do usuário: \"a modal de cadastro de um dashboard está com campos e funcionalidades diferentes do protótipo\". O protótipo (dashModal de docs/PED — Cadastro e Preenchimento-html/Main.dc.html) é a referência de tela aprovada, e a implementação tinha tomado decisões próprias que não batiam com ele. Mudanças: rótulo \"Periodicidade de lançamento\" sem \"Selecione\" e com Mensal como padrão (some \"Selecione a periodicidade.\"); placeholder \"Ex.: 120\" na pontuação; mensagem da pontuação do protótipo (\"Informe a pontuação base máxima do dashboard (número maior que zero).\"); botão principal \"Salvar e criar tarefa no Bitrix\"; a observação passa para o bloco da tarefa, como \"Observação para a TI (opcional)\". Exceção decidida pelo orquestrador: \"Indicador base da faixa\" e \"Fórmula de pontuação\" continuam obrigatórios (RF-54 prevalece sobre o protótipo, que não os tem), junto dos dados básicos. Testes removidos por deixarem de ser requisito: \"Periodicidade começa em Selecione\" e o erro \"Selecione a periodicidade.\"."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Modal de cadastro e edição de dashboard alinhada ao protótipo (tarefa da TI sempre visível com prévia automática, vínculo em dropdown, indicadores vinculados, tarefas anteriores); 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Pedido do usuário: o \"Indicador base da faixa\" continua, mas ele e a \"Fórmula de pontuação\" passam para abaixo da seção \"Indicadores vinculados\", e as opções do indicador base passam a ser somente os indicadores escolhidos para o dashboard. Decisão do usuário: o indicador base da faixa faz parte da composição do dashboard; escolher um indicador que não está no dashboard não faz sentido para o negócio. Isso altera a regra do RF-54 do documento (\"pode ser qualquer indicador cadastrado, mesmo fora do dashboard\"), que fica substituída por esta decisão; a API continua aceitando qualquer indicador e a restrição fica no front. Orientação escolhida para o campo sem indicadores: \"Vincule indicadores para escolher o indicador base.\". Testes: removido \"Indicador base da faixa oferece qualquer indicador cadastrado, inclusive inativo ou com problema (RF-54)\" (deixou de ser requisito); criados ordem na tela, campo desabilitado com a orientação, opções restritas na ordem da escolha, vincular depois acrescenta a opção, remover a base limpa o campo e gera o erro ao salvar, remover outro mantém a base, remover todos desabilita, erro com vinculados e sem base; ajustados os testes que escolhiam a base antes de vincular indicadores."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Indicador base da faixa e fórmula abaixo dos indicadores vinculados; indicador base só entre os indicadores vinculados (decisão do usuário, altera o RF-54); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F7.5",
+      "titulo": "Formulário de dashboard — vínculo e resumo de imagens",
+      "descricao": "RF-50, INT-02 — src/pages/dashboards/regrasDashboard.ts exporta VinculoFormulario { tipo: TipoVinculo | \"\"; itens: string[] }, ResumoImagens { quantidade, filiais, filiaisSemColaborador } e resumoImagens(vinculo, colaboradores) (sem mudança: por filiais = colaboradores das filiais + 1 imagem por filial sem colaborador; por cargos = colaboradores do cargo; por colaboradores = os escolhidos; filiais ordenadas pelo código). src/pages/dashboards/SecaoVinculo.tsx: SecaoVinculo({ valor, onChange, filiais, cargos, colaboradores, erroItens? }), como o dashModal do protótipo. Campo \"Vincular dashboard a\": dropdown (botão aria-label \"Tipo de vínculo do dashboard\", aria-haspopup listbox, aria-expanded, mostra o tipo atual) com listbox \"Tipo de vínculo do dashboard\" e as opções \"Filiais\" (\"Gera imagens só para as filiais escolhidas\"), \"Cargos de colaboradores\" (\"Gera imagens para todas as filiais\") e \"Colaboradores específicos\" (\"Gera imagens para as filiais dos colaboradores escolhidos\"), a atual com aria-selected true; escolher fecha o painel; outro tipo chama onChange({ tipo, itens: [] }); o mesmo tipo mantém os itens. Campo de itens com rótulo \"Filiais vinculadas\"/\"Cargos vinculados\"/\"Colaboradores vinculados\" e dropdown (botão \"Selecionar filial\"/\"Selecionar cargo de colaboradores\"/\"Selecionar colaborador\", aria-expanded; listbox com o nome do rótulo; opção = nome + subtexto; permanece aberto após escolher; só não escolhidos). Busca só em cargos (rótulo \"Buscar cargo\", placeholder \"Buscar cargo...\") e colaboradores (rótulo \"Buscar colaborador\", placeholder \"Buscar por nome, cargo ou filial...\"), sem acento/maiúsculas (cargo pelo nome; colaborador por nome, cargo ou filial); filiais sem busca. Em filiais, o painel começa com a opção \"Selecionar todas as filiais (N)\" (N = total de filiais, subtexto \"Adiciona todas as filiais de uma vez\"; escolhe todas na ordem da lista e fecha o painel) e há o botão \"Selecionar todas\" ao lado do rótulo, ambos enquanto houver filial não escolhida. Botão \"Limpar seleção\" com mais de um item escolhido (onChange({ tipo, itens: [] })). Vazios do painel: \"Nenhum resultado para a busca.\", \"Todas as filiais já foram adicionadas.\" / \"Todos os cargos já foram adicionados.\" / \"Todos os colaboradores já foram adicionados.\". Nomes: filial \"{código} - {nome}\" com \"N colaboradores\"/\"1 colaborador\"/\"Sem colaborador vinculado\"; cargo com \"N colaboradores\"; colaborador com \"{cargo} · Filial {filial}\". Lista \"Filiais escolhidas\"/\"Cargos escolhidos\"/\"Colaboradores escolhidos\" (item começa pelo nome; \"Remover {nome}\"); vazios \"Nenhuma filial selecionada.\" / \"Nenhum cargo selecionado.\" / \"Nenhum colaborador selecionado.\". Resumo: \"No encerramento serão geradas N imagens (uma por colaborador) nas filiais A, B.\" / \"... N imagens (uma por colaborador) na filial A.\" / \"No encerramento será gerada 1 imagem (uma por colaborador) na filial A.\"; filiais sem colaborador (frase do RF-50, sem mudança); zero: \"Nenhuma imagem será gerada: não há colaboradores nos itens escolhidos.\". No FormularioDashboard: o tipo começa em \"Cargos de colaboradores\" (padrão do protótipo; não existe mais \"Selecione o tipo de vínculo.\"); itens vazios: \"Selecione ao menos uma filial.\" / \"Selecione ao menos um cargo de colaboradores.\" / \"Selecione ao menos um colaborador.\" (limpo ao escolher item ou trocar o tipo). No DadosDashboard: filiais = códigos (texto), cargos = nomes, colaboradores = ids numéricos.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/dashboards/regrasDashboard.vinculo.test.ts",
+        "src/pages/dashboards/SecaoVinculo.test.tsx",
+        "src/pages/dashboards/FormularioDashboard.vinculo.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-05",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade da Fase 7 do plano. O resumo segue o documento (uma imagem por colaborador; filial sem colaborador gera \"Filial (sem colaborador vinculado)\"), não a API atual (uma imagem por filial — A-07). Calculado no front com a lista de colaboradores (a lista de filiais da API não traz colaboradores). Listas carregadas inteiras pela página e filtradas localmente; busca em todos os tipos (RF-50), inclusive filiais (o protótipo não tinha). Ids de colaborador enviados como número (dúvida do plano mantida)."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Implementação concluída (serviço, tela, tabela com menu de ações, formulário com vínculo, indicadores, prévia e edição, pesos, histórico e diálogos de situação, conclusão e exclusão); 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Pedido do usuário: \"a modal de cadastro de um dashboard está com campos e funcionalidades diferentes do protótipo\". O protótipo (dashModal de docs/PED — Cadastro e Preenchimento-html/Main.dc.html) é a referência de tela aprovada, e a implementação tinha tomado decisões próprias que não batiam com ele. Mudanças: o tipo de vínculo vira o dropdown \"Vincular dashboard a\" com subtextos e padrão \"Cargos de colaboradores\" (sai o Select \"Tipo de vínculo\" com \"Selecione\" e o erro \"Selecione o tipo de vínculo.\"); listbox de itens com o nome do campo; busca só em cargos e colaboradores, com os placeholders do protótipo (sai a busca de filiais); opção \"Selecionar todas as filiais (N)\" no painel, além do botão; \"Limpar seleção\"; resumo com \"(uma por colaborador)\"; mensagem \"Selecione ao menos um cargo de colaboradores.\". Mantidos (protótipo só tinha mock): nome da filial \"{código} - {nome}\" e \"Sem colaborador vinculado\" (RF-50), o texto de zero imagens e a frase da filial sem colaborador. Testes removidos por deixarem de ser requisito: Select \"Tipo de vínculo\" com \"Selecione\", erro \"Selecione o tipo de vínculo.\" e busca de filiais por código ou nome."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Modal de cadastro e edição de dashboard alinhada ao protótipo (tarefa da TI sempre visível com prévia automática, vínculo em dropdown, indicadores vinculados, tarefas anteriores); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F7.6",
+      "titulo": "Formulário de dashboard — indicadores e pontos base",
+      "descricao": "RF-51, RF-52, RF-53, RN-15 — regrasDashboard.ts (sem mudança): motivoIndisponibilidade(indicador, tipoVinculo, dadosExternos) (\"Indicador inativo\" > \"Componente desativado\" > \"Meta a definir\" > RF-53 \"Dado externo por Zona de venda|Colaborador não é aceito em dashboard por filiais\"), somarPontos, formatarPontos e textoTotalPontos (\"Informe a pontuação base máxima\", \"Total correto: {máx} pts\", \"Faltam {d} pts para {máx}\", \"Excedeu {d} pts — o total deve ser {máx}\"). src/pages/dashboards/SecaoIndicadores.tsx: PontosIndicador { idIndicador, pontos } e SecaoIndicadores({ indicadores, dadosExternos, tipoVinculo, pontuacaoMaxima, valor, onChange, idsJaVinculados?, erro?, errosPontos? }), como o dashModal do protótipo. Grupo \"Indicadores vinculados\"; etiquetas \"{n} indicador(es) · {soma} de {máx} pts\" e textoTotalPontos; dropdown \"Selecionar indicador\" com busca rotulada \"Buscar indicador\" (placeholder \"Buscar indicador...\") e listbox \"Indicadores\": não escolhidos e ativos (indicador inativo não aparece), filtro pelo nome sem acento/maiúsculas, disponíveis primeiro (subtexto \"Meta {meta com 2 casas} · {pts} pts em {dashboard} · ...\" ou \"Meta {meta} · ainda não usado\", pelos dashboards do indicador) e depois os com problema (disabled + aria-disabled, subtexto \"Indisponível: {motivo}\"); \"Nenhum indicador encontrado para a busca.\" / \"Todos os indicadores já foram adicionados.\". Com escolhidos, linha de cabeçalho \"Indicador\" / \"Pts base neste dashboard\" fora da lista; lista \"Indicadores escolhidos\" (item começa pelo nome; subtexto \"Meta {meta} · dado externo\" ou \"Meta {meta} · N apontamento(s)\"; etiqueta \"⚠ {motivo}\" quando o indicador tem problema; Campo \"Pontos base de {nome} neste dashboard\", inputMode decimal, obrigatorio, placeholder \"0\"; botão \"Remover {nome}\"); vazio \"Nenhum indicador selecionado.\"; erro e errosPontos exibidos (pontos via aria-describedby). No FormularioDashboard: a pontuação digitada alimenta a seção; validação \"Vincule ao menos um indicador.\", \"Informe os pontos base do indicador “{nome}” neste dashboard.\" (no campo do indicador), soma diferente (\"A soma dos pontos base dos indicadores deve ser exatamente igual à pontuação base máxima ({máx} pts). Total atual: {soma} pts.\") e, com vínculo por filiais, \"O indicador “{nome}” usa dado externo por {Zona de venda|Colaborador} e não pode entrar em dashboard por filiais.\"; trocar o tipo de vínculo mantém indicadores e pontos.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/dashboards/regrasDashboard.indicadores.test.ts",
+        "src/pages/dashboards/SecaoIndicadores.test.tsx",
+        "src/pages/dashboards/FormularioDashboard.indicadores.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-05",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade da Fase 7 do plano. Seleção em dropdown com busca e lista só com os escolhidos, como a composição do indicador (F6.4); indisponíveis visíveis e desabilitados com o motivo (RF-52). A referência do dado externo (RF-53) vem da lista de dados externos, pois o indicador não a traz. Na edição, a elegibilidade vale só para indicadores novos (API)."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Implementação concluída (serviço, tela, tabela com menu de ações, formulário com vínculo, indicadores, prévia e edição, pesos, histórico e diálogos de situação, conclusão e exclusão); 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Pedido do usuário: \"a modal de cadastro de um dashboard está com campos e funcionalidades diferentes do protótipo\". O protótipo (dashModal de docs/PED — Cadastro e Preenchimento-html/Main.dc.html) é a referência de tela aprovada, e a implementação tinha tomado decisões próprias que não batiam com ele. Mudanças: grupo \"Indicadores vinculados\"; inativos não aparecem no dropdown (os com problema seguem desabilitados com o motivo); subtextos de meta e uso das opções e dos escolhidos; linha de cabeçalho \"Indicador | Pts base neste dashboard\"; etiqueta \"⚠ {problema}\"; placeholder \"0\" e \"Buscar indicador...\"; mensagens do protótipo \"Vincule ao menos um indicador.\" e \"Informe os pontos base do indicador “{nome}” neste dashboard.\". Mantidos: textos dos motivos de regrasDashboard (RF-52/RF-53) sem o sufixo \"— corrija na aba Indicadores\" do protótipo, \"1 indicador\" no singular e o erro do RF-53 ao enviar. Nenhum teste removido; os de indicador inativo no dropdown foram trocados por \"não aparece\"."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Modal de cadastro e edição de dashboard alinhada ao protótipo (tarefa da TI sempre visível com prévia automática, vínculo em dropdown, indicadores vinculados, tarefas anteriores); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F7.7",
+      "titulo": "Prévia da tarefa e gravação do dashboard",
+      "descricao": "RF-55, INT-04 — FormularioDashboard (cadastro), como o dashModal do protótipo: o bloco (region) \"Tarefa de construção que será criada no Bitrix24\" fica sempre visível, com \"Responsável: Equipe de TI\", o aviso \"O dashboard nasce inativo (em construção) e só fica ativo quando a TI concluir a tarefa.\", \"Título\" e \"Descrição\" (quebras de linha preservadas) e \"Observação para a TI (opcional)\" (AreaTexto). Título e descrição vêm de onPrevia(DadosDashboard) (rota de prévia), chamada 500 ms após a última alteração, só quando todos os dados passam na validação, inclusive o indicador base entre os vinculados (sem exibir erros nos campos); dados com o nome aparado, observação vazia → null e sem enviarTarefaTi. Sem dados suficientes, o bloco mostra \"Preencha os dados do dashboard para ver o título e a descrição da tarefa.\" (também quando os dados ficam inválidos depois de uma prévia). Consultando: \"Gerando a prévia da tarefa...\" (role status) no bloco. Erro da prévia: Aviso de erro (mensagemDeErro) dentro do bloco, sem bloquear o restante. Não existem mais \"Ver prévia da tarefa\" nem \"Voltar\": \"Salvar e criar tarefa no Bitrix\" (submit) valida tudo e chama onSalvar(dados) direto, sem esperar a prévia; desabilitado com salvando; prop erro em alerta. useDashboards.criar(dados): POST e recarga da lista depois de qualquer 2xx; resolve ResultadoGravacaoDashboard; erro rejeita com a ApiError original sem recarregar. DashboardsPage: \"Novo dashboard\" abre Dialogo \"Novo dashboard\" (className \"dialogo--largo\") e carrega em paralelo listarIndicadores() (todos), listarDadosExternos(), listarFiliaisVinculo(), listarCargosVinculo(), listarColaboradoresVinculo(); onPrevia = obterPreviaTarefa; após salvar fecha o diálogo e notifica \"Dashboard cadastrado. Tarefa de construção registrada para a TI.\" ou, com número, \"... (Tarefa nº {id}).\"; erro do POST dentro do diálogo; erro das listas em alerta no diálogo; \"Cancelar\" fecha sem gravar.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/dashboards/FormularioDashboard.previa.test.tsx",
+        "src/pages/dashboards/useDashboards.cadastro.test.tsx",
+        "src/pages/dashboards/DashboardsPage.cadastro.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-05",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade da Fase 7 do plano. Prévia gerada pela API (POST previa-tarefa) em duas etapas no mesmo diálogo, em vez da prévia ao vivo do protótipo (evita uma chamada a cada tecla). Número da tarefa só quando a API devolver (A-12). Regra \"2xx = gravado\": a lista é sempre recarregada."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Implementação concluída (serviço, tela, tabela com menu de ações, formulário com vínculo, indicadores, prévia e edição, pesos, histórico e diálogos de situação, conclusão e exclusão); 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Pedido do usuário: \"a modal de cadastro de um dashboard está com campos e funcionalidades diferentes do protótipo\". O protótipo (dashModal de docs/PED — Cadastro e Preenchimento-html/Main.dc.html) é a referência de tela aprovada, e a implementação tinha tomado decisões próprias que não batiam com ele. Mudança: sai o fluxo em duas etapas (\"Ver prévia da tarefa\", depois \"Voltar\"/\"Salvar…\"); o bloco da tarefa fica sempre visível, como no protótipo, e o título e a descrição continuam vindo da API (POST previa-tarefa), consultada 500 ms após a última alteração e só com os dados válidos (decisão do orquestrador). Orientação curta enquanto faltam dados; erro da prévia no bloco sem impedir salvar; a observação para a TI passa para dentro do bloco. Testes removidos por deixarem de ser requisito: \"Ver prévia da tarefa\" chama onPrevia, clique duplo nesse botão, prévia no lugar dos campos, \"Voltar\" e \"Salvar\" com os mesmos dados da prévia; substituídos pelos testes da prévia automática e do salvar direto."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Modal de cadastro e edição de dashboard alinhada ao protótipo (tarefa da TI sempre visível com prévia automática, vínculo em dropdown, indicadores vinculados, tarefas anteriores); 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Alteração do F7.4 (indicador base da faixa restrito aos indicadores vinculados e posicionado abaixo deles). Decisão do usuário: o indicador base da faixa faz parte da composição do dashboard; escolher um indicador que não está no dashboard não faz sentido para o negócio. Isso altera a regra do RF-54 do documento (\"pode ser qualquer indicador cadastrado, mesmo fora do dashboard\"), que fica substituída por esta decisão; a API continua aceitando qualquer indicador e a restrição fica no front. Testes ajustados: os preenchimentos (FormularioDashboard.previa e DashboardsPage.cadastro) passam a vincular os indicadores antes de escolher a base, na ordem da tela; o salvar por filiais usa como base o indicador vinculado (Faturamento líquido mensal, id 3) em vez de um fora do dashboard (Capacitação); a integração espera o fim da carga das listas em vez da opção do indicador base e confere as opções restritas. Criado: removido o indicador base dos vinculados, a prévia volta à orientação mesmo com o restante válido, até escolher outra base (POST previa-tarefa com o novo id). Nenhum teste removido."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Indicador base da faixa e fórmula abaixo dos indicadores vinculados; indicador base só entre os indicadores vinculados (decisão do usuário, altera o RF-54); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F7.8",
+      "titulo": "Edição de dashboard com envio de tarefa à TI",
+      "descricao": "RF-56, RN-15, INT-04 — FormularioDashboard com dashboard (DetalheDashboard) e tarefas, como o dashModal do protótipo: abre preenchido (nome, periodicidade, base da faixa — só quando a base gravada está entre os indicadores vinculados; fora deles (dado antigo) o campo abre vazio e salvar exige escolher um dos vinculados —, fórmula, tipo e itens do vínculo a partir de codigosVinculados (códigos do detalhe; nunca dos rótulos de itensVinculados) — o item aparece com o nome da lista carregada (ex.: filial \"100 - MATRIZ\") e, se o código não estiver na lista, aparece como item escolhido pelo próprio código (texto e \"Remover {código}\") e segue no envio até ser removido; salvar sem mexer envia os mesmos códigos (ex.: \"itens vinculados\": [\"100\"]; colaboradores como números) e escolher outro item acrescenta só o código, sem duplicar — indicadores com pontos — inteiros sem casas); \"Pontuação base máxima\" travada (readOnly) com o valor \"{máx} pts\" e a dica \"Definida no cadastro e não pode ser alterada. A soma dos pontos base precisa ser igual a este valor.\"; idsJaVinculados = ids do detalhe (já vinculado com problema não bloqueia e mostra \"⚠ {motivo}\"). Caixa \"Enviar tarefa à TI para realizar as modificações\" com o apoio \"Opcional. Marque quando a alteração exigir ajuste na construção do dashboard pela equipe de TI. Enquanto a TI não concluir, o dashboard fica inativo.\" (desmarcada; desabilitada em dashboard em construção, com a descrição \"Indisponível enquanto o dashboard está em construção.\"). Marcada, mostra o bloco (region) \"Tarefa de modificação que será enviada ao Bitrix24\" com \"Responsável: Equipe de TI\", o aviso \"Ao enviar, o dashboard fica inativo (em modificação) até a TI concluir a tarefa.\", \"Título\" = \"[PED] Modificar dashboard: {nome aparado}\" (tabela de tarefas do documento, INT-04) e \"Observação para a TI (opcional)\" vazia; sem descrição (o documento não define o texto; dúvida registrada). Sem a caixa, nada disso aparece. Botão principal \"Salvar alterações\" ou, marcada, \"Salvar e enviar tarefa à TI\"; sem prévia da API: chama onSalvar direto com enviarTarefaTi true/false e a pontuação do detalhe; observacaoParaTi = a do detalhe quando desmarcada, ou a digitada no bloco quando marcada (vazia → null); mesmas validações do cadastro (inclusive o indicador base restrito aos vinculados, ver F7.4); o PUT leva \"indicador base da faixa\" = id escolhido. Tarefas anteriores em uma linha \"Tarefas anteriores: {Construção|Modificação} nº {id} · {dd/mm/aaaa hh:mm} | ...\", da mais recente à mais antiga pela data de criação (sem número quando id null; sem data quando ausente); sem tarefas, a linha não aparece. Cadastro não mostra a caixa nem as tarefas. useDashboards.editar(id, dados): PUT e recarga depois de qualquer 2xx; erro rejeita sem recarregar. DashboardsPage: \"Editar\" abre Dialogo \"Editar dashboard\" (dialogo--largo), carrega obterDashboard(id), listarTarefasDashboard(id) e as listas; erro do detalhe em alerta no diálogo sem formulário; após salvar fecha e notifica \"Dashboard atualizado.\" ou \"Dashboard atualizado. Tarefa de modificação registrada para a TI.\" (com número: \"... (Tarefa nº {id}).\"); erro do PUT dentro do diálogo.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/dashboards/FormularioDashboard.edicao.test.tsx",
+        "src/pages/dashboards/useDashboards.edicao.test.tsx",
+        "src/pages/dashboards/DashboardsPage.edicao.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-05",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade da Fase 7 do plano. Sem prévia na edição: a rota previa-tarefa da API só cobre o cadastro (RF-55); a tarefa de modificação é gerada pela API no PUT. Caixa desabilitada em construção porque a API recusa tarefa de modificação nesse estado. \"nenhuma alteracao\" tratado como 2xx sem dashboard (dúvida registrada)."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Implementação concluída (serviço, tela, tabela com menu de ações, formulário com vínculo, indicadores, prévia e edição, pesos, histórico e diálogos de situação, conclusão e exclusão); 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Pedido do usuário: \"a modal de cadastro de um dashboard está com campos e funcionalidades diferentes do protótipo\". O protótipo (dashModal de docs/PED — Cadastro e Preenchimento-html/Main.dc.html) é a referência de tela aprovada, e a implementação tinha tomado decisões próprias que não batiam com ele. Mudanças: caixa \"Enviar tarefa à TI para realizar as modificações\" com o texto de apoio do protótipo; com ela marcada, bloco \"Tarefa de modificação que será enviada ao Bitrix24\" com aviso, título pela regra da tabela de tarefas do documento e \"Observação para a TI (opcional)\" (a observação só aparece nesse bloco; desmarcada, segue a do cadastro); pontuação travada com \" pts\"; tarefas anteriores no formato do protótipo (\"Tarefas anteriores: {tipo} nº {id} · {data} | ...\", mais recente primeiro, sem o \"por\" que a API não traz). A rota de prévia só cobre o cadastro e o documento não define o texto da descrição da modificação, por isso ela não aparece (dúvida registrada). Testes removidos por deixarem de ser requisito: lista \"Tarefas anteriores\" com título e situação de cada tarefa e o texto \"Nenhuma tarefa anterior.\"."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Modal de cadastro e edição de dashboard alinhada ao protótipo (tarefa da TI sempre visível com prévia automática, vínculo em dropdown, indicadores vinculados, tarefas anteriores); 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Alteração do F7.4 (indicador base da faixa restrito aos indicadores vinculados e posicionado abaixo deles). Decisão do usuário: o indicador base da faixa faz parte da composição do dashboard; escolher um indicador que não está no dashboard não faz sentido para o negócio. Isso altera a regra do RF-54 do documento (\"pode ser qualquer indicador cadastrado, mesmo fora do dashboard\"), que fica substituída por esta decisão; a API continua aceitando qualquer indicador e a restrição fica no front. Na edição, a base gravada só é mostrada se estiver entre os vinculados; dashboards antigos com base fora deles abrem com o campo vazio e exigem escolher um dos vinculados. Testes criados: ordem na edição, opções restritas com a base gravada, base fora dos vinculados (unitário e integração com o PUT levando o id escolhido) e remover a base na edição. Nenhum teste removido."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Indicador base da faixa e fórmula abaixo dos indicadores vinculados; indicador base só entre os indicadores vinculados (decisão do usuário, altera o RF-54); 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Bug relatado pelo usuário em 05/11/2026: ao editar um dashboard vinculado por filial, a filial vinculada não aparecia e salvar dava erro. Causa confirmada com a resposta real de GET /api/ped/dashboards/{id}: \"itens vinculados\" traz rótulos de exibição ([\"100 - Filial 100\"]) e \"vinculos\" traz os códigos ([{ \"filial\": \"100\" }]); o serviço ignorava \"vinculos\" e o formulário iniciava o vínculo com itensVinculados, então o rótulo não casava com a lista de filiais e, ao escolher a filial de novo, o PUT ia com [\"100 - Filial 100\", \"100\"] e a API recusava (o corpo do POST/PUT espera códigos: filiais = códigos, cargos = nomes, colaboradores = ids — API (24).md). Motivação: a edição precisa partir dos códigos que a API usa no envio; os rótulos da listagem servem só para exibição. Nova regra na edição: o vínculo inicial usa DetalheDashboard.codigosVinculados (F7.1), não itensVinculados; código fora da lista carregada aparece pelo próprio código em vez de sumir (antes o SecaoVinculo escondia item desconhecido da lista \"… escolhidos\", mas o mantinha no valor enviado). Testes em src/pages/dashboards/FormularioDashboard.edicao.test.tsx: GERENTES e SUPERVISORES ganham codigosVinculados; criados filial 100 escolhida como \"100 - MATRIZ\" a partir do detalhe real, salvar sem mexer com [\"100\"], escolher outra filial sem duplicar, código desconhecido exibido e enviado, código desconhecido removido, colaboradores e cargos com rótulos diferentes dos códigos. Em src/pages/dashboards/DashboardsPage.edicao.integration.test.tsx: criados, com a listagem e o detalhe reais, filial 100 escolhida, PUT sem mudança com \"itens vinculados\": [\"100\"] (corpo completo, sem rótulo) e escolher outra filial com [\"100\", \"101\"]. Nenhum teste removido."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Correção concluída: a edição de dashboard parte dos códigos de \"vinculos\" do detalhe (codigosVinculados), não dos rótulos de \"itens vinculados\"; item fora da lista aparece pelo código; 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F7.9",
+      "titulo": "Pesos dos indicadores e histórico de modificações",
+      "descricao": "RF-48, RF-57, RNF-01 — src/pages/dashboards/PesosDashboard.tsx: PesosDashboard({ dashboard }) consulta obterDashboard(id) ao montar; \"Carregando pesos dos indicadores...\" (role status); erro com EstadoCarga (\"Tentar novamente\" repete); <ul aria-label=\"Pesos dos indicadores de {nome}\"> com um item por indicador (nome e \"{pontos} pts\", 2 casas quando decimal) e etiqueta com o problema (ou \"Indicador inativo\" quando inativo sem problema); \"Total: {soma} de {máximo} pts\"; \"Período atual: {codigo} (dd/mm/aaaa a dd/mm/aaaa)\"; sem indicadores: \"Nenhum indicador vinculado.\". Na TabelaDashboards, \"Ver pesos dos indicadores\" abre os pesos na linha expandida abaixo (Tabela com expandidas; várias abertas) e o item vira \"Ocultar pesos\". src/pages/dashboards/DialogoHistoricoDashboard.tsx: DialogoHistoricoDashboard({ dashboard | null, onFechar }) — Dialogo \"Histórico de modificações\" com descricao = nome; consulta listarHistoricoDashboard ao abrir; \"Carregando histórico...\"; erro com \"Tentar novamente\"; Historico com legenda \"Modificações de {nome}\" (lista na ordem da API): data, ação (acaoDescricao ou cadastro \"Cadastro\", edicao \"Edição\", desativado \"Desativado\", reativado \"Reativado\", concluida \"Construção/Modificação concluída\"), usuário e detalhes = alterações + \"Tarefa nº {n}\" + \"Observação: {texto}\"; vazio \"Nenhum registro de modificação para este dashboard.\"; somente leitura (só o botão Fechar).",
+      "status": "implementado",
+      "testes": [
+        "src/pages/dashboards/PesosDashboard.test.tsx",
+        "src/pages/dashboards/DialogoHistoricoDashboard.test.tsx",
+        "src/pages/dashboards/DashboardsPage.historico.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-05",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade da Fase 7 do plano. Pesos como linha expansível (protótipo: \"Ver pesos\"/\"Ocultar pesos\"), carregados do detalhe da API sob demanda. Histórico reaproveita o componente Historico (F1.11), com tarefa e observação nos detalhes."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Implementação concluída (serviço, tela, tabela com menu de ações, formulário com vínculo, indicadores, prévia e edição, pesos, histórico e diálogos de situação, conclusão e exclusão); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F7.10",
+      "titulo": "Ativar/desativar, concluir e excluir dashboard",
+      "descricao": "RF-48, RF-58, RF-59, RN-17, RN-18, RNF-07 — DialogoSituacaoDashboard({ dashboard | null, alterando, onConfirmar, onCancelar }) sobre DialogoConfirmacao: ativo → \"Desativar dashboard\", \"O dashboard “{nome}” sai do Início e dos Fechamentos, e seus períodos não podem ser encerrados enquanto estiver inativo. Imagens congeladas e lançamentos são mantidos.\", botão \"Desativar\"; inativo → \"Ativar dashboard\", \"O dashboard “{nome}” volta ao Início e aos Fechamentos a partir do período atual ({periodoAtual}).\", botão \"Ativar\". DialogoConcluirDashboard({ dashboard | null, concluindo, onConfirmar, onCancelar }): em_construcao → \"Concluir construção\", \"Confirme que a TI concluiu a construção do dashboard “{nome}”. Ele passa a ficar ativo.\"; em_modificacao → \"Concluir modificação\", \"Confirme que a TI concluiu a modificação do dashboard “{nome}”. Ele volta à situação anterior à modificação.\"; \"Tarefa nº {id}\" quando há tarefa; botão \"Concluir\". DialogoExcluirDashboard({ dashboard | null, excluindo, onConfirmar, onCancelar }): \"Excluir dashboard\", \"O dashboard “{nome}” será excluído, com a composição, os vínculos e o histórico de modificações. As imagens congeladas já geradas são mantidas.\", botão \"Excluir\" (perigo). Botões de confirmar desabilitados durante a ação; Cancelar/Esc → onCancelar. useDashboards: alterarSituacao(id, ativo) e concluir(id) trocam o item pela versão da API (ou o removem se sair do filtro de situação via correspondeASituacao: ativos = ativo, inativos = inativo, construcao = em_construcao/em_modificacao, problemas = ativo com alertas) sem nova consulta; resposta 2xx sem dashboard → recarregar() e resolve null; excluir(id) remove o item; falhas rejeitam com a ApiError original sem alterar a lista. DashboardsPage: confirmações via useAcoesSituacaoExclusao (situação/exclusão) e useAcaoConfirmada (concluir); notificações \"Situação do dashboard alterada.\", \"Conclusão registrada.\", \"Dashboard excluído.\"; erro: diálogo fecha e Aviso de erro com a mensagem da API, linha mantida, sem notificação. No DialogoConcluirDashboard, \"Tarefa nº {id}\" só quando há tarefa com id não nulo (alteração de 05/11/2026).",
+      "status": "implementado",
+      "testes": [
+        "src/pages/dashboards/DialogoSituacaoDashboard.test.tsx",
+        "src/pages/dashboards/DialogoConcluirDashboard.test.tsx",
+        "src/pages/dashboards/DialogoExcluirDashboard.test.tsx",
+        "src/pages/dashboards/useDashboards.acoes.test.tsx",
+        "src/pages/dashboards/DashboardsPage.acoes.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-05",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade da Fase 7 do plano. Mesmo padrão de confirmação das abas anteriores (useAcaoConfirmada, um aviso de erro por vez). Textos de impacto a partir do RF-58, RF-59, RN-18 e do protótipo. Exclusão só do Admin (sem bloqueio no front: o documento não prevê impedimento)."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Implementação concluída (serviço, tela, tabela com menu de ações, formulário com vínculo, indicadores, prévia e edição, pesos, histórico e diálogos de situação, conclusão e exclusão); 100% dos testes do requisito passando."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Bug relatado pelo usuário em 05/11/2026: a aba Dashboards mostrava \"Resposta inválida do servidor.\", mas a API devolvia os dados. Causa: em GET /api/ped/dashboards a \"tarefa bitrix\" vem com \"id\": null enquanto a tarefa só está registrada localmente (status \"aguardando_envio\"), antes da fase do Bitrix24; o validador exigia id numérico e um item inválido rejeita a lista inteira. O mesmo validador existe em dadosExternosService (um dado externo em construção com tarefa sem número derrubaria a aba Dados Externos). Motivação: o documento (seção Bitrix24) e o plano já preveem que o número da tarefa só aparece quando a API o devolver. Nova regra: \"tarefa bitrix\" é válida com id numérico ou null (status e título continuam obrigatórios em texto); tarefa sem título, com título não textual, id em texto ou tarefa em texto solto continuam rejeitando. Efeito na tela: DialogoConcluirDashboard mostrava \"Tarefa nº {id}\" sempre que havia tarefa (exibiria \"Tarefa nº null\"). Teste criado em DialogoConcluirDashboard.test.tsx: tarefa com id null abre o diálogo sem \"Tarefa nº\"."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Correção concluída: tarefa Bitrix aceita com id nulo (tarefa só registrada) nas leituras de dashboards e dados externos; \"Tarefa nº\" só aparece com número; 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F8.1",
+      "titulo": "Serviço de faixas",
+      "descricao": "RF-41 a RF-46 — src/services/faixasService.ts (rotas da API (24).md, \"fase 5: faixas\"). Usa os tipos Faixa, TabelaFaixas e NovaTabelaFaixas de src/types/dominio.ts e paraTabelaFaixas/paraCorpoNovaTabelaFaixas de adaptadores.ts. Exporta os tipos FiltrosFaixas { filial?: string; dashboard?: number }, AlteracaoFaixas { motivo: string; faixas: Faixa[] } e VersaoFaixas { versao: number; vigente: boolean; motivo: string; data: string; usuario: string; quantidadeDeFaixas: number | null }. Funções: listarTabelasFaixas(filtros?) — GET /api/ped/faixas (filial \"todas\"/vazia/undefined e dashboard undefined omitidos da query; lista pura ou { tabelas }; estrita: item sem id, \"id dashboard\", dashboard, filial, \"nome filial\" ou \"versao vigente\" numérica, faixas fora de lista, faixa sem de/ate/aliquota numéricos ou \"dashboard excluido\" não booleano rejeitam a resposta inteira com ApiError(200, MENSAGEM_RESPOSTA_INVALIDA); filial numérica vira texto; valores das faixas em texto decimal canônico (\"1000.00\") viram número, texto pt-BR (\"1.000,00\") é inválido; opcionais ausentes viram null/false/[] e quantidade = tamanho da lista); obterTabelaFaixas(id) — GET .../{id} (raiz, { tabela } ou { faixa }; estrita); criarTabelaFaixas(dados: NovaTabelaFaixas) — POST /api/ped/faixas com { dashboard, filial, descricao (null quando ausente), faixas numéricas } e alterarFaixas(id, { motivo, faixas }) — PUT .../{id} com { motivo, faixas }, ambos com a regra \"2xx = gravado\": tabela válida na raiz, em { tabela } ou em { faixa } é convertida; 2xx sem tabela reconhecível (vazio, 204, só mensagem, { id }, lista, texto, incompleta) resolve null sem erro; listarHistoricoFaixas(id) — GET .../{id}/historico (lista pura ou { historico }; estrita; \"quantidade de faixas\" ausente → null); obterFaixasDaVersao(id, versao) — GET .../{id}/versoes/{versao} (objeto com faixas ou lista pura de faixas; estrita; devolve Faixa[]); excluirTabelaFaixas(id) — DELETE .../{id}, resolve sem valor em qualquer 2xx (204, 200 com ou sem corpo). Erros HTTP (400, 403, 404, 500) e de rede chegam como ApiError com a mensagem da API ou a padrão. Fixture compartilhada: src/test/faixasFalsos.ts (4 tabelas — PED Comercial 101 v2 e 102 v1, PED Gerentes 100 v1, PED Antigo 101 v3 de dashboard excluído —, histórico e versões da tabela 1 e o back-end falso criarApiFaixasFalsa()).",
+      "status": "implementado",
+      "testes": [
+        "src/services/faixasService.test.ts",
+        "src/services/faixasService.versoes.test.ts"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-05",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F8.1 do plano. Regra \"2xx = gravado\" desde o início em POST, PUT e DELETE (lição da F4.7*/F5.11*); leituras estritas. Formatos não documentados assumidos: lista em { tabelas }, envelopes { tabela }/{ faixa }, versão como objeto com faixas ou lista pura, valores decimais podendo vir como texto canônico (cast decimal do Laravel). As faixas são enviadas como números já convertidos pelo front (evita a leitura de \"2.000\" como 2 pela API)."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Implementação concluída (serviço, lista de tabelas com menu de ações, nova tabela com validação das linhas, alteração com nova versão e motivo, histórico de versões e exclusão); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F8.2",
+      "titulo": "Aba Faixas: tabelas da filial, versão vigente e faixas",
+      "descricao": "RF-41, RNF-03 — Permissões novas em src/sessao/permissoes.ts (AcaoPermissao): cadastrar-faixas, alterar-faixas, ver-historico-faixas e excluir-faixas, todas para Admin e Validador (documento: Validador com todas as ações de Faixas — P-04; o acesso do Validador às outras filiais depende de A-04 na API, sem bloquear o front). src/pages/faixas/regrasFaixas.ts exporta nomeTabelaFaixas(tabela) = \"{dashboard} · Filial {filial}\" (sem a descrição). src/pages/faixas/ListaTabelasFaixas.tsx — props { tabelas: TabelaFaixas[]; podeAlterar; podeVerHistorico; podeExcluir; onAlterar(t); onVerHistorico(t); onExcluir(t); textoVazio: string }: Tabela com legenda \"Tabelas de faixas\" e colunas Dashboard (nome, descrição e Etiqueta \"Dashboard excluído\" quando dashboardExcluido), Filial (\"{código} - {nome}\"), Versão vigente (\"v{n}\" e \"{dd/mm/aaaa hh:mm} por {autor}\", sem o texto quando não há data/autor), Faixas (\"1 faixa\"/\"N faixas\") e Ações; MenuAcoes por tabela com rótulo \"Ações da tabela de faixas {nome}\" (src/test/menuAcoes.ts: rotuloAcoesTabelaFaixas) e itens \"Ver faixas\"/\"Ocultar faixas\" (sempre), \"Alterar faixas\" (podeAlterar), \"Histórico de versões\" (podeVerHistorico) e \"Excluir tabela\" (podeExcluir, perigo; presente também em tabela de dashboard existente — o bloqueio é explicado no diálogo, F8.6). \"Ver faixas\" abre abaixo da linha a tabela \"Faixas vigentes de {nome}\" com De (R$) e Até (R$) em formatarMoeda e Alíquota (%) em formatarPercentual; expansão interna, várias abertas, segue as faixas recebidas. FaixasPage.tsx substitui o placeholder: h1 \"Faixas\"; consulta listarTabelasFaixas com a filial do cabeçalho (useSessao().filialSelecionada: \"todas\" → sem query; filial → ?filial={código}) e reconsulta quando a filial muda; EstadoCarga (erro com \"Tentar novamente\", tabela oculta enquanto há erro); vazio \"Nenhuma tabela de faixas cadastrada.\" (todas) ou \"Nenhuma tabela de faixas para a filial {código}.\"; botão \"Nova tabela de faixas\" com cadastrar-faixas. 403 da API (Validador fora da própria filial) aparece como a mensagem da API; 401 volta ao login. Preenchedor não acessa /faixas (volta ao Início sem consultar). Hook da página livre (sugestão: useFaixas sobre useConsulta).",
+      "status": "implementado",
+      "testes": [
+        "src/sessao/permissoes.faixas.test.ts",
+        "src/pages/faixas/regrasFaixas.nome.test.ts",
+        "src/pages/faixas/ListaTabelasFaixas.test.tsx",
+        "src/pages/faixas/FaixasPage.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-05",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F8.2 do plano. A escolha da tabela (RF-41) segue o padrão das outras abas — Tabela com MenuAcoes por linha e \"Ver faixas\" abrindo as faixas abaixo da linha — em vez do dropdown único do protótipo, como pedido pelo orquestrador (\"ações por tabela num MenuAcoes\"). Validador com as mesmas ações do Admin em todas as filiais (documento prevalece; A-04)."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Implementação concluída (serviço, lista de tabelas com menu de ações, nova tabela com validação das linhas, alteração com nova versão e motivo, histórico de versões e exclusão); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F8.3",
+      "titulo": "Nova tabela de faixas",
+      "descricao": "RF-42, RF-43, RN-14 — src/pages/faixas/regrasFaixas.ts: LinhaFaixaEditavel { de: string; ate: string; aliquota: string }, linhaFaixaVazia(), validarLinhasFaixas(linhas) → { erro: null, faixas: Faixa[] } | { erro: string, faixas: null }, lendo com lerDecimal (vírgula decimal, ponto de milhar; \"2.000\" = 2000), na ordem exibida e informando só a primeira linha com problema. Mensagens: \"Adicione ao menos uma faixa.\"; \"Preencha De, Até e Alíquota da faixa N.\" (vazio ou só espaços); \"Informe números válidos na faixa N (ex.: 1.000,50).\"; \"Os valores da faixa N não podem ser negativos.\" (De negativo); \"A alíquota da faixa N não pode ser negativa.\"; \"Na faixa N, o valor “De” deve ser menor que “Até”.\"; \"A faixa N deve começar acima do limite da faixa N-1.\" (começar no Até anterior ou abaixo). Lacunas permitidas; sem limite superior de alíquota (documento só exige não negativa). src/pages/faixas/EditorFaixas.tsx — props { linhas: LinhaFaixaEditavel[]; onChange(linhas); desabilitado? }: cabeçalhos \"De (R$)\", \"Até (R$)\", \"Alíquota (%)\"; campos de texto com inputmode=\"decimal\" e rótulos \"De, faixa N\", \"Até, faixa N\", \"Alíquota, faixa N\"; botão \"+ Adicionar faixa\" (linha vazia no fim) e \"Remover faixa N\" (desabilitado com uma só linha; renumera). src/pages/faixas/FormularioTabelaFaixas.tsx — props { dashboards: Dashboard[]; tabelas: TabelaFaixas[]; filialFixa: Filial | null; filiais: Filial[]; salvando; erro: string | null; onSalvar(dados: NovaTabelaFaixas); onCancelar }: Select \"Dashboard\" obrigatório (opções = nomes, inicia em \"Selecione\"); Select \"Filial\" obrigatório só quando filialFixa é null (opções \"{código} - {nome}\", inicia em \"Selecione\"), senão o texto \"Filial {código} - {nome}\"; Campo \"Descrição (opcional)\"; EditorFaixas iniciando com uma linha vazia; erros \"Selecione o dashboard.\" e \"Selecione a filial.\" nos campos; erro das linhas como alerta; erro da API como alerta; com dashboard + filial que já têm tabela (em `tabelas`), mostra \"Já existe uma tabela de faixas para este dashboard nesta filial. Para mudar os valores, use “Alterar faixas” nela — o histórico de versões é mantido.\" e desabilita \"Salvar tabela de faixas\"; onSalvar com { dashboard: id, filial, descricao (aparada; vazia → null), faixas numéricas }; \"Cancelar\". FaixasPage: \"Nova tabela de faixas\" abre o Dialogo \"Nova tabela de faixas\" (dialogo--largo), carrega listarDashboards() ao abrir (erro como alerta no diálogo com \"Tentar novamente\"), passa as tabelas carregadas, a filial do cabeçalho (filialFixa) e acesso.filiais; POST via criarTabelaFaixas; sucesso (qualquer 2xx) fecha, notifica \"Tabela de faixas cadastrada.\" e recarrega a lista; erro da API fica no diálogo aberto, com os dados.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/faixas/regrasFaixas.test.ts",
+        "src/pages/faixas/EditorFaixas.test.tsx",
+        "src/pages/faixas/FormularioTabelaFaixas.test.tsx",
+        "src/pages/faixas/FaixasPage.cadastro.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-05",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F8.3 do plano. Textos e estrutura do protótipo (fxModal e validaFaixas); validações conforme o RF-43 e a API (começar acima do Até anterior; sem negativos). Não testados por não constarem no documento: proibição de lacunas e limite de 100% na alíquota (ver dúvidas). Orientação de tabela existente calculada no front a partir das tabelas já carregadas, com o salvar desabilitado."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Implementação concluída (serviço, lista de tabelas com menu de ações, nova tabela com validação das linhas, alteração com nova versão e motivo, histórico de versões e exclusão); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F8.4",
+      "titulo": "Alterar faixas (nova versão)",
+      "descricao": "RF-44, RF-43, RN-14 — src/pages/faixas/regrasFaixas.ts: paraLinhasEditaveis(faixas: Faixa[]) → LinhaFaixaEditavel[] com formatarNumero 2 casas (\"1.000,01\", \"1,50\"); ida e volta com validarLinhasFaixas devolve as mesmas faixas. src/pages/faixas/FormularioAlterarFaixas.tsx — props { tabela: TabelaFaixas; salvando; erro: string | null; onSalvar(dados: AlteracaoFaixas); onCancelar }: mostra o nome da tabela (\"{dashboard} · Filial {filial}\") e \"Alterando faixas — será gerada a versão v{versaoVigente + 1}\"; EditorFaixas iniciando com as faixas vigentes; Campo \"Motivo da alteração\" obrigatório, placeholder \"Obrigatório — fica registrado no histórico\"; mesmas validações das linhas (alerta) e \"Informe o motivo da alteração.\" (vazio ou só espaços); onSalvar com { motivo aparado, faixas numéricas }; botões \"Cancelar\" e \"Salvar nova versão\" (desabilitado durante a gravação); erro da API como alerta. FaixasPage: \"Alterar faixas\" (menu, alterar-faixas) abre o Dialogo \"Alterar faixas\" (dialogo--largo); PUT via alterarFaixas; sucesso (qualquer 2xx) fecha, notifica \"Nova versão das faixas salva. A versão anterior permanece no histórico.\" e recarrega a lista (a linha mostra a nova versão); erro (400, rede) fica no diálogo aberto.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/faixas/regrasFaixas.edicao.test.ts",
+        "src/pages/faixas/FormularioAlterarFaixas.test.tsx",
+        "src/pages/faixas/FaixasPage.alteracao.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-05",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F8.4 do plano. Alteração em diálogo largo (padrão das abas), e não inline como no protótipo; textos do protótipo (\"Alterando faixas — será gerada a versão vN\", \"Motivo da alteração\", \"Salvar nova versão\", mensagem de sucesso). Faixas iguais às vigentes não são bloqueadas no front (regra só da API; a mensagem da API é exibida)."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Implementação concluída (serviço, lista de tabelas com menu de ações, nova tabela com validação das linhas, alteração com nova versão e motivo, histórico de versões e exclusão); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F8.5",
+      "titulo": "Histórico de versões das faixas",
+      "descricao": "RF-45, RNF-01 — src/pages/faixas/DialogoHistoricoFaixas.tsx — props { tabela: TabelaFaixas | null; onFechar }: com null não renderiza nem consulta; Dialogo \"Histórico de versões\" com o nome da tabela; consulta sozinho listarHistoricoFaixas(tabela.id) ao abrir (\"Carregando histórico...\"; erro com \"Tentar novamente\"; vazio \"Nenhuma versão registrada.\"); Tabela \"Versões\" com colunas Versão (\"v{n}\" e Etiqueta \"Vigente\" na vigente), Motivo, Data (dd/mm/aaaa hh:mm), Autor, Faixas (\"N faixas\") e Ações, na ordem da API; botão \"Ver faixas da versão v{n}\"/\"Ocultar faixas da versão v{n}\" que consulta obterFaixasDaVersao(id, n) uma só vez por versão e mostra a tabela \"Faixas da versão v{n}\" (De (R$), Até (R$) em reais, Alíquota (%)); várias abertas ao mesmo tempo; erro da versão como alerta sem fechar o histórico; somente leitura (sem editar/excluir); \"Fechar\"/Esc → onFechar. FaixasPage: item \"Histórico de versões\" do menu (ver-historico-faixas) abre o diálogo.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/faixas/DialogoHistoricoFaixas.test.tsx",
+        "src/pages/faixas/FaixasPage.historico.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-05",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F8.5 do plano. Histórico em diálogo próprio que consulta sozinho, como o DialogoHistoricoMetas (F6.8), em vez da lista inline do protótipo; \"ver as faixas de cada versão\" pela rota GET .../versoes/{versao}."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Implementação concluída (serviço, lista de tabelas com menu de ações, nova tabela com validação das linhas, alteração com nova versão e motivo, histórico de versões e exclusão); 100% dos testes do requisito passando."
+        }
+      ]
+    },
+    {
+      "id": "F8.6",
+      "titulo": "Excluir tabela de faixas",
+      "descricao": "RF-46, RN-18, RNF-07 — src/pages/faixas/DialogoExcluirTabelaFaixas.tsx — props { tabela: TabelaFaixas | null; excluindo; onConfirmar; onCancelar } sobre DialogoConfirmacao, título \"Excluir tabela de faixas\": tabela de dashboard excluído (dashboardExcluido) → impacto \"A tabela de faixas de “{nome}” e o seu histórico de versões serão excluídos. Imagens já congeladas mantêm as faixas vigentes no fechamento.\", botões \"Cancelar\" e \"Excluir\" (perigo-cheio, desabilitado durante a exclusão); tabela de dashboard existente → bloqueio \"Esta tabela pertence a um dashboard existente e não pode ser excluída — use “Alterar faixas” para gerar uma nova versão.\" só com \"Entendi\" (onCancelar). FaixasPage: item \"Excluir tabela\" do menu (excluir-faixas, Admin e Validador) via useAcaoConfirmada; DELETE via excluirTabelaFaixas só na confirmação; sucesso notifica \"Tabela de faixas excluída.\" e a linha sai; erro fecha o diálogo e mostra Aviso de erro na página com a mensagem da API, linha mantida; clique duplo gera um único DELETE; bloqueada não chama a API.",
+      "status": "implementado",
+      "testes": [
+        "src/pages/faixas/DialogoExcluirTabelaFaixas.test.tsx",
+        "src/pages/faixas/FaixasPage.exclusao.integration.test.tsx"
+      ],
+      "historico": [
+        {
+          "data": "2026-11-05",
+          "alteracao": "Criação do requisito (TDD) a partir da atividade F8.6 do plano. Regra do documento e da API (só tabela de dashboard excluído) decidida no front pelo campo \"dashboard excluido\", com o diálogo de bloqueio do RNF-07 (textos do protótipo); exclusão para Admin e Validador (matriz do documento, P-04)."
+        },
+        {
+          "data": "2026-11-05",
+          "alteracao": "Implementação concluída (serviço, lista de tabelas com menu de ações, nova tabela com validação das linhas, alteração com nova versão e motivo, histórico de versões e exclusão); 100% dos testes do requisito passando."
         }
       ]
     }

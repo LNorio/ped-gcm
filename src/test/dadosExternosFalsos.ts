@@ -12,6 +12,8 @@
  *
  * `indicadores` é a lista de NOMES em texto, como a API devolve na listagem (ex.: `["teste externo"]`).
  * `RESPOSTA_REAL_LISTAGEM_API` é a resposta real colada pelo usuário em 05/11/2026 (bug da aba).
+ * `DADO_TAREFA_SEM_NUMERO_API` é um dado em construção com a tarefa registrada e ainda sem número no
+ * Bitrix24 (`"tarefa bitrix": { "id": null, ... }`), como a API devolve antes da integração.
  *
  * `rotaListarDadosExternos` reproduz a filtragem da API (busca e situação) a partir da query string.
  *
@@ -26,7 +28,8 @@ import type { RotaFalsa } from './apiFalsa'
 import { respostaJson } from './apiFalsa'
 
 export interface TarefaBitrixApiFalsa {
-  id: number
+  /** `null` enquanto a tarefa só está registrada localmente (`aguardando_envio`), antes do Bitrix24. */
+  id: number | null
   status: string
   titulo: string
 }
@@ -303,6 +306,38 @@ export const RESPOSTA_REAL_LISTAGEM_API: DadoExternoApiFalso[] = [
     'situacao alterada por': null,
   },
 ]
+
+/**
+ * Em construção (TI) com a tarefa registrada localmente e ainda sem número no Bitrix24
+ * (`"tarefa bitrix": { "id": null, "status": "aguardando_envio", ... }`). Fora da lista padrão.
+ */
+export const DADO_TAREFA_SEM_NUMERO_API: DadoExternoApiFalso = {
+  id: 7,
+  nome: 'Bonificações pagas',
+  'id tipo': 2,
+  tipo: 'Financeiro',
+  situacao: 'em_construcao',
+  'situacao descricao': 'Em construcao (TI)',
+  'tarefa bitrix': { id: null, status: 'aguardando_envio', titulo: '[PED] Construir dado externo: Bonificações pagas' },
+  'sistema de origem': 'senior_hcm',
+  'sistema de origem descricao': 'Senior HCM',
+  identificador: null,
+  'campo calculo': 'Soma das bonificações pagas no mês, por colaborador.',
+  referencia: 'colaborador',
+  coleta: 'diaria',
+  'dia da coleta': null,
+  'coleta descricao': 'Diaria',
+  'sentido do calculo': 'soma',
+  'janela retroativa': 1,
+  comentarios: null,
+  'tipo de valor': 'Numeral',
+  'coleta disponivel': false,
+  indicadores: [],
+  'cadastrado em': '2026-11-05 16:30:00-04:00',
+  'cadastrado por': 'master',
+  'situacao alterada em': null,
+  'situacao alterada por': null,
+}
 
 export const NOMES_DADOS_EXTERNOS = [
   'Faturamento líquido',

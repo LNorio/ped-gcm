@@ -6,6 +6,7 @@ import { TIPOS_DO_USUARIO_API } from '../../test/apontamentosFalsos'
 import { MENSAGEM_RESPOSTA_INVALIDA } from '../../services/api'
 import {
   DADO_FATURAMENTO_API,
+  DADO_TAREFA_SEM_NUMERO_API,
   NOMES_DADOS_EXTERNOS,
   RESPOSTA_REAL_LISTAGEM_API,
   dadosExternosApi,
@@ -74,6 +75,20 @@ describe('F5.2 — Listagem de dados externos (integração: /dados-externos com
 
     expect(within(tabela).getByText('teste')).toBeInTheDocument()
     expect(within(tabela).getByText('teste 2')).toBeInTheDocument()
+    expect(screen.queryByText(MENSAGEM_RESPOSTA_INVALIDA)).not.toBeInTheDocument()
+  })
+
+  it('dado em construção com "tarefa bitrix" sem número (id null): a tabela carrega, sem "Resposta inválida do servidor." e sem "Tarefa nº" na linha', async () => {
+    simularSessao('admin', [...dadosExternosApi(), DADO_TAREFA_SEM_NUMERO_API])
+    renderizarApp('/dados-externos')
+
+    const tabela = await screen.findByRole('table', { name: 'Dados externos' })
+
+    for (const nome of NOMES_DADOS_EXTERNOS) expect(within(tabela).getByText(nome)).toBeInTheDocument()
+    const linha = within(tabela).getByText('Bonificações pagas').closest('tr')!
+    expect(within(linha).getByText('Em construção (TI)')).toBeInTheDocument()
+    expect(within(linha).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
+    expect(within(tabela).getByText('Tarefa nº 1044')).toBeInTheDocument()
     expect(screen.queryByText(MENSAGEM_RESPOSTA_INVALIDA)).not.toBeInTheDocument()
   })
 

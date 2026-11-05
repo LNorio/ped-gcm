@@ -98,6 +98,15 @@ export function podeAcessar(perfil: Perfil | null, aba: Aba): boolean {
  * | alterar-situacao-indicador    |   x   |     x     |             |
  * | excluir-indicador             |   x   |     x     |             |
  * | ver-historico-metas-indicador |   x   |     x     |             |
+ * | cadastrar-dashboard           |   x   |     x     |             |
+ * | editar-dashboard              |   x   |     x     |             |
+ * | alterar-situacao-dashboard    |   x   |           |             |
+ * | concluir-dashboard            |   x   |           |             |
+ * | excluir-dashboard             |   x   |           |             |
+ * | cadastrar-faixas              |   x   |     x     |             |
+ * | alterar-faixas                |   x   |     x     |             |
+ * | ver-historico-faixas          |   x   |     x     |             |
+ * | excluir-faixas                |   x   |     x     |             |
  */
 export type AcaoPermissao =
   | 'excluir-tipo'
@@ -112,6 +121,15 @@ export type AcaoPermissao =
   | 'alterar-situacao-indicador'
   | 'excluir-indicador'
   | 'ver-historico-metas-indicador'
+  | 'cadastrar-dashboard'
+  | 'editar-dashboard'
+  | 'alterar-situacao-dashboard'
+  | 'concluir-dashboard'
+  | 'excluir-dashboard'
+  | 'cadastrar-faixas'
+  | 'alterar-faixas'
+  | 'ver-historico-faixas'
+  | 'excluir-faixas'
 
 /** Matriz de ações: perfis autorizados por ação. Único ponto que conhece essa regra. */
 const PERFIS_POR_ACAO: Readonly<Record<AcaoPermissao, readonly Perfil[]>> = {
@@ -127,6 +145,15 @@ const PERFIS_POR_ACAO: Readonly<Record<AcaoPermissao, readonly Perfil[]>> = {
   'alterar-situacao-indicador': ['admin', 'validador'],
   'excluir-indicador': ['admin', 'validador'],
   'ver-historico-metas-indicador': ['admin', 'validador'],
+  'cadastrar-dashboard': ['admin', 'validador'],
+  'editar-dashboard': ['admin', 'validador'],
+  'alterar-situacao-dashboard': ['admin'],
+  'concluir-dashboard': ['admin'],
+  'excluir-dashboard': ['admin'],
+  'cadastrar-faixas': ['admin', 'validador'],
+  'alterar-faixas': ['admin', 'validador'],
+  'ver-historico-faixas': ['admin', 'validador'],
+  'excluir-faixas': ['admin', 'validador'],
 }
 
 /** Indica se o perfil pode executar a ação. `null` nunca pode. */

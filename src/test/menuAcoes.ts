@@ -16,6 +16,9 @@ export const rotuloAcoesApontamento = (nome: string) => `Ações do apontamento 
 /** Rótulo do gatilho do menu de ações de um indicador (F6.2). */
 export const rotuloAcoesIndicador = (nome: string) => `Ações do indicador ${nome}`
 
+/** Rótulo do gatilho do menu de ações de um dashboard (F7.3). */
+export const rotuloAcoesDashboard = (nome: string) => `Ações do dashboard ${nome}`
+
 /** Abre o menu pelo gatilho com o nome informado e devolve o elemento `role="menu"`. */
 export async function abrirMenuAcoes(user: Usuario, rotulo: string, escopo: HTMLElement = document.body) {
   await user.click(within(escopo).getByRole('button', { name: rotulo }))
@@ -50,3 +53,9 @@ export async function escolherAcao(user: Usuario, rotulo: string, item: string, 
   const menu = await abrirMenuAcoes(user, rotulo, escopo)
   await user.click(within(menu).getByRole('menuitem', { name: item }))
 }
+
+/**
+ * Rótulo do gatilho do menu de ações de uma tabela de faixas (F8.2); `nome` é o nome da tabela,
+ * "{dashboard} · Filial {filial}" (ex.: "PED Comercial · Filial 101").
+ */
+export const rotuloAcoesTabelaFaixas = (nome: string) => `Ações da tabela de faixas ${nome}`

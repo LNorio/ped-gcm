@@ -4,6 +4,7 @@ import {
   DADO_CHAMADOS_API,
   DADO_DEVOLUCOES_API,
   DADO_FATURAMENTO_API,
+  DADO_TAREFA_SEM_NUMERO_API,
   DADO_VOLUME_API,
   dadosExternosApi,
   identificadoresApi,
@@ -194,6 +195,42 @@ describe('F5.1 — Serviço de dados externos', () => {
       ])
     })
 
+    it('dado em construção com "tarefa bitrix" sem número (id null) é convertido, com tarefaBitrix.id null, sem derrubar a lista', async () => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}`]: () => respostaJson(respostaDadosExternosApi([DADO_FATURAMENTO_API, DADO_TAREFA_SEM_NUMERO_API])),
+      })
+
+      const dados = await listarDadosExternos()
+
+      expect(dados.map((d) => d.nome)).toEqual(['Faturamento líquido', 'Bonificações pagas'])
+      expect(dados[1]).toEqual({
+        id: 7,
+        nome: 'Bonificações pagas',
+        idTipo: 2,
+        tipo: 'Financeiro',
+        situacao: 'em_construcao',
+        situacaoDescricao: 'Em construcao (TI)',
+        tarefaBitrix: { id: null, status: 'aguardando_envio', titulo: '[PED] Construir dado externo: Bonificações pagas' },
+        sistemaOrigem: 'senior_hcm',
+        identificador: null,
+        campoCalculo: 'Soma das bonificações pagas no mês, por colaborador.',
+        referencia: 'colaborador',
+        coleta: 'diaria',
+        diaDaColeta: null,
+        coletaDescricao: 'Diaria',
+        sentidoCalculo: 'soma',
+        janelaRetroativa: 1,
+        comentarios: null,
+        tipoValor: 'numeral',
+        coletaDisponivel: false,
+        indicadores: [],
+        cadastradoEm: '2026-11-05 16:30:00-04:00',
+        cadastradoPor: 'master',
+        situacaoAlteradaEm: null,
+        situacaoAlteradaPor: null,
+      })
+    })
+
     it('lista vazia resolve []', async () => {
       simularApi(fetchFalso, { [`GET ${ROTA}`]: () => respostaJson(respostaDadosExternosApi([])) })
 
@@ -225,6 +262,10 @@ describe('F5.1 — Serviço de dados externos', () => {
       ['com sentido do cálculo desconhecido', { ...DADO_FATURAMENTO_API, 'sentido do calculo': 'maximo' }],
       ['com tipo de valor desconhecido', { ...DADO_FATURAMENTO_API, 'tipo de valor': 'Texto' }],
       ['com indicador em forma de objeto { id, nome }', { ...DADO_FATURAMENTO_API, indicadores: [{ id: 5, nome: 'Volume mensal' }] }],
+      ['com tarefa sem título', { ...DADO_TAREFA_SEM_NUMERO_API, 'tarefa bitrix': { id: null, status: 'aguardando_envio' } }],
+      ['com tarefa com título não textual', { ...DADO_TAREFA_SEM_NUMERO_API, 'tarefa bitrix': { id: 9, status: 'aguardando_envio', titulo: 42 } }],
+      ['com tarefa com número em texto', { ...DADO_TAREFA_SEM_NUMERO_API, 'tarefa bitrix': { id: '9', status: 'aguardando_envio', titulo: 'T' } }],
+      ['com tarefa como texto solto', { ...DADO_TAREFA_SEM_NUMERO_API, 'tarefa bitrix': 'tarefa 9' }],
     ])('item %s rejeita a resposta inteira com ApiError "resposta inválida"', async (_caso, item) => {
       simularApi(fetchFalso, {
         [`GET ${ROTA}`]: () => respostaJson(respostaDadosExternosApi([DADO_CHAMADOS_API, item as typeof DADO_CHAMADOS_API])),

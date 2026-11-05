@@ -1,4 +1,4 @@
-import { useId, type ComponentProps } from 'react'
+import { useId, type ComponentProps, type ReactNode } from 'react'
 import { ErroCampo } from './ErroCampo'
 import './Campo.css'
 
@@ -21,6 +21,8 @@ export interface SelectProps extends Omit<ComponentProps<'select'>, 'children'> 
   obrigatorio?: boolean
   /** Esconde o rótulo visualmente, mantendo-o para leitores de tela (contexto já evidente na tela). */
   rotuloOculto?: boolean
+  /** Texto de apoio visível abaixo do campo, incluído na descrição acessível (`aria-describedby`). */
+  descricao?: ReactNode
 }
 
 /**
@@ -33,6 +35,7 @@ export function Select({
   erro,
   obrigatorio = false,
   rotuloOculto = false,
+  descricao,
   id: idInformado,
   className,
   ...resto
@@ -41,6 +44,12 @@ export function Select({
   const id = idInformado ?? idGerado
   const idErro = `${id}-erro`
   const idRotulo = `${id}-rotulo`
+  const idDescricao = `${id}-descricao`
+  const temDescricao = descricao !== undefined && descricao !== null && descricao !== false && descricao !== ''
+
+  const descricoes: string[] = []
+  if (erro) descricoes.push(idErro)
+  if (temDescricao) descricoes.push(idDescricao)
 
   const classes = ['campo__controle', 'foco-interno']
   if (className) classes.push(className)
@@ -62,7 +71,7 @@ export function Select({
         aria-invalid={erro ? true : undefined}
         aria-required={obrigatorio ? true : undefined}
         aria-labelledby={obrigatorio ? idRotulo : undefined}
-        aria-describedby={erro ? idErro : undefined}
+        aria-describedby={descricoes.length > 0 ? descricoes.join(' ') : undefined}
         {...resto}
       >
         {placeholder !== undefined ? (
@@ -77,6 +86,11 @@ export function Select({
         ))}
       </select>
       <ErroCampo id={idErro} mensagem={erro} />
+      {temDescricao ? (
+        <p id={idDescricao} className="campo__dica">
+          {descricao}
+        </p>
+      ) : null}
     </div>
   )
 }

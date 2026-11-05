@@ -120,7 +120,8 @@ export interface ApontamentoApi extends AuditoriaApi {
 }
 
 export interface TarefaBitrixApi {
-  id: number
+  /** `null` enquanto a tarefa só está registrada (ainda não enviada ao Bitrix24). */
+  id: number | null
   status: string
   titulo: string
 }

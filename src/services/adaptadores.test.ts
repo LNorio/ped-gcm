@@ -20,6 +20,8 @@ import {
   paraTipoApontamento,
   paraTipoValor,
 } from './adaptadores'
+import { DADO_TAREFA_SEM_NUMERO_API } from '../test/dadosExternosFalsos'
+import { RESPOSTA_REAL_LISTAGEM_DASHBOARDS_API } from '../test/dashboardsFalsos'
 
 describe('F1.3 — Adaptadores da API (ida: resposta → tipo)', () => {
   it('paraTipoValor converte "Porcentagem"/"Numeral"/"Booleano" (qualquer caixa) para o enum', () => {
@@ -390,6 +392,21 @@ describe('F1.3 — Adaptadores da API (ida: resposta → tipo)', () => {
       cadastradoEm: '2026-10-28 13:00:00',
       ultimaAlteracao: '2026-10-30 09:30:00',
     })
+  })
+
+  it('paraDashboard: "tarefa bitrix" sem número (id null, ainda não enviada ao Bitrix24) mantém a tarefa com id null', () => {
+    const dashboard = paraDashboard(RESPOSTA_REAL_LISTAGEM_DASHBOARDS_API[0])
+
+    expect(dashboard.tarefaBitrix).toEqual({ id: null, status: 'aguardando_envio', titulo: '[PED] Construir dashboard: teste' })
+    expect(dashboard.situacao).toBe('em_construcao')
+    expect(dashboard.itensVinculados).toEqual(['100 - Filial 100'])
+  })
+
+  it('paraDadoExterno: "tarefa bitrix" sem número (id null) mantém a tarefa com id null', () => {
+    const dado = paraDadoExterno(DADO_TAREFA_SEM_NUMERO_API)
+
+    expect(dado.tarefaBitrix).toEqual({ id: null, status: 'aguardando_envio', titulo: '[PED] Construir dado externo: Bonificações pagas' })
+    expect(dado.situacao).toBe('em_construcao')
   })
 
   it('paraTabelaFaixas converte um item de GET /api/ped/faixas', () => {

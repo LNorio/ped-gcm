@@ -8,6 +8,7 @@ import {
   DADO_DEVOLUCOES_API,
   DADO_FATURAMENTO_API,
   DADO_PRAZO_API,
+  DADO_TAREFA_SEM_NUMERO_API,
   DADO_VOLUME_API,
   NOMES_DADOS_EXTERNOS,
   dadosExternosApi,
@@ -171,6 +172,17 @@ describe('F5.2 — TabelaDadosExternos (listagem de dados externos — RF-23)', 
       expect(within(celula('Prazo médio de recebimento', COL.situacao)).getByText('Em construção (TI)')).toBeInTheDocument()
       expect(within(celula('Prazo médio de recebimento', COL.situacao)).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
       expect(within(celula('Faturamento líquido', COL.situacao)).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
+    })
+
+    it('tarefa sem número (id null): Situação mostra "Em construção (TI)" sem "Tarefa nº"; o restante da linha aparece', () => {
+      renderizar({ dados: [...DADOS, paraDadoExterno(DADO_TAREFA_SEM_NUMERO_API)] })
+
+      const situacao = celula('Bonificações pagas', COL.situacao)
+      expect(within(situacao).getByText('Em construção (TI)')).toBeInTheDocument()
+      expect(within(situacao).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
+      expect(within(situacao).queryByText(/null/)).not.toBeInTheDocument()
+      expect(celula('Bonificações pagas', COL.origem)).toHaveTextContent('Senior HCM')
+      expect(celula('Bonificações pagas', COL.identificador)).toHaveTextContent('a definir pela TI')
     })
 
     it('Origem mostra o rótulo do sistema de origem', () => {

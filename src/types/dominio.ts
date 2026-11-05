@@ -200,7 +200,8 @@ export interface Apontamento extends Auditoria {
 
 /** Tarefa registrada para a equipe de TI (Bitrix24). */
 export interface TarefaBitrix {
-  id: number
+  /** Número da tarefa no Bitrix24; `null` enquanto ela só está registrada (ainda não enviada). */
+  id: number | null
   /** Ex.: `aguardando_envio`, `concluida`. */
   status: string
   titulo: string
