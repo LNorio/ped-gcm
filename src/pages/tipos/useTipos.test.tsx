@@ -35,7 +35,7 @@ describe('F3.2 — useTipos (hook de listagem de tipos)', () => {
     expect(result.current.erro).toBeNull()
   })
 
-  it('carrega os tipos de GET /api/ped/tipos-apontamento ao montar e os expõe convertidos para o domínio', async () => {
+  it('carrega os tipos de GET /api/ped/tipos-apontamento ao montar e os expõe convertidos para o domínio, com grupos e usuários', async () => {
     const chamadas = simularApi(fetchFalso, {
       'GET /api/ped/tipos-apontamento': () => respostaJson([TIPOS_FIXOS_API[0], TIPO_LOGISTICA_API]),
     })
@@ -45,8 +45,27 @@ describe('F3.2 — useTipos (hook de listagem de tipos)', () => {
     await waitFor(() => expect(result.current.carregando).toBe(false))
     expect(result.current.erro).toBeNull()
     expect(result.current.tipos).toEqual([
-      { id: 1, nome: 'Comercial', origem: 'Fixo', quantidadeUsuarios: 3, quantidadeApontamentos: 7 },
-      { id: 8, nome: 'Logística', origem: 'Personalizado', quantidadeUsuarios: 2, quantidadeApontamentos: 0 },
+      {
+        id: 1,
+        nome: 'Comercial',
+        origem: 'Fixo',
+        quantidadeUsuarios: 3,
+        quantidadeApontamentos: 7,
+        grupos: [
+          { id: 4, nome: 'DEF_OPERADOR DE CAIXA' },
+          { id: 7, nome: 'DEF_GERENTE DE LOJA' },
+        ],
+        usuarios: [{ id: 12, nome: 'Fulano' }],
+      },
+      {
+        id: 8,
+        nome: 'Logística',
+        origem: 'Personalizado',
+        quantidadeUsuarios: 2,
+        quantidadeApontamentos: 0,
+        grupos: [{ id: 11, nome: 'DEF_SUPERVISÃO LOGÍSTICA' }],
+        usuarios: [{ id: 12, nome: 'Fulano' }],
+      },
     ])
     expect(chamadas.filter((c) => c.metodo === 'GET' && c.caminho === '/api/ped/tipos-apontamento')).toHaveLength(1)
   })
@@ -220,6 +239,71 @@ describe('F3.2 — useTipos (hook de listagem de tipos)', () => {
     })
 
     expect(consoleErro).not.toHaveBeenCalled()
+  })
+
+  it('carregouUmaVez começa false e vira true após a primeira resposta com sucesso', async () => {
+    let liberar: () => void = () => {}
+    simularApi(fetchFalso, {
+      'GET /api/ped/tipos-apontamento': () =>
+        new Promise<Response>((resolve) => {
+          liberar = () => resolve(respostaJson(tiposApi()))
+        }),
+    })
+
+    const { result } = renderHook(() => useTipos())
+
+    expect(result.current.carregouUmaVez).toBe(false)
+    await waitFor(() => expect(fetchFalso).toHaveBeenCalledTimes(1))
+    expect(result.current.carregouUmaVez).toBe(false)
+
+    await act(async () => {
+      liberar()
+    })
+
+    await waitFor(() => expect(result.current.carregouUmaVez).toBe(true))
+    expect(result.current.tipos).toHaveLength(9)
+  })
+
+  it('carregouUmaVez vira true também quando a primeira resposta é um erro', async () => {
+    simularApi(fetchFalso, {
+      'GET /api/ped/tipos-apontamento': () => respostaErro(500, 'Falha ao consultar os tipos.'),
+    })
+
+    const { result } = renderHook(() => useTipos())
+
+    expect(result.current.carregouUmaVez).toBe(false)
+    await waitFor(() => expect(result.current.erro).toBe('Falha ao consultar os tipos.'))
+    expect(result.current.carregouUmaVez).toBe(true)
+  })
+
+  it('carregouUmaVez continua true durante recarregar() (enquanto carregando volta a true)', async () => {
+    let tentativa = 0
+    let liberar: () => void = () => {}
+    simularApi(fetchFalso, {
+      'GET /api/ped/tipos-apontamento': () => {
+        tentativa += 1
+        if (tentativa === 1) return respostaJson(tiposApi())
+        return new Promise<Response>((resolve) => {
+          liberar = () => resolve(respostaJson(tiposApi()))
+        })
+      },
+    })
+
+    const { result } = renderHook(() => useTipos())
+    await waitFor(() => expect(result.current.carregouUmaVez).toBe(true))
+
+    let promessa: Promise<void> = Promise.resolve()
+    act(() => {
+      promessa = result.current.recarregar()
+    })
+    await waitFor(() => expect(result.current.carregando).toBe(true))
+    expect(result.current.carregouUmaVez).toBe(true)
+
+    await act(async () => {
+      liberar()
+      await promessa
+    })
+    expect(result.current.carregouUmaVez).toBe(true)
   })
 
   it('expõe recarregar e excluir como funções', async () => {

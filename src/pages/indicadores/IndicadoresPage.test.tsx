@@ -124,28 +124,41 @@ describe('F6.2 — Listagem de indicadores (IndicadoresPage)', () => {
     expect(screen.queryByRole('button', { name: /editar/i })).not.toBeInTheDocument()
   })
 
-  it.each<Perfil>(['admin', 'validador'])(
-    '%s vê todas as ações do indicador no menu da linha (Definir meta, Histórico de metas, Inativar/Reativar e Excluir)',
-    async (perfil) => {
-      const user = usuarioRapido()
-      simularLista()
-      renderizar(perfil)
+  it('admin vê todas as ações do indicador no menu da linha (Definir meta, Histórico de metas, Inativar/Reativar e Excluir)', async () => {
+    const user = usuarioRapido()
+    simularLista()
+    renderizar('admin')
 
-      await aguardarTabela()
-      expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Devoluções de venda'))).toEqual([
-        'Ver detalhes',
-        'Definir meta',
-        'Inativar',
-        'Excluir',
-      ])
-      expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Rotinas financeiras em dia'))).toEqual([
-        'Ver detalhes',
-        'Histórico de metas',
-        'Inativar',
-        'Excluir',
-      ])
-      expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Capacitação'))).toEqual(['Ver detalhes', 'Reativar', 'Excluir'])
-      expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Cobertura de visitas'))).toEqual(['Ver detalhes', 'Inativar'])
-    },
-  )
+    await aguardarTabela()
+    expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Devoluções de venda'))).toEqual([
+      'Ver detalhes',
+      'Definir meta',
+      'Inativar',
+      'Excluir',
+    ])
+    expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Rotinas financeiras em dia'))).toEqual([
+      'Ver detalhes',
+      'Histórico de metas',
+      'Inativar',
+      'Excluir',
+    ])
+    expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Capacitação'))).toEqual(['Ver detalhes', 'Reativar', 'Excluir'])
+    expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Cobertura de visitas'))).toEqual(['Ver detalhes', 'Inativar'])
+  })
+
+  it('validador vê as mesmas ações, menos "Excluir" (exclusão só do Admin — decisão de 06/11/2026)', async () => {
+    const user = usuarioRapido()
+    simularLista()
+    renderizar('validador')
+
+    await aguardarTabela()
+    expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Devoluções de venda'))).toEqual(['Ver detalhes', 'Definir meta', 'Inativar'])
+    expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Rotinas financeiras em dia'))).toEqual([
+      'Ver detalhes',
+      'Histórico de metas',
+      'Inativar',
+    ])
+    expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Capacitação'))).toEqual(['Ver detalhes', 'Reativar'])
+    expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Cobertura de visitas'))).toEqual(['Ver detalhes', 'Inativar'])
+  })
 })

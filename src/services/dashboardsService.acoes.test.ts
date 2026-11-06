@@ -178,6 +178,7 @@ describe('F7.1 — Serviço de dashboards: concluir, situação, exclusão, hist
           usuario: 'Ana Costa',
           alteracoes: ['Pontos de Cobertura de visitas: 50 → 40 pts', 'Indicador incluído: Faturamento líquido mensal (60 pts)'],
           tarefa: null,
+          tarefaAguardandoEnvio: false,
           observacao: null,
         },
         {
@@ -187,6 +188,7 @@ describe('F7.1 — Serviço de dashboards: concluir, situação, exclusão, hist
           usuario: 'Maria Souza',
           alteracoes: [],
           tarefa: 31,
+          tarefaAguardandoEnvio: false,
           observacao: null,
         },
         {
@@ -196,6 +198,7 @@ describe('F7.1 — Serviço de dashboards: concluir, situação, exclusão, hist
           usuario: 'Maria Souza',
           alteracoes: [],
           tarefa: 31,
+          tarefaAguardandoEnvio: false,
           observacao: 'Usar a régua de faixas do ano passado.',
         },
       ])
@@ -209,8 +212,103 @@ describe('F7.1 — Serviço de dashboards: concluir, situação, exclusão, hist
       const historico = await listarHistoricoDashboard(1)
 
       expect(historico).toEqual([
-        { acao: 'desativado', acaoDescricao: '', data: '2026-11-01 08:00:00', usuario: 'Ana Costa', alteracoes: [], tarefa: null, observacao: null },
+        { acao: 'desativado', acaoDescricao: '', data: '2026-11-01 08:00:00', usuario: 'Ana Costa', alteracoes: [], tarefa: null, tarefaAguardandoEnvio: false, observacao: null },
       ])
+    })
+
+    it.each<[string, unknown, number]>([
+      ['objeto com o número em texto', { id: '328439', status: 'enviada', titulo: '[PED] Construir dashboard: teste' }, 328439],
+      ['objeto com o número em texto e espaços nas pontas', { id: ' 328439 ', status: 'enviada', titulo: '[PED] Construir dashboard: teste' }, 328439],
+      ['número em texto', '328439', 328439],
+    ])('"tarefa bitrix" como %s é aceita e vira o número da tarefa', async (_caso, tarefaBitrix, esperado) => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}/1/historico`]: () =>
+          respostaJson([
+            historicoDashboardApi()[0],
+            { acao: 'cadastro', 'acao descricao': 'Cadastro', data: '2026-11-05 16:28:43', usuario: 'master', alteracoes: [], 'tarefa bitrix': tarefaBitrix, observacao: null },
+          ]),
+      })
+
+      const historico = await listarHistoricoDashboard(1)
+
+      expect(historico).toHaveLength(2)
+      expect(historico[1].tarefa).toBe(esperado)
+    })
+
+    describe('"tarefa bitrix" ainda não enviada ao Bitrix24 (FRONT-tarefas-bitrix.md, 06/11/2026: "Enquanto a tarefa não foi enviada, [id] vem null")', () => {
+      const registro = (tarefaBitrix: unknown) => ({
+        acao: 'cadastro',
+        'acao descricao': 'Cadastro',
+        data: '2026-11-05 16:28:43',
+        usuario: 'master',
+        alteracoes: [],
+        'tarefa bitrix': tarefaBitrix,
+        observacao: null,
+      })
+
+      it('objeto com "id": null (status "aguardando_envio") é aceito: o histórico carrega, tarefa null e tarefaAguardandoEnvio true', async () => {
+        simularApi(fetchFalso, {
+          [`GET ${ROTA}/1/historico`]: () =>
+            respostaJson([historicoDashboardApi()[0], registro({ id: null, status: 'aguardando_envio', titulo: '[PED] Construir dashboard: teste' })]),
+        })
+
+        const historico = await listarHistoricoDashboard(1)
+
+        expect(historico).toHaveLength(2)
+        expect(historico[1]).toEqual({
+          acao: 'cadastro',
+          acaoDescricao: 'Cadastro',
+          data: '2026-11-05 16:28:43',
+          usuario: 'master',
+          alteracoes: [],
+          tarefa: null,
+          tarefaAguardandoEnvio: true,
+          observacao: null,
+        })
+      })
+
+      it('objeto com "id": null e sem status também é aceito como tarefa aguardando envio', async () => {
+        simularApi(fetchFalso, { [`GET ${ROTA}/1/historico`]: () => respostaJson([registro({ id: null, titulo: 'T' })]) })
+
+        const [item] = await listarHistoricoDashboard(1)
+
+        expect(item.tarefa).toBeNull()
+        expect(item.tarefaAguardandoEnvio).toBe(true)
+      })
+
+      it('objeto com número e status "aguardando_envio": guarda o número e marca tarefaAguardandoEnvio', async () => {
+        simularApi(fetchFalso, {
+          [`GET ${ROTA}/1/historico`]: () => respostaJson([registro({ id: '328439', status: 'aguardando_envio', titulo: 'T' })]),
+        })
+
+        const [item] = await listarHistoricoDashboard(1)
+
+        expect(item.tarefa).toBe(328439)
+        expect(item.tarefaAguardandoEnvio).toBe(true)
+      })
+
+      it('tarefa enviada ("328439", status "enviada") ou concluída: tarefaAguardandoEnvio false; sem tarefa (null ou ausente): false', async () => {
+        simularApi(fetchFalso, {
+          [`GET ${ROTA}/1/historico`]: () =>
+            respostaJson([
+              registro({ id: '328439', status: 'enviada', titulo: 'T' }),
+              registro({ id: 31, status: 'concluida', titulo: 'T' }),
+              registro(31),
+              registro(null),
+              { acao: 'desativado', data: '2026-11-01 08:00:00', usuario: 'Ana Costa' },
+            ]),
+        })
+
+        const historico = await listarHistoricoDashboard(1)
+
+        expect(historico.map((h) => [h.tarefa, h.tarefaAguardandoEnvio])).toEqual([
+          [328439, false],
+          [31, false],
+          [31, false],
+          [null, false],
+          [null, false],
+        ])
+      })
     })
 
     it('lista vazia resolve []', async () => {
@@ -224,6 +322,9 @@ describe('F7.1 — Serviço de dashboards: concluir, situação, exclusão, hist
       ['sem data', { acao: 'edicao', usuario: 'Ana' }],
       ['com alterações fora de lista', { acao: 'edicao', data: '2026-10-20 15:30:00', usuario: 'Ana', alteracoes: 'nome' }],
       ['com tarefa em texto', { acao: 'edicao', data: '2026-10-20 15:30:00', usuario: 'Ana', 'tarefa bitrix': 'trinta e um' }],
+      ['com tarefa em texto vazio', { acao: 'edicao', data: '2026-10-20 15:30:00', usuario: 'Ana', 'tarefa bitrix': '' }],
+      ['com tarefa cujo número é texto não numérico', { acao: 'edicao', data: '2026-10-20 15:30:00', usuario: 'Ana', 'tarefa bitrix': { id: 'abc', status: 'enviada', titulo: 'T' } }],
+      ['com tarefa cujo número mistura dígitos e letras', { acao: 'edicao', data: '2026-10-20 15:30:00', usuario: 'Ana', 'tarefa bitrix': { id: '31a', status: 'enviada', titulo: 'T' } }],
     ])('item %s rejeita a resposta inteira com ApiError "resposta inválida"', async (_caso, item) => {
       simularApi(fetchFalso, { [`GET ${ROTA}/1/historico`]: () => respostaJson([historicoDashboardApi()[0], item]) })
 
@@ -272,6 +373,31 @@ describe('F7.1 — Serviço de dashboards: concluir, situação, exclusão, hist
       await expect(listarTarefasDashboard(3)).resolves.toEqual([
         { id: null, tipo: null, status: null, titulo: '[PED] Construir dashboard: PED Supervisores', descricao: null, criadaEm: null },
       ])
+    })
+
+    it('número da tarefa em texto ("328439", com ou sem espaços nas pontas) é convertido para número', async () => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}/1/tarefas`]: () =>
+          respostaJson([
+            { id: '328439', tipo: 'construcao', status: 'enviada', titulo: '[PED] Construir dashboard: teste', descricao: null, 'criada em': '2026-11-05 16:28:43' },
+            { id: ' 328441 ', tipo: 'modificacao', status: 'enviada', titulo: '[PED] Modificar dashboard: teste', descricao: null, 'criada em': null },
+          ]),
+      })
+
+      const tarefas = await listarTarefasDashboard(1)
+
+      expect(tarefas.map((t) => [t.id, t.status])).toEqual([
+        [328439, 'enviada'],
+        [328441, 'enviada'],
+      ])
+    })
+
+    it('número da tarefa em texto não numérico vira ApiError "resposta inválida"', async () => {
+      for (const id of ['abc', '', '31a']) {
+        simularApi(fetchFalso, { [`GET ${ROTA}/1/tarefas`]: () => respostaJson([{ id, status: 'enviada', titulo: 'T' }]) })
+
+        await expect(listarTarefasDashboard(1)).rejects.toMatchObject({ mensagem: MENSAGEM_RESPOSTA_INVALIDA })
+      }
     })
 
     it('item sem título ou resposta fora do formato vira ApiError "resposta inválida"', async () => {

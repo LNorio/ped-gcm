@@ -196,7 +196,7 @@ describe('F5.5 — Cadastro de dado externo pelo Admin (integração: /dados-ext
     },
   )
 
-  it('identificador com acento, espaço e caractere especial: o campo descarta os inválidos ao colar e ao digitar e o POST leva o valor limpo', async () => {
+  it('identificador com acento, espaço e caractere especial: o campo descarta os inválidos (mantendo "-" e ".") ao colar e ao digitar e o POST leva o valor limpo', async () => {
     const user = usuarioRapido()
     const chamadas = simularAdmin()
     const dialogo = await abrirCadastro(user)
@@ -204,14 +204,39 @@ describe('F5.5 — Cadastro de dado externo pelo Admin (integração: /dados-ext
     const campo = within(dialogo).getByLabelText('Identificador da consulta')
 
     await colar(user, campo, 'NOVOS-CLIENTES 2')
-    expect(campo).toHaveValue('NOVOSCLIENTES2')
-    await user.type(campo, ' ação')
-    expect(campo).toHaveValue('NOVOSCLIENTES2AO')
+    expect(campo).toHaveValue('NOVOS-CLIENTES2')
+    await user.type(campo, ' ação.v1/')
+    expect(campo).toHaveValue('NOVOS-CLIENTES2AO.V1')
 
     await user.click(within(dialogo).getByRole('button', { name: 'Salvar' }))
 
     await screen.findByText('Dado externo cadastrado.')
-    expect(corpoDaChamada(posts(chamadas)[0])).toMatchObject({ identificador: 'NOVOSCLIENTES2AO' })
+    expect(corpoDaChamada(posts(chamadas)[0])).toMatchObject({ identificador: 'NOVOS-CLIENTES2AO.V1' })
+  })
+
+  it('400 da API com a regra do identificador: a mensagem aparece no formulário, que continua aberto com os dados, sem notificação', async () => {
+    const mensagem = 'o identificador so aceita letras sem acento, numeros, _ , - e . (sem espacos)'
+    const user = usuarioRapido()
+    simularAdmin({ respostaCriacao: () => respostaErro(400, mensagem) })
+    const dialogo = await abrirCadastro(user)
+    await preencherComuns(user, dialogo)
+    await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'novos.clientes-2')
+
+    await user.click(within(dialogo).getByRole('button', { name: 'Salvar' }))
+
+    expect(await within(dialogo).findByRole('alert')).toHaveTextContent(mensagem)
+    expect(screen.getByRole('dialog', { name: 'Novo dado externo' })).toBeInTheDocument()
+    expect(within(dialogo).getByLabelText('Identificador da consulta')).toHaveValue('NOVOS.CLIENTES-2')
+    expect(within(dialogo).getByRole('button', { name: 'Salvar' })).toBeEnabled()
+    expect(screen.queryByText('Dado externo cadastrado.')).not.toBeInTheDocument()
+  })
+
+  it('o Admin não vê o aviso de tarefa para a TI no formulário (cadastra já ativo, sem tarefa)', async () => {
+    const user = usuarioRapido()
+    simularAdmin()
+    const dialogo = await abrirCadastro(user)
+
+    expect(within(dialogo).queryByText('Ao salvar, será aberta uma tarefa para a equipe de TI.')).not.toBeInTheDocument()
   })
 
   it('escolher uma sugestão preenche o identificador e ele é enviado', async () => {

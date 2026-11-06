@@ -14,9 +14,17 @@
  * prováveis em cada rota (ver `src/test/dadosExternosFalsos.ts`):
  * - listagem: `{ "dados externos": [...] }` ou a lista pura; `"tarefa bitrix"` opcional (ausente ou
  *   `null`), no formato `{ id, status, titulo }`. O número da tarefa (`id`) só vem quando ela é enviada
- *   ao Bitrix24; enquanto está só registrada (ex.: `aguardando_envio`), `id` é `null`;
+ *   ao Bitrix24; enquanto está só registrada (ex.: `aguardando_envio`), `id` é `null`. A API real manda o
+ *   número como texto (ex.: `"328439"`): número ou texto só com dígitos (após `trim()`) é aceito e vira
+ *   número; texto não numérico (`"abc"`, `""`, `"31a"`, `"31.5"`, `"-31"`) é inválido (na listagem vira
+ *   `ApiError`; no POST deixa a tarefa `null`);
  * - identificadores: lista pura ou `{ identificadores: [...] }`;
- * - POST: `{ "dado externo": {...}, tarefa }` ou o dado na raiz com `tarefa` ao lado. Como a resposta
+ * - POST: `{ "dado externo": {...}, tarefa }` ou o dado na raiz com `tarefa` ao lado (ex.: `{ mensagem, id,
+ *   situacao, tarefa }`). A tarefa é criada pelo back-end (Validador e Preenchedor; o Admin não gera
+ *   tarefa, `tarefa: null`) e, desde 06/11/2026 (`FRONT-tarefas-bitrix.md`), vem como `{ titulo,
+ *   descricao, status, "id bitrix" }`: `enviada` traz o número em `"id bitrix"`, `aguardando_envio` traz
+ *   `null`. Com a chave `"id bitrix"` presente, ela prevalece sobre o `id` do formato anterior, mesmo
+ *   `null`; sem ela, `id` continua aceito. Como a resposta
  *   do POST não é documentada e um 2xx significa que o dado foi gravado, ela é lida de forma
  *   tolerante: corpo vazio, fora do formato ou incompleto vira `dadoExterno: null` (e tarefa fora do
  *   formato vira `tarefa: null`), sem erro;
@@ -48,7 +56,7 @@ import {
   SITUACOES_DADO_EXTERNO,
   type TarefaConstrucao,
 } from '../types/dominio'
-import { type DadoExternoApi, paraCorpoNovoDadoExterno, paraDadoExterno } from './adaptadores'
+import { type DadoExternoApi, numeroDaTarefaBitrix, paraCorpoNovoDadoExterno, paraDadoExterno } from './adaptadores'
 import { ApiError, MENSAGEM_RESPOSTA_INVALIDA, type ValorQuery, apiFetch } from './api'
 
 const ROTA_DADOS_EXTERNOS = '/ped/dados-externos-cadastro'
@@ -124,11 +132,14 @@ function ehReferenciaNomeada(valor: unknown): valor is ReferenciaNomeada {
   return ehObjeto(valor) && ehNumero(valor.id) && ehTexto(valor.nome)
 }
 
-/** Tarefa do Bitrix24: `id` numérico ou `null` (só registrada, ainda não enviada). */
+/** Número da tarefa do Bitrix24: número ou texto só com dígitos (ver `numeroDaTarefaBitrix`). */
+const ehNumeroDaTarefa = (v: unknown): boolean => numeroDaTarefaBitrix(v) !== undefined
+
+/** Tarefa do Bitrix24: `id` numérico, texto numérico ou `null` (só registrada, ainda não enviada). */
 function ehTarefaBitrixApi(valor: unknown): boolean {
   return (
     ehObjeto(valor) &&
-    (ehNumero(valor.id) || valor.id === null) &&
+    (ehNumeroDaTarefa(valor.id) || valor.id === null) &&
     ehTexto(valor.status) &&
     ehTexto(valor.titulo)
   )
@@ -180,19 +191,28 @@ function converterDadoExternoOuNulo(valor: unknown): DadoExterno | null {
   }
 }
 
-/** Converte a tarefa da resposta do POST; ausente ou fora do formato vira `null`, sem erro. */
+/** Número informado na tarefa do POST/PUT: `"id bitrix"` quando a chave existe (mesmo `null`); senão, `id`. */
+function numeroInformadoDaTarefa(valor: Record<string, unknown>): unknown {
+  return 'id bitrix' in valor ? valor['id bitrix'] : valor.id
+}
+
+/**
+ * Converte a tarefa da resposta do POST; ausente ou fora do formato vira `null`, sem erro.
+ * O número vem de `"id bitrix"` (formato de 06/11/2026); quando a chave está presente ela prevalece,
+ * mesmo `null` (tarefa na fila, `aguardando_envio`). Sem `"id bitrix"`, vale o `id` do formato anterior.
+ */
 function converterTarefaOuNula(valor: unknown): TarefaConstrucao | null {
   if (
     !ehObjeto(valor) ||
     !ehTexto(valor.titulo) ||
-    !opcional(valor.id, ehNumero) ||
+    !opcional(numeroInformadoDaTarefa(valor), ehNumeroDaTarefa) ||
     !opcional(valor.status, ehTexto) ||
     !opcional(valor.descricao, ehTexto)
   ) {
     return null
   }
   return {
-    id: ehNumero(valor.id) ? valor.id : null,
+    id: numeroDaTarefaBitrix(numeroInformadoDaTarefa(valor)) ?? null,
     status: ehTexto(valor.status) ? valor.status : null,
     titulo: valor.titulo,
     descricao: ehTexto(valor.descricao) ? valor.descricao : null,

@@ -26,6 +26,7 @@ import {
   type SituacaoDadoExterno,
 } from '../../types/dominio'
 import { formatarDataHora } from '../../utils/formato'
+import { textoTarefaBitrix } from '../../utils/tarefaBitrix'
 import './TabelaDadosExternos.css'
 
 export interface TabelaDadosExternosProps {
@@ -138,8 +139,8 @@ export function TabelaDadosExternos({
       render: (dado) => (
         <div className="tabela-dados-externos__pilha">
           <Etiqueta tom={TOM_SITUACAO[dado.situacao]}>{ROTULOS_SITUACAO_DADO_EXTERNO[dado.situacao]}</Etiqueta>
-          {dado.tarefaBitrix && dado.tarefaBitrix.id !== null ? (
-            <span className="tabela-dados-externos__secundario">{`Tarefa nº ${dado.tarefaBitrix.id}`}</span>
+          {dado.tarefaBitrix ? (
+            <span className="tabela-dados-externos__secundario">{textoTarefaBitrix(dado.tarefaBitrix)}</span>
           ) : null}
         </div>
       ),

@@ -54,7 +54,7 @@ describe('F7.9 — DialogoHistoricoDashboard: histórico de modificações (RF-5
     expect(chamadas[0].caminho).toBe(`${ROTA}/1/historico`)
   })
 
-  it('cada registro mostra data, ação, usuário e a lista das alterações, na ordem da API (RF-57)', async () => {
+  it('cada registro mostra data, ação, usuário, a lista das alterações e a tarefa como "Tarefa #{número}", na ordem da API (RF-57)', async () => {
     simularApi(fetchFalso, { [`GET ${ROTA}/1/historico`]: () => respostaJson(historicoDashboardApi()) })
     renderizar()
     await screen.findByRole('list', { name: 'Modificações de PED Comercial' })
@@ -70,13 +70,14 @@ describe('F7.9 — DialogoHistoricoDashboard: histórico de modificações (RF-5
     ]) {
       expect(within(edicao).getByText(texto)).toBeInTheDocument()
     }
-    expect(within(edicao).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
+    expect(within(edicao).queryByText(/Tarefa/)).not.toBeInTheDocument()
+    expect(within(edicao).queryByText('Aguardando envio ao Bitrix')).not.toBeInTheDocument()
     expect(within(conclusao).getByText('Construção concluída')).toBeInTheDocument()
     expect(within(conclusao).getByText('Maria Souza')).toBeInTheDocument()
-    expect(within(conclusao).getByText('Tarefa nº 31')).toBeInTheDocument()
+    expect(within(conclusao).getByText('Tarefa #31')).toBeInTheDocument()
     expect(within(cadastro).getByText('Cadastro')).toBeInTheDocument()
     expect(within(cadastro).getByText('01/09/2026 10:00')).toBeInTheDocument()
-    expect(within(cadastro).getByText('Tarefa nº 31')).toBeInTheDocument()
+    expect(within(cadastro).getByText('Tarefa #31')).toBeInTheDocument()
     expect(within(cadastro).getByText('Observação: Usar a régua de faixas do ano passado.')).toBeInTheDocument()
   })
 
@@ -94,6 +95,51 @@ describe('F7.9 — DialogoHistoricoDashboard: histórico de modificações (RF-5
     await screen.findByRole('list', { name: 'Modificações de PED Comercial' })
 
     expect(within(registros()[0]).getByText(rotulo)).toBeInTheDocument()
+  })
+
+  it('tarefa ainda não enviada ao Bitrix24 ("tarefa bitrix" com id null): o histórico carrega e o registro mostra "Aguardando envio ao Bitrix", sem número', async () => {
+    simularApi(fetchFalso, {
+      [`GET ${ROTA}/1/historico`]: () =>
+        respostaJson([
+          {
+            acao: 'cadastro',
+            'acao descricao': 'Cadastro',
+            data: '2026-11-05 16:28:43',
+            usuario: 'master',
+            alteracoes: [],
+            'tarefa bitrix': { id: null, status: 'aguardando_envio', titulo: '[PED] Construir dashboard: teste' },
+            observacao: null,
+          },
+        ]),
+    })
+    renderizar()
+    await screen.findByRole('list', { name: 'Modificações de PED Comercial' })
+
+    const [cadastro] = registros()
+    expect(within(cadastro).getByText('Aguardando envio ao Bitrix')).toBeInTheDocument()
+    expect(within(cadastro).queryByText(/#/)).not.toBeInTheDocument()
+    expect(within(cadastro).queryByText(/null/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('tarefa com número e status "aguardando_envio" mostra "Aguardando envio ao Bitrix" no lugar do número', async () => {
+    simularApi(fetchFalso, {
+      [`GET ${ROTA}/1/historico`]: () =>
+        respostaJson([
+          {
+            acao: 'edicao',
+            data: '2026-11-05 16:28:43',
+            usuario: 'master',
+            'tarefa bitrix': { id: '328441', status: 'aguardando_envio', titulo: '[PED] Modificar dashboard: teste' },
+          },
+        ]),
+    })
+    renderizar()
+    await screen.findByRole('list', { name: 'Modificações de PED Comercial' })
+
+    const [edicao] = registros()
+    expect(within(edicao).getByText('Aguardando envio ao Bitrix')).toBeInTheDocument()
+    expect(within(edicao).queryByText(/328441/)).not.toBeInTheDocument()
   })
 
   it('somente leitura: além de fechar, não há ações (RNF-01)', async () => {

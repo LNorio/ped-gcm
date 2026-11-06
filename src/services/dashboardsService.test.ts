@@ -6,11 +6,13 @@ import {
   DASHBOARD_GERENTES_API,
   DASHBOARD_SUPERVISORES_API,
   RESPOSTA_REAL_LISTAGEM_DASHBOARDS_API,
+  RESPOSTA_REAL_LISTAGEM_DASHBOARDS_TAREFA_ENVIADA_API,
   dashboardsApi,
   detalheDashboardApi,
   previaTarefaApi,
   respostaRealDetalheDashboardApi,
   respostaGravacaoApi,
+  tarefaBitrixGravacaoApi,
   tarefaGravacaoApi,
 } from '../test/dashboardsFalsos'
 import type { DadosDashboard } from '../types/dominio'
@@ -236,6 +238,67 @@ describe('F7.1 — Serviço de dashboards: listagem, detalhe, prévia, cadastro 
       ])
     })
 
+    it('resposta real da API (06/11/2026) com o número da tarefa em texto ("328439") e status "enviada": converte o item, com tarefaBitrix.id numérico 328439', async () => {
+      simularApi(fetchFalso, { [`GET ${ROTA}`]: () => respostaJson(RESPOSTA_REAL_LISTAGEM_DASHBOARDS_TAREFA_ENVIADA_API) })
+
+      const dashboards = await listarDashboards()
+
+      expect(dashboards).toEqual([
+        {
+          id: 1,
+          nome: 'teste',
+          situacao: 'em_construcao',
+          situacaoDescricao: 'Em construcao (TI)',
+          tarefaBitrix: { id: 328439, status: 'enviada', titulo: '[PED] Construir dashboard: teste' },
+          tipoVinculo: 'filiais',
+          itensVinculados: ['100 - Filial 100'],
+          unidadesDeImagem: 1,
+          periodicidade: 'mensal',
+          periodoAtual: '11/2026',
+          quantidadeDeIndicadores: 3,
+          pontos: { soma: 100, maximo: 100 },
+          alertas: [],
+          cadastradoEm: '2026-11-05 16:28:43-04:00',
+          ultimaAlteracao: '2026-11-05 16:52:42-04:00',
+        },
+      ])
+      expect(typeof dashboards[0].tarefaBitrix?.id).toBe('number')
+    })
+
+    it.each<[string, string | number, number]>([
+      ['número em texto', '31', 31],
+      ['número em texto com espaços nas pontas', ' 328439 ', 328439],
+      ['número em texto com zeros à esquerda', '0031', 31],
+      ['número', 31, 31],
+    ])('"tarefa bitrix".id como %s é aceito e convertido para número', async (_caso, id, esperado) => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}`]: () =>
+          respostaJson([DASHBOARD_GERENTES_API, { ...DASHBOARD_COMERCIAL_API, 'tarefa bitrix': { id, status: 'enviada', titulo: 'T' } }]),
+      })
+
+      const dashboards = await listarDashboards()
+
+      expect(dashboards.map((d) => d.nome)).toEqual(['PED Gerentes', 'PED Comercial'])
+      expect(dashboards[1].tarefaBitrix).toEqual({ id: esperado, status: 'enviada', titulo: 'T' })
+    })
+
+    it('tarefa com número em texto no meio da lista não derruba os demais itens', async () => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}`]: () =>
+          respostaJson([
+            DASHBOARD_COMERCIAL_API,
+            { ...DASHBOARD_SUPERVISORES_API, 'tarefa bitrix': { id: '40', status: 'enviada', titulo: '[PED] Construir dashboard: PED Supervisores' } },
+            DASHBOARD_GERENTES_API,
+          ]),
+      })
+
+      const dashboards = await listarDashboards()
+
+      expect(dashboards.map((d) => d.nome)).toEqual(['PED Comercial', 'PED Supervisores', 'PED Gerentes'])
+      expect(dashboards[0].tarefaBitrix?.id).toBe(31)
+      expect(dashboards[1].tarefaBitrix).toEqual({ id: 40, status: 'enviada', titulo: '[PED] Construir dashboard: PED Supervisores' })
+    })
+
     it('tarefa sem número no meio da lista não derruba os demais itens', async () => {
       simularApi(fetchFalso, {
         [`GET ${ROTA}`]: () =>
@@ -283,7 +346,13 @@ describe('F7.1 — Serviço de dashboards: listagem, detalhe, prévia, cadastro 
       ['com tarefa sem título', { ...DASHBOARD_COMERCIAL_API, 'tarefa bitrix': { id: 1, status: 'concluida' } }],
       ['com tarefa sem número e sem título', { ...DASHBOARD_COMERCIAL_API, 'tarefa bitrix': { id: null, status: 'aguardando_envio' } }],
       ['com tarefa com título não textual', { ...DASHBOARD_COMERCIAL_API, 'tarefa bitrix': { id: null, status: 'aguardando_envio', titulo: 42 } }],
-      ['com tarefa com número em texto', { ...DASHBOARD_COMERCIAL_API, 'tarefa bitrix': { id: '31', status: 'concluida', titulo: 'T' } }],
+      ['com tarefa com número por extenso', { ...DASHBOARD_COMERCIAL_API, 'tarefa bitrix': { id: 'trinta e um', status: 'concluida', titulo: 'T' } }],
+      ['com tarefa com id em texto não numérico', { ...DASHBOARD_COMERCIAL_API, 'tarefa bitrix': { id: 'abc', status: 'enviada', titulo: 'T' } }],
+      ['com tarefa com id em texto vazio', { ...DASHBOARD_COMERCIAL_API, 'tarefa bitrix': { id: '', status: 'enviada', titulo: 'T' } }],
+      ['com tarefa com id em texto só com espaços', { ...DASHBOARD_COMERCIAL_API, 'tarefa bitrix': { id: '   ', status: 'enviada', titulo: 'T' } }],
+      ['com tarefa com id em texto misturando dígitos e letras', { ...DASHBOARD_COMERCIAL_API, 'tarefa bitrix': { id: '31a', status: 'enviada', titulo: 'T' } }],
+      ['com tarefa com id em texto decimal', { ...DASHBOARD_COMERCIAL_API, 'tarefa bitrix': { id: '31.5', status: 'enviada', titulo: 'T' } }],
+      ['com tarefa com id em texto negativo', { ...DASHBOARD_COMERCIAL_API, 'tarefa bitrix': { id: '-31', status: 'enviada', titulo: 'T' } }],
       ['com tarefa como texto solto', { ...DASHBOARD_COMERCIAL_API, 'tarefa bitrix': 'tarefa 31' }],
     ])('item %s rejeita a resposta inteira com ApiError "resposta inválida"', async (_caso, item) => {
       simularApi(fetchFalso, { [`GET ${ROTA}`]: () => respostaJson([DASHBOARD_GERENTES_API, item]) })
@@ -385,6 +454,30 @@ describe('F7.1 — Serviço de dashboards: listagem, detalhe, prévia, cadastro 
         tarefaBitrix: { id: null, status: 'aguardando_envio', titulo: '[PED] Construir dashboard: teste' },
         itensVinculados: ['100 - Filial 100'],
       })
+    })
+
+    it('detalhe com o número da tarefa em texto ("328439", status "enviada") é aceito e converte tarefaBitrix.id para número', async () => {
+      const [real] = RESPOSTA_REAL_LISTAGEM_DASHBOARDS_TAREFA_ENVIADA_API
+      simularApi(fetchFalso, { [`GET ${ROTA}/1`]: () => respostaJson(detalheDashboardApi(real)) })
+
+      const detalhe = await obterDashboard(1)
+
+      expect(detalhe).toMatchObject({
+        id: 1,
+        nome: 'teste',
+        situacao: 'em_construcao',
+        tarefaBitrix: { id: 328439, status: 'enviada', titulo: '[PED] Construir dashboard: teste' },
+      })
+    })
+
+    it('detalhe com o número da tarefa em texto não numérico vira ApiError "resposta inválida"', async () => {
+      const [real] = RESPOSTA_REAL_LISTAGEM_DASHBOARDS_TAREFA_ENVIADA_API
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}/1`]: () =>
+          respostaJson(detalheDashboardApi({ ...real, 'tarefa bitrix': { id: 'abc', status: 'enviada', titulo: '[PED] Construir dashboard: teste' } })),
+      })
+
+      await expect(obterDashboard(1)).rejects.toMatchObject({ status: 200, mensagem: MENSAGEM_RESPOSTA_INVALIDA })
     })
 
     describe('códigos dos itens vinculados (chave "vinculos") — o que o POST/PUT espera', () => {
@@ -582,6 +675,84 @@ describe('F7.1 — Serviço de dashboards: listagem, detalhe, prévia, cadastro 
       expect(tarefa?.id).toBe(50)
     })
 
+    it('tarefa com o número em texto ("328439", com ou sem espaços nas pontas) traz o id convertido para número', async () => {
+      for (const id of ['328439', ' 328439 ']) {
+        simularApi(fetchFalso, {
+          [`POST ${ROTA}`]: () =>
+            respostaJson(respostaGravacaoApi(DASHBOARD_SUPERVISORES_API, { ...tarefaGravacaoApi('[PED] Construir dashboard: X', id), status: 'enviada' }), 201),
+        })
+
+        const { tarefa } = await criarDashboard(NOVO)
+
+        expect(tarefa).toEqual({ id: 328439, status: 'enviada', titulo: '[PED] Construir dashboard: X', descricao: 'Descrição gerada pela API.' })
+      }
+    })
+
+    it('tarefa com o número em texto não numérico vira tarefa null mantendo o dashboard', async () => {
+      for (const id of ['abc', '', '12a']) {
+        simularApi(fetchFalso, {
+          [`POST ${ROTA}`]: () => respostaJson(respostaGravacaoApi(DASHBOARD_SUPERVISORES_API, tarefaGravacaoApi('[PED] Construir dashboard: X', id)), 201),
+        })
+
+        const resultado = await criarDashboard(NOVO)
+
+        expect(resultado.dashboard?.id).toBe(3)
+        expect(resultado.tarefa).toBeNull()
+      }
+    })
+
+    describe('tarefa no formato publicado em 06/11/2026 ({ titulo, descricao, status, "id bitrix" } — FRONT-tarefas-bitrix.md)', () => {
+      it.each<[string, number | string, number]>([
+        ['texto numérico ("328169")', '328169', 328169],
+        ['texto numérico com espaços nas pontas', ' 328169 ', 328169],
+        ['número', 328169, 328169],
+      ])('status "enviada" com "id bitrix" como %s: o número vem de "id bitrix"', async (_caso, idBitrix, esperado) => {
+        simularApi(fetchFalso, {
+          [`POST ${ROTA}`]: () =>
+            respostaJson(respostaGravacaoApi(DASHBOARD_SUPERVISORES_API, tarefaBitrixGravacaoApi('[PED] Construir dashboard: X', idBitrix)), 201),
+        })
+
+        const { tarefa } = await criarDashboard(NOVO)
+
+        expect(tarefa).toEqual({ id: esperado, status: 'enviada', titulo: '[PED] Construir dashboard: X', descricao: 'Descrição gerada pela API.' })
+      })
+
+      it('tarefa na fila (status "aguardando_envio", "id bitrix" null): id null e o status preservado', async () => {
+        simularApi(fetchFalso, {
+          [`POST ${ROTA}`]: () =>
+            respostaJson(respostaGravacaoApi(DASHBOARD_SUPERVISORES_API, tarefaBitrixGravacaoApi('[PED] Construir dashboard: X', null)), 201),
+        })
+
+        const { tarefa } = await criarDashboard(NOVO)
+
+        expect(tarefa).toEqual({ id: null, status: 'aguardando_envio', titulo: '[PED] Construir dashboard: X', descricao: 'Descrição gerada pela API.' })
+      })
+
+      it('com "id bitrix" e "id" ao mesmo tempo, vale o "id bitrix"; "id bitrix" null prevalece sobre o "id" antigo', async () => {
+        simularApi(fetchFalso, {
+          [`POST ${ROTA}`]: () =>
+            respostaJson(respostaGravacaoApi(DASHBOARD_SUPERVISORES_API, { ...tarefaBitrixGravacaoApi('T', '328169'), id: 50 }), 201),
+        })
+        expect((await criarDashboard(NOVO)).tarefa?.id).toBe(328169)
+
+        simularApi(fetchFalso, {
+          [`POST ${ROTA}`]: () => respostaJson(respostaGravacaoApi(DASHBOARD_SUPERVISORES_API, { ...tarefaBitrixGravacaoApi('T', null), id: 50 }), 201),
+        })
+        expect((await criarDashboard(NOVO)).tarefa?.id).toBeNull()
+      })
+
+      it.each(['abc', '', '12a', '12.5', '-12'])('"id bitrix" em texto não numérico ("%s") deixa a tarefa null, mantendo o dashboard', async (idBitrix) => {
+        simularApi(fetchFalso, {
+          [`POST ${ROTA}`]: () => respostaJson(respostaGravacaoApi(DASHBOARD_SUPERVISORES_API, tarefaBitrixGravacaoApi('T', idBitrix)), 201),
+        })
+
+        const resultado = await criarDashboard(NOVO)
+
+        expect(resultado.dashboard?.id).toBe(3)
+        expect(resultado.tarefa).toBeNull()
+      })
+    })
+
     it('aceita o dashboard na raiz com "tarefa" ao lado', async () => {
       simularApi(fetchFalso, {
         [`POST ${ROTA}`]: () => respostaJson({ ...DASHBOARD_SUPERVISORES_API, tarefa: tarefaGravacaoApi('[PED] Construir dashboard: X') }, 201),
@@ -663,6 +834,45 @@ describe('F7.1 — Serviço de dashboards: listagem, detalhe, prévia, cadastro 
       expect(corpoDaChamada(chamadas[0])).toEqual({ ...CORPO_NOVO, 'enviar tarefa ti': true })
       expect(resultado.dashboard).toMatchObject({ id: 2, situacao: 'em_modificacao' })
       expect(resultado.tarefa?.titulo).toBe('[PED] Modificar dashboard: PED Gerentes')
+    })
+
+    it('tarefa de modificação com o número em texto ("328441") traz o id convertido para número', async () => {
+      simularApi(fetchFalso, {
+        [`PUT ${ROTA}/2`]: () =>
+          respostaJson(
+            respostaGravacaoApi(
+              { ...DASHBOARD_GERENTES_API, situacao: 'em_modificacao' },
+              { ...tarefaGravacaoApi('[PED] Modificar dashboard: PED Gerentes', '328441'), status: 'enviada' },
+            ),
+          ),
+      })
+
+      const { tarefa } = await atualizarDashboard(2, { ...NOVO, enviarTarefaTi: true })
+
+      expect(tarefa).toEqual({ id: 328441, status: 'enviada', titulo: '[PED] Modificar dashboard: PED Gerentes', descricao: 'Descrição gerada pela API.' })
+    })
+
+    it('tarefa de modificação no formato de 06/11/2026: "id bitrix" "328441" (enviada) vira o número; "id bitrix" null (aguardando_envio) vira id null', async () => {
+      const gerentes = { ...DASHBOARD_GERENTES_API, situacao: 'em_modificacao' as const }
+      simularApi(fetchFalso, {
+        [`PUT ${ROTA}/2`]: () => respostaJson(respostaGravacaoApi(gerentes, tarefaBitrixGravacaoApi('[PED] Modificar dashboard: PED Gerentes', '328441'))),
+      })
+      expect((await atualizarDashboard(2, { ...NOVO, enviarTarefaTi: true })).tarefa).toEqual({
+        id: 328441,
+        status: 'enviada',
+        titulo: '[PED] Modificar dashboard: PED Gerentes',
+        descricao: 'Descrição gerada pela API.',
+      })
+
+      simularApi(fetchFalso, {
+        [`PUT ${ROTA}/2`]: () => respostaJson(respostaGravacaoApi(gerentes, tarefaBitrixGravacaoApi('[PED] Modificar dashboard: PED Gerentes', null))),
+      })
+      expect((await atualizarDashboard(2, { ...NOVO, enviarTarefaTi: true })).tarefa).toEqual({
+        id: null,
+        status: 'aguardando_envio',
+        titulo: '[PED] Modificar dashboard: PED Gerentes',
+        descricao: 'Descrição gerada pela API.',
+      })
     })
 
     it('"enviar tarefa ti": false é enviado quando informado; sem tarefa na resposta, tarefa null', async () => {

@@ -83,7 +83,7 @@ describe('F6.2 — Listagem de indicadores (integração: /indicadores com Admin
     expect(detalhes).toHaveTextContent('02/10/2026 09:30 por Maria Souza')
   })
 
-  it('Validador vê a aba e as mesmas ações do Admin', async () => {
+  it('Validador vê a aba e as mesmas ações do Admin, menos "Excluir" (exclusão só do Admin — decisão de 06/11/2026)', async () => {
     const user = usuarioRapido()
     simularSessao('validador')
     renderizarApp('/indicadores')
@@ -96,13 +96,8 @@ describe('F6.2 — Listagem de indicadores (integração: /indicadores com Admin
       'page',
     )
     expect(screen.getByRole('button', { name: 'Novo indicador' })).toBeInTheDocument()
-    expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Devoluções de venda'))).toEqual([
-      'Ver detalhes',
-      'Definir meta',
-      'Inativar',
-      'Excluir',
-    ])
-    expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Capacitação'))).toEqual(['Ver detalhes', 'Reativar', 'Excluir'])
+    expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Devoluções de venda'))).toEqual(['Ver detalhes', 'Definir meta', 'Inativar'])
+    expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Capacitação'))).toEqual(['Ver detalhes', 'Reativar'])
   })
 
   it('Preenchedor não vê a aba Indicadores e, ao abrir /indicadores, volta ao Início sem consultar a listagem', async () => {

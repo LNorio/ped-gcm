@@ -4,18 +4,22 @@
  *
  * Lista padrão (cobre os casos da tela):
  * - PED Comercial (1) — ativo, por filiais 100, 101 e 102, trimestral, 2 indicadores (40 + 60 = 100
- *   de 100), tarefa nº 31 concluída, alterado depois do cadastro;
+ *   de 100), tarefa #31 concluída, alterado depois do cadastro;
  * - PED Gerentes (2) — ativo, por cargo "Gerente de Loja", mensal, 2 indicadores (30 + 20 = 50 de 50),
  *   com um alerta (Custo de frete por entrega, 20 pontos afetados — filtro "Com problemas");
- * - PED Supervisores (3) — em construção (TI), por colaboradores 16 e 11, semestral, tarefa nº 40
+ * - PED Supervisores (3) — em construção (TI), por colaboradores 16 e 11, semestral, tarefa #40 (enviada)
  *   aguardando envio, nunca alterado;
- * - PED Logística (4) — em modificação (TI), por filial 102, bimestral, 1 indicador, tarefa nº 41;
+ * - PED Logística (4) — em modificação (TI), por filial 102, bimestral, 1 indicador, tarefa #41 (enviada);
  * - PED Financeiro (5) — inativo, por cargos "Vendedor" e "Supervisor Comercial", anual, pontos com
  *   decimais (90,5 de 90,5), sem tarefa. Traz um alerta mesmo inativo (a tela só mostra alertas de
  *   dashboard ativo — RF-47).
  *
  * `RESPOSTA_REAL_LISTAGEM_DASHBOARDS_API` é a resposta real de `GET /api/ped/dashboards` colada pelo
  * usuário em 05/11/2026 (bug da aba): a "tarefa bitrix" vem com `"id": null`.
+ *
+ * `RESPOSTA_REAL_LISTAGEM_DASHBOARDS_TAREFA_ENVIADA_API` é a resposta real de `GET /api/ped/dashboards`
+ * colada pelo usuário em 06/11/2026: depois que a tarefa é enviada ao Bitrix24, o `id` da
+ * "tarefa bitrix" vem em **texto** (`"328439"`) e o status é `"enviada"`.
  *
  * `RESPOSTA_REAL_DETALHE_DASHBOARD_API` é a resposta real de `GET /api/ped/dashboards/1` colada pelo
  * usuário em 05/11/2026 (bug da edição): `"itens vinculados"` traz **rótulos** de exibição
@@ -42,8 +46,11 @@ import { DADO_FATURAMENTO_API, type DadoExternoApiFalso, dadosExternosApi } from
 import { INDICADOR_FATURAMENTO_API, type IndicadorApiFalso, indicadoresApi } from './indicadoresFalsos'
 
 export interface TarefaBitrixDashboardApiFalsa {
-  /** `null` enquanto a tarefa só está registrada localmente (`aguardando_envio`), antes do Bitrix24. */
-  id: number | null
+  /**
+   * `null` enquanto a tarefa só está registrada localmente (`aguardando_envio`), antes do Bitrix24.
+   * Depois de enviada, a API real devolve o número em texto (ex.: `"328439"`, resposta de 06/11/2026).
+   */
+  id: number | string | null
   status: string
   titulo: string
 }
@@ -103,7 +110,7 @@ export interface HistoricoDashboardApiFalso {
 }
 
 export interface TarefaDashboardApiFalsa {
-  id: number | null
+  id: number | string | null
   tipo: 'construcao' | 'modificacao'
   status: string
   titulo: string
@@ -112,7 +119,13 @@ export interface TarefaDashboardApiFalsa {
 }
 
 export interface TarefaGravacaoApiFalsa {
-  id: number | null
+  /** Formato anterior a 06/11/2026; o front continua aceitando `id` quando não há `"id bitrix"`. */
+  id?: number | string | null
+  /**
+   * Número da tarefa no Bitrix24, no formato publicado em 06/11/2026 (`FRONT-tarefas-bitrix.md`):
+   * texto numérico (`"328169"`) com `status` `enviada`; `null` com `status` `aguardando_envio`.
+   */
+  'id bitrix'?: number | string | null
   status: string | null
   titulo: string
   descricao: string | null
@@ -180,7 +193,7 @@ export const DASHBOARD_SUPERVISORES_API: DashboardApiFalso = {
   nome: 'PED Supervisores',
   situacao: 'em_construcao',
   'situacao descricao': 'Em construção (TI)',
-  'tarefa bitrix': { id: 40, status: 'aguardando_envio', titulo: '[PED] Construir dashboard: PED Supervisores' },
+  'tarefa bitrix': { id: 40, status: 'enviada', titulo: '[PED] Construir dashboard: PED Supervisores' },
   'tipo de vinculo': 'colaboradores',
   'itens vinculados': [16, 11],
   'unidades de imagem': 2,
@@ -198,7 +211,7 @@ export const DASHBOARD_LOGISTICA_API: DashboardApiFalso = {
   nome: 'PED Logística',
   situacao: 'em_modificacao',
   'situacao descricao': 'Em modificação (TI)',
-  'tarefa bitrix': { id: 41, status: 'aguardando_envio', titulo: '[PED] Modificar dashboard: PED Logística' },
+  'tarefa bitrix': { id: 41, status: 'enviada', titulo: '[PED] Modificar dashboard: PED Logística' },
   'tipo de vinculo': 'filiais',
   'itens vinculados': ['102'],
   'unidades de imagem': 1,
@@ -251,6 +264,31 @@ export const RESPOSTA_REAL_LISTAGEM_DASHBOARDS_API: DashboardApiFalso[] = [
     alertas: [],
     'cadastrado em': '2026-11-05 16:28:43-04:00',
     'ultima alteracao': '2026-11-05 16:28:43-04:00',
+  },
+]
+
+/**
+ * Resposta real de `GET /api/ped/dashboards` (06/11/2026): a tarefa já foi enviada ao Bitrix24 e o
+ * número vem em texto (`"tarefa bitrix": { "id": "328439", "status": "enviada", ... }`).
+ */
+export const RESPOSTA_REAL_LISTAGEM_DASHBOARDS_TAREFA_ENVIADA_API: DashboardApiFalso[] = [
+  {
+    id: 1,
+    nome: 'teste',
+    situacao: 'em_construcao',
+    'situacao descricao': 'Em construcao (TI)',
+    'tarefa bitrix': { id: '328439', status: 'enviada', titulo: '[PED] Construir dashboard: teste' },
+    'tipo de vinculo': 'filiais',
+    'tipo de vinculo descricao': 'Filiais',
+    'itens vinculados': ['100 - Filial 100'],
+    'unidades de imagem': 1,
+    periodicidade: 'mensal',
+    'periodo atual': '11/2026',
+    'quantidade de indicadores': 3,
+    pontos: { soma: 100, maximo: 100 },
+    alertas: [],
+    'cadastrado em': '2026-11-05 16:28:43-04:00',
+    'ultima alteracao': '2026-11-05 16:52:42-04:00',
   },
 ]
 
@@ -523,8 +561,16 @@ export function previaTarefaApi(nome: string) {
 }
 
 /** Tarefa devolvida no POST/PUT (sem número enquanto o Bitrix24 não está integrado — A-12). */
-export function tarefaGravacaoApi(titulo: string, id: number | null = null): TarefaGravacaoApiFalsa {
+export function tarefaGravacaoApi(titulo: string, id: number | string | null = null): TarefaGravacaoApiFalsa {
   return { id, status: 'aguardando_envio', titulo, descricao: 'Descrição gerada pela API.' }
+}
+
+/**
+ * Tarefa do POST/PUT no formato publicado em 06/11/2026: `{ titulo, descricao, status, "id bitrix" }`.
+ * Com `idBitrix`, `status` é `enviada`; sem ele (`null`), `aguardando_envio` (na fila do back-end).
+ */
+export function tarefaBitrixGravacaoApi(titulo: string, idBitrix: number | string | null = null): TarefaGravacaoApiFalsa {
+  return { titulo, descricao: 'Descrição gerada pela API.', status: idBitrix === null ? 'aguardando_envio' : 'enviada', 'id bitrix': idBitrix }
 }
 
 /** Resposta de `POST /api/ped/dashboards` e `PUT .../{id}`: o dashboard gravado e a tarefa (quando há). */

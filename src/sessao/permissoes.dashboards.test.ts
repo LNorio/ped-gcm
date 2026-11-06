@@ -34,6 +34,6 @@ describe('F7.3 — Permissões de ação dos dashboards (podeExecutar)', () => {
     expect(PERFIS.filter((perfil) => podeExecutar(perfil, 'excluir-apontamento'))).toEqual(['admin'])
     expect(PERFIS.filter((perfil) => podeExecutar(perfil, 'concluir-dado-externo'))).toEqual(['admin'])
     expect(PERFIS.filter((perfil) => podeExecutar(perfil, 'cadastrar-indicador'))).toEqual(['admin', 'validador'])
-    expect(PERFIS.filter((perfil) => podeExecutar(perfil, 'excluir-indicador'))).toEqual(['admin', 'validador'])
+    expect(PERFIS.filter((perfil) => podeExecutar(perfil, 'excluir-indicador'))).toEqual(['admin'])
   })
 })

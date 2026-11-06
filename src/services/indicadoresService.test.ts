@@ -533,7 +533,7 @@ describe('F6.1 — Serviço de indicadores', () => {
     })
   })
 
-  describe('excluirIndicador(id) — RF-37 (rota DELETE acordada na A-09)', () => {
+  describe('excluirIndicador(id) — RF-37 (rota DELETE publicada em 06/11/2026, só Admin)', () => {
     it('DELETE .../{id} com o token; resolve sem valor em 204', async () => {
       const chamadas = simularApi(fetchFalso, { [`DELETE ${ROTA}/2`]: () => new Response(null, { status: 204 }) })
 
@@ -544,13 +544,13 @@ describe('F6.1 — Serviço de indicadores', () => {
       expect(cabecalhoDaChamada(chamadas[0], 'Authorization')).toBe('Bearer token-123')
     })
 
-    it('resolve sem valor em 200 com corpo', async () => {
-      simularApi(fetchFalso, { [`DELETE ${ROTA}/2`]: () => respostaJson({ mensagem: 'Excluído.' }) })
+    it('resolve sem valor em 200 com o corpo documentado { mensagem: "indicador excluido" }', async () => {
+      simularApi(fetchFalso, { [`DELETE ${ROTA}/2`]: () => respostaJson({ mensagem: 'indicador excluido' }) })
 
       await expect(excluirIndicador(2)).resolves.toBeUndefined()
     })
 
-    it('400 (indicador que está ou já esteve vinculado a dashboard — RN-11) chega como ApiError com a mensagem da API', async () => {
+    it('400 (indicador em dashboard ou indicador-base das faixas — RN-11) chega como ApiError com a mensagem e a lista "dashboards" em dados', async () => {
       simularApi(fetchFalso, {
         [`DELETE ${ROTA}/1`]: () => respostaJson({ mensagem: 'O indicador já foi vinculado a dashboard e não pode ser excluído.', dashboards: ['PED Comercial'] }, 400),
       })
@@ -562,7 +562,7 @@ describe('F6.1 — Serviço de indicadores', () => {
       expect((erro as ApiError).dados).toMatchObject({ dashboards: ['PED Comercial'] })
     })
 
-    it('404 (rota ainda não publicada — A-09) chega como ApiError com a mensagem padrão do status', async () => {
+    it('404 (indicador não existe) chega como ApiError com a mensagem padrão do status', async () => {
       simularApi(fetchFalso, { [`DELETE ${ROTA}/2`]: () => respostaErro(404) })
 
       await expect(excluirIndicador(2)).rejects.toMatchObject({ status: 404, mensagem: mensagemPadraoPorStatus(404) })

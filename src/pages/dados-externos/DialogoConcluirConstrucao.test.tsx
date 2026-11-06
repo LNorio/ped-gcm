@@ -44,7 +44,7 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin informa o identificador cria
     expect(within(dialogo()).getByRole('button', { name: 'Cancelar' })).toBeInTheDocument()
   })
 
-  it.each(['   ', 'çã -.!'])('sem identificador (só "%s", descartado) mostra "Informe o identificador da consulta." e não confirma', async (texto) => {
+  it.each(['   ', 'çã !/@'])('sem identificador (só "%s", descartado) mostra "Informe o identificador da consulta." e não confirma', async (texto) => {
     const user = usuarioRapido()
     const { onConfirmar } = renderizar()
 
@@ -69,11 +69,12 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin informa o identificador cria
     expect(onConfirmar).toHaveBeenCalledWith('DEVOLUCOES_VENDA')
   })
 
-  describe('só A–Z, 0–9 e "_": caracteres inválidos são descartados na hora', () => {
+  describe('só A–Z, 0–9, "_", "-" e "." (regra do back-end de 06/11/2026): caracteres inválidos são descartados na hora', () => {
     it.each([
       ['ação ok', 'AOOK'],
-      ['NOVOS-CLIENTES 2', 'NOVOSCLIENTES2'],
+      ['NOVOS-CLIENTES 2', 'NOVOS-CLIENTES2'],
       ['novos_clientes', 'NOVOS_CLIENTES'],
+      ['fat.liq-2026 /!', 'FAT.LIQ-2026'],
     ])('ao digitar "%s" o campo mostra "%s"', async (texto, esperado) => {
       const user = usuarioRapido()
       renderizar()
@@ -85,7 +86,7 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin informa o identificador cria
 
     it.each([
       ['ação ok', 'AOOK'],
-      ['NOVOS-CLIENTES 2', 'NOVOSCLIENTES2'],
+      ['NOVOS-CLIENTES 2', 'NOVOS-CLIENTES2'],
       ['novos_clientes', 'NOVOS_CLIENTES'],
     ])('ao colar "%s" o campo mostra "%s"', async (texto, esperado) => {
       const user = usuarioRapido()
@@ -104,7 +105,7 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin informa o identificador cria
       await user.click(concluir())
 
       expect(onConfirmar).toHaveBeenCalledTimes(1)
-      expect(onConfirmar).toHaveBeenCalledWith('DEVOLUESDEVENDA2')
+      expect(onConfirmar).toHaveBeenCalledWith('DEVOLUESDEVENDA-2')
     })
 
     it('escolher uma sugestão com caracteres inválidos preenche o campo com o identificador limpo, que é o confirmado', async () => {
@@ -113,10 +114,10 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin informa o identificador cria
 
       const grupo = within(dialogo()).getByRole('group', { name: 'Identificadores existentes' })
       await user.click(within(grupo).getByRole('button', { name: /usado por 1 dado\(s\)/ }))
-      expect(identificador()).toHaveValue('VENDASLQ2')
+      expect(identificador()).toHaveValue('VENDASLQ-2')
 
       await user.click(concluir())
-      expect(onConfirmar).toHaveBeenCalledWith('VENDASLQ2')
+      expect(onConfirmar).toHaveBeenCalledWith('VENDASLQ-2')
     })
   })
 

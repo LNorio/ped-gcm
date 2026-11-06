@@ -19,7 +19,10 @@
  * `docs/plano-implementacao.md`):
  * - listagem: lista pura ou `{ dashboards: [...] }`; `"tarefa bitrix"` opcional (ausente ou `null`), no
  *   formato `{ id, status, titulo }`. O número da tarefa (`id`) só vem quando ela é enviada ao Bitrix24;
- *   enquanto está só registrada (ex.: `aguardando_envio`), `id` é `null`;
+ *   enquanto está só registrada (ex.: `aguardando_envio`), `id` é `null`. A API real manda o número como
+ *   texto (ex.: `"328439"`): número ou texto só com dígitos (após `trim()`) é aceito e vira número; texto
+ *   não numérico (`"abc"`, `""`, `"31a"`, `"31.5"`, `"-31"`) é inválido. A mesma regra vale para o `id`
+ *   da tarefa no detalhe, no histórico, nas tarefas e no POST/PUT;
  * - detalhe: o dashboard na raiz ou em `{ dashboard }`; `indicadores` com `id` (ou `"id indicador"`),
  *   `nome`, `"pontos base"`, `ativo` e `problema` (texto ou `{ mensagem }`); `"indicador base da faixa"`
  *   como id ou `{ id, nome }`; `"itens vinculados"` traz os rótulos (ex.: `"100 - Filial 100"`) e vira
@@ -30,11 +33,18 @@
  *   item sem a chave do tipo vira `ApiError`. SUPOSIÇÃO: só o formato de filiais foi visto na API real;
  *   os de cargos e colaboradores são prováveis e precisam ser confirmados;
  * - prévia: `{ titulo, descricao }` na raiz ou em `{ tarefa }`;
- * - histórico: lista pura ou `{ historico: [...] }`; `"tarefa bitrix"` como objeto (vira o `id`) ou número;
- * - tarefas: lista pura ou `{ tarefas: [...] }`;
+ * - histórico: lista pura ou `{ historico: [...] }`; `"tarefa bitrix"` como objeto (vira o `id`), número ou
+ *   texto numérico (`"328439"`). Objeto com `id: null` (tarefa ainda na fila de envio ao Bitrix24) é
+ *   aceito e vira `tarefa: null`; objeto na fila ou com status `aguardando_envio` marca
+ *   `tarefaAguardandoEnvio`;
+ * - tarefas: lista pura ou `{ tarefas: [...] }` (`id` em texto não numérico vira `ApiError`);
  * - vínculos: lista pura ou `{ [tipo]: [...] }` (ex.: `{ filiais: [...] }`); códigos numéricos viram texto;
  * - POST/PUT de cadastro e edição: `{ dashboard, tarefa }` ou o dashboard na raiz com `tarefa` ao lado
- *   (tarefa `{ id | null, status | null, titulo, descricao | null }`);
+ *   (tarefa `{ titulo, descricao, status, "id bitrix" }` desde 06/11/2026 — `FRONT-tarefas-bitrix.md`;
+ *   `status` `enviada` traz o número em `"id bitrix"`, `aguardando_envio` traz `null`. A tarefa é criada
+ *   pelo back-end; o front só lê a resposta. Com a chave `"id bitrix"` presente, ela prevalece sobre o
+ *   `id` do formato anterior, mesmo `null`; sem ela, `id` continua aceito. Número não numérico deixa a
+ *   tarefa `null`, mantendo o dashboard);
  * - PUT concluir e situação: `{ dashboard }` ou o dashboard na raiz.
  *
  * Erros HTTP e de rede chegam como `ApiError` (ver `api.ts`) e são propagados sem alteração.
@@ -61,7 +71,7 @@ import {
   type TarefaConstrucao,
   type TipoVinculo,
 } from '../types/dominio'
-import { type DashboardApi, paraCorpoDashboard, paraDashboard } from './adaptadores'
+import { type DashboardApi, numeroDaTarefaBitrix, paraCorpoDashboard, paraDashboard } from './adaptadores'
 import { ApiError, MENSAGEM_RESPOSTA_INVALIDA, type ValorQuery, apiFetch } from './api'
 
 const ROTA_DASHBOARDS = '/ped/dashboards'
@@ -144,8 +154,14 @@ export interface HistoricoDashboard {
   data: string
   usuario: string
   alteracoes: string[]
-  /** Número da tarefa no Bitrix24; `null` quando não há. */
+  /** Número da tarefa no Bitrix24; `null` quando não há ou quando ainda não foi enviada. */
   tarefa: number | null
+  /**
+   * `true` quando a tarefa está registrada mas ainda na fila de envio ao Bitrix24: objeto com
+   * `id: null` (com ou sem status) ou com status `aguardando_envio`. Enviada, concluída, número solto,
+   * `null` ou ausente: `false`.
+   */
+  tarefaAguardandoEnvio: boolean
   observacao: string | null
 }
 
@@ -208,7 +224,7 @@ function ehListaDe(valor: unknown, validar: (v: unknown) => boolean): valor is u
   return Array.isArray(valor) && valor.every(validar)
 }
 
-/** Número informado direto ou como `{ id }` (indicador base da faixa, tarefa do histórico). */
+/** Número informado direto ou como `{ id }` (indicador base da faixa). */
 function ehIdOuReferencia(valor: unknown): boolean {
   return ehNumero(valor) || (ehObjeto(valor) && ehNumero(valor.id))
 }
@@ -219,6 +235,30 @@ function idOuReferencia(valor: unknown): number | null {
   return null
 }
 
+/**
+ * Tarefa do histórico: número, texto numérico ou `{ id }` com número ou texto numérico (ver
+ * `numeroDaTarefaBitrix`); fora disso, `undefined`. Separada de `idOuReferencia` porque o indicador
+ * base da faixa continua aceitando só número.
+ */
+function numeroDaTarefaDoHistorico(valor: unknown): number | undefined {
+  return numeroDaTarefaBitrix(ehObjeto(valor) ? valor.id : valor)
+}
+
+/** Tarefa do histórico ainda não enviada ao Bitrix24: objeto com `id: null` (com ou sem status). */
+function ehTarefaDoHistoricoNaFila(valor: unknown): boolean {
+  return ehObjeto(valor) && valor.id === null && opcional(valor.status, ehTexto)
+}
+
+/** Tarefa do histórico aceita: número da tarefa (ver `numeroDaTarefaDoHistorico`) ou tarefa na fila. */
+function ehTarefaDoHistorico(valor: unknown): boolean {
+  return numeroDaTarefaDoHistorico(valor) !== undefined || ehTarefaDoHistoricoNaFila(valor)
+}
+
+/** Tarefa do histórico aguardando envio: na fila (`id: null`) ou com status `aguardando_envio`. */
+function tarefaDoHistoricoAguardandoEnvio(valor: unknown): boolean {
+  return ehTarefaDoHistoricoNaFila(valor) || (ehObjeto(valor) && valor.status === 'aguardando_envio')
+}
+
 function textoOuNulo(valor: unknown): string | null {
   return ehTexto(valor) ? valor : null
 }
@@ -227,11 +267,14 @@ function numeroOuNulo(valor: unknown): number | null {
   return ehNumero(valor) ? valor : null
 }
 
-/** Tarefa do Bitrix24: `id` numérico ou `null` (só registrada, ainda não enviada). */
+/** Número da tarefa do Bitrix24: número ou texto só com dígitos (ver `numeroDaTarefaBitrix`). */
+const ehNumeroDaTarefa = (v: unknown): boolean => numeroDaTarefaBitrix(v) !== undefined
+
+/** Tarefa do Bitrix24: `id` numérico, texto numérico ou `null` (só registrada, ainda não enviada). */
 function ehTarefaBitrixApi(valor: unknown): boolean {
   return (
     ehObjeto(valor) &&
-    (ehNumero(valor.id) || valor.id === null) &&
+    (ehNumeroDaTarefa(valor.id) || valor.id === null) &&
     ehTexto(valor.status) &&
     ehTexto(valor.titulo)
   )
@@ -285,19 +328,28 @@ function extrairDashboardOuNulo(resposta: unknown): Dashboard | null {
   return converterDashboardOuNulo(resposta) ?? converterDashboardOuNulo(resposta.dashboard)
 }
 
-/** Tarefa da resposta do POST/PUT; ausente ou fora do formato vira `null`, sem erro. */
+/** Número informado na tarefa do POST/PUT: `"id bitrix"` quando a chave existe (mesmo `null`); senão, `id`. */
+function numeroInformadoDaTarefa(valor: Record<string, unknown>): unknown {
+  return 'id bitrix' in valor ? valor['id bitrix'] : valor.id
+}
+
+/**
+ * Tarefa da resposta do POST/PUT; ausente ou fora do formato vira `null`, sem erro.
+ * O número vem de `"id bitrix"` (formato de 06/11/2026); quando a chave está presente ela prevalece,
+ * mesmo `null` (tarefa na fila, `aguardando_envio`). Sem `"id bitrix"`, vale o `id` do formato anterior.
+ */
 function converterTarefaOuNula(valor: unknown): TarefaConstrucao | null {
   if (
     !ehObjeto(valor) ||
     !ehTexto(valor.titulo) ||
-    !opcional(valor.id, ehNumero) ||
+    !opcional(numeroInformadoDaTarefa(valor), ehNumeroDaTarefa) ||
     !opcional(valor.status, ehTexto) ||
     !opcional(valor.descricao, ehTexto)
   ) {
     return null
   }
   return {
-    id: numeroOuNulo(valor.id),
+    id: numeroDaTarefaBitrix(numeroInformadoDaTarefa(valor)) ?? null,
     status: textoOuNulo(valor.status),
     titulo: valor.titulo,
     descricao: textoOuNulo(valor.descricao),
@@ -403,7 +455,7 @@ function converterHistorico(valor: unknown): HistoricoDashboard {
     !ehTexto(valor.usuario) ||
     !opcional(valor['acao descricao'], ehTexto) ||
     !opcional(valor.alteracoes, (v) => ehListaDe(v, ehTexto)) ||
-    !opcional(valor['tarefa bitrix'], ehIdOuReferencia) ||
+    !opcional(valor['tarefa bitrix'], ehTarefaDoHistorico) ||
     !opcional(valor.observacao, ehTexto)
   ) {
     throw respostaInvalida()
@@ -415,7 +467,8 @@ function converterHistorico(valor: unknown): HistoricoDashboard {
     data: valor.data,
     usuario: valor.usuario,
     alteracoes: Array.isArray(alteracoes) ? alteracoes.filter(ehTexto) : [],
-    tarefa: idOuReferencia(valor['tarefa bitrix']),
+    tarefa: numeroDaTarefaDoHistorico(valor['tarefa bitrix']) ?? null,
+    tarefaAguardandoEnvio: tarefaDoHistoricoAguardandoEnvio(valor['tarefa bitrix']),
     observacao: textoOuNulo(valor.observacao),
   }
 }
@@ -424,7 +477,7 @@ function converterTarefaDashboard(valor: unknown): TarefaDashboard {
   if (
     !ehObjeto(valor) ||
     !ehTexto(valor.titulo) ||
-    !opcional(valor.id, ehNumero) ||
+    !opcional(valor.id, ehNumeroDaTarefa) ||
     !opcional(valor.tipo, ehTexto) ||
     !opcional(valor.status, ehTexto) ||
     !opcional(valor.descricao, ehTexto) ||
@@ -433,7 +486,7 @@ function converterTarefaDashboard(valor: unknown): TarefaDashboard {
     throw respostaInvalida()
   }
   return {
-    id: numeroOuNulo(valor.id),
+    id: numeroDaTarefaBitrix(valor.id) ?? null,
     tipo: textoOuNulo(valor.tipo),
     status: textoOuNulo(valor.status),
     titulo: valor.titulo,

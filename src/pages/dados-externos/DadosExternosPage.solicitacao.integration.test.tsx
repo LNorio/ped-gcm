@@ -12,6 +12,7 @@ import {
   rotaListarDadosExternos,
   type DadoExternoApiFalso,
   type TarefaCriadaApiFalsa,
+  tarefaBitrixCriadaApi,
 } from '../../test/dadosExternosFalsos'
 import { renderizarApp } from '../../test/renderizarApp'
 
@@ -19,6 +20,10 @@ type Perfil = 'validador' | 'preenchedor'
 
 const ROTA = '/api/ped/dados-externos-cadastro'
 const DESCRICAO_TAREFA = 'Sistema de origem: Senior ERP (Sapiens). Campo ou cálculo: Soma das bonificações por filial.'
+/** Frases de confirmação de FRONT-tarefas-bitrix.md (seção 2), publicadas pelo back-end em 06/11/2026. */
+const fraseTarefaCriada = (numero: number) => `Tarefa #${numero} criada no Bitrix para a equipe de TI.`
+const FRASE_TAREFA_NA_FILA = 'Salvo. A tarefa para a TI será criada no Bitrix em instantes.'
+const AVISO_TAREFA = 'Ao salvar, será aberta uma tarefa para a equipe de TI.'
 
 describe('F5.6 — Pedido de construção de dado externo (Validador/Preenchedor; integração: /dados-externos)', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
@@ -57,7 +62,9 @@ describe('F5.6 — Pedido de construção de dado externo (Validador/Preenchedor
           id: 21,
           nome: corpo.nome,
           'campo calculo': corpo['campo calculo'],
-          'tarefa bitrix': tarefa?.id ? { id: tarefa.id, status: 'aguardando_envio', titulo: tarefa.titulo } : null,
+          'tarefa bitrix': tarefa
+            ? { id: tarefa['id bitrix'] ?? tarefa.id ?? null, status: tarefa.status ?? 'aguardando_envio', titulo: tarefa.titulo }
+            : null,
           'cadastrado em': '2026-11-04 10:00:00',
           'cadastrado por': acesso.nome,
         }
@@ -110,15 +117,21 @@ describe('F5.6 — Pedido de construção de dado externo (Validador/Preenchedor
   )
 
   it.each<Perfil>(['validador', 'preenchedor'])(
-    '%s envia o pedido: POST sem identificador → "Pedido de construção enviado à TI." com o título, a descrição e o número da tarefa',
+    '%s vê no formulário o aviso "Ao salvar, será aberta uma tarefa para a equipe de TI."',
     async (perfil) => {
       const user = usuarioRapido()
-      const chamadas = simularSessao(perfil, {
-        id: 1051,
-        status: 'aguardando_envio',
-        titulo: '[PED] Construir dado externo: Bonificações',
-        descricao: DESCRICAO_TAREFA,
-      })
+      simularSessao(perfil, null)
+      const dialogo = await abrirCadastro(user)
+
+      expect(within(dialogo).getByText(AVISO_TAREFA)).toBeInTheDocument()
+    },
+  )
+
+  it.each<Perfil>(['validador', 'preenchedor'])(
+    '%s cadastra: POST sem identificador → tarefa já criada no Bitrix (status "enviada", "id bitrix" "1051") → "Tarefa #1051 criada no Bitrix para a equipe de TI." com o título e a descrição',
+    async (perfil) => {
+      const user = usuarioRapido()
+      const chamadas = simularSessao(perfil, tarefaBitrixCriadaApi('[PED] Construir dado externo: Bonificações', '1051', DESCRICAO_TAREFA))
       const dialogo = await abrirCadastro(user)
       await preencher(user, dialogo)
 
@@ -126,10 +139,12 @@ describe('F5.6 — Pedido de construção de dado externo (Validador/Preenchedor
 
       const resultado = await screen.findByRole('dialog', { name: 'Pedido enviado à TI' })
       expect(screen.queryByRole('dialog', { name: 'Novo dado externo' })).not.toBeInTheDocument()
-      expect(within(resultado).getByText('Pedido de construção enviado à TI.')).toBeInTheDocument()
+      expect(within(resultado).getByText(fraseTarefaCriada(1051))).toBeInTheDocument()
       expect(within(resultado).getByText('[PED] Construir dado externo: Bonificações')).toBeInTheDocument()
       expect(within(resultado).getByText(DESCRICAO_TAREFA)).toBeInTheDocument()
-      expect(within(resultado).getByText('Tarefa nº 1051')).toBeInTheDocument()
+      expect(within(resultado).queryByText(FRASE_TAREFA_NA_FILA)).not.toBeInTheDocument()
+      expect(within(resultado).queryByText('Pedido de construção enviado à TI.')).not.toBeInTheDocument()
+      expect(within(resultado).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
       expect(corpoDaChamada(posts(chamadas)[0])).toMatchObject({
         nome: 'Bonificações',
         identificador: null,
@@ -142,11 +157,55 @@ describe('F5.6 — Pedido de construção de dado externo (Validador/Preenchedor
       const linha = (await screen.findByText('Bonificações')).closest('tr')!
       expect(within(linha).getByText('Em construção (TI)')).toBeInTheDocument()
       expect(within(linha).getByText('a definir pela TI')).toBeInTheDocument()
-      expect(within(linha).getByText('Tarefa nº 1051')).toBeInTheDocument()
+      expect(within(linha).getByText('#1051')).toBeInTheDocument()
     },
   )
 
-  it('tarefa sem número: mostra o título, sem "Tarefa nº"', async () => {
+  it('tarefa na fila (status "aguardando_envio", "id bitrix" null): "Salvo. A tarefa para a TI será criada no Bitrix em instantes." com o título e a descrição, sem número; a linha mostra "Aguardando envio ao Bitrix"', async () => {
+    const user = usuarioRapido()
+    simularSessao('preenchedor', tarefaBitrixCriadaApi('[PED] Construir dado externo: Bonificações', null, DESCRICAO_TAREFA))
+    const dialogo = await abrirCadastro(user)
+    await preencher(user, dialogo)
+
+    await user.click(within(dialogo).getByRole('button', { name: 'Salvar' }))
+
+    const resultado = await screen.findByRole('dialog', { name: 'Pedido enviado à TI' })
+    expect(within(resultado).getByText(FRASE_TAREFA_NA_FILA)).toBeInTheDocument()
+    expect(within(resultado).getByText('[PED] Construir dado externo: Bonificações')).toBeInTheDocument()
+    expect(within(resultado).getByText(DESCRICAO_TAREFA)).toBeInTheDocument()
+    expect(within(resultado).queryByText(/Tarefa #/)).not.toBeInTheDocument()
+
+    await user.click(within(resultado).getByRole('button', { name: 'Entendi' }))
+    const linha = (await screen.findByText('Bonificações')).closest('tr')!
+    expect(within(linha).getByText('Aguardando envio ao Bitrix')).toBeInTheDocument()
+  })
+
+  it('status "enviada" sem número: usa a frase sem número ("em instantes")', async () => {
+    const user = usuarioRapido()
+    simularSessao('validador', { ...tarefaBitrixCriadaApi('[PED] Construir dado externo: Bonificações', null, DESCRICAO_TAREFA), status: 'enviada' })
+    const dialogo = await abrirCadastro(user)
+    await preencher(user, dialogo)
+
+    await user.click(within(dialogo).getByRole('button', { name: 'Salvar' }))
+
+    const resultado = await screen.findByRole('dialog', { name: 'Pedido enviado à TI' })
+    expect(within(resultado).getByText(FRASE_TAREFA_NA_FILA)).toBeInTheDocument()
+    expect(within(resultado).queryByText(/Tarefa #/)).not.toBeInTheDocument()
+  })
+
+  it('formato anterior da tarefa ("id" sem "id bitrix", status "enviada"): continua mostrando "Tarefa #{id} criada no Bitrix para a equipe de TI."', async () => {
+    const user = usuarioRapido()
+    simularSessao('validador', { id: 1051, status: 'enviada', titulo: '[PED] Construir dado externo: Bonificações', descricao: DESCRICAO_TAREFA })
+    const dialogo = await abrirCadastro(user)
+    await preencher(user, dialogo)
+
+    await user.click(within(dialogo).getByRole('button', { name: 'Salvar' }))
+
+    const resultado = await screen.findByRole('dialog', { name: 'Pedido enviado à TI' })
+    expect(within(resultado).getByText(fraseTarefaCriada(1051))).toBeInTheDocument()
+  })
+
+  it('tarefa sem id e sem status: mostra o título e a frase sem número', async () => {
     const user = usuarioRapido()
     simularSessao('validador', { titulo: '[PED] Construir dado externo: Bonificações', descricao: DESCRICAO_TAREFA })
     const dialogo = await abrirCadastro(user)
@@ -156,7 +215,8 @@ describe('F5.6 — Pedido de construção de dado externo (Validador/Preenchedor
 
     const resultado = await screen.findByRole('dialog', { name: 'Pedido enviado à TI' })
     expect(within(resultado).getByText('[PED] Construir dado externo: Bonificações')).toBeInTheDocument()
-    expect(within(resultado).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
+    expect(within(resultado).getByText(FRASE_TAREFA_NA_FILA)).toBeInTheDocument()
+    expect(within(resultado).queryByText(/Tarefa #/)).not.toBeInTheDocument()
   })
 
   it('API sem a tarefa na resposta: mostra o título "[PED] Construir dado externo: {nome}" montado com o nome do dado', async () => {
@@ -168,9 +228,9 @@ describe('F5.6 — Pedido de construção de dado externo (Validador/Preenchedor
     await user.click(within(dialogo).getByRole('button', { name: 'Salvar' }))
 
     const resultado = await screen.findByRole('dialog', { name: 'Pedido enviado à TI' })
-    expect(within(resultado).getByText('Pedido de construção enviado à TI.')).toBeInTheDocument()
+    expect(within(resultado).getByText(FRASE_TAREFA_NA_FILA)).toBeInTheDocument()
     expect(within(resultado).getByText('[PED] Construir dado externo: Bonificações')).toBeInTheDocument()
-    expect(within(resultado).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
+    expect(within(resultado).queryByText(/Tarefa #/)).not.toBeInTheDocument()
     await waitFor(() => expect(screen.getByText('Bonificações')).toBeInTheDocument())
   })
 
@@ -186,9 +246,9 @@ describe('F5.6 — Pedido de construção de dado externo (Validador/Preenchedor
 
       const resultado = await screen.findByRole('dialog', { name: 'Pedido enviado à TI' })
       expect(screen.queryByRole('dialog', { name: 'Novo dado externo' })).not.toBeInTheDocument()
-      expect(within(resultado).getByText('Pedido de construção enviado à TI.')).toBeInTheDocument()
+      expect(within(resultado).getByText(FRASE_TAREFA_NA_FILA)).toBeInTheDocument()
       expect(within(resultado).getByText('[PED] Construir dado externo: Bonificações')).toBeInTheDocument()
-      expect(within(resultado).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
+      expect(within(resultado).queryByText(/Tarefa #/)).not.toBeInTheDocument()
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()
       expect(posts(chamadas)).toHaveLength(1)
       await waitFor(() => expect(getsLista(chamadas)).toHaveLength(2))
@@ -201,9 +261,9 @@ describe('F5.6 — Pedido de construção de dado externo (Validador/Preenchedor
     },
   )
 
-  it('POST 2xx com { mensagem, tarefa } sem o dado: o pedido mostra o título, a descrição e o número da tarefa da resposta', async () => {
+  it('POST 2xx com { mensagem, tarefa } sem o dado (formato documentado): o pedido mostra o título, a descrição e a frase com o número da tarefa da resposta', async () => {
     const user = usuarioRapido()
-    const tarefa = { id: 1051, status: 'aguardando_envio', titulo: 'Construção TI: Bonificações', descricao: DESCRICAO_TAREFA }
+    const tarefa = tarefaBitrixCriadaApi('Construção TI: Bonificações', '1051', DESCRICAO_TAREFA)
     const chamadas = simularSessao('preenchedor', null, () => respostaJson({ mensagem: 'dado externo cadastrado', tarefa }, 201))
     const dialogo = await abrirCadastro(user)
     await preencher(user, dialogo)
@@ -214,7 +274,7 @@ describe('F5.6 — Pedido de construção de dado externo (Validador/Preenchedor
     expect(within(resultado).getByText('Construção TI: Bonificações')).toBeInTheDocument()
     expect(within(resultado).queryByText('[PED] Construir dado externo: Bonificações')).not.toBeInTheDocument()
     expect(within(resultado).getByText(DESCRICAO_TAREFA)).toBeInTheDocument()
-    expect(within(resultado).getByText('Tarefa nº 1051')).toBeInTheDocument()
+    expect(within(resultado).getByText(fraseTarefaCriada(1051))).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     await waitFor(() => expect(getsLista(chamadas)).toHaveLength(2))
   })
@@ -229,7 +289,8 @@ describe('F5.6 — Pedido de construção de dado externo (Validador/Preenchedor
 
     const resultado = await screen.findByRole('dialog', { name: 'Pedido enviado à TI' })
     expect(within(resultado).getByText('[PED] Construir dado externo: Bonificações')).toBeInTheDocument()
-    expect(within(resultado).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
+    expect(within(resultado).getByText(FRASE_TAREFA_NA_FILA)).toBeInTheDocument()
+    expect(within(resultado).queryByText(/Tarefa #/)).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 

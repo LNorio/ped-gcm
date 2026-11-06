@@ -22,7 +22,7 @@ import {
   respostaRealDetalheDashboardApi,
   rotaListarDashboards,
   rotaVinculos,
-  tarefaGravacaoApi,
+  tarefaBitrixGravacaoApi,
   tarefasDashboardApi,
   type DashboardApiFalso,
 } from '../../test/dashboardsFalsos'
@@ -55,9 +55,11 @@ describe('F7.8 — Edição de dashboard com "Enviar tarefa à TI para realizar 
     perfil?: 'admin' | 'validador'
     aoEditar?: () => Response
     aoDetalhar?: () => Response
+    /** "id bitrix" da tarefa de modificação devolvida no PUT com envio; `null` (padrão) = na fila (`aguardando_envio`). */
+    idTarefa?: number | string | null
   }
 
-  function simularSessao({ perfil = 'validador', aoEditar, aoDetalhar }: Opcoes = {}) {
+  function simularSessao({ perfil = 'validador', aoEditar, aoDetalhar, idTarefa = null }: Opcoes = {}) {
     const acesso = acessoApi({ perfil, 'todas as filiais': true, filiais: FILIAIS_API })
     let lista: DashboardApiFalso[] = dashboardsApi()
     return simularApi(fetchFalso, {
@@ -78,7 +80,7 @@ describe('F7.8 — Edição de dashboard com "Enviar tarefa à TI para realizar 
             : d,
         )
         const atualizado = lista.find((d) => d.id === 2)!
-        return respostaJson(respostaGravacaoApi(atualizado, enviar ? tarefaGravacaoApi(`[PED] Modificar dashboard: ${corpo.nome}`) : null))
+        return respostaJson(respostaGravacaoApi(atualizado, enviar ? tarefaBitrixGravacaoApi(`[PED] Modificar dashboard: ${corpo.nome}`, idTarefa) : null))
       },
     })
   }
@@ -113,7 +115,7 @@ describe('F7.8 — Edição de dashboard com "Enviar tarefa à TI para realizar 
     expect(within(dialogo).getByRole('textbox', { name: 'Pontuação base máxima' })).toHaveAttribute('readonly')
     expect(within(dialogo).getByRole('textbox', { name: 'Pontuação base máxima' })).toHaveValue('50 pts')
     expect(within(dialogo).getByRole('textbox', { name: 'Pontos base de Custo de frete por entrega neste dashboard' })).toHaveValue('20')
-    const tarefas = 'Tarefas anteriores: Modificação nº 25 · 10/09/2026 14:00 | Construção nº 21 · 01/08/2026 10:00'
+    const tarefas = 'Tarefas anteriores: Modificação #25 · 10/09/2026 14:00 | Construção #21 · 01/08/2026 10:00'
     expect(
       within(dialogo).getByText(
         (_conteudo, elemento) =>
@@ -169,13 +171,36 @@ describe('F7.8 — Edição de dashboard com "Enviar tarefa à TI para realizar 
     await colar(user, bloco.getByRole('textbox', { name: 'Observação para a TI (opcional)' }), 'Ajustar a régua de pontos.')
     await user.click(within(dialogo).getByRole('button', { name: 'Salvar e enviar tarefa à TI' }))
 
-    expect(await screen.findByText('Dashboard atualizado. Tarefa de modificação registrada para a TI.')).toBeInTheDocument()
+    expect(await screen.findByText('Dashboard atualizado. A tarefa para a TI será criada no Bitrix em instantes.')).toBeInTheDocument()
     expect(corpoDaChamada(puts(chamadas)[0])).toMatchObject({ 'enviar tarefa ti': true, 'observacao para ti': 'Ajustar a régua de pontos.' })
     expect(chamadas.some((c) => c.caminho === `${ROTA}/previa-tarefa`)).toBe(false)
     const tabela = screen.getByRole('table', { name: 'Dashboards' })
     await waitFor(() =>
       expect(within(within(tabela).getByText('PED Gerentes').closest('tr')!).getByText('Em modificação (TI)')).toBeInTheDocument(),
     )
+  })
+
+  it('PUT com envio e tarefa já criada no Bitrix (status "enviada", "id bitrix" "328441"): "Dashboard atualizado. Tarefa #328441 criada no Bitrix para a equipe de TI."', async () => {
+    const user = usuarioRapido()
+    simularSessao({ perfil: 'admin', idTarefa: '328441' })
+    const dialogo = await abrirEdicao(user)
+
+    await user.click(caixa(dialogo))
+    await user.click(within(dialogo).getByRole('button', { name: 'Salvar e enviar tarefa à TI' }))
+
+    const notificacao = await screen.findByText('Dashboard atualizado. Tarefa #328441 criada no Bitrix para a equipe de TI.')
+    expect(notificacao.closest('[role="status"]')).not.toBeNull()
+  })
+
+  it('PUT com envio sem "tarefa" na resposta: "Dashboard atualizado. A tarefa para a TI será criada no Bitrix em instantes."', async () => {
+    const user = usuarioRapido()
+    simularSessao({ perfil: 'admin', aoEditar: () => respostaJson(respostaGravacaoApi({ ...DASHBOARD_GERENTES_API, situacao: 'em_modificacao' }, null)) })
+    const dialogo = await abrirEdicao(user)
+
+    await user.click(caixa(dialogo))
+    await user.click(within(dialogo).getByRole('button', { name: 'Salvar e enviar tarefa à TI' }))
+
+    expect(await screen.findByText('Dashboard atualizado. A tarefa para a TI será criada no Bitrix em instantes.')).toBeInTheDocument()
   })
 
   it('base gravada fora dos indicadores vinculados (dado antigo): o campo abre vazio, salvar exige escolher e o PUT leva o id escolhido', async () => {

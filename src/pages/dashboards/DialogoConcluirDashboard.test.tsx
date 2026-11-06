@@ -23,12 +23,12 @@ describe('F7.10 — DialogoConcluirDashboard: concluir construção ou modifica�
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('em construção: "Concluir construção", o dashboard passa a ficar ativo, com o número da tarefa', () => {
+  it('em construção: "Concluir construção", o dashboard passa a ficar ativo, com o número da tarefa ("Tarefa #40")', () => {
     renderizar(SUPERVISORES)
 
     const dialogo = screen.getByRole('dialog', { name: 'Concluir construção' })
     expect(within(dialogo).getByText('Confirme que a TI concluiu a construção do dashboard “PED Supervisores”. Ele passa a ficar ativo.')).toBeInTheDocument()
-    expect(within(dialogo).getByText('Tarefa nº 40')).toBeInTheDocument()
+    expect(within(dialogo).getByText('Tarefa #40')).toBeInTheDocument()
     expect(within(dialogo).getByRole('button', { name: 'Concluir' })).toBeEnabled()
   })
 
@@ -39,21 +39,31 @@ describe('F7.10 — DialogoConcluirDashboard: concluir construção ou modifica�
     expect(
       within(dialogo).getByText('Confirme que a TI concluiu a modificação do dashboard “PED Logística”. Ele volta à situação anterior à modificação.'),
     ).toBeInTheDocument()
-    expect(within(dialogo).getByText('Tarefa nº 41')).toBeInTheDocument()
+    expect(within(dialogo).getByText('Tarefa #41')).toBeInTheDocument()
   })
 
-  it('sem tarefa conhecida, não mostra número de tarefa', () => {
+  it('sem tarefa conhecida, não mostra número de tarefa nem o rótulo de aguardando envio', () => {
     renderizar({ ...SUPERVISORES, tarefaBitrix: null })
 
-    expect(screen.queryByText(/Tarefa nº/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Tarefa/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Aguardando envio ao Bitrix')).not.toBeInTheDocument()
   })
 
-  it('tarefa sem número (id null, ainda não enviada ao Bitrix24): o diálogo abre sem "Tarefa nº"', () => {
+  it('tarefa sem número (id null, ainda não enviada ao Bitrix24): mostra "Aguardando envio ao Bitrix", sem número', () => {
     renderizar({ ...SUPERVISORES, tarefaBitrix: { id: null, status: 'aguardando_envio', titulo: '[PED] Construir dashboard: PED Supervisores' } })
 
     const dialogo = screen.getByRole('dialog', { name: 'Concluir construção' })
-    expect(within(dialogo).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
+    expect(within(dialogo).getByText('Aguardando envio ao Bitrix')).toBeInTheDocument()
+    expect(within(dialogo).queryByText(/#/)).not.toBeInTheDocument()
     expect(within(dialogo).getByRole('button', { name: 'Concluir' })).toBeEnabled()
+  })
+
+  it('tarefa com número e status "aguardando_envio": mostra "Aguardando envio ao Bitrix" no lugar do número', () => {
+    renderizar({ ...SUPERVISORES, tarefaBitrix: { id: 40, status: 'aguardando_envio', titulo: '[PED] Construir dashboard: PED Supervisores' } })
+
+    const dialogo = screen.getByRole('dialog', { name: 'Concluir construção' })
+    expect(within(dialogo).getByText('Aguardando envio ao Bitrix')).toBeInTheDocument()
+    expect(within(dialogo).queryByText('Tarefa #40')).not.toBeInTheDocument()
   })
 
   it('"Concluir" chama onConfirmar; Cancelar e Esc chamam onCancelar; concluindo desabilita o botão', async () => {

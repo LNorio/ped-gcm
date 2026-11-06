@@ -1,0 +1,26 @@
+/*
+ * Formulários de tipo de apontamento (F3.4 cadastro e F3.5 edição dos vínculos).
+ *
+ * Reaproveitam o visual do modal de dashboard (classe `formulario-dashboard` no <form>, que aplica
+ * o estilo do protótipo ao diálogo via :has(), e o dropdown `SeletorBusca`). Aqui ficam só os
+ * ajustes próprios dos tipos, com escopo em `.formulario-tipo`.
+ */
+
+/* Modal mais estreito que o de dashboard: só o nome e os dois seletores. */
+.dialogo:has(> .dialogo__corpo > .formulario-dashboard.formulario-tipo) {
+  max-width: 600px;
+}
+
+.formulario-tipo__vinculos {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Nome somente leitura na edição (mesmo estilo do campo travado do dashboard). */
+.formulario-tipo .formulario-tipo__somente-leitura {
+  background-color: #f1f4f7;
+  color: #4f5b67;
+  font-weight: 500;
+  cursor: default;
+}

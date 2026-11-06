@@ -7,14 +7,16 @@ const PERFIS: Perfil[] = ['admin', 'validador', 'preenchedor']
 /**
  * Ações da aba Indicadores (RF-34 a RF-39; API fase 4: "Admin e Validador fazem tudo na aba
  * Indicadores; o Preenchedor não acessa a aba"):
- * - cadastrar, definir meta do automático, inativar/reativar, excluir e ver o histórico de metas —
- *   Admin e Validador; Preenchedor nunca.
+ * - cadastrar, definir meta do automático, inativar/reativar e ver o histórico de metas — Admin e
+ *   Validador; Preenchedor nunca;
+ * - excluir — só Admin (decisão de 06/11/2026, alinhada à rota DELETE /api/ped/indicadores-cadastro/{id},
+ *   que é "só Admin" em FRONT-PED-mudancas.md, item 5).
  */
 const ESPERADO: ReadonlyArray<[AcaoPermissao, Perfil[]]> = [
   ['cadastrar-indicador', ['admin', 'validador']],
   ['definir-meta-indicador', ['admin', 'validador']],
   ['alterar-situacao-indicador', ['admin', 'validador']],
-  ['excluir-indicador', ['admin', 'validador']],
+  ['excluir-indicador', ['admin']],
   ['ver-historico-metas-indicador', ['admin', 'validador']],
 ]
 

@@ -1,11 +1,11 @@
 import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react'
 import { usuarioRapido } from '../../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { paraTipoApontamento } from '../../services/adaptadores'
 import { excluirTipo, listarTipos } from '../../services/tiposService'
 import { ProvedorSessaoFalso } from '../../test/ProvedorSessaoFalso'
 import { FILIAIS, acessoFalso } from '../../test/sessaoFalsa'
-import { TIPO_LOGISTICA_API, tiposApi } from '../../test/tiposFalsos'
+import { escolherAcao } from '../../test/menuAcoes'
+import { TIPO_LOGISTICA_API, rotuloAcoesTipo, tiposDominio } from '../../test/tiposFalsos'
 import { TiposPage } from './TiposPage'
 import { useTipos } from './useTipos'
 
@@ -24,7 +24,7 @@ describe('F3.3 — Exclusão de tipo: erro inesperado (não ApiError)', () => {
   beforeEach(() => {
     listarTiposFalso.mockReset()
     excluirTipoFalso.mockReset()
-    listarTiposFalso.mockResolvedValue(tiposApi().map(paraTipoApontamento))
+    listarTiposFalso.mockResolvedValue(tiposDominio())
   })
 
   afterEach(() => {
@@ -61,7 +61,7 @@ describe('F3.3 — Exclusão de tipo: erro inesperado (não ApiError)', () => {
     renderizar()
     await screen.findByRole('table', { name: 'Tipos de apontamento' })
 
-    await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+    await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }))
 
     const alerta = await screen.findByRole('alert')
@@ -80,11 +80,11 @@ describe('F3.3 — Exclusão de tipo: erro inesperado (não ApiError)', () => {
     renderizar()
     await screen.findByRole('table', { name: 'Tipos de apontamento' })
 
-    await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+    await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(MENSAGEM_UNIFICADA)
 
-    await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+    await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }))
 
     await screen.findByText('Tipo excluído.')

@@ -471,11 +471,11 @@ describe('F7.8 — FormularioDashboard: edição com "Enviar tarefa à TI" e tar
   })
 
   describe('tarefas anteriores (RF-56)', () => {
-    it('mostra "Tarefas anteriores: {tipo} nº {id} · {data e hora}", da mais recente à mais antiga, separadas por " | "', () => {
+    it('mostra "Tarefas anteriores: {tipo} #{id} · {data e hora}", da mais recente à mais antiga, separadas por " | "', () => {
       renderizar()
 
       expect(
-        screen.getByText(textoExato('Tarefas anteriores: Modificação nº 25 · 10/09/2026 14:00 | Construção nº 21 · 01/08/2026 10:00')),
+        screen.getByText(textoExato('Tarefas anteriores: Modificação #25 · 10/09/2026 14:00 | Construção #21 · 01/08/2026 10:00')),
       ).toBeInTheDocument()
     })
 
@@ -483,18 +483,28 @@ describe('F7.8 — FormularioDashboard: edição com "Enviar tarefa à TI" e tar
       renderizar({ tarefas: [TAREFAS[1], TAREFAS[0]] })
 
       expect(
-        screen.getByText(textoExato('Tarefas anteriores: Modificação nº 25 · 10/09/2026 14:00 | Construção nº 21 · 01/08/2026 10:00')),
+        screen.getByText(textoExato('Tarefas anteriores: Modificação #25 · 10/09/2026 14:00 | Construção #21 · 01/08/2026 10:00')),
       ).toBeInTheDocument()
     })
 
-    it('tarefa sem número (Bitrix24 ainda não integrado) aparece só com o tipo e a data', () => {
+    it('tarefa sem número (ainda não enviada ao Bitrix24) aparece com o tipo, "Aguardando envio ao Bitrix" e a data', () => {
       renderizar({
         tarefas: [
           { id: null, tipo: 'construcao', status: 'aguardando_envio', titulo: '[PED] Construir dashboard: PED Gerentes', descricao: null, criadaEm: '2026-11-04 17:10:00' },
         ],
       })
 
-      expect(screen.getByText(textoExato('Tarefas anteriores: Construção · 04/11/2026 17:10'))).toBeInTheDocument()
+      expect(screen.getByText(textoExato('Tarefas anteriores: Construção · Aguardando envio ao Bitrix · 04/11/2026 17:10'))).toBeInTheDocument()
+    })
+
+    it('tarefa com número e status "aguardando_envio" mostra "Aguardando envio ao Bitrix" no lugar do número', () => {
+      renderizar({
+        tarefas: [
+          { id: 30, tipo: 'modificacao', status: 'aguardando_envio', titulo: '[PED] Modificar dashboard: PED Gerentes', descricao: null, criadaEm: '2026-11-04 17:10:00' },
+        ],
+      })
+
+      expect(screen.getByText(textoExato('Tarefas anteriores: Modificação · Aguardando envio ao Bitrix · 04/11/2026 17:10'))).toBeInTheDocument()
     })
 
     it('sem tarefas anteriores, a linha não aparece', () => {

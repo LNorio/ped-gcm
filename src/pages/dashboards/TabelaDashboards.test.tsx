@@ -8,6 +8,7 @@ import {
   DASHBOARD_LOGISTICA_API,
   DASHBOARD_SUPERVISORES_API,
   RESPOSTA_REAL_LISTAGEM_DASHBOARDS_API,
+  RESPOSTA_REAL_LISTAGEM_DASHBOARDS_TAREFA_ENVIADA_API,
   dashboardsApi,
 } from '../../test/dashboardsFalsos'
 import type { Dashboard } from '../../types/dominio'
@@ -61,14 +62,14 @@ describe('F7.2 — TabelaDashboards: listagem de dashboards (RF-47, RN-16)', () 
     }
   })
 
-  it('PED Comercial: "Por filial", "Ativo", "Tarefa nº 31", data da última alteração, Trimestral, "Filiais: 100, 101, 102", "2 indicadores", "100 de 100 pts" e "4º tri/2026"', () => {
+  it('PED Comercial: "Por filial", "Ativo", "#31", data da última alteração, Trimestral, "Filiais: 100, 101, 102", "2 indicadores", "100 de 100 pts" e "4º tri/2026"', () => {
     renderizar()
 
     const comercial = linha('PED Comercial')
     for (const texto of [
       'Por filial',
       'Ativo',
-      'Tarefa nº 31',
+      '#31',
       'Alterado em 20/10/2026 15:30',
       'Trimestral',
       'Filiais: 100, 101, 102',
@@ -88,7 +89,7 @@ describe('F7.2 — TabelaDashboards: listagem de dashboards (RF-47, RN-16)', () 
     for (const texto of [
       'Por colaborador',
       'Em construção (TI)',
-      'Tarefa nº 40',
+      '#40',
       'Cadastrado em 04/11/2026 17:10',
       'Semestral',
       '2 colaboradores',
@@ -103,7 +104,7 @@ describe('F7.2 — TabelaDashboards: listagem de dashboards (RF-47, RN-16)', () 
     renderizar()
 
     const logistica = linha('PED Logística')
-    for (const texto of ['Por filial', 'Em modificação (TI)', 'Tarefa nº 41', 'Bimestral', 'Filiais: 102', '1 indicador', '80 de 80 pts', '6º bim/2026']) {
+    for (const texto of ['Por filial', 'Em modificação (TI)', '#41', 'Bimestral', 'Filiais: 102', '1 indicador', '80 de 80 pts', '6º bim/2026']) {
       expect(within(logistica).getByText(texto)).toBeInTheDocument()
     }
   })
@@ -115,18 +116,44 @@ describe('F7.2 — TabelaDashboards: listagem de dashboards (RF-47, RN-16)', () 
     for (const texto of ['Inativo', 'Por cargo', 'Anual', 'Cargos: Vendedor, Supervisor Comercial', '2 indicadores', '90,50 de 90,50 pts', '2026']) {
       expect(within(financeiro).getByText(texto)).toBeInTheDocument()
     }
-    expect(within(financeiro).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
+    expect(within(financeiro).queryByText(/^#\d+$/)).not.toBeInTheDocument()
+    expect(within(financeiro).queryByText('Aguardando envio ao Bitrix')).not.toBeInTheDocument()
   })
 
-  it('tarefa sem número (id null): mostra "Em construção (TI)" e o restante da linha, sem "Tarefa nº"', () => {
+  it('tarefa sem número (id null): mostra "Em construção (TI)", o rótulo "Aguardando envio ao Bitrix" e o restante da linha, sem número', () => {
     renderizar({ dashboards: RESPOSTA_REAL_LISTAGEM_DASHBOARDS_API.map(paraDashboard) })
 
     const teste = linha('teste')
     for (const texto of ['Por filial', 'Em construção (TI)', 'Mensal', '2 indicadores', '100 de 100 pts', '11/2026']) {
       expect(within(teste).getByText(texto)).toBeInTheDocument()
     }
-    expect(within(teste).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
+    expect(within(teste).getByText('Aguardando envio ao Bitrix')).toBeInTheDocument()
+    expect(within(teste).queryByText(/^#/)).not.toBeInTheDocument()
     expect(within(teste).queryByText(/null/)).not.toBeInTheDocument()
+  })
+
+  it('tarefa enviada com o número em texto ("328439") aparece como "#328439", sem o rótulo de aguardando envio', () => {
+    renderizar({ dashboards: RESPOSTA_REAL_LISTAGEM_DASHBOARDS_TAREFA_ENVIADA_API.map(paraDashboard) })
+
+    const teste = linha('teste')
+    expect(within(teste).getByText('#328439')).toBeInTheDocument()
+    expect(within(teste).queryByText('Aguardando envio ao Bitrix')).not.toBeInTheDocument()
+    expect(within(teste).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
+  })
+
+  it('tarefa com número e status "aguardando_envio": o rótulo "Aguardando envio ao Bitrix" aparece no lugar do número', () => {
+    renderizar({
+      dashboards: [
+        paraDashboard({
+          ...DASHBOARD_SUPERVISORES_API,
+          'tarefa bitrix': { id: 40, status: 'aguardando_envio', titulo: '[PED] Construir dashboard: PED Supervisores' },
+        }),
+      ],
+    })
+
+    const supervisores = linha('PED Supervisores')
+    expect(within(supervisores).getByText('Aguardando envio ao Bitrix')).toBeInTheDocument()
+    expect(within(supervisores).queryByText('#40')).not.toBeInTheDocument()
   })
 
   it('vínculo com um único colaborador fica no singular', () => {

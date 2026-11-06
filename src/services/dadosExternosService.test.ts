@@ -4,6 +4,7 @@ import {
   DADO_CHAMADOS_API,
   DADO_DEVOLUCOES_API,
   DADO_FATURAMENTO_API,
+  DADO_TAREFA_ENVIADA_API,
   DADO_TAREFA_SEM_NUMERO_API,
   DADO_VOLUME_API,
   dadosExternosApi,
@@ -12,6 +13,7 @@ import {
   respostaCriacaoApi,
   RESPOSTA_REAL_LISTAGEM_API,
   respostaDadosExternosApi,
+  tarefaBitrixCriadaApi,
 } from '../test/dadosExternosFalsos'
 import type { NovoDadoExterno } from '../types/dominio'
 import { ApiError, MENSAGEM_RESPOSTA_INVALIDA, MENSAGEM_SEM_CONEXAO, mensagemPadraoPorStatus } from './api'
@@ -167,7 +169,7 @@ describe('F5.1 — Serviço de dados externos', () => {
       expect(dados[1].identificador).toBeNull()
       expect(dados[1].tarefaBitrix).toEqual({
         id: 1044,
-        status: 'aguardando_envio',
+        status: 'enviada',
         titulo: '[PED] Construir dado externo: Devoluções de venda',
       })
     })
@@ -231,6 +233,51 @@ describe('F5.1 — Serviço de dados externos', () => {
       })
     })
 
+    it('dado em construção com o número da tarefa em texto ("328440") e status "enviada" é convertido, com tarefaBitrix.id numérico, sem derrubar a lista', async () => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}`]: () => respostaJson(respostaDadosExternosApi([DADO_FATURAMENTO_API, DADO_TAREFA_ENVIADA_API, DADO_CHAMADOS_API])),
+      })
+
+      const dados = await listarDadosExternos()
+
+      expect(dados.map((d) => d.nome)).toEqual(['Faturamento líquido', 'Comissões pagas', 'Chamados atendidos no prazo'])
+      expect(dados[1]).toMatchObject({
+        id: 8,
+        nome: 'Comissões pagas',
+        situacao: 'em_construcao',
+        tarefaBitrix: { id: 328440, status: 'enviada', titulo: '[PED] Construir dado externo: Comissões pagas' },
+      })
+      expect(typeof dados[1].tarefaBitrix?.id).toBe('number')
+    })
+
+    it('a lista pura (sem a chave "dados externos") com o número da tarefa em texto também é aceita', async () => {
+      simularApi(fetchFalso, { [`GET ${ROTA}`]: () => respostaJson([DADO_TAREFA_ENVIADA_API]) })
+
+      const dados = await listarDadosExternos()
+
+      expect(dados).toHaveLength(1)
+      expect(dados[0].tarefaBitrix).toEqual({ id: 328440, status: 'enviada', titulo: '[PED] Construir dado externo: Comissões pagas' })
+    })
+
+    it.each<[string, string | number, number]>([
+      ['número em texto', '9', 9],
+      ['número em texto com espaços nas pontas', ' 328440 ', 328440],
+      ['número em texto com zeros à esquerda', '0009', 9],
+      ['número', 9, 9],
+    ])('"tarefa bitrix".id como %s é aceito e convertido para número', async (_caso, id, esperado) => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}`]: () =>
+          respostaJson(
+            respostaDadosExternosApi([DADO_CHAMADOS_API, { ...DADO_TAREFA_SEM_NUMERO_API, 'tarefa bitrix': { id, status: 'enviada', titulo: 'T' } }]),
+          ),
+      })
+
+      const dados = await listarDadosExternos()
+
+      expect(dados).toHaveLength(2)
+      expect(dados[1].tarefaBitrix).toEqual({ id: esperado, status: 'enviada', titulo: 'T' })
+    })
+
     it('lista vazia resolve []', async () => {
       simularApi(fetchFalso, { [`GET ${ROTA}`]: () => respostaJson(respostaDadosExternosApi([])) })
 
@@ -264,7 +311,13 @@ describe('F5.1 — Serviço de dados externos', () => {
       ['com indicador em forma de objeto { id, nome }', { ...DADO_FATURAMENTO_API, indicadores: [{ id: 5, nome: 'Volume mensal' }] }],
       ['com tarefa sem título', { ...DADO_TAREFA_SEM_NUMERO_API, 'tarefa bitrix': { id: null, status: 'aguardando_envio' } }],
       ['com tarefa com título não textual', { ...DADO_TAREFA_SEM_NUMERO_API, 'tarefa bitrix': { id: 9, status: 'aguardando_envio', titulo: 42 } }],
-      ['com tarefa com número em texto', { ...DADO_TAREFA_SEM_NUMERO_API, 'tarefa bitrix': { id: '9', status: 'aguardando_envio', titulo: 'T' } }],
+      ['com tarefa com número por extenso', { ...DADO_TAREFA_SEM_NUMERO_API, 'tarefa bitrix': { id: 'nove', status: 'enviada', titulo: 'T' } }],
+      ['com tarefa com id em texto não numérico', { ...DADO_TAREFA_SEM_NUMERO_API, 'tarefa bitrix': { id: 'abc', status: 'enviada', titulo: 'T' } }],
+      ['com tarefa com id em texto vazio', { ...DADO_TAREFA_SEM_NUMERO_API, 'tarefa bitrix': { id: '', status: 'enviada', titulo: 'T' } }],
+      ['com tarefa com id em texto só com espaços', { ...DADO_TAREFA_SEM_NUMERO_API, 'tarefa bitrix': { id: '   ', status: 'enviada', titulo: 'T' } }],
+      ['com tarefa com id em texto misturando dígitos e letras', { ...DADO_TAREFA_SEM_NUMERO_API, 'tarefa bitrix': { id: '9a', status: 'enviada', titulo: 'T' } }],
+      ['com tarefa com id em texto decimal', { ...DADO_TAREFA_SEM_NUMERO_API, 'tarefa bitrix': { id: '9.5', status: 'enviada', titulo: 'T' } }],
+      ['com tarefa com id em texto negativo', { ...DADO_TAREFA_SEM_NUMERO_API, 'tarefa bitrix': { id: '-9', status: 'enviada', titulo: 'T' } }],
       ['com tarefa como texto solto', { ...DADO_TAREFA_SEM_NUMERO_API, 'tarefa bitrix': 'tarefa 9' }],
     ])('item %s rejeita a resposta inteira com ApiError "resposta inválida"', async (_caso, item) => {
       simularApi(fetchFalso, {
@@ -420,6 +473,153 @@ describe('F5.1 — Serviço de dados externos', () => {
         titulo: '[PED] Construir dado externo: Devoluções de venda',
         descricao: null,
       })
+    })
+
+    it('tarefa com o número em texto ("328440", com ou sem espaços nas pontas) traz o id convertido para número', async () => {
+      for (const id of ['328440', ' 328440 ']) {
+        simularApi(fetchFalso, {
+          [`POST ${ROTA}`]: () =>
+            respostaJson(
+              respostaCriacaoApi(DADO_DEVOLUCOES_API, { id, status: 'enviada', titulo: '[PED] Construir dado externo: Devoluções de venda', descricao: 'D' }),
+              201,
+            ),
+        })
+
+        const resultado = await criarDadoExterno(NOVO_SOLICITACAO)
+
+        expect(resultado.tarefa).toEqual({ id: 328440, status: 'enviada', titulo: '[PED] Construir dado externo: Devoluções de venda', descricao: 'D' })
+      }
+    })
+
+    it('tarefa com o número em texto não numérico vira tarefa null, mantendo o dado', async () => {
+      for (const id of ['abc', '', '12a']) {
+        simularApi(fetchFalso, {
+          [`POST ${ROTA}`]: () => respostaJson(respostaCriacaoApi(DADO_DEVOLUCOES_API, { id, status: 'enviada', titulo: 'T', descricao: 'D' }), 201),
+        })
+
+        const resultado = await criarDadoExterno(NOVO_SOLICITACAO)
+
+        expect(resultado.tarefa).toBeNull()
+        expect(resultado.dadoExterno).toMatchObject({ id: 3, nome: 'Devoluções de venda' })
+      }
+    })
+
+    describe('tarefa no formato publicado em 06/11/2026 ({ titulo, descricao, status, "id bitrix" } — FRONT-tarefas-bitrix.md)', () => {
+      it('resposta documentada (status "enviada", "id bitrix" "328169"): o número vem de "id bitrix", convertido para número', async () => {
+        simularApi(fetchFalso, {
+          [`POST ${ROTA}`]: () =>
+            respostaJson(
+              {
+                mensagem: 'dado externo cadastrado; construcao pedida a TI',
+                id: 42,
+                situacao: 'em_construcao',
+                tarefa: {
+                  titulo: '[PED] Construir dado externo: Faturamento líquido',
+                  descricao: 'Sistema de origem: ...\nCampo ou calculo: ...',
+                  status: 'enviada',
+                  'id bitrix': '328169',
+                },
+              },
+              201,
+            ),
+        })
+
+        const resultado = await criarDadoExterno(NOVO_SOLICITACAO)
+
+        expect(resultado.tarefa).toEqual({
+          id: 328169,
+          status: 'enviada',
+          titulo: '[PED] Construir dado externo: Faturamento líquido',
+          descricao: 'Sistema de origem: ...\nCampo ou calculo: ...',
+        })
+      })
+
+      it.each<[string, number | string, number]>([
+        ['texto numérico', '328169', 328169],
+        ['texto numérico com espaços nas pontas', ' 328169 ', 328169],
+        ['número', 328169, 328169],
+      ])('"id bitrix" como %s vira o número da tarefa', async (_caso, idBitrix, esperado) => {
+        simularApi(fetchFalso, {
+          [`POST ${ROTA}`]: () => respostaJson(respostaCriacaoApi(DADO_DEVOLUCOES_API, tarefaBitrixCriadaApi('T', idBitrix)), 201),
+        })
+
+        const resultado = await criarDadoExterno(NOVO_SOLICITACAO)
+
+        expect(resultado.tarefa).toEqual({ id: esperado, status: 'enviada', titulo: 'T', descricao: 'Descrição gerada pela API.' })
+      })
+
+      it('tarefa na fila (status "aguardando_envio", "id bitrix" null): id null e o status preservado', async () => {
+        simularApi(fetchFalso, {
+          [`POST ${ROTA}`]: () => respostaJson(respostaCriacaoApi(DADO_DEVOLUCOES_API, tarefaBitrixCriadaApi('T', null)), 201),
+        })
+
+        const resultado = await criarDadoExterno(NOVO_SOLICITACAO)
+
+        expect(resultado.tarefa).toEqual({ id: null, status: 'aguardando_envio', titulo: 'T', descricao: 'Descrição gerada pela API.' })
+      })
+
+      it('com "id bitrix" e "id" ao mesmo tempo, vale o "id bitrix"', async () => {
+        simularApi(fetchFalso, {
+          [`POST ${ROTA}`]: () =>
+            respostaJson(respostaCriacaoApi(DADO_DEVOLUCOES_API, { ...tarefaBitrixCriadaApi('T', '328169'), id: 7 }), 201),
+        })
+
+        const resultado = await criarDadoExterno(NOVO_SOLICITACAO)
+
+        expect(resultado.tarefa?.id).toBe(328169)
+      })
+
+      it('"id bitrix" null com "id" antigo presente: id null (o "id bitrix" informado prevalece)', async () => {
+        simularApi(fetchFalso, {
+          [`POST ${ROTA}`]: () =>
+            respostaJson(respostaCriacaoApi(DADO_DEVOLUCOES_API, { ...tarefaBitrixCriadaApi('T', null), id: 7 }), 201),
+        })
+
+        const resultado = await criarDadoExterno(NOVO_SOLICITACAO)
+
+        expect(resultado.tarefa).toEqual({ id: null, status: 'aguardando_envio', titulo: 'T', descricao: 'Descrição gerada pela API.' })
+      })
+
+      it('sem "id bitrix", o "id" do formato anterior continua aceito (compatibilidade)', async () => {
+        simularApi(fetchFalso, {
+          [`POST ${ROTA}`]: () =>
+            respostaJson(respostaCriacaoApi(DADO_DEVOLUCOES_API, { id: '328440', status: 'enviada', titulo: 'T', descricao: 'D' }), 201),
+        })
+
+        const resultado = await criarDadoExterno(NOVO_SOLICITACAO)
+
+        expect(resultado.tarefa).toEqual({ id: 328440, status: 'enviada', titulo: 'T', descricao: 'D' })
+      })
+
+      it.each(['abc', '', '12a', '12.5', '-12'])('"id bitrix" em texto não numérico ("%s") deixa a tarefa null, mantendo o dado', async (idBitrix) => {
+        simularApi(fetchFalso, {
+          [`POST ${ROTA}`]: () => respostaJson(respostaCriacaoApi(DADO_DEVOLUCOES_API, tarefaBitrixCriadaApi('T', idBitrix)), 201),
+        })
+
+        const resultado = await criarDadoExterno(NOVO_SOLICITACAO)
+
+        expect(resultado.tarefa).toBeNull()
+        expect(resultado.dadoExterno).toMatchObject({ id: 3, nome: 'Devoluções de venda' })
+      })
+
+      it('Admin: "tarefa" null na resposta (cadastro já ativo, sem tarefa) resolve tarefa null', async () => {
+        simularApi(fetchFalso, {
+          [`POST ${ROTA}`]: () => respostaJson(respostaCriacaoApi(DADO_FATURAMENTO_API, null), 201),
+        })
+
+        const resultado = await criarDadoExterno(NOVO_ADMIN)
+
+        expect(resultado.tarefa).toBeNull()
+        expect(resultado.dadoExterno).toMatchObject({ id: 1, situacao: 'ativo' })
+      })
+    })
+
+    it('dado criado com "tarefa bitrix" de número em texto: dadoExterno.tarefaBitrix.id vira número', async () => {
+      simularApi(fetchFalso, { [`POST ${ROTA}`]: () => respostaJson(respostaCriacaoApi(DADO_TAREFA_ENVIADA_API, null), 201) })
+
+      const resultado = await criarDadoExterno(NOVO_SOLICITACAO)
+
+      expect(resultado.dadoExterno?.tarefaBitrix).toEqual({ id: 328440, status: 'enviada', titulo: '[PED] Construir dado externo: Comissões pagas' })
     })
 
     it('aceita também a resposta com o próprio dado na raiz e a chave "tarefa" ao lado', async () => {

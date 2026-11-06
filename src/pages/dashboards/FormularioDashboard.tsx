@@ -45,6 +45,7 @@ import {
   type Periodicidade,
 } from '../../types/dominio'
 import { formatarDataHora, lerDecimal } from '../../utils/formato'
+import { ROTULO_AGUARDANDO_ENVIO, tarefaAguardandoEnvio } from '../../utils/tarefaBitrix'
 import { formatarPontos, lerPontos, referenciaRecusadaPorFiliais, somarPontos, type VinculoFormulario } from './regrasDashboard'
 import { SecaoIndicadores, type PontosIndicador } from './SecaoIndicadores'
 import { SecaoVinculo } from './SecaoVinculo'
@@ -152,10 +153,13 @@ function textoOuNulo(texto: string): string | null {
   return limpo === '' ? null : limpo
 }
 
-/** "Construção nº 21 · 01/08/2026 10:00" (sem número ou data quando ausentes). */
+/**
+ * "Construção #21 · 01/08/2026 10:00"; ainda não enviada ao Bitrix24, "Construção · Aguardando envio ao
+ * Bitrix · 04/11/2026 17:10" (sem data quando ausente).
+ */
 function textoTarefa(tarefa: TarefaDashboard): string {
   let texto = (tarefa.tipo && ROTULOS_TIPO_TAREFA[tarefa.tipo]) || 'Tarefa'
-  if (tarefa.id !== null) texto += ` nº ${tarefa.id}`
+  texto += tarefaAguardandoEnvio(tarefa) ? ` · ${ROTULO_AGUARDANDO_ENVIO}` : ` #${tarefa.id}`
   const data = formatarDataHora(tarefa.criadaEm)
   if (data) texto += ` · ${data}`
   return texto

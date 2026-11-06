@@ -53,6 +53,12 @@ describe('F5.6 — FormularioDadoExterno variante solicitação (Validador/Preen
     expect(observacao()).not.toHaveAttribute('aria-required', 'true')
   })
 
+  it('avisa que "Ao salvar, será aberta uma tarefa para a equipe de TI." (FRONT-tarefas-bitrix.md, seção 1)', () => {
+    renderizar()
+
+    expect(screen.getByText('Ao salvar, será aberta uma tarefa para a equipe de TI.')).toBeInTheDocument()
+  })
+
   it('não tem o campo "Identificador da consulta" nem a lista de identificadores (a TI define depois)', () => {
     renderizar()
 

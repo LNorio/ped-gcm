@@ -6,7 +6,8 @@ import { definirToken, limparToken } from '../../services/sessao'
 import { ProvedorSessaoFalso } from '../../test/ProvedorSessaoFalso'
 import { cabecalhoDaChamada, respostaErro, respostaJson, simularApi, type ChamadaRegistrada } from '../../test/apiFalsa'
 import { FILIAIS, acessoFalso } from '../../test/sessaoFalsa'
-import { TIPO_LOGISTICA_API, TIPO_MARKETING_API, tiposApi, type TipoApontamentoApiFalso } from '../../test/tiposFalsos'
+import { escolherAcao, itensDoMenuAcoes } from '../../test/menuAcoes'
+import { TIPO_LOGISTICA_API, TIPO_MARKETING_API, rotuloAcoesTipo, tiposApi, type TipoApontamentoApiFalso } from '../../test/tiposFalsos'
 import type { Perfil } from '../../types/dominio'
 import { TiposPage } from './TiposPage'
 
@@ -71,12 +72,12 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
   }
 
   describe('confirmação (RNF-07)', () => {
-    it('clicar em "Excluir tipo Logística" abre o diálogo "Excluir tipo" com o impacto e os botões Excluir (perigo) e Cancelar', async () => {
+    it('escolher "Excluir" no menu "Ações do tipo Logística" abre o diálogo "Excluir tipo" com o impacto e os botões Excluir (perigo) e Cancelar', async () => {
       const user = usuarioRapido()
       simularApiComEstado()
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+      await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
 
       const dialogo = screen.getByRole('dialog', { name: 'Excluir tipo' })
       expect(dialogo).toHaveAttribute('aria-modal', 'true')
@@ -93,7 +94,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
       const chamadas = simularApiComEstado()
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+      await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancelar' }))
 
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -102,12 +103,23 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
       expect(screen.queryByText('Tipo excluído.')).not.toBeInTheDocument()
     })
 
+    it('"Cancelar" devolve o foco ao gatilho do menu da linha', async () => {
+      const user = usuarioRapido()
+      simularApiComEstado()
+      await abrirTela()
+
+      await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
+      await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancelar' }))
+
+      expect(screen.getByRole('button', { name: rotuloAcoesTipo('Logística') })).toHaveFocus()
+    })
+
     it('Esc fecha o diálogo sem chamar a API', async () => {
       const user = usuarioRapido()
       const chamadas = simularApiComEstado()
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+      await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
       expect(screen.getByRole('dialog')).toBeInTheDocument()
       await user.keyboard('{Escape}')
 
@@ -120,11 +132,11 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
       simularApiComEstado()
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+      await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
       expect(within(screen.getByRole('dialog')).getByText(IMPACTO_LOGISTICA)).toBeInTheDocument()
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancelar' }))
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Marketing' }))
+      await escolherAcao(user, rotuloAcoesTipo('Marketing'), 'Excluir')
       expect(within(screen.getByRole('dialog')).queryByText(IMPACTO_LOGISTICA)).not.toBeInTheDocument()
       expect(within(screen.getByRole('dialog')).getByText(BLOQUEIO_MARKETING)).toBeInTheDocument()
     })
@@ -136,7 +148,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
       const chamadas = simularApiComEstado()
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Marketing' }))
+      await escolherAcao(user, rotuloAcoesTipo('Marketing'), 'Excluir')
 
       const dialogo = screen.getByRole('dialog', { name: 'Excluir tipo' })
       expect(within(dialogo).getByText(BLOQUEIO_MARKETING)).toBeInTheDocument()
@@ -151,7 +163,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
       const chamadas = simularApiComEstado()
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Marketing' }))
+      await escolherAcao(user, rotuloAcoesTipo('Marketing'), 'Excluir')
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Entendi' }))
 
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -167,7 +179,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
       })
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+      await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
 
       expect(
         within(screen.getByRole('dialog')).getByText(
@@ -189,7 +201,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
       )
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+      await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
       const dialogo = screen.getByRole('dialog', { name: 'Excluir tipo' })
       await user.click(within(dialogo).getByRole('button', { name: 'Excluir' }))
 
@@ -207,9 +219,8 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
       await waitFor(() => expect(screen.queryByRole('cell', { name: 'Logística' })).not.toBeInTheDocument())
       expect(screen.getByRole('cell', { name: 'Marketing' })).toBeInTheDocument()
       expect(screen.getByRole('cell', { name: 'Comercial' })).toBeInTheDocument()
-      expect(screen.getAllByRole('button', { name: /^Excluir tipo / }).map((b) => b.getAttribute('aria-label'))).toEqual([
-        'Excluir tipo Marketing',
-      ])
+      expect(screen.queryByRole('button', { name: rotuloAcoesTipo('Logística') })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: rotuloAcoesTipo('Marketing') })).toBeInTheDocument()
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     })
 
@@ -224,7 +235,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
       )
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+      await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
       const dialogo = screen.getByRole('dialog', { name: 'Excluir tipo' })
       await user.click(within(dialogo).getByRole('button', { name: 'Excluir' }))
       await waitFor(() => expect(within(dialogo).getByRole('button', { name: 'Excluir' })).toBeDisabled())
@@ -254,7 +265,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
       )
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+      await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
       const confirmar = within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' })
       await user.click(confirmar)
       await user.click(confirmar)
@@ -270,7 +281,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
       simularApiComEstado()
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+      await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }))
       await screen.findByText('Tipo excluído.')
 
@@ -290,7 +301,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
       const chamadas = simularApiComEstado(() => respostaErro(400, 'Tipo possui apontamentos vinculados.'))
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+      await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }))
 
       const alerta = await screen.findByRole('alert')
@@ -307,7 +318,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
       simularApiComEstado(() => respostaErro(403, 'Apenas o administrador pode excluir tipos.'))
       await abrirTela('validador')
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+      await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }))
 
       expect(await screen.findByRole('alert')).toHaveTextContent('Apenas o administrador pode excluir tipos.')
@@ -320,7 +331,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
       simularApiComEstado(() => respostaErro(403))
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+      await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }))
 
       expect(await screen.findByRole('alert')).toHaveTextContent(mensagemPadraoPorStatus(403))
@@ -331,7 +342,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
       simularApiComEstado(() => Promise.reject(new TypeError('Failed to fetch')))
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+      await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }))
 
       expect(await screen.findByRole('alert')).toHaveTextContent(MENSAGEM_SEM_CONEXAO)
@@ -347,11 +358,11 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
       })
       await abrirTela()
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+      await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }))
       expect(await screen.findByRole('alert')).toHaveTextContent('Falha temporária.')
 
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+      await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
       await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }))
 
       await screen.findByText('Tipo excluído.')
@@ -361,13 +372,22 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
   })
 
   describe('perfis', () => {
-    it('Validador vê os botões Excluir dos personalizados e abre a confirmação como o Admin', async () => {
+    it('perfil sem a ação excluir-tipo (Preenchedor, se chegar à tela) não vê "Excluir" em nenhum tipo', async () => {
+      simularApiComEstado()
+      await abrirTela('preenchedor')
+
+      expect(screen.queryByRole('menuitem', { name: 'Excluir' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: rotuloAcoesTipo('Logística') })).not.toBeInTheDocument()
+    })
+
+    it('Validador vê "Excluir" no menu dos personalizados e abre a confirmação como o Admin', async () => {
       const user = usuarioRapido()
       simularApiComEstado()
       await abrirTela('validador')
 
-      expect(screen.getAllByRole('button', { name: /^Excluir tipo / })).toHaveLength(2)
-      await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+      expect(await itensDoMenuAcoes(user, rotuloAcoesTipo('Logística'))).toContain('Excluir')
+      expect(await itensDoMenuAcoes(user, rotuloAcoesTipo('Marketing'))).toContain('Excluir')
+      await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
 
       expect(screen.getByRole('dialog', { name: 'Excluir tipo' })).toBeInTheDocument()
       expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' })).toBeInTheDocument()

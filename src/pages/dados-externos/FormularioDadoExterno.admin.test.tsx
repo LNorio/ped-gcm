@@ -6,7 +6,7 @@ import { identificadoresApi } from '../../test/dadosExternosFalsos'
 import type { NovoDadoExterno } from '../../types/dominio'
 import { FormularioDadoExterno, type FormularioDadoExternoProps } from './FormularioDadoExterno'
 
-describe('F5.5 — FormularioDadoExterno variante Admin: identificador da consulta obrigatório, em maiúsculas e só com A–Z, 0–9 e "_", e campo ou cálculo obrigatório (RF-26)', () => {
+describe('F5.5 — FormularioDadoExterno variante Admin: identificador da consulta obrigatório, em maiúsculas e só com A–Z, 0–9, "_", "-" e "." (regra do back-end de 06/11/2026), e campo ou cálculo obrigatório (RF-26)', () => {
   function renderizar(props: Partial<FormularioDadoExternoProps> = {}) {
     const onSalvar = props.onSalvar ?? vi.fn<(dados: NovoDadoExterno) => void>()
     render(
@@ -66,6 +66,12 @@ describe('F5.5 — FormularioDadoExterno variante Admin: identificador da consul
     expect(screen.queryByLabelText('Observação para a TI')).not.toBeInTheDocument()
   })
 
+  it('não mostra o aviso de tarefa para a TI (o Admin cadastra já ativo, sem tarefa)', () => {
+    renderizar()
+
+    expect(screen.queryByText('Ao salvar, será aberta uma tarefa para a equipe de TI.')).not.toBeInTheDocument()
+  })
+
   it('sem campo ou cálculo mostra "Descreva o campo a buscar ou o cálculo a fazer." e não salva', async () => {
     const user = usuarioRapido()
     const { onSalvar } = renderizar()
@@ -117,7 +123,7 @@ describe('F5.5 — FormularioDadoExterno variante Admin: identificador da consul
     expect(onSalvar).not.toHaveBeenCalled()
   })
 
-  it.each(['   ', 'çã -.!'])('identificador só com espaços ou caracteres inválidos ("%s") fica vazio e conta como vazio', async (texto) => {
+  it.each(['   ', 'çã !/@'])('identificador só com espaços ou caracteres inválidos ("%s") fica vazio e conta como vazio', async (texto) => {
     const user = usuarioRapido()
     const { onSalvar } = renderizar()
     await preencherComuns(user)
@@ -130,19 +136,19 @@ describe('F5.5 — FormularioDadoExterno variante Admin: identificador da consul
     expect(onSalvar).not.toHaveBeenCalled()
   })
 
-  it('o texto digitado é convertido para maiúsculas no próprio campo, descartando o que não é A–Z, 0–9 ou "_"', async () => {
+  it('o texto digitado é convertido para maiúsculas no próprio campo, mantendo "_", "-" e "." e descartando o que não é A–Z, 0–9, "_", "-" ou "."', async () => {
     const user = usuarioRapido()
     renderizar()
 
-    await user.type(identificador(), 'fat_liq.filial-1')
+    await user.type(identificador(), 'fat_liq.filial-1 ç/!')
 
-    expect(identificador()).toHaveValue('FAT_LIQFILIAL1')
+    expect(identificador()).toHaveValue('FAT_LIQ.FILIAL-1')
   })
 
   describe('caracteres inválidos são descartados na hora (acentos, espaço e caracteres especiais)', () => {
     it.each([
       ['ação ok', 'AOOK'],
-      ['NOVOS-CLIENTES 2', 'NOVOSCLIENTES2'],
+      ['NOVOS-CLIENTES 2', 'NOVOS-CLIENTES2'],
       ['novos_clientes', 'NOVOS_CLIENTES'],
     ])('ao digitar "%s" o campo mostra "%s"', async (texto, esperado) => {
       const user = usuarioRapido()
@@ -155,7 +161,7 @@ describe('F5.5 — FormularioDadoExterno variante Admin: identificador da consul
 
     it.each([
       ['ação ok', 'AOOK'],
-      ['NOVOS-CLIENTES 2', 'NOVOSCLIENTES2'],
+      ['NOVOS-CLIENTES 2', 'NOVOS-CLIENTES2'],
       ['novos_clientes', 'NOVOS_CLIENTES'],
     ])('ao colar "%s" o campo mostra "%s"', async (texto, esperado) => {
       const user = usuarioRapido()
@@ -172,10 +178,11 @@ describe('F5.5 — FormularioDadoExterno variante Admin: identificador da consul
 
       await user.type(identificador(), 'abc')
       await user.type(identificador(), ' é-')
-      await user.type(identificador(), '_9')
+      await user.type(identificador(), '_9.')
+      await user.type(identificador(), ' ç/')
 
-      expect(identificador()).toHaveValue('ABC_9')
-      expect(identificador().value).toMatch(/^[A-Z0-9_]*$/)
+      expect(identificador()).toHaveValue('ABC-_9.')
+      expect(identificador().value).toMatch(/^[A-Z0-9_\-.]*$/)
     })
 
     it('envia o identificador já limpo', async () => {
@@ -187,7 +194,7 @@ describe('F5.5 — FormularioDadoExterno variante Admin: identificador da consul
       await user.click(salvar())
 
       expect(onSalvar).toHaveBeenCalledTimes(1)
-      expect(onSalvar).toHaveBeenCalledWith(expect.objectContaining({ identificador: 'NOVOSCLIENTESAO2' }))
+      expect(onSalvar).toHaveBeenCalledWith(expect.objectContaining({ identificador: 'NOVOS-CLIENTESAO2' }))
     })
   })
 
@@ -260,10 +267,10 @@ describe('F5.5 — FormularioDadoExterno variante Admin: identificador da consul
       await preencherComuns(user)
 
       await user.click(within(sugestoes()!).getByRole('button', { name: /usado por 1 dado\(s\)/ }))
-      expect(identificador()).toHaveValue('VENDASLQ2')
+      expect(identificador()).toHaveValue('VENDASLQ-2')
 
       await user.click(salvar())
-      expect(onSalvar).toHaveBeenCalledWith(expect.objectContaining({ identificador: 'VENDASLQ2' }))
+      expect(onSalvar).toHaveBeenCalledWith(expect.objectContaining({ identificador: 'VENDASLQ-2' }))
     })
 
     it('sem identificadores recebidos não há lista de sugestões e o campo continua livre', async () => {

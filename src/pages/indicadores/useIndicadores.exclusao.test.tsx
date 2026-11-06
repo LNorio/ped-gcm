@@ -27,7 +27,7 @@ describe('F6.7 — useIndicadores.excluir (exclusão de indicador — RF-37, RN-
 
   const gets = (chamadas: ChamadaRegistrada[]) => chamadas.filter((c) => c.metodo === 'GET' && c.caminho === ROTA)
 
-  async function montar(aoExcluir: () => Response = () => new Response(null, { status: 204 })) {
+  async function montar(aoExcluir: () => Response = () => respostaJson({ mensagem: 'indicador excluido' })) {
     const chamadas = simularApi(fetchFalso, {
       [`GET ${ROTA}`]: rotaListarIndicadores(indicadoresApi),
       [`DELETE ${ROTA}/2`]: aoExcluir,
@@ -81,6 +81,22 @@ describe('F6.7 — useIndicadores.excluir (exclusão de indicador — RF-37, RN-
     })
 
     expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3 })
+  })
+
+  it('400 { mensagem, dashboards } (indicador em dashboard — RN-11) rejeita com a ApiError original, com a lista em dados.dashboards', async () => {
+    const { result } = await montar(() =>
+      respostaJson({ mensagem: 'o indicador esta em dashboards e nao pode ser excluido', dashboards: ['PED Comercial'] }, 400),
+    )
+
+    let erro: unknown
+    await act(async () => {
+      erro = await result.current.excluir(2).catch((e: unknown) => e)
+    })
+
+    expect(erro).toBeInstanceOf(ApiError)
+    expect(erro).toMatchObject({ status: 400, mensagem: 'o indicador esta em dashboards e nao pode ser excluido' })
+    expect((erro as ApiError).dados).toMatchObject({ dashboards: ['PED Comercial'] })
+    expect(result.current.indicadores).toHaveLength(7)
   })
 
   it('400 (está ou já esteve vinculado a dashboard — RN-11) rejeita com a ApiError original e mantém o item e os alertas', async () => {

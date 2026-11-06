@@ -125,12 +125,10 @@ describe('F6.5 — Definir meta do indicador automático (integração: /indicad
       expect(within(linhaDevolucoes()).getByText('Criado automaticamente')).toBeInTheDocument()
       expect(within(linhaDevolucoes()).getByText('Meta editável')).toBeInTheDocument()
       expect(within(linhaDevolucoes()).getByText('Maior é melhor')).toBeInTheDocument()
-      expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Devoluções de venda'))).toEqual([
-        'Ver detalhes',
-        'Histórico de metas',
-        'Inativar',
-        'Excluir',
-      ])
+      // "Excluir" é só do Admin (decisão de 06/11/2026).
+      expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Devoluções de venda'))).toEqual(
+        perfil === 'admin' ? ['Ver detalhes', 'Histórico de metas', 'Inativar', 'Excluir'] : ['Ver detalhes', 'Histórico de metas', 'Inativar'],
+      )
     },
   )
 

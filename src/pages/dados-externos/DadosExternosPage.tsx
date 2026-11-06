@@ -5,7 +5,7 @@
  * de permissões (`usePermissoes().podeAcao`):
  * - cadastro (todos): o Admin cadastra o dado já ativo, informando o identificador da consulta (com
  *   sugestões dos existentes); Validador/Preenchedor enviam um pedido de construção à TI e veem a
- *   tarefa gerada;
+ *   tarefa criada pelo back-end no Bitrix24 (número ou "será criada em instantes");
  * - concluir construção (Admin): erro exibido dentro do diálogo; avisa o indicador criado (quando a
  *   resposta traz o indicador; sem o dado na resposta, a conclusão ainda conta como sucesso);
  * - ativar/desativar e excluir, sempre com confirmação (`useAcoesSituacaoExclusao`), com um único aviso
@@ -30,7 +30,8 @@ import {
 } from '../../services/dadosExternosService'
 import { useSessao } from '../../sessao/SessaoProvider'
 import { usePermissoes } from '../../sessao/usePermissoes'
-import type { DadoExterno, IdentificadorColeta, NovoDadoExterno } from '../../types/dominio'
+import type { DadoExterno, IdentificadorColeta, NovoDadoExterno, TarefaConstrucao } from '../../types/dominio'
+import { fraseTarefaGravada, numeroTarefaEnviada } from '../../utils/tarefaBitrix'
 import { DialogoConcluirConstrucao } from './DialogoConcluirConstrucao'
 import { DialogoExcluirDadoExterno } from './DialogoExcluirDadoExterno'
 import { DialogoSituacaoDadoExterno } from './DialogoSituacaoDadoExterno'
@@ -56,7 +57,17 @@ function ehSituacaoFiltro(valor: string): valor is SituacaoFiltroDadoExterno {
 interface PedidoEnviado {
   titulo: string
   descricao: string | null
-  idTarefa: number | null
+  /** Frase sobre a tarefa criada pelo back-end no Bitrix24 (com número ou "em instantes"). */
+  fraseTarefa: string
+}
+
+/**
+ * Frase do pedido enviado (FRONT-tarefas-bitrix.md, seção 2): "Tarefa #{id} criada no Bitrix para a
+ * equipe de TI." quando já enviada; senão "Salvo. A tarefa para a TI será criada no Bitrix em instantes.".
+ */
+function textoPedidoEnviado(tarefa: TarefaConstrucao | null): string {
+  const frase = fraseTarefaGravada(tarefa)
+  return numeroTarefaEnviada(tarefa) === null ? `Salvo. ${frase}` : frase
 }
 
 export function DadosExternosPage() {
@@ -171,7 +182,7 @@ export function DadosExternosPage() {
         setPedidoEnviado({
           titulo: tarefa?.titulo ?? `[PED] Construir dado externo: ${dados.nome}`,
           descricao: tarefa?.descricao ?? null,
-          idTarefa: tarefa?.id ?? null,
+          fraseTarefa: textoPedidoEnviado(tarefa),
         })
       }
     } catch (falha) {
@@ -289,10 +300,9 @@ export function DadosExternosPage() {
       >
         {pedidoEnviado !== null ? (
           <div className="dados-externos-page__pedido">
-            <p>Pedido de construção enviado à TI.</p>
+            <p>{pedidoEnviado.fraseTarefa}</p>
             <p className="dados-externos-page__pedido-titulo">{pedidoEnviado.titulo}</p>
             {pedidoEnviado.descricao ? <p>{pedidoEnviado.descricao}</p> : null}
-            {pedidoEnviado.idTarefa !== null ? <p>{`Tarefa nº ${pedidoEnviado.idTarefa}`}</p> : null}
           </div>
         ) : null}
       </Dialogo>

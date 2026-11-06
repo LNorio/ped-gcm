@@ -6,6 +6,7 @@ import { TIPOS_DO_USUARIO_API } from '../../test/apontamentosFalsos'
 import { MENSAGEM_RESPOSTA_INVALIDA } from '../../services/api'
 import {
   DADO_FATURAMENTO_API,
+  DADO_TAREFA_ENVIADA_API,
   DADO_TAREFA_SEM_NUMERO_API,
   NOMES_DADOS_EXTERNOS,
   RESPOSTA_REAL_LISTAGEM_API,
@@ -62,7 +63,7 @@ describe('F5.2 — Listagem de dados externos (integração: /dados-externos com
 
     const linhaDevolucoes = within(tabela).getByText('Devoluções de venda').closest('tr')!
     expect(within(linhaDevolucoes).getByText('Em construção (TI)')).toBeInTheDocument()
-    expect(within(linhaDevolucoes).getByText('Tarefa nº 1044')).toBeInTheDocument()
+    expect(within(linhaDevolucoes).getByText('#1044')).toBeInTheDocument()
     expect(within(linhaDevolucoes).getByText('a definir pela TI')).toBeInTheDocument()
     expect(within(tabela).queryByRole('columnheader', { name: 'Campo/cálculo' })).not.toBeInTheDocument()
   })
@@ -78,7 +79,7 @@ describe('F5.2 — Listagem de dados externos (integração: /dados-externos com
     expect(screen.queryByText(MENSAGEM_RESPOSTA_INVALIDA)).not.toBeInTheDocument()
   })
 
-  it('dado em construção com "tarefa bitrix" sem número (id null): a tabela carrega, sem "Resposta inválida do servidor." e sem "Tarefa nº" na linha', async () => {
+  it('dado em construção com "tarefa bitrix" sem número (id null): a tabela carrega, sem "Resposta inválida do servidor." e com "Aguardando envio ao Bitrix" (sem número) na linha', async () => {
     simularSessao('admin', [...dadosExternosApi(), DADO_TAREFA_SEM_NUMERO_API])
     renderizarApp('/dados-externos')
 
@@ -87,9 +88,50 @@ describe('F5.2 — Listagem de dados externos (integração: /dados-externos com
     for (const nome of NOMES_DADOS_EXTERNOS) expect(within(tabela).getByText(nome)).toBeInTheDocument()
     const linha = within(tabela).getByText('Bonificações pagas').closest('tr')!
     expect(within(linha).getByText('Em construção (TI)')).toBeInTheDocument()
-    expect(within(linha).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
-    expect(within(tabela).getByText('Tarefa nº 1044')).toBeInTheDocument()
+    expect(within(linha).getByText('Aguardando envio ao Bitrix')).toBeInTheDocument()
+    expect(within(linha).queryByText(/^#/)).not.toBeInTheDocument()
+    expect(within(tabela).getByText('#1044')).toBeInTheDocument()
     expect(screen.queryByText(MENSAGEM_RESPOSTA_INVALIDA)).not.toBeInTheDocument()
+  })
+
+  it('dado em construção com o número da tarefa em texto ("328440", status "enviada"): a tabela carrega, sem "Resposta inválida do servidor.", e mostra "#328440" na linha', async () => {
+    simularSessao('admin', [...dadosExternosApi(), DADO_TAREFA_ENVIADA_API])
+    renderizarApp('/dados-externos')
+
+    const tabela = await screen.findByRole('table', { name: 'Dados externos' })
+
+    for (const nome of NOMES_DADOS_EXTERNOS) expect(within(tabela).getByText(nome)).toBeInTheDocument()
+    const linha = within(tabela).getByText('Comissões pagas').closest('tr')!
+    expect(within(linha).getByText('Em construção (TI)')).toBeInTheDocument()
+    expect(within(linha).getByText('#328440')).toBeInTheDocument()
+    expect(within(linha).queryByText('Aguardando envio ao Bitrix')).not.toBeInTheDocument()
+    expect(within(tabela).getByText('#1044')).toBeInTheDocument()
+    expect(screen.queryByText(MENSAGEM_RESPOSTA_INVALIDA)).not.toBeInTheDocument()
+  })
+
+  it('número da tarefa em texto com espaços nas pontas aparece sem os espaços ("#328440")', async () => {
+    simularSessao('admin', [
+      ...dadosExternosApi(),
+      { ...DADO_TAREFA_ENVIADA_API, 'tarefa bitrix': { id: ' 328440 ', status: 'enviada', titulo: '[PED] Construir dado externo: Comissões pagas' } },
+    ])
+    renderizarApp('/dados-externos')
+
+    const tabela = await screen.findByRole('table', { name: 'Dados externos' })
+
+    const linha = within(tabela).getByText('Comissões pagas').closest('tr')!
+    expect(within(linha).getByText('#328440')).toBeInTheDocument()
+    expect(screen.queryByText(MENSAGEM_RESPOSTA_INVALIDA)).not.toBeInTheDocument()
+  })
+
+  it('número da tarefa em texto não numérico: a listagem mostra "Resposta inválida do servidor." (a resposta fora do formato continua rejeitada)', async () => {
+    simularSessao('admin', [
+      ...dadosExternosApi(),
+      { ...DADO_TAREFA_ENVIADA_API, 'tarefa bitrix': { id: 'abc', status: 'enviada', titulo: '[PED] Construir dado externo: Comissões pagas' } },
+    ])
+    renderizarApp('/dados-externos')
+
+    expect(await screen.findByText(MENSAGEM_RESPOSTA_INVALIDA)).toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: 'Dados externos' })).not.toBeInTheDocument()
   })
 
   it('Admin abre "Ver detalhes" de um dado: os campos fora da tabela aparecem na linha de detalhes', async () => {

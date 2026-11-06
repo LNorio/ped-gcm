@@ -3,10 +3,12 @@
  * RF-56, RNF-07).
  *
  * Com `dashboard` nulo, nada é renderizado. Em construção, o dashboard passa a ficar ativo; em
- * modificação, volta à situação anterior. O número da tarefa aparece quando conhecido.
+ * modificação, volta à situação anterior. A tarefa aparece como "Tarefa #{id}" ou, ainda não
+ * enviada ao Bitrix24, como "Aguardando envio ao Bitrix" (ver `utils/tarefaBitrix`).
  */
 import { DialogoConfirmacao } from '../../components/DialogoConfirmacao'
 import type { Dashboard } from '../../types/dominio'
+import { textoTarefaBitrix } from '../../utils/tarefaBitrix'
 
 export interface DialogoConcluirDashboardProps {
   /** Dashboard em construção ou em modificação; `null` mantém o diálogo fechado. */
@@ -33,7 +35,7 @@ export function DialogoConcluirDashboard({ dashboard, concluindo, onConfirmar, o
       impacto={
         <>
           <p>{texto}</p>
-          {dashboard.tarefaBitrix && dashboard.tarefaBitrix.id !== null ? <p>{`Tarefa nº ${dashboard.tarefaBitrix.id}`}</p> : null}
+          {dashboard.tarefaBitrix ? <p>{textoTarefaBitrix(dashboard.tarefaBitrix, 'Tarefa #')}</p> : null}
         </>
       }
       textoConfirmar="Concluir"

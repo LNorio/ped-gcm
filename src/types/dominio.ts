@@ -175,6 +175,10 @@ export interface TipoApontamento {
   origem: OrigemTipo
   quantidadeUsuarios: number
   quantidadeApontamentos: number
+  /** Grupos do ERP vinculados (A-02); `null` quando a API não informa (ex.: perfil Preenchedor). */
+  grupos: ReferenciaNomeada[] | null
+  /** Usuários vinculados diretamente (A-02); `null` quando a API não informa (ex.: perfil Preenchedor). */
+  usuarios: ReferenciaNomeada[] | null
 }
 
 /** Campos de auditoria comuns a apontamentos, dados externos e indicadores. */

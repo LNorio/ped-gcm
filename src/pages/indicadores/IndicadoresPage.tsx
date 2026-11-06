@@ -2,12 +2,12 @@
  * Aba "Indicadores" (F6.2–F6.9 — RF-32 a RF-40, RNF-01, RNF-07, RNF-09).
  *
  * Lista os indicadores filtrados pela API (busca e situação) e reúne as ações conforme a matriz de
- * permissões (`usePermissoes().podeAcao`), que hoje libera a aba inteira a Admin e Validador:
+ * permissões (`usePermissoes().podeAcao`), que libera a aba a Admin e Validador (excluir só o Admin):
  * - cadastro ("Novo indicador"): carrega os apontamentos e dados externos ativos ao abrir o diálogo;
  * - definir meta do automático sem meta, com o dado externo de origem (`DialogoDefinirMeta`);
  * - histórico de metas, filtrado pela filial do cabeçalho (`DialogoHistoricoMetas`);
  * - inativar/reativar e excluir, sempre com confirmação (`useAcoesSituacaoExclusao`), com um único
- *   aviso de erro de ação na página.
+ *   aviso de erro de ação na página; o 400 da exclusão lista os dashboards que usam o indicador.
  * Indicadores não são editáveis (RF-37). Os alertas da aba (aguardando meta e com componente
  * desativado) aparecem no topo e marcam a aba no menu (`useAlertasMenu`).
  */
@@ -21,7 +21,7 @@ import { EstadoCarga } from '../../components/EstadoCarga'
 import { Notificacao } from '../../components/Notificacao'
 import { useAcoesSituacaoExclusao } from '../../hooks/useAcoesSituacaoExclusao'
 import { useAlertasMenu } from '../../layout/AlertasMenu'
-import { mensagemDeErro } from '../../services/api'
+import { ApiError, mensagemDeErro } from '../../services/api'
 import { listarApontamentos } from '../../services/apontamentosService'
 import { listarDadosExternos } from '../../services/dadosExternosService'
 import {
@@ -45,6 +45,24 @@ import './IndicadoresPage.css'
 const MENSAGEM_CADASTRADO = 'Indicador cadastrado.'
 const MENSAGEM_META_DEFINIDA = 'Meta definida.'
 const MENSAGENS_ACOES = { situacao: 'Situação alterada.', exclusao: 'Indicador excluído.' }
+
+/**
+ * Erro 400 da exclusão (FRONT-PED-mudancas.md, item 5): `{ mensagem, dashboards: [nomes] }` quando o
+ * indicador está em dashboards (ou é o indicador-base das faixas de um). A mensagem passa a trazer, em
+ * seguida, "Dashboards: {nomes separados por ", "}.". Lista vazia, ausente ou fora do formato (não é
+ * lista de textos) mantém só a mensagem da API; outros erros seguem sem alteração.
+ */
+function comDashboardsDoErro(falha: unknown): unknown {
+  if (!(falha instanceof ApiError) || falha.status !== 400) return falha
+  const dados: unknown = falha.dados
+  if (typeof dados !== 'object' || dados === null || !('dashboards' in dados)) return falha
+  const { dashboards } = dados
+  if (!Array.isArray(dashboards) || dashboards.length === 0) return falha
+  if (!dashboards.every((nome): nome is string => typeof nome === 'string')) return falha
+  const mensagem = falha.mensagem.trim()
+  const separador = /[.!?:]$/.test(mensagem) ? ' ' : '. '
+  return new ApiError(falha.status, `${mensagem}${separador}Dashboards: ${dashboards.join(', ')}.`, falha.dados)
+}
 
 const OPCOES_SITUACAO: OpcaoSituacao[] = SITUACOES_FILTRO_INDICADOR.map((situacao) => ({
   valor: situacao,
@@ -112,7 +130,7 @@ export function IndicadoresPage() {
     limparErros: limparErrosDasAcoes,
   } = useAcoesSituacaoExclusao<Indicador>({
     alterarSituacao: (indicador) => alterarSituacao(indicador.id, !indicador.ativo),
-    excluir: (indicador) => excluir(indicador.id),
+    excluir: (indicador) => excluir(indicador.id).catch((falha: unknown) => Promise.reject(comDashboardsDoErro(falha))),
     onNotificar: setNotificacao,
     mensagens: MENSAGENS_ACOES,
   })

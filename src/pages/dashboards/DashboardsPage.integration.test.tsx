@@ -6,6 +6,7 @@ import { MENSAGEM_RESPOSTA_INVALIDA } from '../../services/api'
 import {
   NOMES_DASHBOARDS,
   RESPOSTA_REAL_LISTAGEM_DASHBOARDS_API,
+  RESPOSTA_REAL_LISTAGEM_DASHBOARDS_TAREFA_ENVIADA_API,
   dashboardsApi,
   rotaListarDashboards,
 } from '../../test/dashboardsFalsos'
@@ -69,7 +70,7 @@ describe('F7.2 — Listagem de dashboards (integração: /dashboards com Admin, 
     expect(screen.getByText('1 dashboard com indicador com problema. Corrija na aba Indicadores antes do encerramento.')).toBeInTheDocument()
   })
 
-  it('resposta real da API com "tarefa bitrix" sem número (id null): a tabela carrega, sem "Resposta inválida do servidor." e sem "Tarefa nº"', async () => {
+  it('resposta real da API com "tarefa bitrix" sem número (id null): a tabela carrega, sem "Resposta inválida do servidor." e com o rótulo "Aguardando envio ao Bitrix" no lugar do número', async () => {
     simularSessao('admin', () => respostaJson(RESPOSTA_REAL_LISTAGEM_DASHBOARDS_API))
     renderizarApp('/dashboards')
 
@@ -79,8 +80,49 @@ describe('F7.2 — Listagem de dashboards (integração: /dashboards com Admin, 
     expect(within(teste).getByText('Em construção (TI)')).toBeInTheDocument()
     expect(within(teste).getByText('Mensal')).toBeInTheDocument()
     expect(within(teste).getByText('100 de 100 pts')).toBeInTheDocument()
-    expect(within(teste).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
+    expect(within(teste).getByText('Aguardando envio ao Bitrix')).toBeInTheDocument()
+    expect(within(teste).queryByText(/^#/)).not.toBeInTheDocument()
     expect(screen.queryByText(MENSAGEM_RESPOSTA_INVALIDA)).not.toBeInTheDocument()
+  })
+
+  it('resposta real da API (06/11/2026) com o número da tarefa em texto ("328439", status "enviada"): a tabela carrega, sem "Resposta inválida do servidor.", e mostra "#328439"', async () => {
+    simularSessao('admin', () => respostaJson(RESPOSTA_REAL_LISTAGEM_DASHBOARDS_TAREFA_ENVIADA_API))
+    renderizarApp('/dashboards')
+
+    const tabela = await screen.findByRole('table', { name: 'Dashboards' })
+
+    const teste = within(tabela).getByText('teste').closest('tr')!
+    expect(within(teste).getByText('Em construção (TI)')).toBeInTheDocument()
+    expect(within(teste).getByText('Mensal')).toBeInTheDocument()
+    expect(within(teste).getByText('100 de 100 pts')).toBeInTheDocument()
+    expect(within(teste).getByText('#328439')).toBeInTheDocument()
+    expect(within(teste).queryByText('Aguardando envio ao Bitrix')).not.toBeInTheDocument()
+    expect(screen.queryByText(MENSAGEM_RESPOSTA_INVALIDA)).not.toBeInTheDocument()
+  })
+
+  it('número da tarefa em texto com espaços nas pontas aparece sem os espaços ("#328439"), junto dos demais dashboards', async () => {
+    const [real] = RESPOSTA_REAL_LISTAGEM_DASHBOARDS_TAREFA_ENVIADA_API
+    simularSessao('admin', () =>
+      respostaJson([...dashboardsApi(), { ...real, id: 9, 'tarefa bitrix': { id: ' 328439 ', status: 'enviada', titulo: '[PED] Construir dashboard: teste' } }]),
+    )
+    renderizarApp('/dashboards')
+
+    const tabela = await screen.findByRole('table', { name: 'Dashboards' })
+
+    for (const nome of NOMES_DASHBOARDS) expect(within(tabela).getByText(nome)).toBeInTheDocument()
+    const teste = within(tabela).getByText('teste').closest('tr')!
+    expect(within(teste).getByText('#328439')).toBeInTheDocument()
+    expect(within(teste).queryByText('Aguardando envio ao Bitrix')).not.toBeInTheDocument()
+    expect(screen.queryByText(MENSAGEM_RESPOSTA_INVALIDA)).not.toBeInTheDocument()
+  })
+
+  it('número da tarefa em texto não numérico: a listagem mostra "Resposta inválida do servidor." (a resposta fora do formato continua rejeitada)', async () => {
+    const [real] = RESPOSTA_REAL_LISTAGEM_DASHBOARDS_TAREFA_ENVIADA_API
+    simularSessao('admin', () => respostaJson([{ ...real, 'tarefa bitrix': { id: 'abc', status: 'enviada', titulo: '[PED] Construir dashboard: teste' } }]))
+    renderizarApp('/dashboards')
+
+    expect(await screen.findByText(MENSAGEM_RESPOSTA_INVALIDA)).toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: 'Dashboards' })).not.toBeInTheDocument()
   })
 
   it('Validador vê a aba "Dashboards" ativa e a mesma listagem', async () => {

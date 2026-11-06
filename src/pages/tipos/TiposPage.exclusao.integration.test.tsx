@@ -12,7 +12,8 @@ import {
   type ChamadaRegistrada,
 } from '../../test/apiFalsa'
 import { renderizarApp } from '../../test/renderizarApp'
-import { TIPO_LOGISTICA_API, TIPO_MARKETING_API, tiposApi, type TipoApontamentoApiFalso } from '../../test/tiposFalsos'
+import { escolherAcao, itensDoMenuAcoes } from '../../test/menuAcoes'
+import { TIPO_LOGISTICA_API, TIPO_MARKETING_API, rotuloAcoesTipo, tiposApi, type TipoApontamentoApiFalso } from '../../test/tiposFalsos'
 
 const MENSAGEM_SESSAO_EXPIRADA = 'Sua sessão expirou. Entre novamente.'
 
@@ -63,7 +64,7 @@ describe('F3.3 — Exclusão de tipo personalizado (integração: /tipos com Adm
   }
 
   async function confirmarExclusao(user: Usuario, nome: string) {
-    await user.click(screen.getByRole('button', { name: `Excluir tipo ${nome}` }))
+    await escolherAcao(user, rotuloAcoesTipo(nome), 'Excluir')
     const dialogo = screen.getByRole('dialog', { name: 'Excluir tipo' })
     await user.click(within(dialogo).getByRole('button', { name: 'Excluir' }))
   }
@@ -73,7 +74,7 @@ describe('F3.3 — Exclusão de tipo personalizado (integração: /tipos com Adm
     const chamadas = simularSessao('admin')
     await abrirTipos()
 
-    await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+    await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
     const dialogo = screen.getByRole('dialog', { name: 'Excluir tipo' })
     expect(
       within(dialogo).getByText('O tipo Logística será removido. Esta ação não pode ser desfeita.'),
@@ -139,7 +140,7 @@ describe('F3.3 — Exclusão de tipo personalizado (integração: /tipos com Adm
     const chamadas = simularSessao('admin')
     await abrirTipos()
 
-    await user.click(screen.getByRole('button', { name: 'Excluir tipo Marketing' }))
+    await escolherAcao(user, rotuloAcoesTipo('Marketing'), 'Excluir')
 
     const dialogo = screen.getByRole('dialog', { name: 'Excluir tipo' })
     expect(
@@ -158,7 +159,7 @@ describe('F3.3 — Exclusão de tipo personalizado (integração: /tipos com Adm
     const chamadas = simularSessao('validador')
     await abrirTipos()
 
-    await user.click(screen.getByRole('button', { name: 'Excluir tipo Logística' }))
+    await escolherAcao(user, rotuloAcoesTipo('Logística'), 'Excluir')
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancelar' }))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -166,14 +167,14 @@ describe('F3.3 — Exclusão de tipo personalizado (integração: /tipos com Adm
     expect(exclusoes(chamadas)).toHaveLength(0)
   })
 
-  it('tipos fixos não têm botão de excluir na tela completa', async () => {
+  it('tipos fixos não têm "Excluir" no menu de ações na tela completa', async () => {
+    const user = usuarioRapido()
     simularSessao('admin')
     await abrirTipos()
 
-    const linhaComercial = screen.getByRole('cell', { name: 'Comercial' }).closest('tr')!
-    expect(within(linhaComercial).queryByRole('button')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Excluir tipo Comercial' })).not.toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: /^Excluir tipo / })).toHaveLength(2)
+    expect(await itensDoMenuAcoes(user, rotuloAcoesTipo('Comercial'))).not.toContain('Excluir')
+    expect(await itensDoMenuAcoes(user, rotuloAcoesTipo('Contabilidade'))).not.toContain('Excluir')
+    expect(await itensDoMenuAcoes(user, rotuloAcoesTipo('Logística'))).toContain('Excluir')
   })
 
   it('401 ao excluir (token recusado) encerra a sessão e volta ao login com "Sua sessão expirou. Entre novamente."', async () => {

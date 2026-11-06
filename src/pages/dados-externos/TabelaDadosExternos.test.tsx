@@ -8,6 +8,7 @@ import {
   DADO_DEVOLUCOES_API,
   DADO_FATURAMENTO_API,
   DADO_PRAZO_API,
+  DADO_TAREFA_ENVIADA_API,
   DADO_TAREFA_SEM_NUMERO_API,
   DADO_VOLUME_API,
   NOMES_DADOS_EXTERNOS,
@@ -165,21 +166,48 @@ describe('F5.2 — TabelaDadosExternos (listagem de dados externos — RF-23)', 
       )
     })
 
-    it('Situação mostra "Tarefa nº {id}" quando a API devolve a tarefa e nada quando não há tarefa', () => {
+    it('Situação mostra o número da tarefa enviada como "#{id}" e nada quando não há tarefa', () => {
       renderizar()
 
-      expect(within(celula('Devoluções de venda', COL.situacao)).getByText('Tarefa nº 1044')).toBeInTheDocument()
+      expect(within(celula('Devoluções de venda', COL.situacao)).getByText('#1044')).toBeInTheDocument()
+      expect(within(celula('Devoluções de venda', COL.situacao)).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
       expect(within(celula('Prazo médio de recebimento', COL.situacao)).getByText('Em construção (TI)')).toBeInTheDocument()
-      expect(within(celula('Prazo médio de recebimento', COL.situacao)).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
-      expect(within(celula('Faturamento líquido', COL.situacao)).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
+      expect(within(celula('Prazo médio de recebimento', COL.situacao)).queryByText(/^#/)).not.toBeInTheDocument()
+      expect(within(celula('Prazo médio de recebimento', COL.situacao)).queryByText('Aguardando envio ao Bitrix')).not.toBeInTheDocument()
+      expect(within(celula('Faturamento líquido', COL.situacao)).queryByText(/^#/)).not.toBeInTheDocument()
+      expect(within(celula('Faturamento líquido', COL.situacao)).queryByText('Aguardando envio ao Bitrix')).not.toBeInTheDocument()
     })
 
-    it('tarefa sem número (id null): Situação mostra "Em construção (TI)" sem "Tarefa nº"; o restante da linha aparece', () => {
+    it('tarefa enviada com o número em texto ("328440") aparece como "#328440"', () => {
+      renderizar({ dados: [...DADOS, paraDadoExterno(DADO_TAREFA_ENVIADA_API)] })
+
+      const situacao = celula('Comissões pagas', COL.situacao)
+      expect(within(situacao).getByText('#328440')).toBeInTheDocument()
+      expect(within(situacao).queryByText('Aguardando envio ao Bitrix')).not.toBeInTheDocument()
+    })
+
+    it('tarefa com número e status "aguardando_envio": Situação mostra "Aguardando envio ao Bitrix" no lugar do número', () => {
+      renderizar({
+        dados: [
+          paraDadoExterno({
+            ...DADO_DEVOLUCOES_API,
+            'tarefa bitrix': { id: 1044, status: 'aguardando_envio', titulo: '[PED] Construir dado externo: Devoluções de venda' },
+          }),
+        ],
+      })
+
+      const situacao = celula('Devoluções de venda', COL.situacao)
+      expect(within(situacao).getByText('Aguardando envio ao Bitrix')).toBeInTheDocument()
+      expect(within(situacao).queryByText('#1044')).not.toBeInTheDocument()
+    })
+
+    it('tarefa sem número (id null): Situação mostra "Em construção (TI)" e "Aguardando envio ao Bitrix", sem número; o restante da linha aparece', () => {
       renderizar({ dados: [...DADOS, paraDadoExterno(DADO_TAREFA_SEM_NUMERO_API)] })
 
       const situacao = celula('Bonificações pagas', COL.situacao)
       expect(within(situacao).getByText('Em construção (TI)')).toBeInTheDocument()
-      expect(within(situacao).queryByText(/Tarefa nº/)).not.toBeInTheDocument()
+      expect(within(situacao).getByText('Aguardando envio ao Bitrix')).toBeInTheDocument()
+      expect(within(situacao).queryByText(/^#/)).not.toBeInTheDocument()
       expect(within(situacao).queryByText(/null/)).not.toBeInTheDocument()
       expect(celula('Bonificações pagas', COL.origem)).toHaveTextContent('Senior HCM')
       expect(celula('Bonificações pagas', COL.identificador)).toHaveTextContent('a definir pela TI')

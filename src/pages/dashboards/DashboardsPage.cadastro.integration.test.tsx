@@ -21,6 +21,7 @@ import {
   respostaGravacaoApi,
   rotaListarDashboards,
   rotaVinculos,
+  tarefaBitrixGravacaoApi,
   tarefaGravacaoApi,
   type DashboardApiFalso,
 } from '../../test/dashboardsFalsos'
@@ -30,6 +31,7 @@ import { type Usuario, colar, usuarioRapido } from '../../test/usuario'
 
 const ROTA = '/api/ped/dashboards'
 const ATRASO_PREVIA_MS = 500
+const MENSAGEM_CADASTRO_AGUARDANDO = 'Dashboard cadastrado. A tarefa para a TI será criada no Bitrix em instantes.'
 const BLOCO = 'Tarefa de construção que será criada no Bitrix24'
 
 const CORPO_ESPERADO = {
@@ -67,7 +69,8 @@ describe('F7.7 — Cadastro de dashboard com a tarefa de construção sempre vis
 
   interface Opcoes {
     perfil?: 'admin' | 'validador'
-    idTarefa?: number | null
+    /** Número da tarefa no Bitrix24 ("id bitrix"); `null` (padrão) = tarefa na fila, `aguardando_envio`. */
+    idTarefa?: number | string | null
     aoCriar?: () => Response
     aoListarVinculos?: () => Response
     aoPrevia?: () => Response
@@ -91,7 +94,7 @@ describe('F7.7 — Cadastro de dashboard com a tarefa de construção sempre vis
         if (aoCriar) return aoCriar()
         lista = [...lista, { ...DASHBOARD_SUPERVISORES_API }]
         return respostaJson(
-          respostaGravacaoApi(DASHBOARD_SUPERVISORES_API, tarefaGravacaoApi('[PED] Construir dashboard: PED Supervisores', idTarefa)),
+          respostaGravacaoApi(DASHBOARD_SUPERVISORES_API, tarefaBitrixGravacaoApi('[PED] Construir dashboard: PED Supervisores', idTarefa)),
           201,
         )
       },
@@ -194,7 +197,7 @@ describe('F7.7 — Cadastro de dashboard com a tarefa de construção sempre vis
 
     await user.click(within(dialogo).getByRole('button', { name: 'Salvar e criar tarefa no Bitrix' }))
 
-    const notificacao = await screen.findByText('Dashboard cadastrado. Tarefa de construção registrada para a TI.')
+    const notificacao = await screen.findByText(MENSAGEM_CADASTRO_AGUARDANDO)
     expect(notificacao.closest('[role="status"]')).not.toBeNull()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(posts(chamadas, ROTA)).toHaveLength(1)
@@ -204,15 +207,58 @@ describe('F7.7 — Cadastro de dashboard com a tarefa de construção sempre vis
     expect(within(within(tabela).getByText('PED Supervisores').closest('tr')!).getByText('Em construção (TI)')).toBeInTheDocument()
   })
 
-  it('quando a API devolve o número da tarefa, a notificação o mostra (INT-04)', async () => {
+  it('tarefa já criada no Bitrix (status "enviada", "id bitrix" "328169"): "Dashboard cadastrado. Tarefa #328169 criada no Bitrix para a equipe de TI." (INT-04)', async () => {
     const user = usuarioRapido()
-    simularSessao({ perfil: 'validador', idTarefa: 50 })
+    simularSessao({ perfil: 'validador', idTarefa: '328169' })
     const dialogo = await abrirCadastro(user)
 
     await preencher(user, dialogo)
     await user.click(within(dialogo).getByRole('button', { name: 'Salvar e criar tarefa no Bitrix' }))
 
-    expect(await screen.findByText('Dashboard cadastrado. Tarefa de construção registrada para a TI (Tarefa nº 50).')).toBeInTheDocument()
+    const notificacao = await screen.findByText('Dashboard cadastrado. Tarefa #328169 criada no Bitrix para a equipe de TI.')
+    expect(notificacao.closest('[role="status"]')).not.toBeNull()
+    expect(screen.queryByText(/em instantes/)).not.toBeInTheDocument()
+  })
+
+  it('tarefa na fila (status "aguardando_envio", "id bitrix" null): "Dashboard cadastrado. A tarefa para a TI será criada no Bitrix em instantes.", sem número', async () => {
+    const user = usuarioRapido()
+    simularSessao({ idTarefa: null })
+    const dialogo = await abrirCadastro(user)
+
+    await preencher(user, dialogo)
+    await user.click(within(dialogo).getByRole('button', { name: 'Salvar e criar tarefa no Bitrix' }))
+
+    expect(await screen.findByText(MENSAGEM_CADASTRO_AGUARDANDO)).toBeInTheDocument()
+    expect(screen.queryByText(/Tarefa #\d/)).not.toBeInTheDocument()
+  })
+
+  it.each<[string, () => Response]>([
+    ['sem "tarefa" na resposta', () => respostaJson(respostaGravacaoApi(DASHBOARD_SUPERVISORES_API, null), 201)],
+    ['com status "enviada" mas sem número', () => respostaJson(respostaGravacaoApi(DASHBOARD_SUPERVISORES_API, { ...tarefaBitrixGravacaoApi('T', null), status: 'enviada' }), 201)],
+    ['só { mensagem } (2xx = gravado)', () => respostaJson({ mensagem: 'dashboard cadastrado' }, 201)],
+  ])('resposta %s: a notificação usa a frase sem número ("em instantes")', async (_caso, resposta) => {
+    const user = usuarioRapido()
+    simularSessao({ aoCriar: resposta })
+    const dialogo = await abrirCadastro(user)
+
+    await preencher(user, dialogo)
+    await user.click(within(dialogo).getByRole('button', { name: 'Salvar e criar tarefa no Bitrix' }))
+
+    expect(await screen.findByText(MENSAGEM_CADASTRO_AGUARDANDO)).toBeInTheDocument()
+  })
+
+  it('formato anterior da tarefa ("id" sem "id bitrix") com status "enviada" continua mostrando o número', async () => {
+    const user = usuarioRapido()
+    simularSessao({
+      aoCriar: () =>
+        respostaJson(respostaGravacaoApi(DASHBOARD_SUPERVISORES_API, { ...tarefaGravacaoApi('[PED] Construir dashboard: PED Supervisores', 50), status: 'enviada' }), 201),
+    })
+    const dialogo = await abrirCadastro(user)
+
+    await preencher(user, dialogo)
+    await user.click(within(dialogo).getByRole('button', { name: 'Salvar e criar tarefa no Bitrix' }))
+
+    expect(await screen.findByText('Dashboard cadastrado. Tarefa #50 criada no Bitrix para a equipe de TI.')).toBeInTheDocument()
   })
 
   it('erro no POST: alerta com a mensagem da API dentro do diálogo, que continua aberto; a lista não muda', async () => {
@@ -241,7 +287,7 @@ describe('F7.7 — Cadastro de dashboard com a tarefa de construção sempre vis
 
     await user.click(within(dialogo).getByRole('button', { name: 'Salvar e criar tarefa no Bitrix' }))
 
-    expect(await screen.findByText('Dashboard cadastrado. Tarefa de construção registrada para a TI.')).toBeInTheDocument()
+    expect(await screen.findByText(MENSAGEM_CADASTRO_AGUARDANDO)).toBeInTheDocument()
     expect(posts(chamadas, ROTA)).toHaveLength(1)
   })
 

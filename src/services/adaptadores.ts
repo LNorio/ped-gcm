@@ -96,7 +96,19 @@ export interface TipoApontamentoApi {
   origem: OrigemTipo
   'quantidade usuarios'?: number | null
   'quantidade apontamentos'?: number | null
+  /** A-02: grupos do ERP vinculados (Admin/Validador); `null` para o Preenchedor. */
+  grupos?: ReferenciaNomeadaApi[] | null
+  /**
+   * A-02: usuários vinculados diretamente (Admin/Validador); `null` para o Preenchedor.
+   * A API real devolve `{ "id colaborador", nome }`; `{ id, nome }` também é aceito.
+   */
+  usuarios?: UsuarioVinculadoApi[] | null
 }
+
+/** Usuário vinculado a um tipo: `"id colaborador"` (formato real) ou `id`; se vierem os dois, vale `"id colaborador"`. */
+export type UsuarioVinculadoApi =
+  | { 'id colaborador': number; id?: number; nome: string }
+  | { id: number; 'id colaborador'?: undefined; nome: string }
 
 /** Campos de auditoria devolvidos pela API em apontamentos, dados externos e indicadores. */
 export interface AuditoriaApi {
@@ -120,8 +132,12 @@ export interface ApontamentoApi extends AuditoriaApi {
 }
 
 export interface TarefaBitrixApi {
-  /** `null` enquanto a tarefa só está registrada (ainda não enviada ao Bitrix24). */
-  id: number | null
+  /**
+   * `null` enquanto a tarefa só está registrada (ainda não enviada ao Bitrix24). A API real pode mandar
+   * o número como texto (ex.: `"328439"`); só texto com dígitos (após `trim()`) é aceito — ver
+   * `numeroDaTarefaBitrix`.
+   */
+  id: number | string | null
   status: string
   titulo: string
 }
@@ -384,9 +400,23 @@ function paraReferenciaNomeada(item: ReferenciaNomeadaApi): ReferenciaNomeada {
   return { id: item.id, nome: item.nome }
 }
 
+/**
+ * Número da tarefa do Bitrix24 vindo da API: número finito ou texto só com dígitos (após `trim()`,
+ * ex.: `"328439"`), convertido com `Number(...)`. Qualquer outro valor (inclusive `null`, `''`, `'31a'`,
+ * `'31.5'`, `'-31'`) devolve `undefined`; quem chama decide se `null` é aceito.
+ */
+export function numeroDaTarefaBitrix(valor: unknown): number | undefined {
+  if (typeof valor === 'number') return Number.isFinite(valor) ? valor : undefined
+  if (typeof valor === 'string') {
+    const texto = valor.trim()
+    return /^\d+$/.test(texto) ? Number(texto) : undefined
+  }
+  return undefined
+}
+
 function paraTarefaBitrix(tarefa: TarefaBitrixApi | null | undefined): TarefaBitrix | null {
   if (!tarefa) return null
-  return { id: tarefa.id, status: tarefa.status, titulo: tarefa.titulo }
+  return { id: numeroDaTarefaBitrix(tarefa.id) ?? null, status: tarefa.status, titulo: tarefa.titulo }
 }
 
 function paraAuditoria(dado: AuditoriaApi): Auditoria {
@@ -449,7 +479,11 @@ export function paraPeriodo(periodo: PeriodoApi): Periodo {
   }
 }
 
-export function paraTipoApontamento(tipo: TipoApontamentoApi): TipoApontamento {
+/**
+ * Converte os dados básicos do tipo. Os vínculos (`grupos` e `usuarios`, A-02) são convertidos em
+ * `tiposService`, que valida os itens da resposta.
+ */
+export function paraTipoApontamento(tipo: TipoApontamentoApi): Omit<TipoApontamento, 'grupos' | 'usuarios'> {
   return {
     id: tipo.id,
     nome: tipo.nome,

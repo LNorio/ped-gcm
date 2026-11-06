@@ -5,7 +5,7 @@
  * A lista padrão cobre os casos da tela:
  * - Faturamento líquido — ativo, coleta no dia 15, sem indicador (pode ser desativado e excluído);
  * - Cobertura de clientes — inativo, usado em indicador (filtro "Com problemas"), já teve a situação alterada;
- * - Devoluções de venda — em construção (TI) com tarefa nº 1044, sem identificador;
+ * - Devoluções de venda — em construção (TI) com a tarefa #1044 (enviada ao Bitrix24), sem identificador;
  * - Prazo médio de recebimento — em construção (TI) sem tarefa (sem número), sem `coleta descricao`;
  * - Chamados atendidos no prazo — "Outro sistema" com comentário, ativo, sentido "último valor";
  * - Volume de vendas — ativo, compõe dois indicadores (exclusão bloqueada).
@@ -14,6 +14,9 @@
  * `RESPOSTA_REAL_LISTAGEM_API` é a resposta real colada pelo usuário em 05/11/2026 (bug da aba).
  * `DADO_TAREFA_SEM_NUMERO_API` é um dado em construção com a tarefa registrada e ainda sem número no
  * Bitrix24 (`"tarefa bitrix": { "id": null, ... }`), como a API devolve antes da integração.
+ * `DADO_TAREFA_ENVIADA_API` é um dado em construção com a tarefa já enviada ao Bitrix24: o número vem
+ * em **texto** (`"tarefa bitrix": { "id": "328440", "status": "enviada", ... }`), no mesmo formato da
+ * resposta real da listagem de dashboards de 06/11/2026.
  *
  * `rotaListarDadosExternos` reproduz a filtragem da API (busca e situação) a partir da query string.
  *
@@ -28,8 +31,11 @@ import type { RotaFalsa } from './apiFalsa'
 import { respostaJson } from './apiFalsa'
 
 export interface TarefaBitrixApiFalsa {
-  /** `null` enquanto a tarefa só está registrada localmente (`aguardando_envio`), antes do Bitrix24. */
-  id: number | null
+  /**
+   * `null` enquanto a tarefa só está registrada localmente (`aguardando_envio`), antes do Bitrix24.
+   * Depois de enviada, a API real devolve o número em texto (ex.: `"328440"`).
+   */
+  id: number | string | null
   status: string
   titulo: string
 }
@@ -69,7 +75,13 @@ export interface IdentificadorApiFalso {
 
 /** Tarefa devolvida pela API ao pedir a construção (POST de Validador/Preenchedor). */
 export interface TarefaCriadaApiFalsa {
-  id?: number | null
+  /**
+   * Número da tarefa no Bitrix24, no formato publicado em 06/11/2026 (`FRONT-tarefas-bitrix.md`):
+   * texto numérico (`"328169"`) com `status` `enviada`; `null` com `status` `aguardando_envio`.
+   */
+  'id bitrix'?: number | string | null
+  /** Formato anterior a 06/11/2026; o front continua aceitando `id` quando não há `"id bitrix"`. */
+  id?: number | string | null
   status?: string | null
   titulo: string
   descricao?: string | null
@@ -133,7 +145,7 @@ export const DADO_COBERTURA_API: DadoExternoApiFalso = {
   'situacao alterada por': 'Ana Costa',
 }
 
-/** Em construção (TI) com a tarefa nº 1044; identificador a definir pela TI. */
+/** Em construção (TI) com a tarefa #1044 já enviada ao Bitrix24 (`enviada`); identificador a definir pela TI. */
 export const DADO_DEVOLUCOES_API: DadoExternoApiFalso = {
   id: 3,
   nome: 'Devoluções de venda',
@@ -141,7 +153,7 @@ export const DADO_DEVOLUCOES_API: DadoExternoApiFalso = {
   tipo: 'Comercial',
   situacao: 'em_construcao',
   'situacao descricao': 'Em construção (TI)',
-  'tarefa bitrix': { id: 1044, status: 'aguardando_envio', titulo: '[PED] Construir dado externo: Devoluções de venda' },
+  'tarefa bitrix': { id: 1044, status: 'enviada', titulo: '[PED] Construir dado externo: Devoluções de venda' },
   'sistema de origem': 'senior_erp',
   'sistema de origem descricao': 'Senior ERP (Sapiens)',
   identificador: null,
@@ -339,6 +351,18 @@ export const DADO_TAREFA_SEM_NUMERO_API: DadoExternoApiFalso = {
   'situacao alterada por': null,
 }
 
+/**
+ * Em construção (TI) com a tarefa já enviada ao Bitrix24 e o número em texto
+ * (`"tarefa bitrix": { "id": "328440", "status": "enviada", ... }`). Fora da lista padrão.
+ */
+export const DADO_TAREFA_ENVIADA_API: DadoExternoApiFalso = {
+  ...DADO_TAREFA_SEM_NUMERO_API,
+  id: 8,
+  nome: 'Comissões pagas',
+  'tarefa bitrix': { id: '328440', status: 'enviada', titulo: '[PED] Construir dado externo: Comissões pagas' },
+  'campo calculo': 'Soma das comissões pagas no mês, por colaborador.',
+}
+
 export const NOMES_DADOS_EXTERNOS = [
   'Faturamento líquido',
   'Cobertura de clientes',
@@ -384,6 +408,18 @@ export function identificadoresApi(): IdentificadorApiFalso[] {
     { identificador: 'volume_vendas', quantidade: 2 },
     { identificador: 'novos_clientes', quantidade: 0 },
   ]
+}
+
+/**
+ * Tarefa da resposta do POST no formato publicado em 06/11/2026: `{ titulo, descricao, status, "id bitrix" }`.
+ * Com `idBitrix`, `status` é `enviada`; sem ele (`null`), `aguardando_envio` (na fila do back-end).
+ */
+export function tarefaBitrixCriadaApi(
+  titulo: string,
+  idBitrix: number | string | null = null,
+  descricao: string | null = 'Descrição gerada pela API.',
+): TarefaCriadaApiFalsa {
+  return { titulo, descricao, status: idBitrix === null ? 'aguardando_envio' : 'enviada', 'id bitrix': idBitrix }
 }
 
 /** Resposta de POST: o dado gravado e a tarefa gerada (ou `null`). */

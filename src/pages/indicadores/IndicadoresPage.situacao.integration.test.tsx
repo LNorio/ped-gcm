@@ -117,7 +117,7 @@ describe('F6.6 — Inativar/reativar indicador (integração: /indicadores com A
     await screen.findByText('Situação alterada.')
     expect(corpoDaChamada(puts(chamadas)[0])).toEqual({ ativo: true })
     await waitFor(() => expect(within(linha('Capacitação')).queryByText('Inativo')).not.toBeInTheDocument())
-    expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Capacitação'))).toEqual(['Ver detalhes', 'Inativar', 'Excluir'])
+    expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador('Capacitação'))).toEqual(['Ver detalhes', 'Inativar'])
   })
 
   it('indicador vinculado a dashboard também pode ser inativado (RF-38: qualquer indicador)', async () => {

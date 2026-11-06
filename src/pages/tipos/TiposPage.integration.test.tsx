@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { limparToken, obterToken } from '../../services/sessao'
 import { FILIAIS_API, acessoApi, cabecalhoDaChamada, respostaErro, respostaJson, simularApi, type RotaFalsa } from '../../test/apiFalsa'
 import { renderizarApp } from '../../test/renderizarApp'
-import { NOMES_TIPOS_FIXOS, tiposApi } from '../../test/tiposFalsos'
+import { itensDoMenuAcoes } from '../../test/menuAcoes'
+import { NOMES_TIPOS_FIXOS, respostaRealTiposApi, rotuloAcoesTipo, tiposApi } from '../../test/tiposFalsos'
 
 const MENSAGEM_SESSAO_EXPIRADA = 'Sua sessão expirou. Entre novamente.'
 
@@ -27,11 +28,8 @@ describe('F3.2 — Listagem de tipos (integração: /tipos com sessão Admin e V
   function simularSessao(perfil: 'admin' | 'validador', rotas: Record<string, RotaFalsa> = {}) {
     return simularApi(fetchFalso, {
       'GET /api/ped/acesso': () => respostaJson(acessoApi({ perfil, 'todas as filiais': true, filiais: FILIAIS_API })),
-      'GET /api/ped/tipos-apontamento': () =>
-        respostaJson(
-          // Para o Admin a API devolve também "usuarios" em cada tipo; o front ignora.
-          tiposApi().map((tipo) => (perfil === 'admin' ? { ...tipo, usuarios: [{ id: 12, nome: 'Fulano' }] } : tipo)),
-        ),
+      // Para Admin e Validador a API devolve "grupos" e "usuarios" em cada tipo (A-02).
+      'GET /api/ped/tipos-apontamento': () => respostaJson(tiposApi()),
       ...rotas,
     })
   }
@@ -77,14 +75,32 @@ describe('F3.2 — Listagem de tipos (integração: /tipos com sessão Admin e V
 
     const linhaComercial = screen.getByRole('cell', { name: 'Comercial' }).closest('tr')!
     expect(within(linhaComercial).getByText('Fixo')).toHaveClass('etiqueta--neutro')
-    expect(within(linhaComercial).getAllByRole('cell')[2]).toHaveTextContent(/^7$/)
+    expect(within(linhaComercial).getAllByRole('cell')[3]).toHaveTextContent(/^7$/)
 
     const linhaLogistica = screen.getByRole('cell', { name: 'Logística' }).closest('tr')!
     expect(within(linhaLogistica).getByText('Personalizado')).toHaveClass('etiqueta--info')
-    expect(within(linhaLogistica).getAllByRole('cell')[2]).toHaveTextContent(/^0$/)
+    expect(within(linhaLogistica).getAllByRole('cell')[3]).toHaveTextContent(/^0$/)
   })
 
-  it('Validador abre /tipos e vê a listagem completa com Excluir nos personalizados e sem ação nos fixos', async () => {
+  it('mostra na coluna "Grupos vinculados" os grupos e a quantidade de usuários devolvidos pela API', async () => {
+    simularSessao('admin')
+
+    renderizarApp('/tipos')
+    await aguardarTabela()
+
+    const tabela = screen.getByRole('table', { name: 'Tipos de apontamento' })
+    expect(within(tabela).getAllByRole('columnheader')[2]).toHaveTextContent('Grupos vinculados')
+    const linhaComercial = screen.getByRole('cell', { name: 'Comercial' }).closest('tr')!
+    const grupos = within(linhaComercial).getAllByRole('cell')[2]
+    expect(grupos).toHaveTextContent('DEF_OPERADOR DE CAIXA')
+    expect(grupos).toHaveTextContent('DEF_GERENTE DE LOJA')
+    expect(grupos).toHaveTextContent('1 usuário vinculado')
+    const linhaProcessos = screen.getByRole('cell', { name: 'Processos' }).closest('tr')!
+    expect(within(linhaProcessos).getAllByRole('cell')[2]).toHaveTextContent(/^Nenhum grupo$/)
+  })
+
+  it('Validador abre /tipos e vê a listagem completa, com "Editar grupos" e "Excluir" nos personalizados e só "Editar grupos" nos fixos', async () => {
+    const user = usuarioRapido()
     simularSessao('validador')
 
     renderizarApp('/tipos')
@@ -92,14 +108,34 @@ describe('F3.2 — Listagem de tipos (integração: /tipos com sessão Admin e V
 
     expect(screen.getByText('Validador')).toBeInTheDocument()
     expect(nomesListados(tabela)).toHaveLength(9)
-    expect(screen.getAllByRole('button', { name: /^Excluir tipo / }).map((b) => b.getAttribute('aria-label'))).toEqual([
-      'Excluir tipo Logística',
-      'Excluir tipo Marketing',
-    ])
+    expect(await itensDoMenuAcoes(user, rotuloAcoesTipo('Logística'))).toEqual(['Editar grupos', 'Excluir'])
+    expect(await itensDoMenuAcoes(user, rotuloAcoesTipo('Marketing'))).toEqual(['Editar grupos', 'Excluir'])
+    for (const nome of NOMES_TIPOS_FIXOS) {
+      expect(await itensDoMenuAcoes(user, rotuloAcoesTipo(nome))).toEqual(['Editar grupos'])
+    }
+  })
+
+  it('resposta real da API (usuários com "id colaborador"): a tabela carrega os 7 tipos fixos, sem "Resposta inválida do servidor.", com "1 usuário vinculado"', async () => {
+    const user = usuarioRapido()
+    simularSessao('admin', {
+      'GET /api/ped/tipos-apontamento': () => respostaJson(respostaRealTiposApi()),
+    })
+
+    renderizarApp('/tipos')
+    const tabela = await aguardarTabela()
+
+    expect(nomesListados(tabela)).toEqual([...NOMES_TIPOS_FIXOS])
+    expect(screen.queryByText('Resposta inválida do servidor.')).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     for (const nome of NOMES_TIPOS_FIXOS) {
       const linha = screen.getByRole('cell', { name: nome }).closest('tr')!
-      expect(within(linha).queryByRole('button')).not.toBeInTheDocument()
+      const grupos = within(linha).getAllByRole('cell')[2]
+      expect(grupos).toHaveTextContent('1 usuário vinculado')
+      expect(grupos).not.toHaveTextContent('Nenhum grupo')
     }
+    const linhaTi = screen.getByRole('cell', { name: 'Tecnologia da Informação' }).closest('tr')!
+    expect(within(linhaTi).getAllByRole('cell')[3]).toHaveTextContent(/^1$/)
+    expect(await itensDoMenuAcoes(user, rotuloAcoesTipo('Comercial'))).toEqual(['Editar grupos'])
   })
 
   it('navegar do Início até a aba Tipos carrega a listagem', async () => {

@@ -19,12 +19,14 @@ import { usuarioRapido } from '../../test/usuario'
 const ROTA = '/api/ped/indicadores-cadastro'
 const MENSAGEM_SESSAO_EXPIRADA = 'Sua sessão expirou. Entre novamente.'
 const MENSAGEM_JA_VINCULADO = 'O indicador já foi vinculado a dashboard e não pode ser excluído.'
+const MENSAGEM_EM_DASHBOARD = 'o indicador esta em dashboards e nao pode ser excluido'
 
 /**
- * A rota `DELETE /api/ped/indicadores-cadastro/{id}` ainda não existe na API (ajuste A-09, acordado);
- * estes testes descrevem o comportamento do front quando ela estiver publicada.
+ * Rota `DELETE /api/ped/indicadores-cadastro/{id}` publicada em 06/11/2026 (FRONT-PED-mudancas.md, item 5),
+ * **só Admin**: `200 { "mensagem": "indicador excluido" }`; `400 { mensagem, dashboards: [nomes] }` quando o
+ * indicador está em dashboard ou é o indicador-base das faixas de um; `404` quando não existe.
  */
-describe('F6.7 — Excluir indicador (integração: /indicadores com Admin e Validador)', () => {
+describe('F6.7 — Excluir indicador (integração: /indicadores; só Admin)', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
 
   beforeEach(() => {
@@ -51,7 +53,7 @@ describe('F6.7 — Excluir indicador (integração: /indicadores com Admin e Val
       const personalizada = aoExcluir?.()
       if (personalizada) return personalizada
       lista = lista.filter((i) => i.id !== id)
-      return new Response(null, { status: 204 })
+      return respostaJson({ mensagem: 'indicador excluido' })
     }
     return simularApi(fetchFalso, {
       'GET /api/ped/acesso': () => respostaJson(acesso),
@@ -69,8 +71,8 @@ describe('F6.7 — Excluir indicador (integração: /indicadores com Admin e Val
     return await screen.findByRole('table', { name: 'Indicadores' })
   }
 
-  it.each(['admin', 'validador'] as const)(
-    '%s exclui: confirmação com o impacto → DELETE com o Bearer → "Indicador excluído." e a linha some',
+  it.each(['admin'] as const)(
+    '%s exclui: confirmação com o impacto → DELETE com o Bearer → 200 { mensagem: "indicador excluido" } → "Indicador excluído." e a linha some',
     async (perfil) => {
       const user = usuarioRapido()
       const chamadas = simularSessao(perfil)
@@ -92,6 +94,28 @@ describe('F6.7 — Excluir indicador (integração: /indicadores com Admin e Val
       await waitFor(() => expect(screen.queryByText('Rotinas financeiras em dia')).not.toBeInTheDocument())
     },
   )
+
+  it('Validador não vê "Excluir" no menu de nenhum indicador e nenhum DELETE é feito (exclusão só do Admin)', async () => {
+    const user = usuarioRapido()
+    const chamadas = simularSessao('validador')
+    await abrirTela()
+
+    for (const nome of ['Rotinas financeiras em dia', 'Capacitação', 'Devoluções de venda', 'Cobertura de visitas']) {
+      expect(await itensDoMenuAcoes(user, rotuloAcoesIndicador(nome))).not.toContain('Excluir')
+    }
+    expect(deletes(chamadas)).toHaveLength(0)
+  })
+
+  it('DELETE com resposta 204 (sem corpo) também conta como excluído', async () => {
+    const user = usuarioRapido()
+    simularSessao('admin', () => new Response(null, { status: 204 }))
+    await abrirTela()
+
+    await escolherAcao(user, rotuloAcoesIndicador('Rotinas financeiras em dia'), 'Excluir')
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }))
+
+    expect(await screen.findByText('Indicador excluído.')).toBeInTheDocument()
+  })
 
   it('excluir um indicador com componente desativado reduz o alerta da aba', async () => {
     const user = usuarioRapido()
@@ -129,6 +153,53 @@ describe('F6.7 — Excluir indicador (integração: /indicadores com Admin e Val
     expect(deletes(chamadas)).toHaveLength(0)
   })
 
+  it('400 da API com { mensagem, dashboards }: diálogo fecha e o Aviso de erro mostra a mensagem e "Dashboards: {nomes}."; a linha é mantida, sem notificação', async () => {
+    const user = usuarioRapido()
+    simularSessao('admin', () => respostaJson({ mensagem: MENSAGEM_EM_DASHBOARD, dashboards: ['PED Comercial', 'PED Gerentes'] }, 400))
+    await abrirTela()
+
+    await escolherAcao(user, rotuloAcoesIndicador('Rotinas financeiras em dia'), 'Excluir')
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }))
+
+    const aviso = await screen.findByRole('alert')
+    expect(aviso).toHaveTextContent(MENSAGEM_EM_DASHBOARD)
+    expect(aviso).toHaveTextContent('Dashboards: PED Comercial, PED Gerentes.')
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByText('Rotinas financeiras em dia')).toBeInTheDocument()
+    expect(screen.queryByText('Indicador excluído.')).not.toBeInTheDocument()
+  })
+
+  it('400 com um único dashboard (indicador-base das faixas): "Dashboards: PED Logística."', async () => {
+    const user = usuarioRapido()
+    simularSessao('admin', () => respostaJson({ mensagem: MENSAGEM_EM_DASHBOARD, dashboards: ['PED Logística'] }, 400))
+    await abrirTela()
+
+    await escolherAcao(user, rotuloAcoesIndicador('Rotinas financeiras em dia'), 'Excluir')
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }))
+
+    const aviso = await screen.findByRole('alert')
+    expect(aviso).toHaveTextContent(MENSAGEM_EM_DASHBOARD)
+    expect(aviso).toHaveTextContent('Dashboards: PED Logística.')
+  })
+
+  it.each<[string, unknown]>([
+    ['lista vazia', []],
+    ['sem a chave', undefined],
+    ['fora do formato (texto)', 'PED Comercial'],
+  ])('400 com "dashboards" %s: o Aviso mostra só a mensagem, sem "Dashboards:"', async (_caso, dashboards) => {
+    const user = usuarioRapido()
+    simularSessao('admin', () => respostaJson({ mensagem: MENSAGEM_EM_DASHBOARD, ...(dashboards === undefined ? {} : { dashboards }) }, 400))
+    await abrirTela()
+
+    await escolherAcao(user, rotuloAcoesIndicador('Rotinas financeiras em dia'), 'Excluir')
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Excluir' }))
+
+    const aviso = await screen.findByRole('alert')
+    expect(aviso).toHaveTextContent(MENSAGEM_EM_DASHBOARD)
+    expect(aviso).not.toHaveTextContent('Dashboards:')
+  })
+
   it('400 da API (já esteve vinculado): diálogo fecha, Aviso de erro com a mensagem e a linha mantida, sem notificação', async () => {
     const user = usuarioRapido()
     simularSessao('admin', () => respostaJson({ mensagem: MENSAGEM_JA_VINCULADO }, 400))
@@ -143,7 +214,7 @@ describe('F6.7 — Excluir indicador (integração: /indicadores com Admin e Val
     expect(screen.queryByText('Indicador excluído.')).not.toBeInTheDocument()
   })
 
-  it('404 (rota ainda não publicada — A-09): Aviso de erro com a mensagem padrão e a linha mantida', async () => {
+  it('404 (indicador não existe mais): Aviso de erro com a mensagem padrão e a linha mantida', async () => {
     const user = usuarioRapido()
     simularSessao('admin', () => respostaErro(404))
     await abrirTela()
@@ -162,7 +233,7 @@ describe('F6.7 — Excluir indicador (integração: /indicadores com Admin e Val
       'admin',
       () =>
         new Promise<Response>((resolve) => {
-          liberar = () => resolve(new Response(null, { status: 204 }))
+          liberar = () => resolve(respostaJson({ mensagem: 'indicador excluido' }))
         }),
     )
     await abrirTela()

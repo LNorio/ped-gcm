@@ -9,9 +9,10 @@
  *
  * Variantes:
  * - `admin`: "Identificador da consulta" obrigatório, com sugestões dos existentes. Ao digitar, colar
- *   ou escolher uma sugestão, o texto passa por `limparIdentificador` (só A–Z, 0–9 e "_", em
- *   maiúsculas), pois o identificador aponta para o código da coleta no back-end;
- * - `solicitacao` (Validador/Preenchedor): também "Observação para a TI".
+ *   ou escolher uma sugestão, o texto passa por `limparIdentificador` (só A–Z, 0–9, "_", "-" e
+ *   ".", em maiúsculas), pois o identificador aponta para o código da coleta no back-end;
+ * - `solicitacao` (Validador/Preenchedor): também "Observação para a TI" e o aviso de que, ao salvar,
+ *   será aberta uma tarefa para a TI (criada pelo back-end — `FRONT-tarefas-bitrix.md`).
  *
  * O dado não é editável depois de salvo, por isso não há campo de situação. O erro devolvido pela
  * API (`erro`) é exibido dentro do formulário sem apagar o que o usuário digitou.
@@ -42,6 +43,9 @@ import {
 import { limparIdentificador } from '../../utils/identificador'
 import { SugestoesIdentificador } from './SugestoesIdentificador'
 import './FormularioDadoExterno.css'
+
+/** Aviso da variante de solicitação: a tarefa para a TI é criada pelo back-end ao salvar. */
+const AVISO_TAREFA_TI = 'Ao salvar, será aberta uma tarefa para a equipe de TI.'
 
 export type VarianteFormularioDadoExterno = 'admin' | 'solicitacao'
 
@@ -372,6 +376,7 @@ export function FormularioDadoExterno({
           onChange={(evento) => setObservacao(evento.target.value)}
         />
       )}
+      {admin ? null : <Aviso tipo="info">{AVISO_TAREFA_TI}</Aviso>}
       <div className="formulario-dado-externo__acoes">
         <Botao variante="contorno" onClick={onCancelar}>
           Cancelar

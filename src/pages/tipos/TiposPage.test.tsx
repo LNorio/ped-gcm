@@ -6,7 +6,8 @@ import { definirToken, limparToken } from '../../services/sessao'
 import { ProvedorSessaoFalso } from '../../test/ProvedorSessaoFalso'
 import { respostaErro, respostaJson, simularApi } from '../../test/apiFalsa'
 import { FILIAIS, acessoFalso } from '../../test/sessaoFalsa'
-import { NOMES_TIPOS_FIXOS, tiposApi, type TipoApontamentoApiFalso } from '../../test/tiposFalsos'
+import { itensDoMenuAcoes } from '../../test/menuAcoes'
+import { NOMES_TIPOS_FIXOS, rotuloAcoesTipo, tiposApi, type TipoApontamentoApiFalso } from '../../test/tiposFalsos'
 import type { Perfil } from '../../types/dominio'
 import { TiposPage } from './TiposPage'
 
@@ -117,7 +118,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
   })
 
   describe('tabela', () => {
-    it('lista os tipos na tabela "Tipos de apontamento" com as colunas Nome, Origem, Apontamentos e Ações', async () => {
+    it('lista os tipos na tabela "Tipos de apontamento" com as colunas Nome, Origem, Grupos vinculados, Apontamentos e Ações', async () => {
       simularLista()
       renderizar()
 
@@ -126,6 +127,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
       expect(within(tabela).getAllByRole('columnheader').map((coluna) => coluna.textContent)).toEqual([
         'Nome',
         'Origem',
+        'Grupos vinculados',
         'Apontamentos',
         'Ações',
       ])
@@ -133,13 +135,17 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
       expect(nomesListados(tabela)).toEqual([...NOMES_TIPOS_FIXOS, 'Logística', 'Marketing'])
     })
 
-    it('não exibe coluna de grupos vinculados nesta fase (fica para a F3.4)', async () => {
+    it('mostra os grupos vinculados de cada tipo, a quantidade de usuários vinculados e "Nenhum grupo" quando não há vínculo (RF-12)', async () => {
       simularLista()
       renderizar()
+      await aguardarTabela()
 
-      const tabela = await aguardarTabela()
-
-      expect(within(tabela).queryByRole('columnheader', { name: /grupos/i })).not.toBeInTheDocument()
+      const gruposComercial = within(linhaDoTipo('Comercial')).getAllByRole('cell')[2]
+      expect(within(gruposComercial).getByText('DEF_OPERADOR DE CAIXA')).toHaveClass('etiqueta')
+      expect(within(gruposComercial).getByText('DEF_GERENTE DE LOJA')).toHaveClass('etiqueta')
+      expect(gruposComercial).toHaveTextContent('1 usuário vinculado')
+      expect(within(linhaDoTipo('Tecnologia da Informação')).getAllByRole('cell')[2]).toHaveTextContent(/^2 usuários vinculados$/)
+      expect(within(linhaDoTipo('Recursos Humanos')).getAllByRole('cell')[2]).toHaveTextContent(/^Nenhum grupo$/)
     })
 
     it('mostra a origem como etiqueta: Fixo em tom neutro e Personalizado em tom de informação', async () => {
@@ -159,37 +165,33 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
       renderizar()
       await aguardarTabela()
 
-      expect(within(linhaDoTipo('Comercial')).getAllByRole('cell')[2]).toHaveTextContent(/^7$/)
-      expect(within(linhaDoTipo('Recursos Humanos')).getAllByRole('cell')[2]).toHaveTextContent(/^0$/)
-      expect(within(linhaDoTipo('Marketing')).getAllByRole('cell')[2]).toHaveTextContent(/^3$/)
+      expect(within(linhaDoTipo('Comercial')).getAllByRole('cell')[3]).toHaveTextContent(/^7$/)
+      expect(within(linhaDoTipo('Recursos Humanos')).getAllByRole('cell')[3]).toHaveTextContent(/^0$/)
+      expect(within(linhaDoTipo('Marketing')).getAllByRole('cell')[3]).toHaveTextContent(/^3$/)
     })
 
-    it('oferece "Excluir tipo {nome}" apenas nos tipos personalizados; os sete fixos não têm botão', async () => {
+    it('cada linha tem o menu "Ações do tipo {nome}": personalizados com "Editar grupos" e "Excluir"; fixos só com "Editar grupos"', async () => {
+      const user = usuarioRapido()
       simularLista()
       renderizar()
       await aguardarTabela()
 
-      const botoes = screen.getAllByRole('button', { name: /^Excluir tipo / })
-      expect(botoes.map((botao) => botao.getAttribute('aria-label'))).toEqual([
-        'Excluir tipo Logística',
-        'Excluir tipo Marketing',
-      ])
+      expect(screen.getAllByRole('button', { name: /^Ações do tipo / })).toHaveLength(9)
+      expect(await itensDoMenuAcoes(user, rotuloAcoesTipo('Logística'))).toEqual(['Editar grupos', 'Excluir'])
+      expect(await itensDoMenuAcoes(user, rotuloAcoesTipo('Marketing'))).toEqual(['Editar grupos', 'Excluir'])
       for (const nome of NOMES_TIPOS_FIXOS) {
-        expect(within(linhaDoTipo(nome)).queryByRole('button')).not.toBeInTheDocument()
+        expect(await itensDoMenuAcoes(user, rotuloAcoesTipo(nome))).toEqual(['Editar grupos'])
       }
     })
 
-    it('na célula Ações dos fixos, o "—" fica escondido de leitores de tela e o texto "Sem ações" existe só para eles', async () => {
+    it('o menu fica na célula Ações (última coluna) e não há botões soltos de exclusão na linha', async () => {
       simularLista()
       renderizar()
       await aguardarTabela()
 
-      for (const nome of NOMES_TIPOS_FIXOS) {
-        const celula = within(linhaDoTipo(nome)).getAllByRole('cell')[3]
-        expect(within(celula).getByText('—')).toHaveAttribute('aria-hidden', 'true')
-        expect(within(celula).getByText('Sem ações')).toHaveClass('visualmente-oculto')
-      }
-      expect(within(linhaDoTipo('Logística')).queryByText('Sem ações')).not.toBeInTheDocument()
+      const celulaAcoes = within(linhaDoTipo('Logística')).getAllByRole('cell')[4]
+      expect(within(celulaAcoes).getByRole('button', { name: rotuloAcoesTipo('Logística') })).toBeInTheDocument()
+      expect(within(linhaDoTipo('Logística')).getAllByRole('button')).toHaveLength(1)
     })
 
     it('mostra "Nenhum tipo cadastrado." quando a API devolve lista vazia', async () => {
@@ -199,7 +201,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
       const tabela = await aguardarTabela()
 
       expect(within(tabela).getByText('Nenhum tipo cadastrado.')).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: /^Excluir tipo / })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^Ações do tipo / })).not.toBeInTheDocument()
     })
   })
 
@@ -325,7 +327,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
 
       await user.click(opcaoOrigem('Fixo'))
       expect(nomesListados(tabela)).toEqual([...NOMES_TIPOS_FIXOS])
-      expect(screen.queryByRole('button', { name: /^Excluir tipo / })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: rotuloAcoesTipo('Logística') })).not.toBeInTheDocument()
 
       await user.click(opcaoOrigem('Personalizado'))
       expect(nomesListados(tabela)).toEqual(['Logística', 'Marketing'])
@@ -390,7 +392,7 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
 
       expect(screen.queryByRole('cell', { name: 'Comercial' })).not.toBeInTheDocument()
       expect(screen.queryByRole('cell', { name: 'Logística' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: /^Excluir tipo / })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^Ações do tipo / })).not.toBeInTheDocument()
     })
 
     it('busca sem correspondência mostra "Nenhum tipo encontrado para os filtros." (e não "Nenhum tipo cadastrado.")', async () => {
@@ -488,14 +490,28 @@ describe('F3.2 — Listagem de tipos de apontamento (TiposPage)', () => {
   })
 
   describe('perfis', () => {
-    it('Validador vê a mesma listagem do Admin, com os botões Excluir dos personalizados', async () => {
+    it('Validador vê a mesma listagem do Admin, com o mesmo menu de ações em cada linha', async () => {
+      const user = usuarioRapido()
       simularLista()
       renderizar('validador')
 
       const tabela = await aguardarTabela()
 
       expect(linhasDeDados(tabela)).toHaveLength(9)
-      expect(screen.getAllByRole('button', { name: /^Excluir tipo / })).toHaveLength(2)
+      expect(screen.getAllByRole('button', { name: /^Ações do tipo / })).toHaveLength(9)
+      expect(await itensDoMenuAcoes(user, rotuloAcoesTipo('Logística'))).toEqual(['Editar grupos', 'Excluir'])
+      expect(await itensDoMenuAcoes(user, rotuloAcoesTipo('Comercial'))).toEqual(['Editar grupos'])
+    })
+
+    it('perfil sem as ações de tipo (Preenchedor, se chegar à tela) não vê menus: a célula Ações mostra "Sem ações" para leitores de tela', async () => {
+      simularLista()
+      renderizar('preenchedor')
+      await aguardarTabela()
+
+      expect(screen.queryByRole('button', { name: /^Ações do tipo / })).not.toBeInTheDocument()
+      const celula = within(linhaDoTipo('Logística')).getAllByRole('cell')[4]
+      expect(within(celula).getByText('—')).toHaveAttribute('aria-hidden', 'true')
+      expect(within(celula).getByText('Sem ações')).toHaveClass('visualmente-oculto')
     })
   })
 })

@@ -3,7 +3,7 @@
  *
  * Com `dado` nulo, nada é renderizado. O Admin informa o identificador da consulta criado pela TI,
  * podendo escolher um dos identificadores existentes. Ao digitar, colar ou escolher uma sugestão, o
- * texto passa por `limparIdentificador` (só A–Z, 0–9 e "_", em maiúsculas), pois o identificador
+ * texto passa por `limparIdentificador` (só A–Z, 0–9, "_", "-" e ".", em maiúsculas), pois o identificador
  * aponta para o código da coleta no back-end. O erro
  * devolvido pela API (`erro`) é exibido dentro do diálogo sem apagar o que foi digitado.
  */
@@ -26,7 +26,7 @@ export interface DialogoConcluirConstrucaoProps {
   concluindo: boolean
   /** Mensagem de erro devolvida ao concluir; `null` quando não há. */
   erro: string | null
-  /** Chamado com o identificador limpo: só A–Z, 0–9 e "_", em maiúsculas. */
+  /** Chamado com o identificador limpo: só A–Z, 0–9, "_", "-" e ".", em maiúsculas. */
   onConfirmar: (identificador: string) => void
   /** Chamado ao cancelar ou pressionar Esc. */
   onCancelar: () => void

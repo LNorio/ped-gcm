@@ -13,6 +13,7 @@ import { Historico, type ItemHistorico } from '../../components/Historico'
 import { mensagemDeErro } from '../../services/api'
 import { type HistoricoDashboard, listarHistoricoDashboard } from '../../services/dashboardsService'
 import type { Dashboard } from '../../types/dominio'
+import { ROTULO_AGUARDANDO_ENVIO } from '../../utils/tarefaBitrix'
 
 export interface DialogoHistoricoDashboardProps {
   /** Dashboard cujo histórico é mostrado; `null` mantém o diálogo fechado. */
@@ -36,7 +37,8 @@ function rotuloAcao(registro: HistoricoDashboard): string {
 
 function paraItemHistorico(registro: HistoricoDashboard, indice: number): ItemHistorico {
   const detalhes = [...registro.alteracoes]
-  if (registro.tarefa !== null) detalhes.push(`Tarefa nº ${registro.tarefa}`)
+  if (registro.tarefaAguardandoEnvio) detalhes.push(ROTULO_AGUARDANDO_ENVIO)
+  else if (registro.tarefa !== null) detalhes.push(`Tarefa #${registro.tarefa}`)
   if (registro.observacao) detalhes.push(`Observação: ${registro.observacao}`)
   return { id: indice, data: registro.data, acao: rotuloAcao(registro), usuario: registro.usuario, detalhes }
 }

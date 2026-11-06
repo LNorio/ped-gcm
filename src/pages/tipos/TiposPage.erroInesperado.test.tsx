@@ -1,11 +1,10 @@
 import { render, renderHook, screen, waitFor, within } from '@testing-library/react'
 import { usuarioRapido } from '../../test/usuario'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { paraTipoApontamento } from '../../services/adaptadores'
 import { listarTipos } from '../../services/tiposService'
 import { ProvedorSessaoFalso } from '../../test/ProvedorSessaoFalso'
 import { FILIAIS, acessoFalso } from '../../test/sessaoFalsa'
-import { tiposApi } from '../../test/tiposFalsos'
+import { tiposDominio } from '../../test/tiposFalsos'
 import { TiposPage } from './TiposPage'
 import { useTipos } from './useTipos'
 
@@ -61,7 +60,7 @@ describe('F3.2 — Listagem de tipos: erro inesperado (não ApiError) na carga',
 
   it('"Tentar novamente" depois do erro inesperado recupera a listagem e remove o alerta', async () => {
     const user = usuarioRapido()
-    listarTiposFalso.mockRejectedValueOnce(new Error('falha interna')).mockResolvedValueOnce(tiposApi().map(paraTipoApontamento))
+    listarTiposFalso.mockRejectedValueOnce(new Error('falha interna')).mockResolvedValueOnce(tiposDominio())
     renderizar()
     await screen.findByRole('alert')
 

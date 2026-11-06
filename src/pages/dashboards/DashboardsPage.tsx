@@ -42,6 +42,7 @@ import {
 import { listarIndicadores } from '../../services/indicadoresService'
 import { usePermissoes } from '../../sessao/usePermissoes'
 import type { DadosDashboard, Dashboard } from '../../types/dominio'
+import { fraseTarefaGravada } from '../../utils/tarefaBitrix'
 import { DialogoConcluirDashboard } from './DialogoConcluirDashboard'
 import { DialogoExcluirDashboard } from './DialogoExcluirDashboard'
 import { DialogoHistoricoDashboard } from './DialogoHistoricoDashboard'
@@ -72,10 +73,9 @@ function ehSituacaoFiltro(valor: string): valor is SituacaoFiltroDashboard {
   return (SITUACOES_FILTRO_DASHBOARD as readonly string[]).includes(valor)
 }
 
-/** " (Tarefa nº {id})" quando a API devolve o número da tarefa; vazio caso contrário. */
-function sufixoTarefa(resultado: ResultadoGravacaoDashboard): string {
-  const id = resultado.tarefa?.id
-  return id === null || id === undefined ? '' : ` (Tarefa nº ${id})`
+/** Frase da tarefa criada pelo back-end no Bitrix24 (com número ou "em instantes" — ver `fraseTarefaGravada`). */
+function fraseTarefa(resultado: ResultadoGravacaoDashboard): string {
+  return fraseTarefaGravada(resultado.tarefa)
 }
 
 function textoAlertaGeral(quantidade: number): string {
@@ -258,11 +258,11 @@ export function DashboardsPage() {
       let mensagem: string
       if (formulario.modo === 'cadastro') {
         const resultado = await criar(dados)
-        mensagem = `Dashboard cadastrado. Tarefa de construção registrada para a TI${sufixoTarefa(resultado)}.`
+        mensagem = `Dashboard cadastrado. ${fraseTarefa(resultado)}`
       } else {
         const resultado = await editar(formulario.dashboard.id, dados)
         mensagem = dados.enviarTarefaTi
-          ? `Dashboard atualizado. Tarefa de modificação registrada para a TI${sufixoTarefa(resultado)}.`
+          ? `Dashboard atualizado. ${fraseTarefa(resultado)}`
           : 'Dashboard atualizado.'
       }
       if (!montadoRef.current) return

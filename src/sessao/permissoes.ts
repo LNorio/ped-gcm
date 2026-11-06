@@ -86,6 +86,8 @@ export function podeAcessar(perfil: Perfil | null, aba: Aba): boolean {
  *
  * | Ação                          | Admin | Validador | Preenchedor |
  * | ----------------------------- | :---: | :-------: | :---------: |
+ * | cadastrar-tipo                |   x   |     x     |             |
+ * | editar-tipo                   |   x   |     x     |             |
  * | excluir-tipo                  |   x   |     x     |             |
  * | alterar-situacao-apontamento  |   x   |     x     |             |
  * | excluir-apontamento           |   x   |           |             |
@@ -96,7 +98,7 @@ export function podeAcessar(perfil: Perfil | null, aba: Aba): boolean {
  * | cadastrar-indicador           |   x   |     x     |             |
  * | definir-meta-indicador        |   x   |     x     |             |
  * | alterar-situacao-indicador    |   x   |     x     |             |
- * | excluir-indicador             |   x   |     x     |             |
+ * | excluir-indicador             |   x   |           |             |
  * | ver-historico-metas-indicador |   x   |     x     |             |
  * | cadastrar-dashboard           |   x   |     x     |             |
  * | editar-dashboard              |   x   |     x     |             |
@@ -109,6 +111,8 @@ export function podeAcessar(perfil: Perfil | null, aba: Aba): boolean {
  * | excluir-faixas                |   x   |     x     |             |
  */
 export type AcaoPermissao =
+  | 'cadastrar-tipo'
+  | 'editar-tipo'
   | 'excluir-tipo'
   | 'alterar-situacao-apontamento'
   | 'excluir-apontamento'
@@ -133,6 +137,8 @@ export type AcaoPermissao =
 
 /** Matriz de ações: perfis autorizados por ação. Único ponto que conhece essa regra. */
 const PERFIS_POR_ACAO: Readonly<Record<AcaoPermissao, readonly Perfil[]>> = {
+  'cadastrar-tipo': ['admin', 'validador'],
+  'editar-tipo': ['admin', 'validador'],
   'excluir-tipo': ['admin', 'validador'],
   'alterar-situacao-apontamento': ['admin', 'validador'],
   'excluir-apontamento': ['admin'],
@@ -143,7 +149,7 @@ const PERFIS_POR_ACAO: Readonly<Record<AcaoPermissao, readonly Perfil[]>> = {
   'cadastrar-indicador': ['admin', 'validador'],
   'definir-meta-indicador': ['admin', 'validador'],
   'alterar-situacao-indicador': ['admin', 'validador'],
-  'excluir-indicador': ['admin', 'validador'],
+  'excluir-indicador': ['admin'],
   'ver-historico-metas-indicador': ['admin', 'validador'],
   'cadastrar-dashboard': ['admin', 'validador'],
   'editar-dashboard': ['admin', 'validador'],

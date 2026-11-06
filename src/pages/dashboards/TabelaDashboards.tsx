@@ -25,6 +25,7 @@ import {
   type TipoVinculo,
 } from '../../types/dominio'
 import { formatarDataHora } from '../../utils/formato'
+import { textoTarefaBitrix } from '../../utils/tarefaBitrix'
 import { PesosDashboard } from './PesosDashboard'
 import { formatarPontos } from './regrasDashboard'
 import './TabelaDashboards.css'
@@ -92,7 +93,7 @@ function colunaDashboard(dashboard: Dashboard) {
       <div className="tabela-dashboards__etiquetas">
         <Etiqueta tom="info">{ROTULOS_TIPO[dashboard.tipoVinculo]}</Etiqueta>
         <Etiqueta tom={TONS_SITUACAO[dashboard.situacao]}>{ROTULOS_SITUACAO_DASHBOARD[dashboard.situacao]}</Etiqueta>
-        {dashboard.tarefaBitrix && dashboard.tarefaBitrix.id !== null ? <Etiqueta tom="dourado">{`Tarefa nº ${dashboard.tarefaBitrix.id}`}</Etiqueta> : null}
+        {dashboard.tarefaBitrix ? <Etiqueta tom="dourado">{textoTarefaBitrix(dashboard.tarefaBitrix)}</Etiqueta> : null}
         {alertas.length > 0 ? (
           <Etiqueta tom="perigo">{contagem(alertas.length, 'indicador com problema', 'indicadores com problema')}</Etiqueta>
         ) : null}

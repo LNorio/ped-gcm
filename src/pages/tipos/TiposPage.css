@@ -1,5 +1,5 @@
 /*
- * Aba "Tipos" (F3.2/F3.3): título, aviso dos tipos fixos, estado de carga (EstadoCarga) e um card que
+ * Aba "Tipos" (F3.2 a F3.5): título e botão "Novo tipo", aviso dos tipos fixos, estado de carga (EstadoCarga) e um card que
  * reúne a barra de filtros e a tabela. O card usa `semPadding` para que a barra de filtros
  * (com sua própria borda inferior) e a tabela encostem nas bordas.
  */
@@ -10,6 +10,14 @@
   gap: 1.25rem;
 }
 
+.tipos-page__cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
 .tipos-page h1 {
   margin: 0;
 }
@@ -18,8 +26,21 @@
   overflow: hidden;
 }
 
-.tabela-tipos__sem-acao {
+.tabela-tipos__sem-acao,
+.tabela-tipos__secundario {
   color: var(--cor-texto-suave);
+}
+
+/* Grupos vinculados (etiquetas) e a quantidade de usuários vinculados diretamente */
+.tabela-tipos__grupos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tabela-tipos__secundario {
+  font-size: 13px;
 }
 
 @media (max-width: 600px) {

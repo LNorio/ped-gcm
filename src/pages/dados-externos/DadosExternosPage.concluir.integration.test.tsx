@@ -115,21 +115,21 @@ describe('F5.7 — Concluir construção de dado externo (Admin; integração: /
     ])
   })
 
-  it('identificador com acento, espaço e caractere especial: o campo descarta os inválidos ao colar e ao digitar e o PUT leva o valor limpo', async () => {
+  it('identificador com acento, espaço e caractere especial: o campo descarta os inválidos (mantendo "-" e ".") ao colar e ao digitar e o PUT leva o valor limpo', async () => {
     const user = usuarioRapido()
     const chamadas = simularAdmin()
     const dialogo = await abrirConclusao(user)
     const campo = within(dialogo).getByLabelText('Identificador da consulta')
 
     await colar(user, campo, 'devoluções-venda')
-    expect(campo).toHaveValue('DEVOLUESVENDA')
-    await user.type(campo, ' 2')
-    expect(campo).toHaveValue('DEVOLUESVENDA2')
+    expect(campo).toHaveValue('DEVOLUES-VENDA')
+    await user.type(campo, ' .2/')
+    expect(campo).toHaveValue('DEVOLUES-VENDA.2')
 
     await user.click(within(dialogo).getByRole('button', { name: 'Concluir' }))
 
     await screen.findByText('Construção concluída.')
-    expect(corpoDaChamada(puts(chamadas)[0])).toEqual({ identificador: 'DEVOLUESVENDA2' })
+    expect(corpoDaChamada(puts(chamadas)[0])).toEqual({ identificador: 'DEVOLUES-VENDA.2' })
   })
 
   it('o diálogo mostra as sugestões de identificadores; escolher uma preenche o campo e é enviada', async () => {
