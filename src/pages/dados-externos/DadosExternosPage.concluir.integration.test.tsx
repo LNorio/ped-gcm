@@ -20,15 +20,30 @@ import {
   respostaConclusaoApi,
   rotaListarDadosExternos,
   type DadoExternoApiFalso,
+  variaveisIntegracaoApi,
 } from '../../test/dadosExternosFalsos'
 import { escolherAcao, itensDoMenuAcoes, rotuloAcoesDadoExterno } from '../../test/menuAcoes'
 import { renderizarApp } from '../../test/renderizarApp'
+import { mensagemPadraoPorStatus } from '../../services/api'
+import { MODELO_JSON_ENTRADA, MODELO_JSON_SAIDA } from '../../utils/integracao/modelos'
 
 const ROTA = '/api/ped/dados-externos-cadastro'
 const MENSAGEM_SESSAO_EXPIRADA = 'Sua sessão expirou. Entre novamente.'
 const AVISO_INDICADOR = 'Indicador Devoluções de venda criado automaticamente. Defina a meta na aba Indicadores.'
+const URL_VALIDA = 'https://api.exemplo.com/devolucoes'
+const ROTA_VARIAVEIS = '/api/ped/integracao/variaveis'
 
-describe('F5.7 — Concluir construção de dado externo (Admin; integração: /dados-externos)', () => {
+/** Corpo esperado do PUT .../concluir com os modelos (contrato de 09/11/2026: os quatro campos). */
+function corpoConclusao(identificador: string) {
+  return {
+    identificador,
+    url: URL_VALIDA,
+    'parametros de saida': MODELO_JSON_SAIDA,
+    'parametros de entrada': MODELO_JSON_ENTRADA,
+  }
+}
+
+describe('F5.7 — Concluir construção de dado externo (Admin registra a integração; integração: /dados-externos)', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
 
   beforeEach(() => {
@@ -49,6 +64,8 @@ describe('F5.7 — Concluir construção de dado externo (Admin; integração: /
     aoConcluir?: () => Response | Promise<Response> | undefined
     /** Resposta do PUT de conclusão depois de gravar o dado (2xx sem o dado, por exemplo). */
     respostaConcluir?: () => Response
+    /** Resposta de `GET /api/ped/integracao/variaveis` (padrão: as 13 variáveis, formato real). */
+    aoListarVariaveis?: () => Response
   }
 
   function simularAdmin(opcoes: Opcoes = {}) {
@@ -58,6 +75,7 @@ describe('F5.7 — Concluir construção de dado externo (Admin; integração: /
       'GET /api/ped/acesso': () => respostaJson(acesso),
       [`GET ${ROTA}`]: rotaListarDadosExternos(() => lista),
       [`GET ${ROTA}/identificadores`]: () => respostaJson(identificadoresApi()),
+      [`GET ${ROTA_VARIAVEIS}`]: () => (opcoes.aoListarVariaveis ? opcoes.aoListarVariaveis() : respostaJson(variaveisIntegracaoApi())),
       [`PUT ${ROTA}/${DADO_DEVOLUCOES_API.id}/concluir`]: (init) => {
         const personalizada = opcoes.aoConcluir?.()
         if (personalizada) return personalizada
@@ -87,20 +105,34 @@ describe('F5.7 — Concluir construção de dado externo (Admin; integração: /
     return screen.getByRole('dialog', { name: 'Concluir construção' })
   }
 
-  it('Admin conclui: PUT .../concluir com o identificador em maiúsculas → "Construção concluída.", dado Ativo e aviso do indicador criado', async () => {
+  /**
+   * Preenche URL e os dois JSONs com os modelos (o identificador fica a cargo de cada teste) e espera
+   * as variáveis da API: o modelo de entrada só é válido com elas carregadas.
+   */
+  async function preencherIntegracao(user: Usuario, dialogo: HTMLElement) {
+    await within(dialogo).findByRole('button', { name: /%filial%/ })
+    await colar(user, within(dialogo).getByLabelText('URL'), URL_VALIDA)
+    await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de saída' }))
+    await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de entrada' }))
+  }
+
+  const botaoConcluir = (dialogo: HTMLElement) => within(dialogo).getByRole('button', { name: 'Concluir e ativar' })
+
+  it('Admin conclui: PUT .../concluir com a integração completa (identificador em maiúsculas) → "Construção concluída.", dado Ativo e aviso do indicador criado', async () => {
     const user = usuarioRapido()
     const chamadas = simularAdmin()
     const dialogo = await abrirConclusao(user)
 
     await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'devolucoes')
-    await user.click(within(dialogo).getByRole('button', { name: 'Concluir' }))
+    await preencherIntegracao(user, dialogo)
+    await user.click(botaoConcluir(dialogo))
 
     const notificacao = await screen.findByText('Construção concluída.')
     expect(notificacao.closest('[role="status"]')).not.toBeNull()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(puts(chamadas)).toHaveLength(1)
     expect(puts(chamadas)[0].caminho).toBe(`${ROTA}/3/concluir`)
-    expect(corpoDaChamada(puts(chamadas)[0])).toEqual({ identificador: 'DEVOLUCOES' })
+    expect(corpoDaChamada(puts(chamadas)[0])).toEqual(corpoConclusao('DEVOLUCOES'))
     expect(cabecalhoDaChamada(puts(chamadas)[0], 'Authorization')).toBe('Bearer token-salvo')
 
     await waitFor(() => expect(within(linha('Devoluções de venda')).getByText('Ativo')).toBeInTheDocument())
@@ -108,8 +140,10 @@ describe('F5.7 — Concluir construção de dado externo (Admin; integração: /
 
     const aviso = screen.getByText(AVISO_INDICADOR)
     expect(aviso.closest('[role="note"]')).not.toBeNull()
+    // Concluído, o dado passa a ter "Configurações" (F5.16) no lugar de "Concluir construção".
     expect(await itensDoMenuAcoes(user, rotuloAcoesDadoExterno('Devoluções de venda'))).toEqual([
       'Ver detalhes',
+      'Configurações',
       'Desativar',
       'Excluir',
     ])
@@ -126,10 +160,11 @@ describe('F5.7 — Concluir construção de dado externo (Admin; integração: /
     await user.type(campo, ' .2/')
     expect(campo).toHaveValue('DEVOLUES-VENDA.2')
 
-    await user.click(within(dialogo).getByRole('button', { name: 'Concluir' }))
+    await preencherIntegracao(user, dialogo)
+    await user.click(botaoConcluir(dialogo))
 
     await screen.findByText('Construção concluída.')
-    expect(corpoDaChamada(puts(chamadas)[0])).toEqual({ identificador: 'DEVOLUES-VENDA.2' })
+    expect(corpoDaChamada(puts(chamadas)[0])).toEqual(corpoConclusao('DEVOLUES-VENDA.2'))
   })
 
   it('o diálogo mostra as sugestões de identificadores; escolher uma preenche o campo e é enviada', async () => {
@@ -139,10 +174,11 @@ describe('F5.7 — Concluir construção de dado externo (Admin; integração: /
 
     const grupo = await within(dialogo).findByRole('group', { name: 'Identificadores existentes' })
     await user.click(within(grupo).getByRole('button', { name: 'NOVOS_CLIENTES — usado por 0 dado(s)' }))
-    await user.click(within(dialogo).getByRole('button', { name: 'Concluir' }))
+    await preencherIntegracao(user, dialogo)
+    await user.click(botaoConcluir(dialogo))
 
     await screen.findByText('Construção concluída.')
-    expect(corpoDaChamada(puts(chamadas)[0])).toEqual({ identificador: 'NOVOS_CLIENTES' })
+    expect(corpoDaChamada(puts(chamadas)[0])).toEqual(corpoConclusao('NOVOS_CLIENTES'))
   })
 
   it('sem indicador criado na resposta, não mostra o aviso do indicador', async () => {
@@ -151,7 +187,8 @@ describe('F5.7 — Concluir construção de dado externo (Admin; integração: /
     const dialogo = await abrirConclusao(user)
 
     await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'DEVOLUCOES')
-    await user.click(within(dialogo).getByRole('button', { name: 'Concluir' }))
+    await preencherIntegracao(user, dialogo)
+    await user.click(botaoConcluir(dialogo))
 
     await screen.findByText('Construção concluída.')
     expect(screen.queryByText(/criado automaticamente/)).not.toBeInTheDocument()
@@ -174,13 +211,109 @@ describe('F5.7 — Concluir construção de dado externo (Admin; integração: /
     const dialogo = await abrirConclusao(user)
 
     await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'xpto')
-    await user.click(within(dialogo).getByRole('button', { name: 'Concluir' }))
+    await preencherIntegracao(user, dialogo)
+    await user.click(botaoConcluir(dialogo))
 
     expect(await within(dialogo).findByRole('alert')).toHaveTextContent('O identificador XPTO não tem coleta cadastrada.')
     expect(screen.getByRole('dialog', { name: 'Concluir construção' })).toBeInTheDocument()
     expect(within(dialogo).getByLabelText('Identificador da consulta')).toHaveValue('XPTO')
+    expect(within(dialogo).getByLabelText('URL')).toHaveValue(URL_VALIDA)
+    expect(within(dialogo).getByLabelText('Parâmetros de saída')).toHaveValue(MODELO_JSON_SAIDA)
+    expect(within(dialogo).getByLabelText('Parâmetros de entrada')).toHaveValue(MODELO_JSON_ENTRADA)
     expect(within(linha('Devoluções de venda')).getByText('Em construção (TI)')).toBeInTheDocument()
     expect(screen.queryByText('Construção concluída.')).not.toBeInTheDocument()
+  })
+
+  it('400 { mensagem, erros } (contrato de 09/11/2026): mensagem geral no alerta e cada erro junto ao seu campo; nada é apagado', async () => {
+    const user = usuarioRapido()
+    simularAdmin({
+      aoConcluir: () =>
+        respostaJson(
+          {
+            mensagem: 'integracao invalida: URL ...',
+            erros: [
+              { campo: 'url', mensagem: 'a URL precisa comecar com http:// ou https://, sem espacos (ate 500 caracteres)' },
+              { campo: 'parametros de saida', mensagem: "virgula sobrando antes de '}'", linha: 3, coluna: 1 },
+              { campo: 'parametros de entrada', caminho: 'inicio', expressao: '5 / 0', mensagem: 'divisao por zero' },
+            ],
+          },
+          400,
+        ),
+    })
+    const dialogo = await abrirConclusao(user)
+
+    await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'devolucoes')
+    await preencherIntegracao(user, dialogo)
+    await user.click(botaoConcluir(dialogo))
+
+    const geral = await within(dialogo).findByText('integracao invalida: URL ...')
+    expect(geral.closest('[role="alert"]')).not.toBeNull()
+    expect(within(dialogo).getByLabelText('URL')).toHaveAccessibleDescription(
+      expect.stringContaining('a URL precisa comecar com http:// ou https://, sem espacos (ate 500 caracteres)'),
+    )
+    expect(within(dialogo).getByLabelText('Parâmetros de saída')).toHaveAccessibleDescription(
+      expect.stringContaining("Linha 3, coluna 1: virgula sobrando antes de '}'"),
+    )
+    expect(within(dialogo).getByLabelText('Parâmetros de entrada')).toHaveAccessibleDescription(
+      expect.stringContaining('Campo "inicio": divisao por zero em "5 / 0"'),
+    )
+    expect(within(dialogo).getByLabelText('Identificador da consulta')).toHaveValue('DEVOLUCOES')
+    expect(within(dialogo).getByLabelText('URL')).toHaveValue(URL_VALIDA)
+    expect(within(dialogo).getByLabelText('Parâmetros de saída')).toHaveValue(MODELO_JSON_SAIDA)
+    expect(within(dialogo).getByLabelText('Parâmetros de entrada')).toHaveValue(MODELO_JSON_ENTRADA)
+    expect(within(linha('Devoluções de venda')).getByText('Em construção (TI)')).toBeInTheDocument()
+  })
+
+  it('depois do 400 com erros por campo, corrigir a URL tira só o erro dela (o alerta geral e os outros erros ficam); reenviar com novo 400 volta a marcar', async () => {
+    const user = usuarioRapido()
+    const MENSAGEM_URL = 'a URL precisa comecar com http:// ou https://, sem espacos (ate 500 caracteres)'
+    const chamadas = simularAdmin({
+      aoConcluir: () =>
+        respostaJson(
+          {
+            mensagem: 'integracao invalida: URL ...',
+            erros: [
+              { campo: 'url', mensagem: MENSAGEM_URL },
+              { campo: 'parametros de saida', mensagem: "virgula sobrando antes de '}'", linha: 3, coluna: 1 },
+            ],
+          },
+          400,
+        ),
+    })
+    const dialogo = await abrirConclusao(user)
+    await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'devolucoes')
+    await preencherIntegracao(user, dialogo)
+    await user.click(botaoConcluir(dialogo))
+    await within(dialogo).findByText('integracao invalida: URL ...')
+    const campoUrl = within(dialogo).getByLabelText('URL')
+    const campoSaida = within(dialogo).getByLabelText('Parâmetros de saída')
+    expect(campoUrl).toHaveAttribute('aria-invalid', 'true')
+
+    await user.type(campoUrl, '-v2')
+
+    expect(campoUrl).not.toHaveAttribute('aria-invalid', 'true')
+    expect(within(dialogo).queryByText(MENSAGEM_URL)).not.toBeInTheDocument()
+    expect(campoSaida).toHaveAttribute('aria-invalid', 'true')
+    expect(within(dialogo).getByText('integracao invalida: URL ...').closest('[role="alert"]')).not.toBeNull()
+
+    await user.click(botaoConcluir(dialogo))
+
+    await waitFor(() => expect(puts(chamadas)).toHaveLength(2))
+    await waitFor(() => expect(campoUrl).toHaveAttribute('aria-invalid', 'true'))
+    expect(campoUrl).toHaveAccessibleDescription(expect.stringContaining(MENSAGEM_URL))
+  })
+
+  it('400 sem "erros" (ex.: dado não está mais em construção) mostra só a mensagem geral, sem marcar campos', async () => {
+    const user = usuarioRapido()
+    simularAdmin({ aoConcluir: () => respostaErro(400, 'o dado nao esta em construcao') })
+    const dialogo = await abrirConclusao(user)
+
+    await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'devolucoes')
+    await preencherIntegracao(user, dialogo)
+    await user.click(botaoConcluir(dialogo))
+
+    expect(await within(dialogo).findByRole('alert')).toHaveTextContent('o dado nao esta em construcao')
+    expect(within(dialogo).getByLabelText('URL')).not.toHaveAttribute('aria-invalid', 'true')
   })
 
   it('clique duplo em Concluir gera um único PUT; Cancelar e Esc são ignorados durante a chamada', async () => {
@@ -200,12 +333,13 @@ describe('F5.7 — Concluir construção de dado externo (Admin; integração: /
     const dialogo = await abrirConclusao(user)
     await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'DEVOLUCOES')
 
-    await user.dblClick(within(dialogo).getByRole('button', { name: 'Concluir' }))
+    await preencherIntegracao(user, dialogo)
+    await user.dblClick(botaoConcluir(dialogo))
     await user.click(within(dialogo).getByRole('button', { name: 'Cancelar' }))
     await user.keyboard('{Escape}')
 
     expect(screen.getByRole('dialog', { name: 'Concluir construção' })).toBeInTheDocument()
-    expect(within(dialogo).getByRole('button', { name: 'Concluir' })).toBeDisabled()
+    expect(botaoConcluir(dialogo)).toBeDisabled()
     liberar()
     await screen.findByText('Construção concluída.')
     expect(puts(chamadas)).toHaveLength(1)
@@ -217,7 +351,8 @@ describe('F5.7 — Concluir construção de dado externo (Admin; integração: /
     const dialogo = await abrirConclusao(user)
 
     await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'DEVOLUCOES')
-    await user.click(within(dialogo).getByRole('button', { name: 'Concluir' }))
+    await preencherIntegracao(user, dialogo)
+    await user.click(botaoConcluir(dialogo))
 
     expect(await screen.findByRole('heading', { name: 'Programa de Excelência em Distribuição' })).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent(MENSAGEM_SESSAO_EXPIRADA)
@@ -230,14 +365,15 @@ describe('F5.7 — Concluir construção de dado externo (Admin; integração: /
       const dialogo = await abrirConclusao(user)
 
       await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'devolucoes')
-      await user.click(within(dialogo).getByRole('button', { name: 'Concluir' }))
+      await preencherIntegracao(user, dialogo)
+    await user.click(botaoConcluir(dialogo))
 
       const notificacao = await screen.findByText('Construção concluída.')
       expect(notificacao.closest('[role="status"]')).not.toBeNull()
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()
       expect(screen.queryByText('Resposta inválida do servidor.')).not.toBeInTheDocument()
-      expect(corpoDaChamada(puts(chamadas)[0])).toEqual({ identificador: 'DEVOLUCOES' })
+      expect(corpoDaChamada(puts(chamadas)[0])).toEqual(corpoConclusao('DEVOLUCOES'))
       await waitFor(() => expect(within(linha('Devoluções de venda')).getByText('Ativo')).toBeInTheDocument())
       expect(within(linha('Devoluções de venda')).getByText('DEVOLUCOES')).toBeInTheDocument()
       expect(screen.queryByText(/criado automaticamente/)).not.toBeInTheDocument()
@@ -249,7 +385,8 @@ describe('F5.7 — Concluir construção de dado externo (Admin; integração: /
       const dialogo = await abrirConclusao(user)
 
       await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'DEVOLUCOES')
-      await user.click(within(dialogo).getByRole('button', { name: 'Concluir' }))
+      await preencherIntegracao(user, dialogo)
+    await user.click(botaoConcluir(dialogo))
 
       const notificacao = await screen.findByText('Construção concluída.')
       expect(notificacao.closest('[role="status"]')).not.toBeNull()
@@ -261,4 +398,174 @@ describe('F5.7 — Concluir construção de dado externo (Admin; integração: /
     })
   })
 
+  describe('F5.7 — modal da integração (identificador, URL, saída e entrada; alteração de 09/11/2026)', () => {
+    const variaveisGets = (chamadas: ChamadaRegistrada[]) =>
+      chamadas.filter((c) => c.metodo === 'GET' && c.caminho === ROTA_VARIAVEIS)
+
+    it('ao abrir, carrega as variáveis de GET /api/ped/integracao/variaveis e as mostra abaixo da entrada; o botão começa desabilitado com tudo faltando', async () => {
+      const user = usuarioRapido()
+      const chamadas = simularAdmin()
+      const dialogo = await abrirConclusao(user)
+
+      const grupo = await within(dialogo).findByRole('group', { name: 'Variáveis disponíveis' })
+      await waitFor(() => expect(within(grupo).getAllByRole('button')).toHaveLength(13))
+      expect(within(grupo).getByRole('button', { name: /%dataInicial%/ })).toHaveTextContent('Primeiro dia do periodo')
+      expect(variaveisGets(chamadas)).toHaveLength(1)
+      expect(chamadas.map((c) => c.caminho)).not.toContain(`${ROTA}/variaveis`)
+      expect(cabecalhoDaChamada(variaveisGets(chamadas)[0], 'Authorization')).toBe('Bearer token-salvo')
+      expect(botaoConcluir(dialogo)).toBeDisabled()
+      expect(
+        within(dialogo).getByText('falta: identificador, URL válida, JSON de saída válido, JSON de entrada válido'),
+      ).toBeInTheDocument()
+    })
+
+    it('com os quatro campos válidos: "Todos os campos obrigatórios preenchidos" e o PUT leva os quatro campos (contrato de 09/11/2026)', async () => {
+      const user = usuarioRapido()
+      const chamadas = simularAdmin()
+      const dialogo = await abrirConclusao(user)
+
+      await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'devolucoes')
+      await preencherIntegracao(user, dialogo)
+
+      expect(within(dialogo).getByText('Todos os campos obrigatórios preenchidos')).toBeInTheDocument()
+      expect(within(dialogo).getByRole('status', { name: 'Validação dos parâmetros de saída' })).toHaveTextContent(
+        '3 campos: filial (texto), valor (texto), competencia (texto)',
+      )
+      expect(within(dialogo).getByRole('status', { name: 'Validação dos parâmetros de entrada' })).toHaveTextContent('JSON válido')
+      await user.click(botaoConcluir(dialogo))
+
+      await screen.findByText('Construção concluída.')
+      expect(puts(chamadas)).toHaveLength(1)
+      expect(corpoDaChamada(puts(chamadas)[0])).toEqual(corpoConclusao('DEVOLUCOES'))
+    })
+
+    it('clicar em uma variável insere %nome% no ponto do cursor da entrada e a destaca; a prévia usa o exemplo da API (filial 100)', async () => {
+      const user = usuarioRapido()
+      simularAdmin()
+      const dialogo = await abrirConclusao(user)
+      const entrada = within(dialogo).getByLabelText('Parâmetros de entrada') as HTMLTextAreaElement
+      await within(dialogo).findByRole('button', { name: /%filial%/ })
+
+      await colar(user, entrada, '{"filial": ""}')
+      await user.pointer({ target: entrada, offset: 12, keys: '[MouseLeft]' })
+      await user.click(within(dialogo).getByRole('button', { name: /%filial%/ }))
+
+      expect(entrada).toHaveValue('{"filial": "%filial%"}')
+      expect(within(dialogo).getByRole('button', { name: /%filial%/ })).toHaveAttribute('aria-pressed', 'true')
+      expect(within(dialogo).getByRole('status', { name: 'Validação dos parâmetros de entrada' })).toHaveTextContent('"filial": "100"')
+    })
+
+    it('a prévia usa o exemplo da API (mesesRetro "3") em vez da janela retroativa do dado (Devoluções: 1 mês) → "(%mesesRetro% * 30) - 1" = 89', async () => {
+      const user = usuarioRapido()
+      simularAdmin()
+      const dialogo = await abrirConclusao(user)
+      await within(dialogo).findByRole('button', { name: /%mesesRetro%/ })
+
+      await colar(user, within(dialogo).getByLabelText('Parâmetros de entrada'), '{"dias": "(%mesesRetro% * 30) - 1"}')
+
+      const validacao = within(dialogo).getByRole('status', { name: 'Validação dos parâmetros de entrada' })
+      expect(within(validacao).getByText('dias: (%mesesRetro% * 30) - 1 = 89')).toBeInTheDocument()
+    })
+
+    it('URL sem http:// ou https:// não é aceita: o botão fica bloqueado com "falta: URL válida"', async () => {
+      const user = usuarioRapido()
+      const chamadas = simularAdmin()
+      const dialogo = await abrirConclusao(user)
+      await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'devolucoes')
+      await preencherIntegracao(user, dialogo)
+
+      const campoUrl = within(dialogo).getByLabelText('URL')
+      await user.clear(campoUrl)
+      await colar(user, campoUrl, 'api.exemplo.com/devolucoes')
+
+      expect(within(dialogo).getByText('falta: URL válida')).toBeInTheDocument()
+      expect(botaoConcluir(dialogo)).toBeDisabled()
+      await user.click(botaoConcluir(dialogo))
+      expect(puts(chamadas)).toHaveLength(0)
+    })
+
+    it('JSON de saída inválido mostra o erro com linha e coluna enquanto se digita e bloqueia o botão', async () => {
+      const user = usuarioRapido()
+      simularAdmin()
+      const dialogo = await abrirConclusao(user)
+      await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'devolucoes')
+      await preencherIntegracao(user, dialogo)
+
+      const campoSaida = within(dialogo).getByLabelText('Parâmetros de saída')
+      await user.clear(campoSaida)
+      await colar(user, campoSaida, '{\n  "valor": "1",\n}')
+
+      const validacao = within(dialogo).getByRole('status', { name: 'Validação dos parâmetros de saída' })
+      expect(validacao).toHaveTextContent('JSON de saída inválido')
+      expect(validacao).toHaveTextContent('Linha 2, coluna 15: vírgula sobrando')
+      expect(within(dialogo).getByText('falta: JSON de saída válido')).toBeInTheDocument()
+      expect(botaoConcluir(dialogo)).toBeDisabled()
+    })
+
+    it('saída em lista (10/11/2026): orientação do formato; objeto solto ou item sem valor bloqueiam e o PUT não sai', async () => {
+      const user = usuarioRapido()
+      const chamadas = simularAdmin()
+      const dialogo = await abrirConclusao(user)
+      await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'devolucoes')
+      await preencherIntegracao(user, dialogo)
+      expect(within(dialogo).getByText('Lista com um item por filial: filial e valor (competencia opcional).')).toBeInTheDocument()
+
+      const campoSaida = within(dialogo).getByLabelText('Parâmetros de saída')
+      const validacao = () => within(dialogo).getByRole('status', { name: 'Validação dos parâmetros de saída' })
+      await user.clear(campoSaida)
+      await colar(user, campoSaida, '{"filial": "101", "valor": "1"}')
+      expect(validacao()).toHaveTextContent('A saída deve ser uma lista com um item por filial')
+      expect(botaoConcluir(dialogo)).toBeDisabled()
+
+      await user.clear(campoSaida)
+      await colar(user, campoSaida, '[{"filial": "101"}]')
+      expect(validacao()).toHaveTextContent('Item 1: falta o campo valor')
+      expect(within(dialogo).getByText('falta: JSON de saída válido')).toBeInTheDocument()
+      await user.click(botaoConcluir(dialogo))
+      expect(puts(chamadas)).toHaveLength(0)
+
+      await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de saída' }))
+      await user.click(botaoConcluir(dialogo))
+      await screen.findByText('Construção concluída.')
+      expect(corpoDaChamada(puts(chamadas)[0])).toEqual(corpoConclusao('DEVOLUCOES'))
+    })
+
+    it('falha ao carregar as variáveis (500): mostra o erro, a lista fica vazia, o modelo de entrada acusa variáveis desconhecidas e o botão fica bloqueado', async () => {
+      const user = usuarioRapido()
+      const chamadas = simularAdmin({ aoListarVariaveis: () => respostaErro(500) })
+      const dialogo = await abrirConclusao(user)
+
+      expect(await within(dialogo).findByText(mensagemPadraoPorStatus(500))).toBeInTheDocument()
+      expect(within(dialogo).queryAllByRole('button', { name: /^%/ })).toHaveLength(0)
+
+      await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'devolucoes')
+      await colar(user, within(dialogo).getByLabelText('URL'), URL_VALIDA)
+      await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de saída' }))
+      await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de entrada' }))
+
+      const validacao = within(dialogo).getByRole('status', { name: 'Validação dos parâmetros de entrada' })
+      expect(validacao).toHaveTextContent('JSON de entrada inválido')
+      expect(within(validacao).getByText('Campo "filial": variável desconhecida %filial% em "%filial%"')).toBeInTheDocument()
+      expect(within(dialogo).getByText('falta: JSON de entrada válido')).toBeInTheDocument()
+      expect(botaoConcluir(dialogo)).toBeDisabled()
+      expect(puts(chamadas)).toHaveLength(0)
+    })
+
+    it('reabrir a modal consulta as variáveis de novo e começa com os campos vazios', async () => {
+      const user = usuarioRapido()
+      const chamadas = simularAdmin()
+      const dialogo = await abrirConclusao(user)
+      await preencherIntegracao(user, dialogo)
+      await user.click(within(dialogo).getByRole('button', { name: 'Cancelar' }))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+      await escolherAcao(user, rotuloAcoesDadoExterno('Devoluções de venda'), 'Concluir construção')
+      const reaberto = screen.getByRole('dialog', { name: 'Concluir construção' })
+
+      await within(reaberto).findByRole('button', { name: /%filial%/ })
+      expect(variaveisGets(chamadas)).toHaveLength(2)
+      expect(within(reaberto).getByLabelText('URL')).toHaveValue('')
+      expect(within(reaberto).getByLabelText('Parâmetros de entrada')).toHaveValue('')
+    })
+  })
 })

@@ -13,6 +13,9 @@ import { normalizarBusca } from '../utils/formato'
 import type { RotaFalsa } from './apiFalsa'
 import { respostaJson } from './apiFalsa'
 
+/** Item de `indicadores` em `GET /api/ped/apontamentos`: objeto `{ id, nome }` ou só o nome. */
+export type IndicadorDoApontamentoApiFalso = string | { id: number; nome: string }
+
 export interface ApontamentoApiFalso {
   id: number
   nome: string
@@ -21,7 +24,11 @@ export interface ApontamentoApiFalso {
   'id tipo': number
   tipo: string
   'tipo de valor': 'Porcentagem' | 'Numeral' | 'Booleano'
-  indicadores: Array<{ id: number; nome: string }>
+  /**
+   * Indicadores que o apontamento compõe. A API pode mandar objetos `{ id, nome }`, só os nomes
+   * (texto, como em dados externos) ou uma lista mista (alteração de 09/11/2026).
+   */
+  indicadores: IndicadorDoApontamentoApiFalso[]
   'vinculado a dashboard': boolean
   'desativado mas usado em indicador ativo': boolean
   'cadastrado em': string | null
@@ -158,7 +165,42 @@ export function apontamentosApi(): ApontamentoApiFalso[] {
     APONTAMENTO_TREINAMENTOS_API,
     APONTAMENTO_CHAMADOS_API,
     APONTAMENTO_RELATORIO_API,
-  ].map((apontamento) => ({ ...apontamento, indicadores: apontamento.indicadores.map((i) => ({ ...i })) }))
+  ].map((apontamento) => ({
+    ...apontamento,
+    indicadores: apontamento.indicadores.map((i) => (typeof i === 'string' ? i : { ...i })),
+  }))
+}
+
+/** Nomes dos indicadores no formato de texto (lista de nomes, como a API real manda em dados externos). */
+export const INDICADORES_EM_TEXTO = ['Margem', 'Ticket médio'] as const
+
+/**
+ * Ativo, com os indicadores vindos como lista de textos (`["Margem", "Ticket médio"]`): a coluna
+ * "Indicadores" deve mostrar "Margem, Ticket médio" e a exclusão fica bloqueada (bug de 09/11/2026).
+ */
+export const APONTAMENTO_MARGEM_API: ApontamentoApiFalso = {
+  id: 6,
+  nome: 'Margem bruta apurada',
+  descricao: 'Margem bruta do mês sobre a receita líquida.',
+  ativo: true,
+  'id tipo': 2,
+  tipo: 'Financeiro',
+  'tipo de valor': 'Porcentagem',
+  indicadores: [...INDICADORES_EM_TEXTO],
+  'vinculado a dashboard': false,
+  'desativado mas usado em indicador ativo': false,
+  'cadastrado em': '2026-11-02 09:00:00',
+  'cadastrado por': 'Ana Costa',
+  'situacao alterada em': null,
+  'situacao alterada por': null,
+}
+
+/** Cópia do apontamento informado com outro valor em `indicadores` (inclusive `null`, ausente ou inválido). */
+export function comIndicadores(apontamento: ApontamentoApiFalso, indicadores: unknown): Record<string, unknown> {
+  const copia: Record<string, unknown> = { ...apontamento }
+  if (indicadores === undefined) delete copia.indicadores
+  else copia.indicadores = indicadores
+  return copia
 }
 
 /** Contagem por tipo como a API devolve: um item por tipo com ocorrência, na ordem dos ids. */
@@ -220,3 +262,70 @@ export function filtrarApontamentosApi(lista: ApontamentoApiFalso[], url: URL): 
 export function rotaListarApontamentos(obterLista: () => ApontamentoApiFalso[]): RotaFalsa {
   return (_init, url) => respostaJson(filtrarApontamentosApi(obterLista(), url))
 }
+
+/**
+ * Resposta real de `GET /api/ped/apontamentos` enviada pelo usuário em 09/11/2026: `indicadores`
+ * vem como lista de NOMES (texto). Campos que o resumo recebido não informou (cadastro dos ids 5 e 6
+ * e alteração de situação do id 6) ficam `null`. As datas mantêm o fuso (`-04:00`) devolvido pela API.
+ */
+export const RESPOSTA_REAL_APONTAMENTOS_API = {
+  apontamentos: [
+    {
+      id: 7,
+      nome: 'novo teste',
+      descricao: 'teste novo',
+      ativo: true,
+      'id tipo': 2,
+      tipo: 'Financeiro',
+      'tipo de valor': 'Booleano',
+      indicadores: ['testes'],
+      'vinculado a dashboard': true,
+      'desativado mas usado em indicador ativo': false,
+      'cadastrado em': '2026-11-05 11:11:23-04:00',
+      'cadastrado por': 'master',
+      'situacao alterada em': null,
+      'situacao alterada por': null,
+    },
+    {
+      id: 5,
+      nome: 'teste',
+      descricao: 'teste',
+      ativo: true,
+      'id tipo': 7,
+      tipo: 'Contabilidade',
+      'tipo de valor': 'Porcentagem',
+      indicadores: ['teste 2', 'teste indicador', 'testes'],
+      'vinculado a dashboard': true,
+      'desativado mas usado em indicador ativo': false,
+      'cadastrado em': null,
+      'cadastrado por': null,
+      'situacao alterada em': '2026-11-05 11:15:47-04:00',
+      'situacao alterada por': 'master',
+    },
+    {
+      id: 6,
+      nome: 'teste 2',
+      descricao: 'teste 2',
+      ativo: true,
+      'id tipo': 4,
+      tipo: 'Tecnologia da Informação',
+      'tipo de valor': 'Numeral',
+      indicadores: ['teste 2', 'testes'],
+      'vinculado a dashboard': true,
+      'desativado mas usado em indicador ativo': false,
+      'cadastrado em': null,
+      'cadastrado por': null,
+      'situacao alterada em': null,
+      'situacao alterada por': null,
+    },
+  ] satisfies ApontamentoApiFalso[],
+  'contagem por tipo': [
+    { id: 1, nome: 'Comercial', quantidade: 0 },
+    { id: 7, nome: 'Contabilidade', quantidade: 1 },
+    { id: 2, nome: 'Financeiro', quantidade: 1 },
+    { id: 5, nome: 'Fiscal', quantidade: 0 },
+    { id: 6, nome: 'Processos', quantidade: 0 },
+    { id: 3, nome: 'Recursos Humanos', quantidade: 0 },
+    { id: 4, nome: 'Tecnologia da Informação', quantidade: 1 },
+  ],
+} satisfies RespostaApontamentosApiFalsa

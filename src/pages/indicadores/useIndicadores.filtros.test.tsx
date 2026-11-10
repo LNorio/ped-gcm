@@ -133,14 +133,14 @@ describe('F6.3 — useIndicadores: filtros consultados na API (busca e situaçã
 
   it('os alertas não mudam com o filtro (vêm da API sobre todos os indicadores)', async () => {
     const { result } = await montar()
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3, metaPendentePorFilial: 0 })
 
     act(() => {
       result.current.setSituacao('inativos')
     })
     await waitFor(() => expect(result.current.indicadores.map((i) => i.id)).toEqual([5]))
 
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3, metaPendentePorFilial: 0 })
   })
 
   it('situação "todas" é omitida da query', async () => {

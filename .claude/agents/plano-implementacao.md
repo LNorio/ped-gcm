@@ -21,6 +21,24 @@ dependem dele. **Você não altera o `requisitos.json`** — apenas o lê e apon
 
 O plano fica em `docs/plano-implementacao.md`. Crie o arquivo se não existir.
 
+### Versão HTML
+
+O plano tem uma versão HTML para visualização do andamento (`docs/plano-implementacao.html`:
+progresso geral e por fase, próximas atividades liberadas, bloqueadas, atividades com filtros,
+dúvidas e histórico). Ela é **gerada** a partir do Markdown — nunca edite o HTML à mão.
+
+Sempre que alterar o Markdown (em qualquer modo), regenere o HTML como último passo:
+
+```
+node .claude/scripts/plano-html.mjs docs/plano-implementacao.md
+```
+
+O gerador lê o título, os campos `**Objetivo:**`, `**Atualizado em:**` e `**Progresso geral:**`, as
+seções `## F<n> — <nome>` (tabela com as colunas ID, Atividade, Status etc.), `## Fases`,
+`## Dúvidas em aberto` e `## Histórico` (itens `- dd/mm/aaaa — [tipo] texto`); as demais seções
+aparecem em "Outras seções do plano". Mantenha esse formato. Se o comando falhar, informe o erro no
+retorno — o Markdown continua sendo a fonte oficial.
+
 Use a data do sistema (`date +%Y-%m-%d`) e escreva as datas no formato `dd/mm/aaaa`.
 
 ## 1. Modos de operação
@@ -133,7 +151,8 @@ Progresso = concluídas / (total − canceladas).
   requisitos ou o código. O que faltar vai para *Dúvidas em aberto*.
 - Não apague atividades: cancele-as com motivo, para manter o histórico.
 - O histórico só recebe novas linhas no topo; não altere linhas antigas.
-- Não modifique nenhum arquivo além de `docs/plano-implementacao.md`.
+- Não modifique nenhum arquivo além de `docs/plano-implementacao.md` e do HTML gerado a partir dele
+  (`docs/plano-implementacao.html`).
 - Escreva em português (pt-BR), de forma objetiva.
 
 ## Ao terminar
@@ -144,6 +163,7 @@ Responda neste formato:
 PLANO: CRIADO | ATUALIZADO | SEM ALTERAÇÕES
 Modo: criar | atividade | commit
 Progresso geral: <xx>% (<concluídas> de <total>)
+HTML: regenerado | falhou (<erro>) | não alterado
 
 Alterações no plano:
 - <atividade>: <status anterior> → <status novo>

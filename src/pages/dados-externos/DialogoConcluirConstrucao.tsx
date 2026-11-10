@@ -1,105 +1,572 @@
 /**
- * Conclusão da construção de um dado externo pelo Admin (F5.7 — RF-28).
+ * Modal da integração de um dado externo pelo Admin, em dois modos:
+ * - `concluir` (padrão — F5.7, RF-28): "Concluir construção" de um dado em construção, com os campos
+ *   vazios e o botão "Concluir e ativar";
+ * - `configurar` (F5.16): "Configurações da integração" de um dado ativo/inativo, com os campos
+ *   preenchidos pelos valores salvos (identificador, URL e `JSON.stringify(parametros, null, 2)`; `null`
+ *   vira vazio) e o botão "Salvar configurações".
  *
- * Com `dado` nulo, nada é renderizado. O Admin informa o identificador da consulta criado pela TI,
- * podendo escolher um dos identificadores existentes. Ao digitar, colar ou escolher uma sugestão, o
- * texto passa por `limparIdentificador` (só A–Z, 0–9, "_", "-" e ".", em maiúsculas), pois o identificador
- * aponta para o código da coleta no back-end. O erro
- * devolvido pela API (`erro`) é exibido dentro do diálogo sem apagar o que foi digitado.
+ * - `leitura` (F5.19): "Integração do dado externo", só para consulta (fonte da meta `dado_externo` na
+ *   aba Indicadores): os quatro campos com os valores salvos, `readOnly` e sem obrigatoriedade, sem
+ *   modelos, variáveis, operadores, sugestões, validação (local ou no servidor) nem "falta: ...", e só o
+ *   botão "Fechar" (Fechar e Esc chamam `onCancelar`). As demais props são opcionais e ignoradas.
+ *
+ * Também serve à integração da meta do indicador (F6.11, `tipoAlvo: 'indicador'`, modo `configurar`):
+ * `dado` é um `AlvoIntegracao` (o `DadoExterno` é compatível). `tipoAlvo` muda o texto da modal e o
+ * campo de valor da saída (`valor` no dado externo, `meta` no indicador): a validação local, o modelo de
+ * "Inserir modelo de saída" e o texto de orientação do formato. Sem janela retroativa nem dia da coleta,
+ * os valores de exemplo usam só `hoje`.
+ *
+ * Saída em lista (contrato final da meta via API, 10/11/2026 — seção 2.3 de
+ * `docs/propostas-backend/RESPOSTA-FINAL-meta-via-api.md`): um item por filial, com `filial` e o campo de
+ * valor (`competencia` opcional); um texto entre a saída e a entrada orienta o formato.
+ *
+ * Com `dado` nulo, nada é renderizado. O Admin informa, todos obrigatórios e nesta ordem:
+ * - o identificador da consulta (com sugestões dos existentes): ao digitar, colar ou escolher uma
+ *   sugestão, o texto passa por `limparIdentificador` (só A–Z, 0–9, "_", "-" e ".", em maiúsculas);
+ * - a URL da integração (`http://` ou `https://`, sem espaços);
+ * - os parâmetros de saída (JSON) e os de entrada (JSON com variáveis `%nome%` e contas).
+ *
+ * Validação híbrida dos JSONs (F5.14, F5.18): o motor de `src/utils/integracao` mostra o resultado na
+ * hora, com os valores de exemplo calculados a partir de `hoje` e do dado (janela retroativa e dia da
+ * coleta) — o `exemplo` de cada variável da API prevalece. Com `validarNoServidor`, 400 ms
+ * (`ATRASO_VALIDACAO_SERVIDOR_MS`) depois da última mudança nos JSONs o back-end também valida, e o seu
+ * resultado vale para o campo enquanto o texto for o enviado (ver `useValidacaoServidor`).
+ *
+ * Limites do back-end: identificador (limpo) com até 60 caracteres e URL (após `trim`) com até 500
+ * (`maxLength` nos campos). Valor acima do limite (ex.: salvo em Configurações) mostra a mensagem no
+ * campo ("O identificador aceita até 60 caracteres." / "A URL aceita até 500 caracteres.") e conta como
+ * falta ("identificador" / "URL válida").
+ *
+ * As variáveis disponíveis vêm da API (F5.15); clicar numa variável ou num operador insere o texto na
+ * entrada. Enquanto o usuário não posicionar o cursor na entrada desde a abertura (foco, clique,
+ * seleção, teclado ou digitação), a inserção vai para o fim do texto; depois vale a última posição ou
+ * seleção do usuário (guardada nos eventos da caixa, mesmo após ela perder o foco), e cliques seguidos
+ * continuam depois do último texto inserido. "Inserir modelo de entrada" volta a inserir no fim.
+ * O botão só fica habilitado com tudo válido (pelo resultado em vigor), e o texto ao lado (descrição
+ * acessível do botão) diz o que falta.
+ *
+ * Erros da API ficam dentro da modal, sem apagar o que foi preenchido: `erro` (mensagem geral) no
+ * alerta e `errosCampos` (400 `{ mensagem, erros }`) junto a cada campo, formatados por
+ * `formatarErroIntegracao`; erro sem campo ou com campo desconhecido entra na lista do alerta geral.
+ * O erro de um campo some quando o usuário altera aquele campo (digitação, sugestão, modelo,
+ * variável/operador); os demais e o alerta geral ficam. Uma nova lista `errosCampos` (outra
+ * referência, ou seja, um novo 400) volta a mostrar todos.
  */
-import { useId, useState, type FormEvent } from 'react'
+import { useId, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type SyntheticEvent } from 'react'
+import { AreaTexto } from '../../components/AreaTexto'
 import { Aviso } from '../../components/Aviso'
 import { Botao } from '../../components/Botao'
 import { Campo } from '../../components/Campo'
 import { Dialogo } from '../../components/Dialogo'
-import type { DadoExterno, IdentificadorColeta } from '../../types/dominio'
+import type { ErroIntegracao, IdentificadorColeta, JanelaRetroativa, VariavelIntegracao } from '../../types/dominio'
 import { limparIdentificador } from '../../utils/identificador'
+import { validarEntrada } from '../../utils/integracao/entrada'
+import { formatarErroIntegracao } from '../../utils/integracao/erros'
+import { valoresDeExemplo } from '../../utils/integracao/exemplos'
+import { type ContextoIntegracao, variaveisDoTexto } from '../../utils/integracao/expressoes'
+import { MODELO_JSON_ENTRADA, MODELO_JSON_SAIDA, MODELO_JSON_SAIDA_META } from '../../utils/integracao/modelos'
+import { type CampoValorSaida, validarSaida } from '../../utils/integracao/saida'
+import { TAMANHO_MAXIMO_URL, urlValida } from '../../utils/integracao/url'
+import { PainelVariaveis } from './PainelVariaveis'
 import { SugestoesIdentificador } from './SugestoesIdentificador'
+import { useValidacaoServidor, type ValidarNoServidor } from './useValidacaoServidor'
+import { ValidacaoEntrada, ValidacaoSaida } from './ValidacaoIntegracao'
 import './DialogoConcluirConstrucao.css'
 
+/** Espera entre a última mudança nos JSONs e a validação no back-end (F5.18). */
+export const ATRASO_VALIDACAO_SERVIDOR_MS = 400
+
+/** Tamanho máximo do identificador (limpo) aceito pelo back-end. */
+export const TAMANHO_MAXIMO_IDENTIFICADOR = 60
+
+const MENSAGEM_LIMITE_IDENTIFICADOR = `O identificador aceita até ${TAMANHO_MAXIMO_IDENTIFICADOR} caracteres.`
+const MENSAGEM_LIMITE_URL = `A URL aceita até ${TAMANHO_MAXIMO_URL} caracteres.`
+
+/** Dados informados ao concluir a construção ou salvar as configurações. */
+export interface DadosConclusaoConstrucao {
+  /** Identificador limpo: só A–Z, 0–9, "_", "-" e ".", em maiúsculas. */
+  identificador: string
+  /** URL sem espaços nas pontas. */
+  url: string
+  /** JSON de saída, como digitado. */
+  parametrosSaida: string
+  /** JSON de entrada, como digitado. */
+  parametrosEntrada: string
+  /** Variáveis usadas na entrada (nomes sem `%`), pelo resultado em vigor (back-end ou local). */
+  variaveisUsadas: string[]
+}
+
+/**
+ * `concluir`: dado em construção (campos vazios); `configurar`: integração de um dado ativo/inativo;
+ * `leitura` (F5.19): integração do dado externo só para consulta.
+ */
+export type ModoDialogoIntegracao = 'concluir' | 'configurar' | 'leitura'
+
+/** Modos em que a integração é editada. */
+export type ModoEdicaoIntegracao = Exclude<ModoDialogoIntegracao, 'leitura'>
+
+/** De quem é a integração (F6.11): muda o texto da modal e o campo de valor da saída. */
+export type TipoAlvoIntegracao = 'dado-externo' | 'indicador'
+
+/**
+ * Dono da integração editada na modal (F6.11): um dado externo (`DadoExterno` é compatível) ou um
+ * indicador com meta via API. Os parâmetros salvos são objeto/lista (ou `null`).
+ */
+export interface AlvoIntegracao {
+  id: number
+  nome: string
+  identificador: string | null
+  url: string | null
+  parametrosSaida: unknown
+  parametrosEntrada: unknown
+  /** Usada nos valores de exemplo; ausente/`null` = sem janela. */
+  janelaRetroativa?: JanelaRetroativa | null
+  /** Usado nos valores de exemplo; ausente/`null` = sem dia da coleta. */
+  diaDaColeta?: number | null
+}
+
 export interface DialogoConcluirConstrucaoProps {
-  /** Dado externo em construção; `null` mantém o diálogo fechado. */
-  dado: DadoExterno | null
+  /** Padrão `concluir`. */
+  modo?: ModoEdicaoIntegracao
+  /** Dono da integração (dado externo ou indicador — F6.11); `null` mantém a modal fechada. */
+  dado: AlvoIntegracao | null
+  /** De quem é a integração; muda o texto e o campo de valor da saída. Padrão `dado-externo`. */
+  tipoAlvo?: TipoAlvoIntegracao
   /** Identificadores existentes, oferecidos como sugestão. */
   identificadores: IdentificadorColeta[]
-  /** Enquanto `true`, o botão Concluir fica desabilitado. */
+  /** Variáveis da integração recebidas da API. */
+  variaveis: VariavelIntegracao[]
+  /** Enquanto `true`, mostra "Carregando variáveis...". */
+  carregandoVariaveis: boolean
+  /** Erro ao carregar as variáveis; com erro, nenhuma variável é considerada conhecida. */
+  erroVariaveis: string | null
+  /** Enquanto `true` (gravando), o botão de confirmar fica desabilitado. */
   concluindo: boolean
-  /** Mensagem de erro devolvida ao concluir; `null` quando não há. */
+  /** Mensagem geral de erro devolvida pela API; `null` quando não há. */
   erro: string | null
-  /** Chamado com o identificador limpo: só A–Z, 0–9, "_", "-" e ".", em maiúsculas. */
-  onConfirmar: (identificador: string) => void
+  /**
+   * Erros por campo do 400 da integração (padrão `[]`). O erro de um campo some quando o usuário o
+   * altera; uma nova lista (outra referência) volta a mostrar todos.
+   */
+  errosCampos?: ErroIntegracao[]
+  /** Data usada nos valores de exemplo (padrão: a data atual). */
+  hoje?: Date
+  /** Validação no back-end (F5.18); sem ela, vale só o motor local. */
+  validarNoServidor?: ValidarNoServidor
+  /** Chamado com os dados válidos. */
+  onConfirmar: (dados: DadosConclusaoConstrucao) => void
   /** Chamado ao cancelar ou pressionar Esc. */
   onCancelar: () => void
 }
 
-const MENSAGEM_SEM_IDENTIFICADOR = 'Informe o identificador da consulta.'
+/**
+ * Props do modo leitura (F5.19): só `dado` e `onCancelar` são necessários; as demais props da modal são
+ * aceitas e ignoradas (`tipoAlvo` não muda o modo leitura).
+ */
+export type DialogoIntegracaoLeituraProps = {
+  modo: 'leitura'
+  dado: AlvoIntegracao | null
+  /** Chamado ao clicar em "Fechar" ou pressionar Esc. */
+  onCancelar: () => void
+  tipoAlvo?: TipoAlvoIntegracao
+} & Partial<Omit<DialogoConcluirConstrucaoProps, 'modo' | 'dado' | 'onCancelar' | 'tipoAlvo'>>
 
-export function DialogoConcluirConstrucao(props: DialogoConcluirConstrucaoProps) {
-  if (props.dado === null) return null
-  // `key` reinicia o campo ao abrir o diálogo para outro dado.
-  return <ConteudoConcluir key={props.dado.id} {...props} dado={props.dado} />
+const TEXTOS_MODO: Readonly<Record<ModoEdicaoIntegracao, { titulo: string; botao: string }>> = {
+  concluir: { titulo: 'Concluir construção', botao: 'Concluir e ativar' },
+  configurar: { titulo: 'Configurações da integração', botao: 'Salvar configurações' },
 }
 
-function ConteudoConcluir({
+/** Campo de valor exigido em cada item da saída, conforme o dono da integração. */
+const CAMPO_VALOR_POR_ALVO: Readonly<Record<TipoAlvoIntegracao, CampoValorSaida>> = {
+  'dado-externo': 'valor',
+  indicador: 'meta',
+}
+
+/** Modelo de "Inserir modelo de saída" para cada campo de valor. */
+const MODELO_SAIDA_POR_CAMPO: Readonly<Record<CampoValorSaida, string>> = {
+  valor: MODELO_JSON_SAIDA,
+  meta: MODELO_JSON_SAIDA_META,
+}
+
+type CampoModal = 'identificador' | 'url' | 'saida' | 'entrada'
+
+/** Nome do campo nos erros da API → campo da modal. */
+const CAMPOS_DA_API: Readonly<Record<string, CampoModal>> = {
+  identificador: 'identificador',
+  url: 'url',
+  'parametros de saida': 'saida',
+  'parametros de entrada': 'entrada',
+}
+
+const SEM_ERROS: ErroIntegracao[] = []
+
+/** Erros da API agrupados pelo campo da modal; os sem campo conhecido vão para `gerais`. */
+function agruparErros(erros: ErroIntegracao[]) {
+  const porCampo: Partial<Record<CampoModal, string>> = {}
+  const gerais: string[] = []
+  for (const erro of erros) {
+    const texto = formatarErroIntegracao(erro)
+    const campo = erro.campo === null ? undefined : CAMPOS_DA_API[erro.campo]
+    if (campo === undefined) gerais.push(texto)
+    else porCampo[campo] = porCampo[campo] === undefined ? texto : `${porCampo[campo]}; ${texto}`
+  }
+  return { porCampo, gerais }
+}
+
+/** Junta as mensagens de um campo (limite local e erro da API); sem nenhuma, `undefined`. */
+function juntarErros(...mensagens: (string | undefined)[]): string | undefined {
+  const presentes = mensagens.filter((mensagem): mensagem is string => mensagem !== undefined && mensagem !== '')
+  return presentes.length > 0 ? presentes.join('; ') : undefined
+}
+
+interface Selecao {
+  inicio: number
+  fim: number
+}
+
+/** Parâmetros salvos (objeto ou lista) como texto com 2 espaços; `null`/ausente vira vazio. */
+function textoDosParametros(valor: unknown): string {
+  if (valor === null || valor === undefined) return ''
+  if (typeof valor === 'string') return valor
+  return JSON.stringify(valor, null, 2) ?? ''
+}
+
+export function DialogoConcluirConstrucao(props: DialogoConcluirConstrucaoProps | DialogoIntegracaoLeituraProps) {
+  if (props.dado === null) return null
+  if (props.modo === 'leitura') return <ConteudoLeitura dado={props.dado} onCancelar={props.onCancelar} />
+  const modo = props.modo ?? 'concluir'
+  // `key` reinicia os campos ao abrir a modal para outro dado ou em outro modo.
+  return <ConteudoDialogo key={`${modo}-${props.dado.id}`} {...props} modo={modo} dado={props.dado} />
+}
+
+/** Modo leitura (F5.19): os valores salvos da integração do dado externo, sem edição nem validação. */
+function ConteudoLeitura({ dado, onCancelar }: { dado: AlvoIntegracao; onCancelar: () => void }) {
+  return (
+    <Dialogo
+      aberto
+      titulo="Integração do dado externo"
+      onFechar={onCancelar}
+      className="dialogo--largo dialogo-concluir-construcao"
+      acoes={
+        <Botao variante="contorno" onClick={onCancelar}>
+          Fechar
+        </Botao>
+      }
+    >
+      <div className="dialogo-concluir">
+        <p className="dialogo-concluir__texto">{`Integração cadastrada no dado externo ${dado.nome} (somente leitura).`}</p>
+        <div className="dialogo-concluir__grade">
+          <Campo rotulo="Identificador da consulta" readOnly value={dado.identificador ?? ''} autoComplete="off" />
+          <Campo rotulo="URL" readOnly value={dado.url ?? ''} autoComplete="off" />
+        </div>
+        <div className="dialogo-concluir__grade">
+          <section className="dialogo-concluir__bloco">
+            <AreaTexto
+              rotulo="Parâmetros de saída"
+              readOnly
+              className="dialogo-concluir__json"
+              rows={9}
+              spellCheck={false}
+              value={textoDosParametros(dado.parametrosSaida)}
+            />
+          </section>
+          <section className="dialogo-concluir__bloco">
+            <AreaTexto
+              rotulo="Parâmetros de entrada"
+              readOnly
+              className="dialogo-concluir__json"
+              rows={9}
+              spellCheck={false}
+              value={textoDosParametros(dado.parametrosEntrada)}
+            />
+          </section>
+        </div>
+      </div>
+    </Dialogo>
+  )
+}
+
+function ConteudoDialogo({
+  modo,
+  tipoAlvo = 'dado-externo',
   dado,
   identificadores,
+  variaveis,
+  carregandoVariaveis,
+  erroVariaveis,
   concluindo,
   erro,
+  errosCampos = SEM_ERROS,
+  hoje,
+  validarNoServidor,
   onConfirmar,
   onCancelar,
-}: DialogoConcluirConstrucaoProps & { dado: DadoExterno }) {
+}: DialogoConcluirConstrucaoProps & { modo: ModoEdicaoIntegracao; dado: AlvoIntegracao }) {
   const idFormulario = useId()
-  const [identificador, setIdentificador] = useState('')
-  const [erroCampo, setErroCampo] = useState<string | null>(null)
+  const idFalta = useId()
+  const configurar = modo === 'configurar'
+  const [identificador, setIdentificador] = useState(() => (configurar ? limparIdentificador(dado.identificador ?? '') : ''))
+  const [url, setUrl] = useState(() => (configurar ? (dado.url ?? '') : ''))
+  const [saida, setSaida] = useState(() => (configurar ? textoDosParametros(dado.parametrosSaida) : ''))
+  const [entrada, setEntrada] = useState(() => (configurar ? textoDosParametros(dado.parametrosEntrada) : ''))
+  // Data fixada na abertura quando não informada, para a prévia não mudar a cada renderização.
+  const [hojePadrao] = useState(() => new Date())
+  const dataBase = hoje ?? hojePadrao
 
-  function alterar(valor: string) {
-    const limpo = limparIdentificador(valor)
-    setIdentificador(limpo)
-    if (limpo !== '') setErroCampo(null)
+  const entradaRef = useRef<HTMLTextAreaElement>(null)
+  /**
+   * Última posição/seleção da entrada escolhida pelo usuário (ou logo após o último texto inserido).
+   * `null` enquanto o usuário não posicionou o cursor desde a abertura ou desde "Inserir modelo de
+   * entrada": nesse caso a inserção vai para o fim do texto.
+   */
+  const selecaoRef = useRef<Selecao | null>(null)
+  /** Posição do cursor a aplicar na entrada depois de inserir uma variável ou um operador. */
+  const cursorPendenteRef = useRef<number | null>(null)
+
+  useLayoutEffect(() => {
+    const posicao = cursorPendenteRef.current
+    const campo = entradaRef.current
+    if (posicao === null || campo === null) return
+    cursorPendenteRef.current = null
+    campo.focus()
+    campo.setSelectionRange(posicao, posicao)
+    // Depois do foco programático, que também passa pelos eventos que guardam a seleção.
+    selecaoRef.current = { inicio: posicao, fim: posicao }
+  }, [entrada])
+
+  /** Guarda a posição/seleção atual da entrada (eventos de foco, clique, seleção, teclado e digitação). */
+  function guardarSelecao(evento: SyntheticEvent<HTMLTextAreaElement>) {
+    const { selectionStart, selectionEnd } = evento.currentTarget
+    selecaoRef.current = { inicio: selectionStart, fim: selectionEnd }
+  }
+
+  // Erros do 400 por campo: os campos alterados desde a última lista recebida deixam de mostrar o erro.
+  const [alteracoes, setAlteracoes] = useState<{ lista: ErroIntegracao[]; campos: ReadonlySet<CampoModal> }>(() => ({
+    lista: errosCampos,
+    campos: new Set(),
+  }))
+  let camposAlterados = alteracoes.campos
+  if (alteracoes.lista !== errosCampos) {
+    // Nova lista (novo 400): volta a mostrar todos os erros.
+    camposAlterados = new Set()
+    setAlteracoes({ lista: errosCampos, campos: camposAlterados })
+  }
+
+  function marcarAlterado(campo: CampoModal) {
+    setAlteracoes((atual) => (atual.campos.has(campo) ? atual : { lista: atual.lista, campos: new Set([...atual.campos, campo]) }))
+  }
+
+  const variaveisConhecidas = useMemo(() => (erroVariaveis !== null ? [] : variaveis), [erroVariaveis, variaveis])
+  const contexto = useMemo<ContextoIntegracao>(
+    () => ({
+      variaveis: variaveisConhecidas,
+      valores: valoresDeExemplo({
+        hoje: dataBase,
+        mesesRetro: dado.janelaRetroativa ?? null,
+        diaColeta: dado.diaDaColeta ?? null,
+        variaveis: variaveisConhecidas,
+      }),
+    }),
+    [variaveisConhecidas, dataBase, dado.janelaRetroativa, dado.diaDaColeta],
+  )
+
+  const campoValor = CAMPO_VALOR_POR_ALVO[tipoAlvo]
+  const saidaLocal = useMemo(() => validarSaida(saida, campoValor), [saida, campoValor])
+  const entradaLocal = useMemo(() => validarEntrada(entrada, contexto), [entrada, contexto])
+  const servidor = useValidacaoServidor({ saida, entrada, validar: validarNoServidor, atrasoMs: ATRASO_VALIDACAO_SERVIDOR_MS })
+  // Resultado em vigor: o do back-end para o texto atual; senão o local.
+  const resultadoSaida = servidor.saida ?? saidaLocal
+  const resultadoEntrada = servidor.entrada ?? entradaLocal
+
+  const identificadorLimpo = limparIdentificador(identificador)
+  const identificadorLongo = identificadorLimpo.length > TAMANHO_MAXIMO_IDENTIFICADOR
+  const urlLonga = url.trim().length > TAMANHO_MAXIMO_URL
+  const falta: string[] = []
+  if (identificadorLimpo === '' || identificadorLongo) falta.push('identificador')
+  if (!urlValida(url)) falta.push('URL válida')
+  if (resultadoSaida.estado !== 'valido') falta.push('JSON de saída válido')
+  if (resultadoEntrada.estado !== 'valido') falta.push('JSON de entrada válido')
+  const completo = falta.length === 0
+  const textoFalta = completo ? 'Todos os campos obrigatórios preenchidos' : `falta: ${falta.join(', ')}`
+  // Destaque das variáveis presentes na entrada, mesmo com o JSON ainda inválido.
+  const variaveisNaEntrada = useMemo(() => new Set(variaveisDoTexto(entrada)), [entrada])
+  const { porCampo: errosDaApi, gerais: errosGerais } = useMemo(() => agruparErros(errosCampos), [errosCampos])
+  const erroDaApi = (campo: CampoModal) => (camposAlterados.has(campo) ? undefined : errosDaApi[campo])
+  const textos = TEXTOS_MODO[modo]
+
+  function alterarIdentificador(valor: string) {
+    setIdentificador(limparIdentificador(valor))
+    marcarAlterado('identificador')
+  }
+
+  function alterarUrl(valor: string) {
+    setUrl(valor)
+    marcarAlterado('url')
+  }
+
+  function alterarSaida(valor: string) {
+    setSaida(valor)
+    marcarAlterado('saida')
+  }
+
+  function alterarEntrada(valor: string) {
+    setEntrada(valor)
+    marcarAlterado('entrada')
+  }
+
+  function inserirModeloEntrada() {
+    // Reinicia o cursor: a próxima inserção vai para o fim do modelo.
+    selecaoRef.current = null
+    alterarEntrada(MODELO_JSON_ENTRADA)
+  }
+
+  /** Insere na última posição/seleção do usuário ou, sem ela, no fim; o cursor fica depois do texto. */
+  function inserirNaEntrada(texto: string) {
+    const selecao = selecaoRef.current
+    const inicio = Math.min(selecao?.inicio ?? entrada.length, entrada.length)
+    const fim = Math.min(Math.max(selecao?.fim ?? inicio, inicio), entrada.length)
+    const posicao = inicio + texto.length
+    cursorPendenteRef.current = posicao
+    selecaoRef.current = { inicio: posicao, fim: posicao }
+    alterarEntrada(entrada.slice(0, inicio) + texto + entrada.slice(fim))
   }
 
   function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
-    if (concluindo) return
-    const limpo = limparIdentificador(identificador)
-    if (limpo === '') {
-      setErroCampo(MENSAGEM_SEM_IDENTIFICADOR)
-      return
-    }
-    setErroCampo(null)
-    onConfirmar(limpo)
+    if (concluindo || resultadoEntrada.estado !== 'valido' || !completo) return
+    onConfirmar({
+      identificador: identificadorLimpo,
+      url: url.trim(),
+      parametrosSaida: saida,
+      parametrosEntrada: entrada,
+      variaveisUsadas: resultadoEntrada.variaveisUsadas,
+    })
   }
 
   return (
     <Dialogo
       aberto
-      titulo="Concluir construção"
+      titulo={textos.titulo}
       onFechar={onCancelar}
+      className="dialogo--largo dialogo-concluir-construcao"
       acoes={
-        <>
-          <Botao variante="contorno" onClick={onCancelar}>
-            Cancelar
-          </Botao>
-          <Botao type="submit" form={idFormulario} disabled={concluindo}>
-            Concluir
-          </Botao>
-        </>
+        <div className="dialogo-concluir__rodape">
+          <p id={idFalta} className={completo ? 'dialogo-concluir__falta dialogo-concluir__falta--ok' : 'dialogo-concluir__falta'}>
+            {textoFalta}
+          </p>
+          <div className="dialogo-concluir__botoes">
+            <Botao variante="contorno" onClick={onCancelar}>
+              Cancelar
+            </Botao>
+            <Botao type="submit" form={idFormulario} disabled={!completo || concluindo} aria-describedby={idFalta}>
+              {textos.botao}
+            </Botao>
+          </div>
+        </div>
       }
     >
       <form id={idFormulario} className="dialogo-concluir" onSubmit={enviar} noValidate>
         <p className="dialogo-concluir__texto">
-          {`Informe o identificador da consulta criada pela TI para o dado externo ${dado.nome}.`}
+          {configurar
+            ? `Revise a integração ${tipoAlvo === 'indicador' ? 'do indicador' : 'do dado externo'} ${dado.nome} e salve as configurações.`
+            : `Registre a integração criada pela TI para o dado externo ${dado.nome} e conclua a construção.`}
         </p>
-        {erro ? <Aviso tipo="erro">{erro}</Aviso> : null}
-        <Campo
-          rotulo="Identificador da consulta"
-          obrigatorio
-          value={identificador}
-          erro={erroCampo}
-          autoComplete="off"
-          onChange={(evento) => alterar(evento.target.value)}
-        />
-        <SugestoesIdentificador identificadores={identificadores} filtro={identificador} onEscolher={alterar} />
+        {erro || errosGerais.length > 0 ? (
+          <Aviso tipo="erro">
+            {erro ? <p className="dialogo-concluir__erro-geral">{erro}</p> : null}
+            {errosGerais.length > 0 ? (
+              <ul className="dialogo-concluir__erros">
+                {errosGerais.map((texto, indice) => (
+                  <li key={indice}>{texto}</li>
+                ))}
+              </ul>
+            ) : null}
+          </Aviso>
+        ) : null}
+
+        <div className="dialogo-concluir__grade">
+          <div className="dialogo-concluir__identificador">
+            <Campo
+              rotulo="Identificador da consulta"
+              obrigatorio
+              value={identificador}
+              maxLength={TAMANHO_MAXIMO_IDENTIFICADOR}
+              autoComplete="off"
+              erro={juntarErros(identificadorLongo ? MENSAGEM_LIMITE_IDENTIFICADOR : undefined, erroDaApi('identificador'))}
+              onChange={(evento) => alterarIdentificador(evento.target.value)}
+            />
+            <SugestoesIdentificador
+              identificadores={identificadores}
+              filtro={identificador}
+              onEscolher={alterarIdentificador}
+            />
+          </div>
+          <Campo
+            rotulo="URL"
+            obrigatorio
+            type="url"
+            inputMode="url"
+            value={url}
+            maxLength={TAMANHO_MAXIMO_URL}
+            autoComplete="off"
+            placeholder="https://"
+            erro={juntarErros(urlLonga ? MENSAGEM_LIMITE_URL : undefined, erroDaApi('url'))}
+            onChange={(evento) => alterarUrl(evento.target.value)}
+          />
+        </div>
+
+        <div className="dialogo-concluir__grade">
+          <section className="dialogo-concluir__bloco">
+            <AreaTexto
+              rotulo="Parâmetros de saída"
+              obrigatorio
+              className="dialogo-concluir__json"
+              rows={9}
+              spellCheck={false}
+              value={saida}
+              erro={erroDaApi('saida')}
+              onChange={(evento) => alterarSaida(evento.target.value)}
+            />
+            <p className="dialogo-concluir__orientacao">{`Lista com um item por filial: filial e ${campoValor} (competencia opcional).`}</p>
+            <Botao variante="contorno" tamanho="pequeno" className="dialogo-concluir__modelo" onClick={() => alterarSaida(MODELO_SAIDA_POR_CAMPO[campoValor])}>
+              Inserir modelo de saída
+            </Botao>
+            <ValidacaoSaida resultado={resultadoSaida} />
+          </section>
+
+          <section className="dialogo-concluir__bloco">
+            <AreaTexto
+              ref={entradaRef}
+              rotulo="Parâmetros de entrada"
+              obrigatorio
+              className="dialogo-concluir__json"
+              rows={9}
+              spellCheck={false}
+              value={entrada}
+              erro={erroDaApi('entrada')}
+              onChange={(evento) => {
+                guardarSelecao(evento)
+                alterarEntrada(evento.target.value)
+              }}
+              onFocus={guardarSelecao}
+              onSelect={guardarSelecao}
+              onKeyUp={guardarSelecao}
+              onMouseUp={guardarSelecao}
+            />
+            <Botao variante="contorno" tamanho="pequeno" className="dialogo-concluir__modelo" onClick={inserirModeloEntrada}>
+              Inserir modelo de entrada
+            </Botao>
+            <ValidacaoEntrada resultado={resultadoEntrada} />
+            <PainelVariaveis
+              variaveis={variaveisConhecidas}
+              carregando={carregandoVariaveis}
+              erro={erroVariaveis}
+              usadas={variaveisNaEntrada}
+              onInserir={inserirNaEntrada}
+            />
+          </section>
+        </div>
       </form>
     </Dialogo>
   )

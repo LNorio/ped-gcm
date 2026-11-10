@@ -65,16 +65,17 @@ describe('F6.1 — Serviço de indicadores', () => {
   })
 
   describe('SITUACOES_FILTRO_INDICADOR e rótulos', () => {
-    it('as situações do filtro são todas, ativos, inativos, meta e problemas, nesta ordem (valores da API)', () => {
-      expect(SITUACOES_FILTRO_INDICADOR).toEqual(['todas', 'ativos', 'inativos', 'meta', 'problemas'])
+    it('as situações do filtro são todas, ativos, inativos, meta, meta_filial_pendente e problemas, nesta ordem (valores da API)', () => {
+      expect(SITUACOES_FILTRO_INDICADOR).toEqual(['todas', 'ativos', 'inativos', 'meta', 'meta_filial_pendente', 'problemas'])
     })
 
-    it('os rótulos em pt-BR são Todas, Ativos, Inativos, Aguardando meta e Com problemas', () => {
+    it('os rótulos em pt-BR são Todas, Ativos, Inativos, Aguardando meta, Meta pendente por filial e Com problemas', () => {
       expect(ROTULOS_SITUACAO_FILTRO_INDICADOR).toEqual({
         todas: 'Todas',
         ativos: 'Ativos',
         inativos: 'Inativos',
         meta: 'Aguardando meta',
+        meta_filial_pendente: 'Meta pendente por filial',
         problemas: 'Com problemas',
       })
     })
@@ -151,6 +152,9 @@ describe('F6.1 — Serviço de indicadores', () => {
         cadastradoPor: 'Maria Souza',
         situacaoAlteradaEm: null,
         situacaoAlteradaPor: null,
+        metasPorFilial: [],
+        filiaisSemMeta: [],
+        metaPorFilial: false,
       })
       expect(resultado.indicadores[1]).toMatchObject({
         id: 4,
@@ -169,7 +173,7 @@ describe('F6.1 — Serviço de indicadores', () => {
 
       const { alertas } = await listarIndicadores()
 
-      expect(alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3 })
+      expect(alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3, metaPendentePorFilial: 0 })
     })
 
     it('problema e situação alterada são convertidos', async () => {
@@ -198,7 +202,7 @@ describe('F6.1 — Serviço de indicadores', () => {
       const resultado = await listarIndicadores()
 
       expect(resultado.indicadores).toHaveLength(1)
-      expect(resultado.alertas).toEqual({ aguardandoMeta: 0, comComponenteDesativado: 0 })
+      expect(resultado.alertas).toEqual({ aguardandoMeta: 0, comComponenteDesativado: 0, metaPendentePorFilial: 0 })
     })
 
     it('lista vazia resolve { indicadores: [], alertas zerados }', async () => {
@@ -206,7 +210,7 @@ describe('F6.1 — Serviço de indicadores', () => {
 
       await expect(listarIndicadores()).resolves.toEqual({
         indicadores: [],
-        alertas: { aguardandoMeta: 0, comComponenteDesativado: 0 },
+        alertas: { aguardandoMeta: 0, comComponenteDesativado: 0, metaPendentePorFilial: 0 },
       })
     })
 

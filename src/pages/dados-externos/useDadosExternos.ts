@@ -1,6 +1,7 @@
 /**
- * Hook da aba Dados Externos (F5.2–F5.9): lista filtrada pela API, filtros de busca e situação e
- * ações de cadastro, conclusão da construção, troca de situação e exclusão.
+ * Hook da aba Dados Externos (F5.2–F5.9, F5.16): lista filtrada pela API, filtros de busca e situação
+ * (inclusive "Integração pendente (TI)", do Admin) e ações de cadastro, conclusão da construção,
+ * configuração da integração, troca de situação e exclusão.
  *
  * Construído sobre `useFiltrosConsulta`, que cuida da espera da busca, da proteção de corrida, do
  * `erro`/`carregando`/`carregouUmaVez` e da recarga automática quando uma ação local é confirmada
@@ -14,6 +15,7 @@
  * - `concluir` e `alterarSituacao`: se o item, pela resposta da API, deixa de corresponder ao filtro
  *   de situação, sai da lista; senão é substituído (sem nova consulta). Se o 2xx não traz o dado
  *   (serviço devolve `null`), recarrega a lista e resolve `null` sem erro.
+ * - `atualizarIntegracao`: a resposta não traz o dado, então recarrega a lista com os filtros atuais.
  * - Falhas das ações rejeitam com a `ApiError` original, sem alterar a lista nem o `erro` de carga.
  */
 import { useCallback, useEffect, useRef } from 'react'
@@ -24,12 +26,13 @@ import {
   type ResultadoCriacaoDadoExterno,
   type SituacaoFiltroDadoExterno,
   alterarSituacaoDadoExterno,
+  atualizarIntegracao as atualizarIntegracaoDadoExterno,
   concluirConstrucao,
   criarDadoExterno,
   excluirDadoExterno,
   listarDadosExternos,
 } from '../../services/dadosExternosService'
-import type { DadoExterno, NovoDadoExterno } from '../../types/dominio'
+import type { DadoExterno, IntegracaoDadoExterno, NovoDadoExterno } from '../../types/dominio'
 import { type RegraSituacao, correspondeASituacao } from '../../utils/filtros'
 
 export interface FiltrosTelaDadosExternos {
@@ -64,7 +67,12 @@ export interface UseDadosExternosResultado {
    * PUT de conclusão e troca (ou remoção, se sair do filtro) do item na lista, sem nova consulta. Se a
    * resposta 2xx não traz o dado, recarrega a lista e resolve `null`. Erro HTTP rejeita sem recarregar.
    */
-  concluir: (id: number, identificador: string) => Promise<ResultadoConclusaoDadoExterno | null>
+  concluir: (id: number, integracao: IntegracaoDadoExterno) => Promise<ResultadoConclusaoDadoExterno | null>
+  /**
+   * PUT da integração de um dado ativo/inativo (Configurações, F5.16) e recarga da lista com os filtros
+   * atuais; resolve sem valor. Erro HTTP rejeita com a `ApiError` original, sem recarregar.
+   */
+  atualizarIntegracao: (id: number, integracao: IntegracaoDadoExterno) => Promise<void>
   /**
    * PUT da situação e troca (ou remoção, se sair do filtro) do item na lista, sem nova consulta. Se a
    * resposta 2xx não traz o dado, recarrega a lista e resolve `null`. Erro HTTP rejeita sem recarregar.
@@ -89,6 +97,7 @@ const REGRAS_SITUACAO: Partial<Record<SituacaoFiltroDadoExterno, RegraSituacao<D
   inativos: (dado) => dado.situacao === 'inativo',
   construcao: (dado) => dado.situacao === 'em_construcao',
   problemas: (dado) => dado.situacao === 'inativo' && dado.indicadores.length > 0,
+  integracao_pendente: (dado) => dado.integracaoPendente,
 }
 
 function carregarDadosExternos(filtros: FiltrosTelaDadosExternos): Promise<DadoExterno[]> {
@@ -148,8 +157,8 @@ export function useDadosExternos(): UseDadosExternosResultado {
   )
 
   const concluir = useCallback(
-    async (id: number, identificador: string): Promise<ResultadoConclusaoDadoExterno | null> => {
-      const resultado = await concluirConstrucao(id, identificador)
+    async (id: number, integracao: IntegracaoDadoExterno): Promise<ResultadoConclusaoDadoExterno | null> => {
+      const resultado = await concluirConstrucao(id, integracao)
       if (resultado === null) {
         await recarregar()
         return null
@@ -158,6 +167,14 @@ export function useDadosExternos(): UseDadosExternosResultado {
       return resultado
     },
     [aplicarAtualizado, recarregar],
+  )
+
+  const atualizarIntegracao = useCallback(
+    async (id: number, integracao: IntegracaoDadoExterno): Promise<void> => {
+      await atualizarIntegracaoDadoExterno(id, integracao)
+      await recarregar()
+    },
+    [recarregar],
   )
 
   const alterarSituacao = useCallback(
@@ -193,6 +210,7 @@ export function useDadosExternos(): UseDadosExternosResultado {
     recarregar,
     criar,
     concluir,
+    atualizarIntegracao,
     alterarSituacao,
     excluir,
   }

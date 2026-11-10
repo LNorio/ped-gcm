@@ -6,6 +6,8 @@ import {
   APONTAMENTO_ROTEIRO_API,
   APONTAMENTO_TREINAMENTOS_API,
   apontamentosApi,
+  RESPOSTA_REAL_APONTAMENTOS_API,
+  comIndicadores,
   respostaApontamentosApi,
 } from '../test/apontamentosFalsos'
 import { ApiError, MENSAGEM_RESPOSTA_INVALIDA, MENSAGEM_SEM_CONEXAO, mensagemPadraoPorStatus } from './api'
@@ -263,6 +265,138 @@ describe('F4.1 — Serviço de apontamentos', () => {
         [`GET ${ROTA}`]: () => respostaJson({ apontamentos: [{ ...APONTAMENTO_ROTEIRO_API, id: '1' }], 'contagem por tipo': [] }),
       })
       await expect(listarApontamentos()).rejects.toMatchObject({ status: 200, mensagem: MENSAGEM_RESPOSTA_INVALIDA })
+    })
+
+    describe('indicadores vinculados (alteração de 09/11/2026: a API pode mandar só os nomes)', () => {
+      function simularUm(indicadores: unknown) {
+        simularApi(fetchFalso, {
+          [`GET ${ROTA}`]: () =>
+            respostaJson({ apontamentos: [comIndicadores(APONTAMENTO_CHAMADOS_API, indicadores)], 'contagem por tipo': [] }),
+        })
+      }
+
+      async function indicadoresListados() {
+        const { apontamentos } = await listarApontamentos()
+        expect(apontamentos).toHaveLength(1)
+        return apontamentos[0].indicadores
+      }
+
+      it('lista de textos vira [{ id: null, nome }] na ordem da API', async () => {
+        simularUm(['Margem', 'Ticket médio'])
+
+        expect(await indicadoresListados()).toEqual([
+          { id: null, nome: 'Margem' },
+          { id: null, nome: 'Ticket médio' },
+        ])
+      })
+
+      it('resposta real da API (09/11/2026, indicadores como nomes) é aceita e converte os nomes de cada apontamento', async () => {
+        simularApi(fetchFalso, { [`GET ${ROTA}`]: () => respostaJson(RESPOSTA_REAL_APONTAMENTOS_API) })
+
+        const { apontamentos, contagemPorTipo } = await listarApontamentos()
+
+        expect(apontamentos.map((a) => [a.id, a.nome])).toEqual([
+          [7, 'novo teste'],
+          [5, 'teste'],
+          [6, 'teste 2'],
+        ])
+        expect(apontamentos.map((a) => a.indicadores)).toEqual([
+          [{ id: null, nome: 'testes' }],
+          [
+            { id: null, nome: 'teste 2' },
+            { id: null, nome: 'teste indicador' },
+            { id: null, nome: 'testes' },
+          ],
+          [
+            { id: null, nome: 'teste 2' },
+            { id: null, nome: 'testes' },
+          ],
+        ])
+        expect(apontamentos[0]).toMatchObject({
+          descricao: 'teste novo',
+          ativo: true,
+          idTipo: 2,
+          tipo: 'Financeiro',
+          tipoValor: 'booleano',
+          vinculadoADashboard: true,
+          desativadoMasUsadoEmIndicadorAtivo: false,
+          cadastradoPor: 'master',
+        })
+        expect(apontamentos[1]).toMatchObject({ situacaoAlteradaPor: 'master' })
+        expect(contagemPorTipo).toHaveLength(7)
+        expect(contagemPorTipo).toContainEqual({ id: 7, nome: 'Contabilidade', quantidade: 1 })
+      })
+
+      it('lista de objetos { id, nome } mantém id e nome', async () => {
+        simularUm([
+          { id: 3, nome: 'Capacitação' },
+          { id: 4, nome: 'Desenvolvimento de equipe' },
+        ])
+
+        expect(await indicadoresListados()).toEqual([
+          { id: 3, nome: 'Capacitação' },
+          { id: 4, nome: 'Desenvolvimento de equipe' },
+        ])
+      })
+
+      it('lista mista (texto e objeto) converte cada item, mantendo a ordem', async () => {
+        simularUm(['Margem', { id: 7, nome: 'Ticket médio' }])
+
+        expect(await indicadoresListados()).toEqual([
+          { id: null, nome: 'Margem' },
+          { id: 7, nome: 'Ticket médio' },
+        ])
+      })
+
+      it('objetos { id, nome } com propriedades extras ficam só com id e nome', async () => {
+        simularUm([{ id: 7, nome: 'Ticket médio', ativo: true }])
+
+        expect(await indicadoresListados()).toEqual([{ id: 7, nome: 'Ticket médio' }])
+      })
+
+      it('indicadores null viram lista vazia', async () => {
+        simularUm(null)
+
+        expect(await indicadoresListados()).toEqual([])
+      })
+
+      it('indicadores ausentes viram lista vazia', async () => {
+        simularUm(undefined)
+
+        expect(await indicadoresListados()).toEqual([])
+      })
+
+      it('lista vazia continua lista vazia', async () => {
+        simularUm([])
+
+        expect(await indicadoresListados()).toEqual([])
+      })
+
+      it.each([
+        ['número solto na lista', [12]],
+        ['número solto junto de nomes válidos', ['Margem', 12]],
+        ['objeto sem nome', [{ id: 1 }]],
+        ['objeto com nome não textual', [{ id: 1, nome: 5 }]],
+        ['objeto com nome null', [{ id: 1, nome: null }]],
+        ['item null na lista', [null]],
+        ['lista dentro da lista', [['Margem']]],
+        ['texto solto em vez de lista', 'Margem'],
+        ['objeto solto em vez de lista', { id: 1, nome: 'Margem' }],
+      ])('%s rejeita a resposta inteira com ApiError(200, "Resposta inválida do servidor.")', async (_caso, indicadores) => {
+        simularApi(fetchFalso, {
+          [`GET ${ROTA}`]: () =>
+            respostaJson({
+              apontamentos: [APONTAMENTO_ROTEIRO_API, comIndicadores(APONTAMENTO_CHAMADOS_API, indicadores)],
+              'contagem por tipo': [],
+            }),
+        })
+
+        const erro = await listarApontamentos().catch((e: unknown) => e)
+
+        expect(erro).toBeInstanceOf(ApiError)
+        expect(erro).toMatchObject({ status: 200, mensagem: MENSAGEM_RESPOSTA_INVALIDA })
+        expect(MENSAGEM_RESPOSTA_INVALIDA).toBe('Resposta inválida do servidor.')
+      })
     })
 
     it('403 com mensagem rejeita com ApiError e a mensagem da API', async () => {

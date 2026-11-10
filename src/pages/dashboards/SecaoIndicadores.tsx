@@ -45,8 +45,9 @@ export interface SecaoIndicadoresProps {
   errosPontos?: Record<number, string>
 }
 
-/** "Meta {valor com 2 casas}" ou "Meta a definir". */
+/** "Meta via API" (F7.6, origem `terceiro`), "Meta {valor com 2 casas}" ou "Meta a definir". */
 function textoMeta(indicador: Indicador): string {
+  if (indicador.origemDaMeta === 'terceiro') return 'Meta via API'
   return indicador.meta === null ? 'Meta a definir' : `Meta ${formatarNumero(indicador.meta, 2)}`
 }
 

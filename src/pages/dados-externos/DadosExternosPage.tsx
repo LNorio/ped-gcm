@@ -1,18 +1,28 @@
 /**
- * Aba "Dados Externos" (F5.2–F5.9 — RF-23 a RF-31, RN-12, RNF-01, RNF-07).
+ * Aba "Dados Externos" (F5.2–F5.9, F5.16–F5.18 — RF-23 a RF-31, RN-12, RNF-01, RNF-07).
  *
- * Lista os dados externos filtrados pela API (busca e situação) e reúne as ações conforme a matriz
- * de permissões (`usePermissoes().podeAcao`):
+ * Lista os dados externos filtrados pela API (busca e situação; a opção "Integração pendente (TI)" só
+ * aparece para quem configura a integração — Admin) e reúne as ações conforme a matriz de permissões
+ * (`usePermissoes().podeAcao`):
  * - cadastro (todos): o Admin cadastra o dado já ativo, informando o identificador da consulta (com
  *   sugestões dos existentes); Validador/Preenchedor enviam um pedido de construção à TI e veem a
  *   tarefa criada pelo back-end no Bitrix24 (número ou "será criada em instantes");
- * - concluir construção (Admin): erro exibido dentro do diálogo; avisa o indicador criado (quando a
- *   resposta traz o indicador; sem o dado na resposta, a conclusão ainda conta como sucesso);
+ * - concluir construção (Admin): a modal registra a integração (identificador, URL e JSONs) e o PUT
+ *   .../concluir leva os quatro campos. Avisa o indicador criado (quando a resposta traz o indicador;
+ *   sem o dado na resposta, a conclusão ainda conta como sucesso);
+ * - configurações da integração (Admin, F5.16): a mesma modal em modo "configurar", preenchida com os
+ *   valores salvos, grava com PUT .../integracao → "Integração atualizada." e recarga da lista;
+ * - nas duas, identificadores e variáveis são consultados a cada abertura, os JSONs são validados na
+ *   tela e no back-end (`validarIntegracao`, F5.18) e o 400 mostra a mensagem geral no alerta da modal e
+ *   os erros junto aos campos (`errosDaIntegracao`), sem fechar nem apagar nada; clique duplo grava uma vez;
+ * - integração pendente (Admin, F5.17): a página consulta os pendentes ao carregar e depois de concluir
+ *   ou salvar; com quantidade > 0 mostra o aviso com "Ver pendentes" (aplica o filtro) e marca a aba no
+ *   menu (`definirAlerta('dados-externos', ...)`). Falha da consulta é silenciosa;
  * - ativar/desativar e excluir, sempre com confirmação (`useAcoesSituacaoExclusao`), com um único aviso
  *   de erro de ação na página.
- * Dados externos não são editáveis (RF-29).
+ * Os dados do cadastro não são editáveis (RF-29); só a integração é configurável.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Aviso } from '../../components/Aviso'
 import { BarraFiltros, type OpcaoSituacao } from '../../components/BarraFiltros'
 import { Botao } from '../../components/Botao'
@@ -21,33 +31,51 @@ import { Dialogo } from '../../components/Dialogo'
 import { EstadoCarga } from '../../components/EstadoCarga'
 import { Notificacao } from '../../components/Notificacao'
 import { useAcoesSituacaoExclusao } from '../../hooks/useAcoesSituacaoExclusao'
+import { useAlertasMenu } from '../../layout/AlertasMenu'
 import { mensagemDeErro } from '../../services/api'
 import {
   ROTULOS_SITUACAO_FILTRO_DADO_EXTERNO,
   SITUACOES_FILTRO_DADO_EXTERNO,
+  errosDaIntegracao,
   listarIdentificadores,
+  listarIntegracoesPendentes,
   type SituacaoFiltroDadoExterno,
+  validarIntegracao,
 } from '../../services/dadosExternosService'
 import { useSessao } from '../../sessao/SessaoProvider'
 import { usePermissoes } from '../../sessao/usePermissoes'
-import type { DadoExterno, IdentificadorColeta, NovoDadoExterno, TarefaConstrucao } from '../../types/dominio'
+import type { DadoExterno, ErroIntegracao, IdentificadorColeta, NovoDadoExterno, TarefaConstrucao } from '../../types/dominio'
 import { fraseTarefaGravada, numeroTarefaEnviada } from '../../utils/tarefaBitrix'
-import { DialogoConcluirConstrucao } from './DialogoConcluirConstrucao'
+import { type DadosConclusaoConstrucao, DialogoConcluirConstrucao, type ModoEdicaoIntegracao } from './DialogoConcluirConstrucao'
 import { DialogoExcluirDadoExterno } from './DialogoExcluirDadoExterno'
 import { DialogoSituacaoDadoExterno } from './DialogoSituacaoDadoExterno'
 import { FormularioDadoExterno } from './FormularioDadoExterno'
 import { TabelaDadosExternos } from './TabelaDadosExternos'
 import { FILTROS_PADRAO, useDadosExternos } from './useDadosExternos'
+import { useVariaveisIntegracao } from './useVariaveisIntegracao'
 import './DadosExternosPage.css'
 
 const MENSAGEM_CADASTRADO = 'Dado externo cadastrado.'
 const MENSAGEM_CONCLUIDA = 'Construção concluída.'
+const MENSAGEM_INTEGRACAO_ATUALIZADA = 'Integração atualizada.'
 const MENSAGENS_ACOES = { situacao: 'Situação alterada.', exclusao: 'Dado externo excluído.' }
 
-const OPCOES_SITUACAO: OpcaoSituacao[] = SITUACOES_FILTRO_DADO_EXTERNO.map((situacao) => ({
+const OPCOES_SITUACAO_ADMIN: OpcaoSituacao[] = SITUACOES_FILTRO_DADO_EXTERNO.map((situacao) => ({
   valor: situacao,
   rotulo: ROTULOS_SITUACAO_FILTRO_DADO_EXTERNO[situacao],
 }))
+
+/** Sem a permissão de configurar a integração, o filtro não oferece "Integração pendente (TI)". */
+const OPCOES_SITUACAO_DEMAIS = OPCOES_SITUACAO_ADMIN.filter((opcao) => opcao.valor !== 'integracao_pendente')
+
+const SEM_ERROS_CAMPOS: ErroIntegracao[] = []
+
+/** "{n} dados externos com integração pendente (TI)." (singular com 1). */
+function textoPendentes(quantidade: number): string {
+  return quantidade === 1
+    ? '1 dado externo com integração pendente (TI).'
+    : `${quantidade} dados externos com integração pendente (TI).`
+}
 
 function ehSituacaoFiltro(valor: string): valor is SituacaoFiltroDadoExterno {
   return (SITUACOES_FILTRO_DADO_EXTERNO as readonly string[]).includes(valor)
@@ -83,6 +111,7 @@ export function DadosExternosPage() {
     recarregar,
     criar,
     concluir,
+    atualizarIntegracao,
     alterarSituacao,
     excluir,
   } = useDadosExternos()
@@ -92,6 +121,8 @@ export function DadosExternosPage() {
   const podeConcluir = podeAcao('concluir-dado-externo')
   const podeAlterarSituacao = podeAcao('alterar-situacao-dado-externo')
   const podeExcluir = podeAcao('excluir-dado-externo')
+  const podeConfigurarIntegracao = podeAcao('configurar-integracao-dado-externo')
+  const { definirAlerta } = useAlertasMenu()
   const tiposDoUsuario = acesso?.tipos ?? []
 
   const [notificacao, setNotificacao] = useState<string | null>(null)
@@ -116,10 +147,44 @@ export function DadosExternosPage() {
   const salvandoRef = useRef(false)
   const [pedidoEnviado, setPedidoEnviado] = useState<PedidoEnviado | null>(null)
 
-  const [concluindoDado, setConcluindoDado] = useState<DadoExterno | null>(null)
-  const [concluindo, setConcluindo] = useState(false)
-  const [erroConclusao, setErroConclusao] = useState<string | null>(null)
-  const concluindoRef = useRef(false)
+  /** Modal da integração: concluir construção (F5.7) ou configurações (F5.16). */
+  const [integracaoDado, setIntegracaoDado] = useState<DadoExterno | null>(null)
+  const [modoIntegracao, setModoIntegracao] = useState<ModoEdicaoIntegracao>('concluir')
+  const [gravandoIntegracao, setGravandoIntegracao] = useState(false)
+  const [erroIntegracao, setErroIntegracao] = useState<string | null>(null)
+  const [errosCamposIntegracao, setErrosCamposIntegracao] = useState<ErroIntegracao[]>(SEM_ERROS_CAMPOS)
+  const gravandoIntegracaoRef = useRef(false)
+  const variaveisIntegracao = useVariaveisIntegracao()
+
+  /** Quantidade de dados com integração pendente (F5.17); `0` sem permissão ou depois de uma falha. */
+  const [pendentes, setPendentes] = useState(0)
+  const consultaPendentesRef = useRef(0)
+
+  /** Consulta os pendentes (só Admin); a falha é silenciosa (sem aviso e sem marcador na aba). */
+  const carregarPendentes = useCallback(() => {
+    if (!podeConfigurarIntegracao) return
+    const consulta = ++consultaPendentesRef.current
+    const atual = () => montadoRef.current && consulta === consultaPendentesRef.current
+    listarIntegracoesPendentes().then(
+      ({ quantidade }) => {
+        if (atual()) setPendentes(quantidade)
+      },
+      () => {
+        if (atual()) setPendentes(0)
+      },
+    )
+  }, [podeConfigurarIntegracao])
+
+  useEffect(() => {
+    carregarPendentes()
+  }, [carregarPendentes])
+
+  // Sinal na aba do menu, no mesmo commit do aviso. Não é limpo ao sair da aba: o alerta continua
+  // valendo enquanto o Admin navega pelas demais telas.
+  const temPendentes = podeConfigurarIntegracao && pendentes > 0
+  useLayoutEffect(() => {
+    definirAlerta('dados-externos', temPendentes)
+  }, [definirAlerta, temPendentes])
 
   /** Ativar/desativar e excluir, com um único erro de ação exibido na página. */
   const {
@@ -193,35 +258,61 @@ export function DadosExternosPage() {
     }
   }
 
-  function abrirConclusao(dado: DadoExterno) {
-    setErroConclusao(null)
-    setConcluindoDado(dado)
+  function limparErrosIntegracao() {
+    setErroIntegracao(null)
+    setErrosCamposIntegracao(SEM_ERROS_CAMPOS)
+  }
+
+  /** Abre a modal da integração; identificadores e variáveis são consultados a cada abertura. */
+  function abrirIntegracao(dado: DadoExterno, modo: ModoEdicaoIntegracao) {
+    limparErrosIntegracao()
+    setModoIntegracao(modo)
+    setIntegracaoDado(dado)
     carregarIdentificadores()
+    variaveisIntegracao.carregar()
   }
 
-  function fecharConclusao() {
-    if (concluindoRef.current) return
-    setConcluindoDado(null)
-    setErroConclusao(null)
+  function fecharIntegracao() {
+    if (gravandoIntegracaoRef.current) return
+    setIntegracaoDado(null)
+    limparErrosIntegracao()
+    variaveisIntegracao.descartar()
   }
 
-  async function confirmarConclusao(identificador: string) {
-    if (concluindoRef.current || concluindoDado === null) return
-    concluindoRef.current = true
-    setConcluindo(true)
-    setErroConclusao(null)
+  /**
+   * Concluir (PUT .../concluir) ou salvar as configurações (PUT .../integracao): os quatro campos vão à
+   * API (contrato de 09/11/2026); `variaveisUsadas` fica na tela. Depois do sucesso, os pendentes são
+   * consultados de novo. No erro, a mensagem geral e os erros por campo ficam na modal aberta.
+   */
+  async function confirmarIntegracao({ identificador, url, parametrosSaida, parametrosEntrada }: DadosConclusaoConstrucao) {
+    if (gravandoIntegracaoRef.current || integracaoDado === null) return
+    gravandoIntegracaoRef.current = true
+    setGravandoIntegracao(true)
+    limparErrosIntegracao()
+    const integracao = { identificador, url, parametrosSaida, parametrosEntrada }
     try {
-      const resultado = await concluir(concluindoDado.id, identificador)
-      if (!montadoRef.current) return
-      setConcluindoDado(null)
+      if (modoIntegracao === 'concluir') {
+        const resultado = await concluir(integracaoDado.id, integracao)
+        if (!montadoRef.current) return
+        setIndicadorCriado(resultado?.indicadorCriado?.nome ?? null)
+        setNotificacao(MENSAGEM_CONCLUIDA)
+      } else {
+        await atualizarIntegracao(integracaoDado.id, integracao)
+        if (!montadoRef.current) return
+        setNotificacao(MENSAGEM_INTEGRACAO_ATUALIZADA)
+      }
+      setIntegracaoDado(null)
+      variaveisIntegracao.descartar()
       limparErrosDasAcoes()
-      setIndicadorCriado(resultado?.indicadorCriado?.nome ?? null)
-      setNotificacao(MENSAGEM_CONCLUIDA)
+      carregarPendentes()
     } catch (falha) {
-      if (montadoRef.current) setErroConclusao(mensagemDeErro(falha))
+      if (montadoRef.current) {
+        setErroIntegracao(mensagemDeErro(falha))
+        setErrosCamposIntegracao(errosDaIntegracao(falha))
+      }
     } finally {
-      concluindoRef.current = false
-      if (montadoRef.current) setConcluindo(false)
+      gravandoIntegracaoRef.current = false
+      if (montadoRef.current) setGravandoIntegracao(false)
     }
   }
 
@@ -247,13 +338,24 @@ export function DadosExternosPage() {
         </Aviso>
       ) : null}
 
+      {temPendentes ? (
+        <Aviso tipo="alerta">
+          <div className="dados-externos-page__pendentes">
+            <span>{textoPendentes(pendentes)}</span>
+            <Botao variante="contorno" tamanho="pequeno" onClick={() => setSituacao('integracao_pendente')}>
+              Ver pendentes
+            </Botao>
+          </div>
+        </Aviso>
+      ) : null}
+
       <Card semPadding className="dados-externos-page__card">
         <BarraFiltros
           busca={filtros.busca}
           onBuscaChange={(valor) => setBusca(valor)}
           rotuloBusca="Buscar"
           placeholderBusca="Nome, origem, identificador, campo, tipo ou referência"
-          situacoes={OPCOES_SITUACAO}
+          situacoes={podeConfigurarIntegracao ? OPCOES_SITUACAO_ADMIN : OPCOES_SITUACAO_DEMAIS}
           situacao={filtros.situacao}
           onSituacaoChange={(valor) => {
             if (ehSituacaoFiltro(valor)) setSituacao(valor)
@@ -267,7 +369,9 @@ export function DadosExternosPage() {
             podeConcluir={podeConcluir}
             podeAlterarSituacao={podeAlterarSituacao}
             podeExcluir={podeExcluir}
-            onConcluir={abrirConclusao}
+            podeConfigurarIntegracao={podeConfigurarIntegracao}
+            onConcluir={(dado) => abrirIntegracao(dado, 'concluir')}
+            onConfigurarIntegracao={(dado) => abrirIntegracao(dado, 'configurar')}
             onAlterarSituacao={situacao.abrir}
             onExcluir={exclusao.abrir}
             textoVazio={textoVazio}
@@ -308,12 +412,18 @@ export function DadosExternosPage() {
       </Dialogo>
 
       <DialogoConcluirConstrucao
-        dado={concluindoDado}
+        modo={modoIntegracao}
+        dado={integracaoDado}
         identificadores={identificadores}
-        concluindo={concluindo}
-        erro={erroConclusao}
-        onConfirmar={(identificador) => void confirmarConclusao(identificador)}
-        onCancelar={fecharConclusao}
+        variaveis={variaveisIntegracao.variaveis}
+        carregandoVariaveis={variaveisIntegracao.carregando}
+        erroVariaveis={variaveisIntegracao.erro}
+        concluindo={gravandoIntegracao}
+        erro={erroIntegracao}
+        errosCampos={errosCamposIntegracao}
+        validarNoServidor={validarIntegracao}
+        onConfirmar={(dados) => void confirmarIntegracao(dados)}
+        onCancelar={fecharIntegracao}
       />
 
       <DialogoSituacaoDadoExterno

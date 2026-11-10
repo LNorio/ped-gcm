@@ -6,14 +6,21 @@
  * F6.3 (RF-33): monta o `AlertasMenuProvider` em volta das abas e do conteúdo; a aba que estiver em
  * `abasComAlerta` ganha o marcador "Com alertas" e a classe `layout-principal__aba--com-alerta`.
  *
+ * F2.9: o conteúdo da aba fica num `Suspense` (as páginas são carregadas sob demanda); enquanto o
+ * chunk baixa, o `<main>` mostra "Carregando..." e o cabeçalho, as abas e o rodapé seguem visíveis.
+ * A `key` pelo `pathname` é necessária porque o React Router navega dentro de `startTransition`:
+ * sem ela, a aba anterior ficaria na tela durante o download em vez do "Carregando...".
+ *
  * Deve ser usado dentro de `SessaoProvider` e de um roteador. Tolera `acesso === null`
  * (sessão ainda carregando) sem quebrar: o cabeçalho fica sem os dados do usuário.
  */
-import { NavLink, Outlet } from 'react-router-dom'
+import { Suspense } from 'react'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { CAMINHO_DA_ABA } from '../caminhos'
 import { Botao } from '../components/Botao'
 import { Etiqueta } from '../components/Etiqueta'
 import { Marca } from '../components/Marca'
+import { RegiaoStatus } from '../components/RegiaoStatus'
 import { Rodape } from '../components/Rodape'
 import { ROTULOS_ABA, type Aba } from '../sessao/permissoes'
 import { useSessao } from '../sessao/SessaoProvider'
@@ -63,6 +70,7 @@ function BarraAbas({ abas }: { abas: readonly Aba[] }) {
 export function LayoutPrincipal() {
   const { acesso, filialSelecionada, selecionarFilial, sair } = useSessao()
   const { abas } = usePermissoes()
+  const location = useLocation()
 
   const valorFilial =
     filialSelecionada === TODAS_AS_FILIAIS ? TODAS_AS_FILIAIS : (filialSelecionada?.codigo ?? '')
@@ -97,7 +105,9 @@ export function LayoutPrincipal() {
         <BarraAbas abas={abas} />
 
         <main className="layout-principal__conteudo">
-          <Outlet />
+          <Suspense key={location.pathname} fallback={<RegiaoStatus mensagem="Carregando..." />}>
+            <Outlet />
+          </Suspense>
         </main>
       </AlertasMenuProvider>
 

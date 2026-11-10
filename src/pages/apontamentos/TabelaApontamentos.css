@@ -31,3 +31,47 @@
   margin: 0;
   color: var(--cor-texto-secundario);
 }
+
+/*
+ * Largura da listagem: a tabela deve caber sem rolagem lateral em desktops comuns (>= 1280px).
+ * As células da Tabela genérica não quebram linha (`white-space: nowrap`), então nome/descrição,
+ * etiquetas, tipo e a lista de indicadores alargavam a tabela além do conteúdo do layout. Aqui essas
+ * colunas quebram linha dentro de um teto; palavras muito longas sem espaço também quebram. Em telas
+ * estreitas a rolagem dentro do quadro continua permitida (RNF-04).
+ */
+.tabela.tabela-apontamentos th,
+.tabela.tabela-apontamentos td {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.tabela-apontamentos__quebra {
+  display: block;
+  max-width: 16rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.tabela-apontamentos__pilha.tabela-apontamentos__quebra {
+  display: flex;
+}
+
+.tabela-apontamentos__quebra--nome {
+  max-width: 20rem;
+}
+
+.tabela-apontamentos__quebra--estreita {
+  max-width: 10rem;
+}
+
+/* Etiquetas da coluna Nome: o texto da etiqueta pode quebrar para não ultrapassar o teto da coluna. */
+.tabela-apontamentos__quebra .etiqueta {
+  white-space: normal;
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
+}
+
+/* Lista de indicadores vinculados: todos visíveis, separados por vírgula, até 16rem de largura. */
+.tabela-apontamentos__indicadores {
+  max-width: 16rem;
+}

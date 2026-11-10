@@ -147,22 +147,22 @@ describe('F6.6 — useIndicadores.alterarSituacao (inativar/reativar — RF-38)'
 
   it('os alertas acompanham a situação: inativar quem tem componente desativado ou meta a definir decrementa; reativar incrementa', async () => {
     const { result } = await montar(simular())
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3, metaPendentePorFilial: 0 })
 
     await act(async () => {
       await result.current.alterarSituacao(6, false)
     })
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 2 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 2, metaPendentePorFilial: 0 })
 
     await act(async () => {
       await result.current.alterarSituacao(4, false)
     })
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 0, comComponenteDesativado: 2 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 0, comComponenteDesativado: 2, metaPendentePorFilial: 0 })
 
     await act(async () => {
       await result.current.alterarSituacao(6, true)
     })
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 0, comComponenteDesativado: 3 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 0, comComponenteDesativado: 3, metaPendentePorFilial: 0 })
   })
 
   it('inativar um indicador sem problema nem meta pendente não muda os alertas', async () => {
@@ -172,7 +172,7 @@ describe('F6.6 — useIndicadores.alterarSituacao (inativar/reativar — RF-38)'
       await result.current.alterarSituacao(3, false)
     })
 
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3, metaPendentePorFilial: 0 })
   })
 
   it('resposta 2xx sem o indicador (só { mensagem }): resolve { indicador: null, dashboardsAfetados: [] } e recarrega a lista', async () => {
@@ -209,7 +209,7 @@ describe('F6.6 — useIndicadores.alterarSituacao (inativar/reativar — RF-38)'
     expect(erro).toBeInstanceOf(ApiError)
     expect(erro).toMatchObject({ status: 403 })
     expect(result.current.indicadores).toEqual(antes)
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3, metaPendentePorFilial: 0 })
     expect(result.current.erro).toBeNull()
   })
 })

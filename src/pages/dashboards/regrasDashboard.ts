@@ -11,6 +11,7 @@
 import type { ColaboradorVinculo } from '../../services/dashboardsService'
 import { ROTULOS_REFERENCIA, type DadoExterno, type Indicador, type Referencia, type TipoVinculo } from '../../types/dominio'
 import { formatarNumero, lerDecimal } from '../../utils/formato'
+import { situacaoDaMetaViaApi, usaIntegracaoDoIndicador } from '../../utils/metaViaApi'
 
 /** Vínculo em edição no formulário: tipo ainda não escolhido (`""`) e itens sempre em texto. */
 export interface VinculoFormulario {
@@ -83,8 +84,27 @@ export function referenciaRecusadaPorFiliais(
 }
 
 /**
+ * Meta via API na fonte `integracao` (F7.6, contrato final): só entra com a situação `ok`; os motivos
+ * das demais situações. A fonte `dado_externo` entra normalmente. `null` = sem impedimento.
+ */
+function motivoDaMetaViaApi(indicador: Indicador): string | null {
+  if (!usaIntegracaoDoIndicador(indicador)) return null
+  switch (situacaoDaMetaViaApi(indicador)) {
+    case 'integracao_pendente':
+      return 'Integração da meta pendente'
+    case 'aguardando_consulta':
+      return 'Aguardando a primeira consulta da meta'
+    case 'erro':
+      return 'Erro na consulta da meta'
+    default:
+      return null
+  }
+}
+
+/**
  * Motivo que impede o indicador de entrar no dashboard (RF-52, RF-53), em ordem de prioridade;
- * `null` quando está disponível.
+ * `null` quando está disponível. A regra da meta via API (F7.6) vem depois de "Meta a definir" e
+ * antes da RF-53.
  */
 export function motivoIndisponibilidade(
   indicador: Indicador,
@@ -94,6 +114,8 @@ export function motivoIndisponibilidade(
   if (!indicador.ativo) return 'Indicador inativo'
   if (indicador.componentesDesativados) return 'Componente desativado'
   if (indicador.metaADefinir) return 'Meta a definir'
+  const motivoMeta = motivoDaMetaViaApi(indicador)
+  if (motivoMeta) return motivoMeta
   const referencia = referenciaRecusadaPorFiliais(indicador, tipoVinculo, dadosExternos)
   if (referencia) return `Dado externo por ${ROTULOS_REFERENCIA[referencia]} não é aceito em dashboard por filiais`
   return null

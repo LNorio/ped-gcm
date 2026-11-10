@@ -194,6 +194,20 @@ describe('F4.2 — TabelaApontamentos (tabela da listagem de apontamentos)', () 
       expect(celula('Chamados resolvidos no prazo', 4)).toHaveTextContent(/^—$/)
     })
 
+    it('Indicadores vindos só como nomes (id null) mostram "Margem, Ticket médio" (alteração de 09/11/2026)', () => {
+      const margem: Apontamento = {
+        ...CHAMADOS,
+        indicadores: [
+          { id: null, nome: 'Margem' },
+          { id: null, nome: 'Ticket médio' },
+        ],
+      }
+      renderizar({ apontamentos: [margem, ROTEIRO] })
+
+      expect(celula('Chamados resolvidos no prazo', 4)).toHaveTextContent(/^Margem, Ticket médio$/)
+      expect(celula('Roteiro de visitas elaborado', 4)).toHaveTextContent(/^Cobertura de visitas$/)
+    })
+
     it('Cadastro mostra a data/hora em pt-BR e o autor ("por {nome}")', () => {
       renderizar()
 

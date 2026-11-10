@@ -7,6 +7,18 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   return {
     plugins: [react()],
+    // Divide o JavaScript da build em duas partes (pedido do usuário em 10/11/2026: o arquivo único
+    // passava de 500 kB): `vendor` com as bibliotecas de node_modules (React, React Router), que
+    // mudam pouco e ficam no cache do navegador entre versões, e `index` com o código do sistema.
+    build: {
+      rolldownOptions: {
+        output: {
+          codeSplitting: {
+            groups: [{ name: 'vendor', test: /[\\/]node_modules[\\/]/ }],
+          },
+        },
+      },
+    },
     // Em desenvolvimento, /api é encaminhado ao back-end para evitar CORS (ver .env.example).
     server: {
       proxy: {

@@ -143,8 +143,10 @@ describe('F5.2 — Listagem de dados externos (DadosExternosPage)', () => {
       'Concluir construção',
       'Excluir',
     ])
+    // Desde 09/11/2026 o Admin também tem "Configurações" nos dados ativos/inativos (F5.16).
     expect(await itensDoMenuAcoes(user, rotuloAcoesDadoExterno('Faturamento líquido'))).toEqual([
       'Ver detalhes',
+      'Configurações',
       'Desativar',
       'Excluir',
     ])

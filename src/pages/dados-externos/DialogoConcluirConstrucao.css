@@ -1,4 +1,9 @@
-/* Diálogo de concluir a construção de um dado externo (F5.7). */
+/* Diálogo de concluir a construção de um dado externo, com o registro da integração (F5.7). */
+
+/* Modal mais larga que a variante dialogo--largo: os dois JSONs ficam lado a lado. */
+.dialogo.dialogo-concluir-construcao {
+  max-width: 1040px;
+}
 
 .dialogo-concluir {
   display: flex;
@@ -9,4 +14,255 @@
 .dialogo-concluir__texto {
   margin: 0;
   color: var(--cor-texto-secundario);
+}
+
+.dialogo-concluir__grade {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.dialogo-concluir__identificador,
+.dialogo-concluir__bloco {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.dialogo-concluir__json {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
+  font-size: 0.875rem;
+  min-height: 11rem;
+}
+
+/* Orientação do formato da saída (lista com um item por filial). */
+.dialogo-concluir__orientacao {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--cor-texto-secundario);
+}
+
+.dialogo-concluir__modelo {
+  align-self: flex-start;
+}
+
+/* Validação em tempo real: faixa verde (válido) ou vermelha (inválido); vazia não aparece. */
+.dialogo-concluir__validacao {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  /* Mensagens e expressões longas sem espaços não alargam a modal em telas estreitas. */
+  overflow-wrap: anywhere;
+}
+
+.dialogo-concluir__validacao:empty {
+  display: none;
+}
+
+.dialogo-concluir__validacao p {
+  margin: 0;
+}
+
+.dialogo-concluir__validacao--valida,
+.dialogo-concluir__validacao--invalida {
+  padding: 0.5rem 0.75rem;
+  border-left: 4px solid;
+  border-radius: var(--raio-pequeno);
+}
+
+.dialogo-concluir__validacao--valida {
+  border-left-color: var(--cor-sucesso);
+  background-color: color-mix(in srgb, var(--cor-sucesso) 8%, var(--cor-superficie));
+  color: var(--cor-texto);
+}
+
+.dialogo-concluir__validacao--invalida {
+  border-left-color: var(--cor-perigo);
+  background-color: color-mix(in srgb, var(--cor-perigo) 7%, var(--cor-superficie));
+  color: var(--cor-perigo-escura);
+}
+
+.dialogo-concluir__validacao-titulo {
+  font-weight: 700;
+}
+
+.dialogo-concluir__validacao--valida .dialogo-concluir__validacao-titulo {
+  color: var(--cor-sucesso);
+}
+
+.dialogo-concluir__calculos,
+.dialogo-concluir__erros {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.dialogo-concluir__calculos li,
+.dialogo-concluir__previa {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
+  font-size: 0.8125rem;
+}
+
+.dialogo-concluir__previa {
+  margin: 0.25rem 0 0;
+  padding: 0.5rem;
+  max-height: 12rem;
+  overflow: auto;
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--raio-pequeno);
+  background-color: var(--cor-superficie);
+  color: var(--cor-texto-secundario);
+  white-space: pre;
+}
+
+/* Variáveis disponíveis e operadores */
+.dialogo-concluir__ajuda {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dialogo-concluir__grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.dialogo-concluir__grupo-rotulo {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--cor-texto-secundario);
+}
+
+.dialogo-concluir__grupo-texto,
+.dialogo-concluir__grupo-erro {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.dialogo-concluir__grupo-texto {
+  color: var(--cor-texto-suave);
+}
+
+.dialogo-concluir__grupo-erro {
+  color: var(--cor-perigo);
+}
+
+.dialogo-concluir__variaveis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.375rem;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.dialogo-concluir__variavel,
+.dialogo-concluir__operador {
+  border: 1px solid var(--cor-borda-controle);
+  border-radius: var(--raio-pequeno);
+  background-color: var(--cor-superficie);
+  color: var(--cor-texto);
+  font: inherit;
+  cursor: pointer;
+}
+
+.dialogo-concluir__variavel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+  padding: 0.375rem 0.5rem;
+  text-align: left;
+}
+
+.dialogo-concluir__variavel:hover,
+.dialogo-concluir__operador:hover {
+  border-color: var(--cor-primaria-clara);
+}
+
+.dialogo-concluir__variavel[aria-pressed='true'] {
+  border-color: var(--cor-primaria);
+  background-color: color-mix(in srgb, var(--cor-primaria) 8%, var(--cor-superficie));
+}
+
+.dialogo-concluir__variavel-nome {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--cor-primaria);
+}
+
+.dialogo-concluir__variavel-descricao {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--cor-texto-suave);
+}
+
+.dialogo-concluir__operadores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.dialogo-concluir__operador {
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
+  font-weight: 700;
+}
+
+/* Rodapé: o que falta à esquerda, botões à direita */
+.dialogo-concluir__rodape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.625rem;
+  width: 100%;
+}
+
+.dialogo-concluir__falta {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--cor-perigo);
+}
+
+.dialogo-concluir__falta--ok {
+  color: var(--cor-sucesso);
+}
+
+.dialogo-concluir__botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  margin-left: auto;
+}
+
+@media (max-width: 720px) {
+  .dialogo-concluir__grade {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .dialogo-concluir__rodape {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dialogo-concluir__botoes {
+    flex-direction: column-reverse;
+    margin-left: 0;
+  }
+}
+
+/* Alerta geral da API: mensagem e, abaixo, os erros sem campo conhecido (F5.7) */
+.dialogo-concluir__erro-geral {
+  margin: 0;
+}
+
+.dialogo-concluir__erro-geral + .dialogo-concluir__erros {
+  margin-top: 0.25rem;
 }

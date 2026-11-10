@@ -1,0 +1,18 @@
+/* Texto em uma linha cortado com reticências e esmaecer no final quando não cabe. */
+
+.texto-truncado {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Esmaece os últimos ~2,5rem só quando o texto está cortado (textos curtos ficam íntegros); o fim
+   não chega a transparente para as reticências continuarem visíveis. A máscara usa só a opacidade,
+   então funciona com qualquer cor de texto (temas claro e escuro). */
+.texto-truncado[data-cortado='true'] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), rgb(0 0 0 / 0.3));
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), rgb(0 0 0 / 0.3));
+}

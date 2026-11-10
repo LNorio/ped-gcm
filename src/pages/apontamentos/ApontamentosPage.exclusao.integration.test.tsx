@@ -14,10 +14,12 @@ import {
 } from '../../test/apiFalsa'
 import {
   APONTAMENTO_CHAMADOS_API,
+  APONTAMENTO_MARGEM_API,
   NOMES_APONTAMENTOS,
   TIPOS_DO_USUARIO_API,
   apontamentosApi,
   rotaListarApontamentos,
+  type ApontamentoApiFalso,
 } from '../../test/apontamentosFalsos'
 import { renderizarApp } from '../../test/renderizarApp'
 
@@ -40,12 +42,16 @@ describe('F4.6 — Exclusão de apontamento (integração: /apontamentos com Adm
     vi.restoreAllMocks()
   })
 
-  function simularSessao(perfil: 'admin' | 'validador' | 'preenchedor', aoExcluir?: () => Response | undefined) {
+  function simularSessao(
+    perfil: 'admin' | 'validador' | 'preenchedor',
+    aoExcluir?: () => Response | undefined,
+    listaInicial: ApontamentoApiFalso[] = apontamentosApi(),
+  ) {
     const acesso =
       perfil === 'preenchedor'
         ? acessoApi({ perfil, tipos: [TIPOS_DO_USUARIO_API[0]], 'todas as filiais': false, filiais: [FILIAIS_API[1]] })
         : acessoApi({ perfil, tipos: TIPOS_DO_USUARIO_API, 'todas as filiais': true, filiais: FILIAIS_API })
-    let lista = apontamentosApi()
+    let lista = listaInicial
     return simularApi(fetchFalso, {
       'GET /api/ped/acesso': () => respostaJson(acesso),
       [`GET ${ROTA}`]: rotaListarApontamentos(() => lista),
@@ -111,6 +117,24 @@ describe('F4.6 — Exclusão de apontamento (integração: /apontamentos com Adm
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByText('Horas de treinamento realizadas')).toBeInTheDocument()
+    expect(deletes(chamadas)).toHaveLength(0)
+  })
+
+  it('apontamento com indicadores vindos só como nomes (09/11/2026): diálogo bloqueado listando "Margem, Ticket médio"; nenhum DELETE', async () => {
+    const user = usuarioRapido()
+    const chamadas = simularSessao('admin', undefined, [...apontamentosApi(), APONTAMENTO_MARGEM_API])
+    await abrirTela()
+
+    await escolherAcao(user, rotuloAcoesApontamento('Margem bruta apurada'), 'Excluir')
+
+    const dialogo = screen.getByRole('dialog', { name: 'Excluir apontamento' })
+    expect(
+      within(dialogo).getByText('Este apontamento compõe os indicadores: Margem, Ticket médio e não pode ser excluído.'),
+    ).toBeInTheDocument()
+    expect(within(dialogo).queryByRole('button', { name: 'Excluir' })).not.toBeInTheDocument()
+    await user.click(within(dialogo).getByRole('button', { name: 'Entendi' }))
+
+    expect(screen.getByText('Margem bruta apurada')).toBeInTheDocument()
     expect(deletes(chamadas)).toHaveLength(0)
   })
 

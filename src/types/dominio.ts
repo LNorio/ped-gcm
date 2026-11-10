@@ -119,9 +119,21 @@ export const ROTULOS_TIPO_VINCULO: Readonly<Record<TipoVinculo, string>> = {
 export const SITUACOES_PERIODO = ['aberto', 'encerrado'] as const
 export type SituacaoPeriodo = (typeof SITUACOES_PERIODO)[number]
 
-/** Origem da meta do indicador (hoje só `manual` é aceita pela API). */
+/** Origem da meta do indicador: `manual` (digitada) ou `terceiro` (buscada via API — F6.11, proposta). */
 export const ORIGENS_META = ['manual', 'terceiro'] as const
 export type OrigemMeta = (typeof ORIGENS_META)[number]
+
+/**
+ * Fonte da meta buscada via API (F6.11, contrato final — `RESPOSTA-FINAL-meta-via-api.md`): o próprio
+ * dado externo da composição (`dado_externo`) ou uma integração do indicador configurada pela TI
+ * (`integracao`).
+ */
+export const FONTES_META = ['dado_externo', 'integracao'] as const
+export type FonteMeta = (typeof FONTES_META)[number]
+
+/** Situação da meta via API do indicador (F6.11, contrato final). */
+export const SITUACOES_META_VIA_API = ['ok', 'sem_meta_no_mes', 'integracao_pendente', 'aguardando_consulta', 'erro'] as const
+export type SituacaoMetaViaApi = (typeof SITUACOES_META_VIA_API)[number]
 
 /** Tipo da composição do indicador. */
 export const TIPOS_COMPOSICAO = ['apontamentos', 'dado_externo'] as const
@@ -189,6 +201,15 @@ export interface Auditoria {
   situacaoAlteradaPor: string | null
 }
 
+/**
+ * Indicador que um apontamento compõe. A API real devolve só o nome (`"indicadores": ["Margem"]`), e
+ * aí `id` é `null`; quando ela manda `{ id, nome }`, o id é mantido.
+ */
+export interface IndicadorDoApontamento {
+  id: number | null
+  nome: string
+}
+
 export interface Apontamento extends Auditoria {
   id: number
   nome: string
@@ -197,7 +218,7 @@ export interface Apontamento extends Auditoria {
   idTipo: number
   tipo: string
   tipoValor: TipoValor
-  indicadores: ReferenciaNomeada[]
+  indicadores: IndicadorDoApontamento[]
   vinculadoADashboard: boolean
   desativadoMasUsadoEmIndicadorAtivo: boolean
 }
@@ -236,6 +257,110 @@ export interface DadoExterno extends Auditoria {
   coletaDisponivel: boolean
   /** Nomes dos indicadores que o dado externo compõe (a API devolve só o nome na listagem). */
   indicadores: string[]
+  // Integração (contrato de 09/11/2026): só o Admin recebe estes campos; para Validador e
+  // Preenchedor ficam vazios (`null`, `[]`, `false`).
+  /** URL da consulta; `null` enquanto a integração não foi gravada. */
+  url: string | null
+  /** JSON de saída gravado (objeto ou lista, já decodificado); `null` se não há. */
+  parametrosSaida: unknown
+  /** JSON de entrada gravado (objeto ou lista, já decodificado); `null` se não há. */
+  parametrosEntrada: unknown
+  /** Variáveis usadas na entrada (nomes sem `%`). */
+  variaveisUsadas: string[]
+  /** Dado `ativo`/`inativo` sem integração (alerta para a TI). */
+  integracaoPendente: boolean
+  integracaoAlteradaEm: DataApi | null
+  integracaoAlteradaPor: string | null
+  /**
+   * A coleta do dado também traz a meta (10/11/2026, seção 2.5 de `RESPOSTA-FINAL-meta-via-api.md`):
+   * todos os perfis recebem; ausente ou `null` → `false`.
+   */
+  forneceMeta: boolean
+}
+
+/**
+ * Integração do dado externo informada pela TI (F5.7, F5.16): corpo de `PUT .../concluir` e de
+ * `PUT .../integracao`. Os quatro campos são obrigatórios; os JSONs vão como digitados.
+ */
+export interface IntegracaoDadoExterno {
+  identificador: string
+  url: string
+  /** Texto do JSON de saída, como digitado. */
+  parametrosSaida: string
+  /** Texto do JSON de entrada, como digitado. */
+  parametrosEntrada: string
+}
+
+/**
+ * Erro da integração apontado pelo back-end (400 do concluir/integracao e `POST .../integracao/validar`).
+ * As mensagens vêm em português e são mostradas como vierem.
+ */
+export interface ErroIntegracao {
+  /** Campo da modal (`identificador`, `url`, `parametros de saida`, `parametros de entrada`); `null` se não informado. */
+  campo: string | null
+  mensagem: string
+  /** Só em erro de JSON mal formado. */
+  linha: number | null
+  coluna: number | null
+  /** Ponto do JSON de entrada (ex.: `filtro.inicio`, `lista[0]`); só em erro de conta. */
+  caminho: string | null
+  expressao: string | null
+}
+
+/** Item de `GET .../integracoes-pendentes` (F5.17). */
+export interface DadoIntegracaoPendente {
+  id: number
+  nome: string
+  identificador: string | null
+  situacao: SituacaoDadoExterno
+}
+
+/** Resposta de `GET .../integracoes-pendentes` (F5.17); `quantidade` é a informada pela API. */
+export interface IntegracoesPendentes {
+  quantidade: number
+  dados: DadoIntegracaoPendente[]
+}
+
+/** Parâmetros de `POST /api/ped/integracao/validar` (F5.18); vazios ou ausentes não são enviados. */
+export interface ParametrosValidacaoIntegracao {
+  parametrosSaida?: string
+  parametrosEntrada?: string
+}
+
+/** Campo do JSON de saída validado pelo back-end. `tipo`: `texto`, `numero`, `booleano`, `lista`, `objeto` ou `nulo`. */
+export interface CampoSaidaServidor {
+  nome: string
+  tipo: string
+}
+
+/** Erro de JSON da saída (validação do back-end). */
+export interface ErroJsonServidor {
+  mensagem: string
+  linha: number | null
+  coluna: number | null
+}
+
+/** Resultado da validação do JSON de saída pelo back-end. */
+export type ResultadoValidacaoSaidaServidor =
+  | { valido: true; campos: CampoSaidaServidor[] }
+  | { valido: false; erro: ErroJsonServidor }
+
+/** Conta resolvida na prévia do JSON de entrada (back-end). */
+export interface CalculoEntradaServidor {
+  caminho: string
+  expressao: string
+  resultado: string
+}
+
+/** Resultado da validação do JSON de entrada pelo back-end. */
+export type ResultadoValidacaoEntradaServidor =
+  | { valido: true; variaveisUsadas: string[]; calculos: CalculoEntradaServidor[]; previa: unknown }
+  | { valido: false; erros: ErroIntegracao[] }
+
+/** Resposta de `POST /api/ped/integracao/validar`: `null` no campo não enviado (ou vazio). */
+export interface ResultadoValidacaoIntegracao {
+  saida: ResultadoValidacaoSaidaServidor | null
+  entrada: ResultadoValidacaoEntradaServidor | null
 }
 
 /** Tarefa gerada para a TI ao pedir a construção de um dado externo (POST de Validador/Preenchedor). */
@@ -269,6 +394,26 @@ export interface RealizadoDadoExterno {
   coletaDisponivel: boolean
 }
 
+/** Tipos aceitos para as variáveis da integração de dados externos (F5.15). */
+export const TIPOS_VARIAVEL_INTEGRACAO = ['numero', 'texto', 'data'] as const
+
+/** Tipo de uma variável da integração: só `numero` e `data` entram em contas. */
+export type TipoVariavelIntegracao = (typeof TIPOS_VARIAVEL_INTEGRACAO)[number]
+
+/**
+ * Variável que pode ser usada nos parâmetros de entrada da integração (F5.15), escrita entre `%`
+ * no JSON (ex.: `%filial%`). A lista vem da API de variáveis do PED.
+ */
+export interface VariavelIntegracao {
+  /** Nome sem os `%` (ex.: `filial`). */
+  nome: string
+  /** Conteúdo da variável; texto vazio quando a API não informa. */
+  descricao: string
+  tipo: TipoVariavelIntegracao
+  /** Valor de exemplo usado pelo back-end na prévia (ex.: `"100"`); `null` quando a API não informa. */
+  exemplo: string | null
+}
+
 export interface ComponenteIndicador {
   id: number
   nome: string
@@ -293,6 +438,25 @@ export interface DashboardDoIndicador {
   pontosBase: number
 }
 
+/** Meta de uma filial enviada no cadastro ou no "Definir meta" (F6.10, contrato proposto). */
+export interface MetaDaFilial {
+  /** Código da filial. */
+  filial: string
+  meta: number
+}
+
+/**
+ * Meta de uma filial na listagem de indicadores (F6.10, contrato proposto): `meta` é `null` quando a
+ * filial está pendente (sem meta).
+ */
+export interface MetaPorFilialIndicador {
+  /** Código da filial (a API pode mandar número; vira texto). */
+  filial: string
+  /** `null` quando a API não informa o nome. */
+  nomeFilial: string | null
+  meta: number | null
+}
+
 export interface Indicador extends Auditoria {
   id: number
   nome: string
@@ -304,8 +468,18 @@ export interface Indicador extends Auditoria {
   sentido: Sentido | null
   /** `null` quando a composição é um dado externo. */
   calculo: Calculo | null
+  /** Meta única (replicada para todas as filiais); `null` sem meta ou com meta por filial. */
   meta: number | null
   metaADefinir: boolean
+  /** Metas por filial (F6.10); `[]` quando a meta é única ou a API não traz o campo. */
+  metasPorFilial: MetaPorFilialIndicador[]
+  /**
+   * Meta cadastrada por filial (F6.10, campo `"meta por filial"` da API real). Quando a API não informa,
+   * é derivado de `metasPorFilial` não vazia.
+   */
+  metaPorFilial: boolean
+  /** Códigos das filiais sem meta (F6.10); `[]` quando nenhuma está pendente. */
+  filiaisSemMeta: string[]
   origemDaMeta: OrigemMeta | null
   metaEditavel: boolean
   criadoAutomaticamente: boolean
@@ -313,6 +487,53 @@ export interface Indicador extends Auditoria {
   problema: ProblemaIndicador | null
   dashboards: DashboardDoIndicador[]
   vinculadoADashboard: boolean
+  /**
+   * Integração da meta buscada via API (F6.11, contrato proposto): presente **só** quando
+   * `origemDaMeta === 'terceiro'`; `undefined` nos indicadores de meta manual.
+   */
+  integracao?: IntegracaoDoIndicador
+  /**
+   * Contrato final da meta via API (F6.11): os quatro campos abaixo só existem com
+   * `origemDaMeta === 'terceiro'` (`undefined` nos indicadores de meta manual).
+   * Fonte da meta; ausente na API → `integracao`.
+   */
+  fonteDaMeta?: FonteMeta
+  /** Situação da meta via API; `null` quando a API não informa. */
+  situacaoDaMetaViaApi?: SituacaoMetaViaApi | null
+  /** Tarefa do Bitrix da integração da meta (fonte `integracao`); `null` sem tarefa. */
+  tarefaBitrix?: TarefaBitrix | null
+  /** Integração do dado externo da composição, só leitura (fonte `dado_externo`, Admin); senão `null`. */
+  integracaoDoDadoExterno?: IntegracaoDoDadoExternoDoIndicador | null
+}
+
+/** Integração do dado externo exibida (só leitura) no indicador com fonte da meta `dado_externo`. */
+export interface IntegracaoDoDadoExternoDoIndicador {
+  identificador: string | null
+  url: string | null
+  /** JSON de saída gravado (objeto ou lista, já decodificado); `null` se não há. */
+  parametrosSaida: unknown
+  /** JSON de entrada gravado (objeto ou lista, já decodificado); `null` se não há. */
+  parametrosEntrada: unknown
+}
+
+/**
+ * Integração da meta do indicador (F6.11, contrato proposto — seção 5 de
+ * `docs/propostas-backend/PROPOSTA-meta-por-filial.md`). Só o Admin recebe os campos na listagem; para
+ * os demais perfis ficam vazios (`null`, `[]`, `false`).
+ */
+export interface IntegracaoDoIndicador {
+  identificador: string | null
+  url: string | null
+  /** JSON de saída gravado (objeto ou lista, já decodificado); `null` se não há. */
+  parametrosSaida: unknown
+  /** JSON de entrada gravado (objeto ou lista, já decodificado); `null` se não há. */
+  parametrosEntrada: unknown
+  /** Variáveis usadas na entrada (nomes sem `%`). */
+  variaveisUsadas: string[]
+  /** Meta via API ainda sem integração salva (alerta para a TI). */
+  pendente: boolean
+  alteradaEm: DataApi | null
+  alteradaPor: string | null
 }
 
 export interface PontosDashboard {
@@ -429,10 +650,20 @@ export interface NovoDadoExterno {
   observacao: string | null
 }
 
+/**
+ * Dados do cadastro de indicador. Informe exatamente um entre `meta` (meta única, replicada para todas
+ * as filiais) e `metasPorFilial` (F6.10: só as filiais com meta) — ou nenhum dos dois com
+ * `origemDaMeta: 'terceiro'` (F6.11: meta buscada via API, sempre com `metaEditavel: false`).
+ */
 export interface NovoIndicador {
   nome: string
   descricao: string | null
-  meta: number
+  /** F6.11: `'terceiro'` = meta buscada via API; ausente = meta manual (digitada). */
+  origemDaMeta?: OrigemMeta
+  /** F6.11 (contrato final): fonte da meta via API; só vale com `origemDaMeta: 'terceiro'` (ausente → `integracao`). */
+  fonteDaMeta?: FonteMeta
+  meta?: number
+  metasPorFilial?: MetaDaFilial[]
   sentido: Sentido
   /** Só com apontamentos; a API assume `soma` quando omitido. */
   calculo?: Calculo

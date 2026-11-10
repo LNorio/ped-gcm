@@ -118,19 +118,19 @@ describe('F2.3 — Rotas e layout principal (rotas)', () => {
       ['/dashboards', 'Dashboards'],
       ['/preenchimento', 'Preenchimento'],
       ['/fechamentos', 'Fechamentos'],
-    ])('%s renderiza a página "%s" dentro do layout principal (Admin)', (caminho, titulo) => {
+    ])('%s renderiza a página "%s" dentro do layout principal (Admin)', async (caminho, titulo) => {
       renderizarRotas(caminho, { estado: 'autenticado', acesso: admin() })
 
-      expect(screen.getByRole('heading', { level: 1, name: titulo })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { level: 1, name: titulo })).toBeInTheDocument()
       expect(screen.getByRole('banner')).toHaveTextContent('Olá, Fulano')
       const abas = screen.getByRole('navigation', { name: 'Abas' })
       expect(within(abas).getByRole('link', { name: titulo })).toHaveAttribute('aria-current', 'page')
     })
 
-    it('/login com sessão autenticada redireciona para o Início', () => {
+    it('/login com sessão autenticada redireciona para o Início', async () => {
       renderizarRotas('/login', { estado: 'autenticado', acesso: admin() })
 
-      expect(screen.getByRole('heading', { level: 1, name: 'Início' })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { level: 1, name: 'Início' })).toBeInTheDocument()
       expect(screen.queryByRole('heading', { name: 'Programa de Excelência em Distribuição' })).not.toBeInTheDocument()
     })
 
@@ -184,10 +184,10 @@ describe('F2.3 — Rotas e layout principal (rotas)', () => {
   })
 
   describe('rota desconhecida (404)', () => {
-    it('URL desconhecida com sessão autenticada mostra "Página não encontrada" dentro do layout principal', () => {
+    it('URL desconhecida com sessão autenticada mostra "Página não encontrada" dentro do layout principal', async () => {
       const roteador = renderizarRotas('/nao-existe', { estado: 'autenticado', acesso: admin() })
 
-      expect(screen.getByRole('heading', { level: 1, name: 'Página não encontrada' })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { level: 1, name: 'Página não encontrada' })).toBeInTheDocument()
       expect(screen.getByRole('banner')).toHaveTextContent('Olá, Fulano')
       expect(screen.getByRole('navigation', { name: 'Abas' })).toBeInTheDocument()
       expect(screen.getByRole('contentinfo')).toBeInTheDocument()
@@ -199,26 +199,27 @@ describe('F2.3 — Rotas e layout principal (rotas)', () => {
       const user = usuarioRapido()
       const roteador = renderizarRotas('/nao-existe', { estado: 'autenticado', acesso: admin() })
 
-      const voltar = screen.getByRole('link', { name: 'Voltar ao Início' })
+      const voltar = await screen.findByRole('link', { name: 'Voltar ao Início' })
       expect(voltar).toHaveAttribute('href', CAMINHOS.inicio)
 
       await user.click(voltar)
 
       expect(roteador.state.location.pathname).toBe(CAMINHOS.inicio)
-      expect(screen.getByRole('heading', { level: 1, name: 'Início' })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { level: 1, name: 'Início' })).toBeInTheDocument()
       expect(screen.queryByRole('heading', { name: 'Página não encontrada' })).not.toBeInTheDocument()
     })
 
-    it('URL desconhecida aninhada (ex.: /tipos/abc/xyz) também mostra "Página não encontrada"', () => {
+    it('URL desconhecida aninhada (ex.: /tipos/abc/xyz) também mostra "Página não encontrada"', async () => {
       renderizarRotas('/tipos/abc/xyz', { estado: 'autenticado', acesso: admin() })
 
-      expect(screen.getByRole('heading', { level: 1, name: 'Página não encontrada' })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { level: 1, name: 'Página não encontrada' })).toBeInTheDocument()
       expect(screen.queryByRole('heading', { level: 1, name: 'Tipos' })).not.toBeInTheDocument()
     })
 
-    it('na página não encontrada nenhuma aba fica marcada como ativa', () => {
+    it('na página não encontrada nenhuma aba fica marcada como ativa', async () => {
       renderizarRotas('/nao-existe', { estado: 'autenticado', acesso: admin() })
 
+      await screen.findByRole('heading', { level: 1, name: 'Página não encontrada' })
       const abas = screen.getByRole('navigation', { name: 'Abas' })
       for (const link of within(abas).getAllByRole('link')) {
         expect(link).not.toHaveAttribute('aria-current')

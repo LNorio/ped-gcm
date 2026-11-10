@@ -73,12 +73,21 @@ describe('F6.3 — Filtros, alertas da aba e sinal no menu (integração: /indic
     expect(screen.getByRole('searchbox', { name: 'Buscar' })).toHaveAttribute('placeholder', 'Indicador, apontamento ou dado externo')
   })
 
-  it('situações Todas, Ativos, Inativos, Aguardando meta e Com problemas, com "Todas" selecionada', async () => {
-    simularSessao()
+  // Validador: o Admin vê também "Integração pendente (TI)" por último (F6.11, contrato final de 10/11/2026 —
+  // ver IndicadoresPage.fonteDaMeta.integration.test.tsx).
+  it('situações Todas, Ativos, Inativos, Aguardando meta, Meta pendente por filial e Com problemas, com "Todas" selecionada (Validador)', async () => {
+    simularSessao('validador')
     await abrirTela()
 
     const opcoes = within(screen.getByRole('listbox', { name: 'Situação' })).getAllByRole('option')
-    expect(opcoes.map((opcao) => opcao.textContent)).toEqual(['Todas', 'Ativos', 'Inativos', 'Aguardando meta', 'Com problemas'])
+    expect(opcoes.map((opcao) => opcao.textContent)).toEqual([
+      'Todas',
+      'Ativos',
+      'Inativos',
+      'Aguardando meta',
+      'Meta pendente por filial',
+      'Com problemas',
+    ])
     expect(opcaoSituacao('Todas')).toHaveAttribute('aria-selected', 'true')
   })
 

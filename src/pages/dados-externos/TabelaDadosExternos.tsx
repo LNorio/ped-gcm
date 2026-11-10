@@ -1,12 +1,14 @@
 /**
- * Tabela da listagem de dados externos (F5.2 — RF-23).
+ * Tabela da listagem de dados externos (F5.2 — RF-23; F5.16 e F5.17).
  *
  * Componente de apresentação: recebe a lista já filtrada e avisa o pai quando o usuário pede para
- * concluir a construção, ativar/desativar ou excluir um dado. Dados externos não são editáveis
- * (RF-29), então não há ação "Editar".
+ * concluir a construção, configurar a integração, ativar/desativar ou excluir um dado. Os dados do
+ * cadastro não são editáveis (RF-29), então não há ação "Editar"; só a integração é configurável.
  *
- * A tabela mostra só Nome (com o tipo), Situação (com a tarefa), Origem, Identificador, Cadastro e
- * Ações. As ações ficam no menu de três pontos (`MenuAcoes`), que também abre e oculta os detalhes
+ * A tabela mostra só Nome (com o tipo), Situação (com a tarefa e, quando a integração está pendente,
+ * a etiqueta "Integração pendente (TI)"), Origem, Identificador (com a URL da integração abaixo,
+ * quando existe), Cadastro e Ações. No menu, logo após "Ver detalhes", o dado ativo/inativo mostra
+ * "Configurações" ("Preencher integração" quando pendente) com `podeConfigurarIntegracao`. As ações ficam no menu de três pontos (`MenuAcoes`), que também abre e oculta os detalhes
  * da linha (várias linhas podem ficar abertas). Os detalhes trazem, como pares rótulo e valor,
  * Campo/cálculo, Referência, Coleta, Janela retroativa e Tipo de valor e, quando existem, os
  * comentários e quem alterou a situação e quando (RNF-01).
@@ -15,6 +17,7 @@ import { useState } from 'react'
 import { Etiqueta, type TomEtiqueta } from '../../components/Etiqueta'
 import { MenuAcoes, type ItemMenuAcoes } from '../../components/MenuAcoes'
 import { Tabela, type ColunaTabela } from '../../components/Tabela'
+import { TextoTruncado } from '../../components/TextoTruncado'
 import {
   ROTULOS_COLETA,
   ROTULOS_REFERENCIA,
@@ -43,6 +46,10 @@ export interface TabelaDadosExternosProps {
   onAlterarSituacao: (dado: DadoExterno) => void
   /** Chamado com o dado da linha ao clicar em "Excluir". */
   onExcluir: (dado: DadoExterno) => void
+  /** Exibe "Configurações"/"Preencher integração" nos dados ativos e inativos (padrão `false`). */
+  podeConfigurarIntegracao?: boolean
+  /** Chamado com o dado da linha ao clicar em "Configurações" ou "Preencher integração". */
+  onConfigurarIntegracao?: (dado: DadoExterno) => void
   /** Texto exibido quando `dados` está vazio. */
   textoVazio?: string
 }
@@ -99,6 +106,8 @@ export function TabelaDadosExternos({
   onConcluir,
   onAlterarSituacao,
   onExcluir,
+  podeConfigurarIntegracao = false,
+  onConfigurarIntegracao,
   textoVazio,
 }: TabelaDadosExternosProps) {
   const [expandidas, setExpandidas] = useState<ReadonlySet<DadoExterno['id']>>(() => new Set())
@@ -127,7 +136,7 @@ export function TabelaDadosExternos({
       chave: 'nome',
       titulo: 'Nome',
       render: (dado) => (
-        <div className="tabela-dados-externos__pilha">
+        <div className="tabela-dados-externos__pilha tabela-dados-externos__quebra">
           <span className="tabela-dados-externos__titulo">{dado.nome}</span>
           <span className="tabela-dados-externos__secundario">{dado.tipo}</span>
         </div>
@@ -139,6 +148,7 @@ export function TabelaDadosExternos({
       render: (dado) => (
         <div className="tabela-dados-externos__pilha">
           <Etiqueta tom={TOM_SITUACAO[dado.situacao]}>{ROTULOS_SITUACAO_DADO_EXTERNO[dado.situacao]}</Etiqueta>
+          {dado.integracaoPendente ? <Etiqueta tom="alerta">Integração pendente (TI)</Etiqueta> : null}
           {dado.tarefaBitrix ? (
             <span className="tabela-dados-externos__secundario">{textoTarefaBitrix(dado.tarefaBitrix)}</span>
           ) : null}
@@ -149,14 +159,22 @@ export function TabelaDadosExternos({
     {
       chave: 'identificador',
       titulo: 'Identificador',
-      render: (dado) =>
-        dado.identificador ?? <span className="tabela-dados-externos__vazio">a definir pela TI</span>,
+      render: (dado) => (
+        <div className="tabela-dados-externos__pilha">
+          {dado.identificador ? (
+            <TextoTruncado texto={dado.identificador} className="tabela-dados-externos__identificador" />
+          ) : (
+            <span className="tabela-dados-externos__vazio">a definir pela TI</span>
+          )}
+          {dado.url ? <TextoTruncado texto={dado.url} className="tabela-dados-externos__secundario tabela-dados-externos__url" /> : null}
+        </div>
+      ),
     },
     {
       chave: 'cadastro',
       titulo: 'Cadastro',
       render: (dado) => (
-        <div className="tabela-dados-externos__pilha">
+        <div className="tabela-dados-externos__pilha tabela-dados-externos__quebra tabela-dados-externos__quebra--estreita">
           <span>{formatarDataHora(dado.cadastradoEm)}</span>
           {dado.cadastradoPor ? (
             <span className="tabela-dados-externos__secundario">{`por ${dado.cadastradoPor}`}</span>
@@ -177,6 +195,12 @@ export function TabelaDadosExternos({
             onSelecionar: () => alternarDetalhes(dado.id),
           },
         ]
+        if (podeConfigurarIntegracao && onConfigurarIntegracao && !emConstrucao) {
+          itens.push({
+            rotulo: dado.integracaoPendente ? 'Preencher integração' : 'Configurações',
+            onSelecionar: () => onConfigurarIntegracao(dado),
+          })
+        }
         if (podeConcluir && emConstrucao) {
           itens.push({ rotulo: 'Concluir construção', onSelecionar: () => onConcluir(dado) })
         }
@@ -196,6 +220,7 @@ export function TabelaDadosExternos({
       colunas={colunas}
       dados={dados}
       obterChave={(dado) => dado.id}
+      className="tabela-dados-externos"
       legenda="Dados externos"
       textoVazio={textoVazio}
       expandir={detalhes}

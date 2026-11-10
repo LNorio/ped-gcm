@@ -29,10 +29,16 @@ import {
   type Filial,
   type HistoricoMeta,
   type Indicador,
+  type IndicadorDoApontamento,
+  type IntegracaoDoIndicador,
   type JanelaRetroativa,
+  type MetaDaFilial,
+  type MetaPorFilialIndicador,
   type NovaTabelaFaixas,
   type NovoApontamento,
   type NovoDadoExterno,
+  type FonteMeta,
+  type IntegracaoDoDadoExternoDoIndicador,
   type NovoIndicador,
   type OrigemMeta,
   type OrigemTipo,
@@ -49,6 +55,7 @@ import {
   type SistemaOrigem,
   type SituacaoDadoExterno,
   type SituacaoDashboard,
+  type SituacaoMetaViaApi,
   type SituacaoPeriodo,
   type TabelaFaixas,
   type TarefaBitrix,
@@ -118,6 +125,9 @@ export interface AuditoriaApi {
   'situacao alterada por'?: string | null
 }
 
+/** Indicador de um apontamento como vem da API: o nome (formato real) ou `{ id, nome }`. */
+export type IndicadorDoApontamentoApi = string | { id?: number | null; nome: string }
+
 export interface ApontamentoApi extends AuditoriaApi {
   id: number
   nome: string
@@ -126,7 +136,8 @@ export interface ApontamentoApi extends AuditoriaApi {
   'id tipo': number
   tipo: string
   'tipo de valor': string
-  indicadores?: ReferenciaNomeadaApi[] | null
+  /** Indicadores que o apontamento compõe: a API real devolve só os nomes; `{ id, nome }` também é aceito. */
+  indicadores?: IndicadorDoApontamentoApi[] | null
   'vinculado a dashboard'?: boolean | null
   'desativado mas usado em indicador ativo'?: boolean | null
 }
@@ -164,6 +175,18 @@ export interface DadoExternoApi extends AuditoriaApi {
   'coleta disponivel'?: boolean | null
   /** Nomes dos indicadores que o dado externo compõe (texto na listagem). */
   indicadores?: string[] | null
+  // Integração (contrato de 09/11/2026): só o Admin recebe estes campos na listagem.
+  url?: string | null
+  /** Objeto ou lista JSON gravado. */
+  'parametros de saida'?: unknown
+  /** Objeto ou lista JSON gravado. */
+  'parametros de entrada'?: unknown
+  'variaveis usadas'?: string[] | null
+  'integracao pendente'?: boolean | null
+  'integracao alterada em'?: string | null
+  'integracao alterada por'?: string | null
+  /** A coleta também traz a meta (10/11/2026; todos os perfis). */
+  'fornece meta'?: boolean | null
 }
 
 export interface ComponenteIndicadorApi {
@@ -188,6 +211,16 @@ export interface DashboardDoIndicadorApi {
   'pontos base': number
 }
 
+/**
+ * Item de `"metas por filial"` na listagem (F6.10, contrato proposto): `meta` nula ou ausente = filial
+ * pendente. O código da filial pode vir como texto ou número.
+ */
+export interface MetaPorFilialApi {
+  filial: string | number
+  'nome filial'?: string | null
+  meta?: number | null
+}
+
 export interface IndicadorApi extends AuditoriaApi {
   id: number
   nome: string
@@ -206,6 +239,45 @@ export interface IndicadorApi extends AuditoriaApi {
   problema?: ProblemaIndicadorApi | null
   dashboards?: DashboardDoIndicadorApi[] | null
   'vinculado a dashboard'?: boolean | null
+  /** F6.10 (proposta): todas as filiais, com `meta: null` nas pendentes; `null` com meta única. */
+  'metas por filial'?: MetaPorFilialApi[] | null
+  /** F6.10 (proposta): códigos das filiais pendentes; ausente → derivada de `"metas por filial"`. */
+  'filiais sem meta'?: (string | number)[] | null
+  /** F6.10 (contrato real): indica meta por filial; ausente/`null` → derivado de `"metas por filial"` não vazia. */
+  'meta por filial'?: boolean | null
+  // F6.11 (proposta): integração da meta buscada via API; só o Admin recebe estes campos na listagem.
+  identificador?: string | null
+  url?: string | null
+  /** Objeto ou lista JSON gravado. */
+  'parametros de saida'?: unknown
+  /** Objeto ou lista JSON gravado. */
+  'parametros de entrada'?: unknown
+  'variaveis usadas'?: string[] | null
+  'integracao pendente'?: boolean | null
+  'integracao alterada em'?: string | null
+  'integracao alterada por'?: string | null
+  // F6.11 (contrato final, RESPOSTA-FINAL-meta-via-api.md): só nos indicadores `terceiro`.
+  'fonte da meta'?: FonteMeta | null
+  'situacao da meta via api'?: SituacaoMetaViaApi | null
+  /** Tarefa do Bitrix da integração da meta (fonte `integracao`). */
+  tarefa?: TarefaIndicadorApi | null
+  /** Só o Admin, fonte `dado_externo`: integração do dado externo (só leitura). */
+  'integracao do dado externo'?: IntegracaoDoDadoExternoApi | null
+}
+
+/** Tarefa do Bitrix no indicador (F6.11): `"id bitrix"` `null` = aguardando envio. */
+export interface TarefaIndicadorApi {
+  titulo: string
+  status: string
+  'id bitrix'?: number | string | null
+}
+
+/** Integração do dado externo no indicador da fonte `dado_externo` (F6.11). */
+export interface IntegracaoDoDadoExternoApi {
+  identificador?: string | null
+  url?: string | null
+  'parametros de saida'?: unknown
+  'parametros de entrada'?: unknown
 }
 
 export interface PontosDashboardApi {
@@ -320,7 +392,12 @@ export interface CorpoNovoIndicador {
   nome: string
   descricao: string | null
   'origem da meta': OrigemMeta
-  meta: number
+  /** F6.11 (contrato final): só com `"origem da meta": "terceiro"`. */
+  'fonte da meta'?: FonteMeta
+  /** Meta única (replicada); exclusiva com `"metas por filial"`. */
+  meta?: number
+  /** F6.10 (proposta): só as filiais preenchidas; exclusiva com `meta`. */
+  'metas por filial'?: { filial: string; meta: number }[]
   sentido: Sentido
   'meta editavel': boolean
   calculo?: Calculo
@@ -398,6 +475,12 @@ function listaDeTextos(valores: Array<string | number> | null | undefined): stri
 
 function paraReferenciaNomeada(item: ReferenciaNomeadaApi): ReferenciaNomeada {
   return { id: item.id, nome: item.nome }
+}
+
+/** Texto vira `{ id: null, nome }`; objeto fica só com `id` (ou `null`, se não for número) e `nome`. */
+function paraIndicadorDoApontamento(item: IndicadorDoApontamentoApi): IndicadorDoApontamento {
+  if (typeof item === 'string') return { id: null, nome: item }
+  return { id: typeof item.id === 'number' ? item.id : null, nome: item.nome }
 }
 
 /**
@@ -502,7 +585,7 @@ export function paraApontamento(apontamento: ApontamentoApi): Apontamento {
     idTipo: apontamento['id tipo'],
     tipo: apontamento.tipo,
     tipoValor: paraTipoValor(apontamento['tipo de valor']),
-    indicadores: lista(apontamento.indicadores, paraReferenciaNomeada),
+    indicadores: lista(apontamento.indicadores, paraIndicadorDoApontamento),
     vinculadoADashboard: apontamento['vinculado a dashboard'] === true,
     desativadoMasUsadoEmIndicadorAtivo: apontamento['desativado mas usado em indicador ativo'] === true,
     ...paraAuditoria(apontamento),
@@ -532,6 +615,14 @@ export function paraDadoExterno(dado: DadoExternoApi): DadoExterno {
     coletaDisponivel: dado['coleta disponivel'] === true,
     indicadores: lista(dado.indicadores, (nome) => nome),
     ...paraAuditoria(dado),
+    url: ouNulo(dado.url),
+    parametrosSaida: dado['parametros de saida'] ?? null,
+    parametrosEntrada: dado['parametros de entrada'] ?? null,
+    variaveisUsadas: lista(dado['variaveis usadas'], (nome) => nome),
+    integracaoPendente: dado['integracao pendente'] === true,
+    integracaoAlteradaEm: ouNulo(dado['integracao alterada em']),
+    integracaoAlteradaPor: ouNulo(dado['integracao alterada por']),
+    forneceMeta: dado['fornece meta'] === true,
   }
 }
 
@@ -552,7 +643,77 @@ function paraDashboardDoIndicador(dashboard: DashboardDoIndicadorApi): Dashboard
   return { id: dashboard.id, nome: dashboard.nome, pontosBase: dashboard['pontos base'] }
 }
 
+function paraMetaPorFilial(item: MetaPorFilialApi): MetaPorFilialIndicador {
+  return { filial: String(item.filial), nomeFilial: ouNulo(item['nome filial']), meta: ouNulo(item.meta) }
+}
+
+/**
+ * Filiais sem meta: `"filiais sem meta"` quando informada (fonte da pendência); senão, os itens de
+ * `"metas por filial"` com meta nula ou ausente, na ordem da lista.
+ */
+function paraFiliaisSemMeta(informadas: IndicadorApi['filiais sem meta'], metas: MetaPorFilialIndicador[]): string[] {
+  if (informadas !== undefined && informadas !== null) return informadas.map((codigo) => String(codigo))
+  return metas.filter((item) => item.meta === null).map((item) => item.filial)
+}
+
+/**
+ * Integração da meta via API (F6.11): só para `origem da meta = terceiro`; nos demais indicadores
+ * devolve `undefined`, mesmo que a API traga os campos.
+ */
+function paraIntegracaoDoIndicador(indicador: IndicadorApi): IntegracaoDoIndicador | undefined {
+  if (indicador['origem da meta'] !== 'terceiro') return undefined
+  return {
+    identificador: ouNulo(indicador.identificador),
+    url: ouNulo(indicador.url),
+    parametrosSaida: indicador['parametros de saida'] ?? null,
+    parametrosEntrada: indicador['parametros de entrada'] ?? null,
+    variaveisUsadas: lista(indicador['variaveis usadas'], (nome) => nome),
+    pendente: indicador['integracao pendente'] === true,
+    alteradaEm: ouNulo(indicador['integracao alterada em']),
+    alteradaPor: ouNulo(indicador['integracao alterada por']),
+  }
+}
+
+/** Tarefa do Bitrix no formato do indicador (F6.11); ausente/`null` → `null`. */
+export function paraTarefaDoIndicador(tarefa: TarefaIndicadorApi | null | undefined): TarefaBitrix | null {
+  if (!tarefa) return null
+  return { id: numeroDaTarefaBitrix(tarefa['id bitrix']) ?? null, status: tarefa.status, titulo: tarefa.titulo }
+}
+
+function paraIntegracaoDoDadoExterno(
+  integracao: IntegracaoDoDadoExternoApi | null | undefined,
+): IntegracaoDoDadoExternoDoIndicador | null {
+  if (!integracao) return null
+  return {
+    identificador: ouNulo(integracao.identificador),
+    url: ouNulo(integracao.url),
+    parametrosSaida: integracao['parametros de saida'] ?? null,
+    parametrosEntrada: integracao['parametros de entrada'] ?? null,
+  }
+}
+
+/**
+ * Campos do contrato final da meta via API (F6.11): só com `origem da meta = terceiro` (nos demais,
+ * nenhum campo é devolvido). Fonte ausente → `integracao`; a integração do dado externo só vale na
+ * fonte `dado_externo`.
+ */
+function paraFonteDaMeta(
+  indicador: IndicadorApi,
+): Pick<Indicador, 'fonteDaMeta' | 'situacaoDaMetaViaApi' | 'tarefaBitrix' | 'integracaoDoDadoExterno'> {
+  if (indicador['origem da meta'] !== 'terceiro') return {}
+  const fonteDaMeta: FonteMeta = indicador['fonte da meta'] ?? 'integracao'
+  return {
+    fonteDaMeta,
+    situacaoDaMetaViaApi: ouNulo(indicador['situacao da meta via api']),
+    tarefaBitrix: paraTarefaDoIndicador(indicador.tarefa),
+    integracaoDoDadoExterno:
+      fonteDaMeta === 'dado_externo' ? paraIntegracaoDoDadoExterno(indicador['integracao do dado externo']) : null,
+  }
+}
+
 export function paraIndicador(indicador: IndicadorApi): Indicador {
+  const metasPorFilial = lista(indicador['metas por filial'], paraMetaPorFilial)
+  const integracao = paraIntegracaoDoIndicador(indicador)
   return {
     id: indicador.id,
     nome: indicador.nome,
@@ -571,7 +732,12 @@ export function paraIndicador(indicador: IndicadorApi): Indicador {
     problema: paraProblema(indicador.problema),
     dashboards: lista(indicador.dashboards, paraDashboardDoIndicador),
     vinculadoADashboard: indicador['vinculado a dashboard'] === true,
+    metasPorFilial,
+    metaPorFilial: indicador['meta por filial'] ?? metasPorFilial.length > 0,
+    filiaisSemMeta: paraFiliaisSemMeta(indicador['filiais sem meta'], metasPorFilial),
     ...paraAuditoria(indicador),
+    ...(integracao ? { integracao } : {}),
+    ...paraFonteDaMeta(indicador),
   }
 }
 
@@ -691,18 +857,34 @@ export function paraCorpoNovoDadoExterno(dados: NovoDadoExterno): CorpoNovoDadoE
   }
 }
 
+/** `"metas por filial"` dos corpos de cadastro e de definição de meta (F6.10), na ordem recebida. */
+export function paraCorpoMetasPorFilial(metas: readonly MetaDaFilial[]): { filial: string; meta: number }[] {
+  return metas.map((item) => ({ filial: item.filial, meta: item.meta }))
+}
+
 /**
  * Corpo de `POST /api/ped/indicadores-cadastro`. A composição é por `apontamentos` (com `calculo`)
- * ou por `dado externo` (sem `calculo` nem `apontamentos`); a origem da meta é sempre `manual`.
+ * ou por `dado externo` (sem `calculo` nem `apontamentos`).
+ * Meta manual (sem `origemDaMeta`): `"origem da meta": "manual"` e a meta como `meta` (única) ou, com
+ * `metasPorFilial`, como `"metas por filial"` (F6.10), nunca os dois.
+ * Meta via API (F6.11, `origemDaMeta: 'terceiro'`): `"origem da meta": "terceiro"`, sem `meta` nem
+ * `"metas por filial"` (ignorados se informados) e `"meta editavel": false` sempre.
  */
 export function paraCorpoNovoIndicador(dados: NovoIndicador): CorpoNovoIndicador {
+  const viaApi = dados.origemDaMeta === 'terceiro'
   const corpo: CorpoNovoIndicador = {
     nome: dados.nome,
     descricao: dados.descricao ?? null,
-    'origem da meta': 'manual',
-    meta: dados.meta,
+    'origem da meta': viaApi ? 'terceiro' : 'manual',
+    ...(viaApi ? { 'fonte da meta': dados.fonteDaMeta ?? 'integracao' } : {}),
     sentido: dados.sentido,
-    'meta editavel': dados.metaEditavel,
+    'meta editavel': viaApi ? false : dados.metaEditavel,
+  }
+  // Com a meta via API, nenhuma meta digitada vai no corpo.
+  if (!viaApi && dados.metasPorFilial !== undefined) {
+    corpo['metas por filial'] = paraCorpoMetasPorFilial(dados.metasPorFilial)
+  } else if (!viaApi && dados.meta !== undefined) {
+    corpo.meta = dados.meta
   }
 
   if (dados.dadoExterno !== undefined) {

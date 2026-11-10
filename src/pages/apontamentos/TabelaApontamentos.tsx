@@ -75,7 +75,7 @@ export function TabelaApontamentos({
       chave: 'nome',
       titulo: 'Nome',
       render: (apontamento) => (
-        <div className="tabela-apontamentos__pilha">
+        <div className="tabela-apontamentos__pilha tabela-apontamentos__quebra tabela-apontamentos__quebra--nome">
           <span className="tabela-apontamentos__titulo">{apontamento.nome}</span>
           {apontamento.descricao ? (
             <span className="tabela-apontamentos__secundario">{apontamento.descricao}</span>
@@ -91,7 +91,13 @@ export function TabelaApontamentos({
         </div>
       ),
     },
-    { chave: 'tipo', titulo: 'Tipo' },
+    {
+      chave: 'tipo',
+      titulo: 'Tipo',
+      render: (apontamento) => (
+        <span className="tabela-apontamentos__quebra tabela-apontamentos__quebra--estreita">{apontamento.tipo}</span>
+      ),
+    },
     {
       chave: 'tipoValor',
       titulo: 'Tipo de valor',
@@ -108,7 +114,9 @@ export function TabelaApontamentos({
       titulo: 'Indicadores',
       render: (apontamento) =>
         apontamento.indicadores.length > 0 ? (
-          apontamento.indicadores.map((indicador) => indicador.nome).join(', ')
+          <span className="tabela-apontamentos__quebra tabela-apontamentos__indicadores">
+            {apontamento.indicadores.map((indicador) => indicador.nome).join(', ')}
+          </span>
         ) : (
           <span className="tabela-apontamentos__vazio">—</span>
         ),
@@ -117,7 +125,7 @@ export function TabelaApontamentos({
       chave: 'cadastro',
       titulo: 'Cadastro',
       render: (apontamento) => (
-        <div className="tabela-apontamentos__pilha">
+        <div className="tabela-apontamentos__pilha tabela-apontamentos__quebra tabela-apontamentos__quebra--estreita">
           <span>{formatarDataHora(apontamento.cadastradoEm)}</span>
           {apontamento.cadastradoPor ? (
             <span className="tabela-apontamentos__secundario">{`por ${apontamento.cadastradoPor}`}</span>
@@ -157,6 +165,7 @@ export function TabelaApontamentos({
       dados={apontamentos}
       obterChave={(apontamento) => apontamento.id}
       legenda="Apontamentos"
+      className="tabela-apontamentos"
       textoVazio={textoVazio}
       expandir={detalhesSituacao}
       expandidas={expandidas}

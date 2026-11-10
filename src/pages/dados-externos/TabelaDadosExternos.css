@@ -46,3 +46,34 @@
   margin: 0;
   color: var(--cor-texto-secundario);
 }
+
+/*
+ * Largura da listagem: a tabela deve caber sem rolagem lateral em desktops comuns (>= 1280px).
+ * As células da Tabela genérica não quebram linha (`white-space: nowrap`); aqui o Nome e o Cadastro
+ * quebram dentro de um teto, e o Identificador e a URL ficam em uma linha cortada (TextoTruncado),
+ * com o texto completo no DOM e no `title`. Em telas estreitas a rolagem dentro do quadro continua
+ * permitida (RNF-04).
+ */
+.tabela.tabela-dados-externos th,
+.tabela.tabela-dados-externos td {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.tabela-dados-externos__quebra {
+  max-width: 16rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.tabela-dados-externos__quebra--estreita {
+  max-width: 11rem;
+}
+
+/* Identificador e URL da integração (F5.16): uma linha, cortada com reticências e esmaecer. O teto
+   acompanha a tela para não alargar a tabela em telas estreitas. */
+.tabela-dados-externos__identificador.texto-truncado,
+.tabela-dados-externos__url.texto-truncado {
+  width: max-content;
+  max-width: min(14rem, 50vw);
+}

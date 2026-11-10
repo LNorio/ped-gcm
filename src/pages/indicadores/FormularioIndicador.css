@@ -338,9 +338,146 @@
   border-top: 1px solid var(--cor-borda-suave);
 }
 
-/* Estilos compartilhados com DialogoDefinirMeta (caixa de seleção e origem) */
+/*
+ * Diálogo "Definir meta" (DialogoDefinirMeta). Reusa o visual da modal "Novo indicador" acima
+ * (cabeçalho e corpo com filete), mais estreita, e com o rodapé do Dialogo genérico alinhado ao
+ * respiro do corpo (20px nas laterais).
+ */
 
+.dialogo--definir-meta:has(> .dialogo__corpo > .formulario-indicador) {
+  max-width: 560px;
+}
+
+.dialogo--definir-meta > .dialogo__acoes {
+  padding: 16px 20px;
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+/* Bloco informativo da composição (dado externo de origem), separado dos campos */
 .formulario-indicador__origem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--cor-borda-suave);
+  border-left: 3px solid var(--cor-primaria);
+  border-radius: var(--raio);
+  background-color: var(--cor-superficie-suave);
+  min-width: 0;
+}
+
+.formulario-indicador__origem-rotulo {
+  color: var(--cor-texto-rotulo);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.formulario-indicador__origem-valor {
+  margin: 0;
+  color: var(--cor-texto);
+  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+/* Meta e Sentido lado a lado quando há espaço; uma coluna no celular */
+.formulario-indicador__linha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px 20px;
+  align-items: start;
+}
+
+@media (max-width: 480px) {
+  .dialogo--definir-meta:has(> .dialogo__corpo > .formulario-indicador) > .dialogo__cabecalho {
+    padding: 14px 16px;
+  }
+
+  .dialogo--definir-meta:has(> .dialogo__corpo > .formulario-indicador) > .dialogo__corpo {
+    padding: 16px;
+  }
+
+  .dialogo--definir-meta > .dialogo__acoes {
+    padding: 14px 16px;
+  }
+}
+
+/*
+ * Metas por filial (F6.10): grupo exibido no lugar do campo "Meta" quando "Replicar a meta para
+ * todas as filiais" está desmarcado. Cada linha tem a filial à esquerda e o campo à direita; a lista
+ * rola dentro do grupo quando há muitas filiais. No celular, nome e campo ficam empilhados.
+ */
+.formulario-indicador__filiais {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.formulario-indicador__filiais-titulo {
+  padding: 0;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--cor-texto-secundario);
-  font-size: 0.9375rem;
+}
+
+.formulario-indicador__filiais-nota {
+  margin: 0;
+  color: var(--cor-texto-suave);
+  font-size: 13px;
+}
+
+.formulario-indicador__filiais-lista {
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background-color: var(--cor-superficie-suave);
+}
+
+.formulario-indicador__filial {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 200px);
+  align-items: start;
+  gap: 4px 16px;
+  padding: 8px 12px 8px 14px;
+}
+
+.formulario-indicador__filial + .formulario-indicador__filial {
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+.formulario-indicador__filial-nome {
+  /* Mesma altura do campo: o nome fica centrado no input mesmo com a mensagem de erro abaixo. */
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  color: var(--cor-texto);
+  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.formulario-indicador__filial .campo__controle {
+  min-height: 38px;
+  height: 38px;
+  background-color: var(--cor-superficie);
+}
+
+.formulario-indicador__filial .erro-campo {
+  margin: 0;
+}
+
+@media (max-width: 480px) {
+  .formulario-indicador__filial {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

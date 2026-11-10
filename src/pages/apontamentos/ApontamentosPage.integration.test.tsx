@@ -9,6 +9,7 @@ import {
   APONTAMENTO_RELATORIO_API,
   APONTAMENTO_ROTEIRO_API,
   NOMES_APONTAMENTOS,
+  RESPOSTA_REAL_APONTAMENTOS_API,
   TIPOS_DO_USUARIO_API,
   apontamentosApi,
   respostaApontamentosApi,
@@ -86,6 +87,30 @@ describe('F4.2 — Listagem de apontamentos (integração: /apontamentos com Adm
     const linha = screen.getByText('Conciliação bancária concluída').closest('tr')!
     await escolherAcao(user, rotuloAcoesApontamento('Conciliação bancária concluída'), 'Ver detalhes', linha)
     expect(screen.getByText('Situação alterada em 20/10/2026 11:05 por Ana Costa')).toBeInTheDocument()
+  })
+
+  it('resposta real da API (09/11/2026) com indicadores como nomes: a coluna "Indicadores" mostra os nomes separados por ", "', async () => {
+    simularApi(fetchFalso, {
+      'GET /api/ped/acesso': () =>
+        respostaJson(acessoApi({ perfil: 'admin', tipos: TIPOS_DO_USUARIO_API, 'todas as filiais': true, filiais: FILIAIS_API })),
+      'GET /api/ped/apontamentos': () => respostaJson(RESPOSTA_REAL_APONTAMENTOS_API),
+    })
+
+    renderizarApp('/apontamentos')
+
+    const tabela = await screen.findByRole('table', { name: 'Apontamentos' })
+    expect(linhasDeDados(tabela)).toHaveLength(3)
+    expect(screen.queryByText('Resposta inválida do servidor.')).not.toBeInTheDocument()
+
+    function celulaIndicadores(nome: string) {
+      const linha = linhasDeDados(tabela).find((l) => within(l).getAllByRole('cell')[0].querySelector('.tabela-apontamentos__titulo')?.textContent === nome)
+      if (!linha) throw new Error(`Linha do apontamento "${nome}" não encontrada`)
+      return within(linha).getAllByRole('cell')[4]
+    }
+
+    expect(celulaIndicadores('teste')).toHaveTextContent(/^teste 2, teste indicador, testes$/)
+    expect(celulaIndicadores('teste 2')).toHaveTextContent(/^teste 2, testes$/)
+    expect(celulaIndicadores('novo teste')).toHaveTextContent(/^testes$/)
   })
 
   it('Validador vê a mesma listagem do Admin', async () => {

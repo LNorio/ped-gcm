@@ -100,6 +100,11 @@ O plano fica em [docs/plano-implementacao.md](docs/plano-implementacao.md). Ele 
 fazer e em que ordem**; o `requisitos.json` continua sendo a fonte oficial do status dos testes e do
 que está implementado (o `plano-implementacao` não o altera, apenas aponta inconsistências).
 
+O agente também gera [docs/plano-implementacao.html](docs/plano-implementacao.html) (pelo script
+`.claude/scripts/plano-html.mjs`), uma página para acompanhar o andamento: progresso geral e por fase,
+próximas atividades liberadas, bloqueios, atividades com filtros e histórico. O HTML nunca é editado
+à mão; para regenerá-lo manualmente: `node .claude/scripts/plano-html.mjs`.
+
 ### Ciclo de cada requisito (vermelho → verde → refatorar)
 
 1. **Entender** — leia o pedido, o código relevante e o plano de implementação. Se faltar informação
@@ -153,7 +158,8 @@ Quando o usuário pedir um commit:
    - `testes-integracao`;
    - `plano-implementacao` no **modo `commit`** (envie também a mensagem pretendida, se houver).
 3. Se ambos os testes retornarem **APROVADO** (100%), adicione o plano atualizado ao commit
-   (`git add docs/plano-implementacao.md`) e faça o commit, usando a mensagem pedida pelo usuário ou a
+   (`git add docs/plano-implementacao.md docs/plano-implementacao.html`) e faça o commit, usando a
+   mensagem pedida pelo usuário ou a
    sugerida pelo `plano-implementacao`. O hook de pre-commit executa os testes novamente como garantia.
 4. Se qualquer teste retornar **REPROVADO**, **não faça o commit**. Informe ao usuário que o teste não
    foi concluído com sucesso, o percentual de sucesso de cada bateria e cada erro retornado. A
@@ -187,8 +193,8 @@ Documentos gerados:
 - [docs/diario-implementacao.md](docs/diario-implementacao.md) — resumo diário;
 - [docs/documentacao.md](docs/documentacao.md) — documentação detalhada, com tags e índice.
 
-O [docs/plano-implementacao.md](docs/plano-implementacao.md) é mantido apenas pelo
-`plano-implementacao`; o `fechamento-dia` não o altera.
+O [docs/plano-implementacao.md](docs/plano-implementacao.md) e sua versão HTML são mantidos apenas
+pelo `plano-implementacao`; o `fechamento-dia` não os altera.
 
 ## Resumo semanal
 

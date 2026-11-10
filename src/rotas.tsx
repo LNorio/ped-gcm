@@ -10,30 +10,39 @@
  *   sem a mensagem técnica.
  *
  * As decisões de tela dependem apenas do estado da sessão (`useSessao`); o provider não navega.
+ *
+ * F2.9 (desempenho da primeira carga): as páginas das abas e a 404 são carregadas sob demanda
+ * (`React.lazy` + `import()` dinâmico) — cada uma vira um chunk próprio, baixado só ao abrir a aba.
+ * O `Suspense` fica no `LayoutPrincipal`, em volta do `Outlet`. Falha ao baixar um chunk cai no
+ * `errorElement` (`ErroPage`). `LoginPage`, `SemAcessoPage` e `ErroPage` continuam com import
+ * estático: são a entrada da aplicação e o fallback de erro (precisa existir mesmo sem rede).
  */
-import type { ReactNode } from 'react'
+import { lazy, type ReactNode } from 'react'
 import { Navigate, type RouteObject } from 'react-router-dom'
 import { CAMINHOS } from './caminhos'
 import { RegiaoStatus } from './components/RegiaoStatus'
 import { LayoutPrincipal } from './layout/LayoutPrincipal'
-import { ApontamentosPage } from './pages/apontamentos/ApontamentosPage'
-import { DadosExternosPage } from './pages/dados-externos/DadosExternosPage'
-import { DashboardsPage } from './pages/dashboards/DashboardsPage'
 import { ErroPage } from './pages/erro/ErroPage'
-import { FaixasPage } from './pages/faixas/FaixasPage'
-import { FechamentosPage } from './pages/fechamentos/FechamentosPage'
-import { IndicadoresPage } from './pages/indicadores/IndicadoresPage'
-import { InicioPage } from './pages/inicio/InicioPage'
 import { LoginPage } from './pages/login/LoginPage'
-import { NaoEncontradaPage } from './pages/nao-encontrada/NaoEncontradaPage'
-import { PreenchimentoPage } from './pages/preenchimento/PreenchimentoPage'
 import { SemAcessoPage } from './pages/sem-acesso/SemAcessoPage'
-import { TiposPage } from './pages/tipos/TiposPage'
 import type { Aba } from './sessao/permissoes'
 import { useSessao } from './sessao/SessaoProvider'
 import { usePermissoes } from './sessao/usePermissoes'
 
 export { CAMINHOS, CAMINHO_DA_ABA } from './caminhos'
+
+// Páginas sob demanda (F2.9): cada `import()` gera um chunk próprio na build; os módulos mantêm
+// os exports nomeados, adaptados aqui ao `default` exigido por `lazy`.
+const InicioPage = lazy(() => import('./pages/inicio/InicioPage').then((m) => ({ default: m.InicioPage })))
+const TiposPage = lazy(() => import('./pages/tipos/TiposPage').then((m) => ({ default: m.TiposPage })))
+const ApontamentosPage = lazy(() => import('./pages/apontamentos/ApontamentosPage').then((m) => ({ default: m.ApontamentosPage })))
+const DadosExternosPage = lazy(() => import('./pages/dados-externos/DadosExternosPage').then((m) => ({ default: m.DadosExternosPage })))
+const IndicadoresPage = lazy(() => import('./pages/indicadores/IndicadoresPage').then((m) => ({ default: m.IndicadoresPage })))
+const DashboardsPage = lazy(() => import('./pages/dashboards/DashboardsPage').then((m) => ({ default: m.DashboardsPage })))
+const FaixasPage = lazy(() => import('./pages/faixas/FaixasPage').then((m) => ({ default: m.FaixasPage })))
+const PreenchimentoPage = lazy(() => import('./pages/preenchimento/PreenchimentoPage').then((m) => ({ default: m.PreenchimentoPage })))
+const FechamentosPage = lazy(() => import('./pages/fechamentos/FechamentosPage').then((m) => ({ default: m.FechamentosPage })))
+const NaoEncontradaPage = lazy(() => import('./pages/nao-encontrada/NaoEncontradaPage').then((m) => ({ default: m.NaoEncontradaPage })))
 
 /** Exige sessão autenticada: redireciona anônimos ao login e usuários sem perfil à tela de sem acesso. */
 export function RotaProtegida({ children }: { children: ReactNode }) {

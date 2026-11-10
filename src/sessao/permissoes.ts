@@ -95,11 +95,13 @@ export function podeAcessar(perfil: Perfil | null, aba: Aba): boolean {
  * | concluir-dado-externo         |   x   |           |             |
  * | alterar-situacao-dado-externo |   x   |     x     |             |
  * | excluir-dado-externo          |   x   |           |             |
+ * | configurar-integracao-dado-externo |   x   |           |             |
  * | cadastrar-indicador           |   x   |     x     |             |
  * | definir-meta-indicador        |   x   |     x     |             |
  * | alterar-situacao-indicador    |   x   |     x     |             |
  * | excluir-indicador             |   x   |           |             |
  * | ver-historico-metas-indicador |   x   |     x     |             |
+ * | configurar-integracao-indicador |   x   |           |             |
  * | cadastrar-dashboard           |   x   |     x     |             |
  * | editar-dashboard              |   x   |     x     |             |
  * | alterar-situacao-dashboard    |   x   |           |             |
@@ -120,11 +122,14 @@ export type AcaoPermissao =
   | 'concluir-dado-externo'
   | 'alterar-situacao-dado-externo'
   | 'excluir-dado-externo'
+  | 'configurar-integracao-dado-externo'
   | 'cadastrar-indicador'
   | 'definir-meta-indicador'
   | 'alterar-situacao-indicador'
   | 'excluir-indicador'
   | 'ver-historico-metas-indicador'
+  /** F6.11: "Preencher integração" / "Configurações" da meta buscada via API. */
+  | 'configurar-integracao-indicador'
   | 'cadastrar-dashboard'
   | 'editar-dashboard'
   | 'alterar-situacao-dashboard'
@@ -146,11 +151,13 @@ const PERFIS_POR_ACAO: Readonly<Record<AcaoPermissao, readonly Perfil[]>> = {
   'concluir-dado-externo': ['admin'],
   'alterar-situacao-dado-externo': ['admin', 'validador'],
   'excluir-dado-externo': ['admin'],
+  'configurar-integracao-dado-externo': ['admin'],
   'cadastrar-indicador': ['admin', 'validador'],
   'definir-meta-indicador': ['admin', 'validador'],
   'alterar-situacao-indicador': ['admin', 'validador'],
   'excluir-indicador': ['admin'],
   'ver-historico-metas-indicador': ['admin', 'validador'],
+  'configurar-integracao-indicador': ['admin'],
   'cadastrar-dashboard': ['admin', 'validador'],
   'editar-dashboard': ['admin', 'validador'],
   'alterar-situacao-dashboard': ['admin'],

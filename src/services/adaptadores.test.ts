@@ -226,6 +226,95 @@ describe('F1.3 — Adaptadores da API (ida: resposta → tipo)', () => {
       cadastradoPor: 'Validador',
       situacaoAlteradaEm: null,
       situacaoAlteradaPor: null,
+      // Integração (09/11/2026): ausente para Validador/Preenchedor → valores vazios.
+      url: null,
+      parametrosSaida: null,
+      parametrosEntrada: null,
+      variaveisUsadas: [],
+      integracaoPendente: false,
+      integracaoAlteradaEm: null,
+      integracaoAlteradaPor: null,
+      // Alteração de 10/11/2026: "fornece meta" ausente → false.
+      forneceMeta: false,
+    })
+  })
+
+  /**
+   * Alteração de 10/11/2026 (seção 2.5 de `RESPOSTA-FINAL-meta-via-api.md`): a listagem traz, para
+   * todos os perfis, `"fornece meta"` (true/false) → `forneceMeta`; ausente ou null → false.
+   */
+  it.each<[string, boolean, Record<string, unknown>]>([
+    ['"fornece meta": true', true, { 'fornece meta': true }],
+    ['"fornece meta": false', false, { 'fornece meta': false }],
+    ['"fornece meta" ausente', false, {}],
+    ['"fornece meta": null', false, { 'fornece meta': null }],
+  ])('paraDadoExterno: %s → forneceMeta %s', (_nome, esperado, campos) => {
+    const dado = paraDadoExterno({
+      id: 5,
+      nome: 'Faturamento',
+      'id tipo': 1,
+      tipo: 'Comercial',
+      situacao: 'ativo',
+      'situacao descricao': 'Ativo',
+      'tarefa bitrix': null,
+      'sistema de origem': 'senior_erp',
+      identificador: 'FATURAMENTO',
+      'campo calculo': null,
+      referencia: 'filial',
+      coleta: 'diaria',
+      'dia da coleta': null,
+      'coleta descricao': 'Diária',
+      'sentido do calculo': 'soma',
+      'janela retroativa': 1,
+      comentarios: null,
+      'tipo de valor': 'Numeral',
+      'coleta disponivel': true,
+      indicadores: [],
+      ...campos,
+    } as Parameters<typeof paraDadoExterno>[0])
+
+    expect(dado.forneceMeta).toBe(esperado)
+  })
+
+  it('paraDadoExterno: campos da integração que só o Admin recebe (09/11/2026)', () => {
+    const dado = paraDadoExterno({
+      id: 4,
+      nome: 'Cobertura',
+      'id tipo': 1,
+      tipo: 'Comercial',
+      situacao: 'ativo',
+      'situacao descricao': 'Ativo',
+      'tarefa bitrix': null,
+      'sistema de origem': 'senior_erp',
+      identificador: 'COBERTURA',
+      'campo calculo': null,
+      referencia: 'filial',
+      coleta: 'diaria',
+      'dia da coleta': null,
+      'coleta descricao': 'Diária',
+      'sentido do calculo': 'soma',
+      'janela retroativa': 1,
+      comentarios: null,
+      'tipo de valor': 'Porcentagem',
+      'coleta disponivel': true,
+      indicadores: [],
+      url: 'https://ti.exemplo.com.br/api/cobertura',
+      'parametros de saida': { valor: '0' },
+      'parametros de entrada': { filial: '%filial%' },
+      'variaveis usadas': ['filial'],
+      'integracao pendente': false,
+      'integracao alterada em': '2026-11-09 10:00:00',
+      'integracao alterada por': 'Equipe TI',
+    })
+
+    expect(dado).toMatchObject({
+      url: 'https://ti.exemplo.com.br/api/cobertura',
+      parametrosSaida: { valor: '0' },
+      parametrosEntrada: { filial: '%filial%' },
+      variaveisUsadas: ['filial'],
+      integracaoPendente: false,
+      integracaoAlteradaEm: '2026-11-09 10:00:00',
+      integracaoAlteradaPor: 'Equipe TI',
     })
   })
 
@@ -318,6 +407,9 @@ describe('F1.3 — Adaptadores da API (ida: resposta → tipo)', () => {
       problema: { tipo: 'apontamentos_parcialmente_desativados', mensagem: 'O cálculo segue sem eles.' },
       dashboards: [{ id: 3, nome: 'PED Comercial', pontosBase: 40 }],
       vinculadoADashboard: true,
+      metasPorFilial: [],
+      filiaisSemMeta: [],
+      metaPorFilial: false,
       cadastradoEm: '2026-10-28 12:00:00',
       cadastradoPor: 'Admin',
       situacaoAlteradaEm: null,

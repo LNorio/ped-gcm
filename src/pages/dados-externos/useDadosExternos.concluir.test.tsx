@@ -10,9 +10,18 @@ import {
   respostaConclusaoApi,
   rotaListarDadosExternos,
 } from '../../test/dadosExternosFalsos'
+import type { IntegracaoDadoExterno } from '../../types/dominio'
 import { useDadosExternos } from './useDadosExternos'
 
 const ROTA = '/api/ped/dados-externos-cadastro'
+const URL_CONSULTA = 'https://ti.exemplo.com.br/api/devolucoes'
+const SAIDA = '{ "valor": "0" }'
+const ENTRADA = '{ "filial": "%filial%" }'
+
+/** Integração informada na modal (contrato de 09/11/2026: os quatro campos vão no PUT). */
+function integracao(identificador: string): IntegracaoDadoExterno {
+  return { identificador, url: URL_CONSULTA, parametrosSaida: SAIDA, parametrosEntrada: ENTRADA }
+}
 const CONCLUIDO = {
   ...DADO_DEVOLUCOES_API,
   situacao: 'ativo' as const,
@@ -53,17 +62,22 @@ describe('F5.7 — useDadosExternos.concluir (concluir construção — RF-28)',
     return { ...resultado, chamadas }
   }
 
-  it('concluir(id, identificador) faz o PUT, troca o item na lista sem nova consulta e resolve com { dadoExterno, indicadorCriado }', async () => {
+  it('concluir(id, integracao) faz o PUT com os quatro campos, troca o item na lista sem nova consulta e resolve com { dadoExterno, indicadorCriado }', async () => {
     const { result, chamadas } = await montar(simular())
 
     let resposta: Awaited<ReturnType<typeof result.current.concluir>> | undefined
     await act(async () => {
-      resposta = await result.current.concluir(3, 'devolucoes')
+      resposta = await result.current.concluir(3, integracao('devolucoes'))
     })
 
     const put = chamadas.find((c) => c.metodo === 'PUT')!
     expect(put.caminho).toBe(`${ROTA}/3/concluir`)
-    expect(corpoDaChamada(put)).toEqual({ identificador: 'DEVOLUCOES' })
+    expect(corpoDaChamada(put)).toEqual({
+      identificador: 'DEVOLUCOES',
+      url: URL_CONSULTA,
+      'parametros de saida': SAIDA,
+      'parametros de entrada': ENTRADA,
+    })
     expect(resposta?.indicadorCriado).toEqual({ id: 30, nome: 'Devoluções de venda' })
     expect(resposta?.dadoExterno).toMatchObject({ id: 3, situacao: 'ativo', identificador: 'DEVOLUCOES' })
     const item = result.current.dadosExternos.find((d) => d.id === 3)
@@ -80,7 +94,7 @@ describe('F5.7 — useDadosExternos.concluir (concluir construção — RF-28)',
     await waitFor(() => expect(result.current.dadosExternos.map((d) => d.id)).toEqual([3, 4]))
 
     await act(async () => {
-      await result.current.concluir(3, 'DEVOLUCOES')
+      await result.current.concluir(3, integracao('DEVOLUCOES'))
     })
 
     expect(result.current.dadosExternos.map((d) => d.id)).toEqual([4])
@@ -93,7 +107,7 @@ describe('F5.7 — useDadosExternos.concluir (concluir construção — RF-28)',
 
     let erro: unknown
     await act(async () => {
-      erro = await result.current.concluir(3, 'XPTO').catch((e: unknown) => e)
+      erro = await result.current.concluir(3, integracao('XPTO')).catch((e: unknown) => e)
     })
 
     expect(erro).toBeInstanceOf(ApiError)
@@ -149,7 +163,7 @@ describe('F5.7 — useDadosExternos.concluir com 2xx sem o dado na resposta (res
 
     let valor: unknown = 'nao chamado'
     await act(async () => {
-      valor = await result.current.concluir(3, 'devolucoes')
+      valor = await result.current.concluir(3, integracao('devolucoes'))
     })
 
     expect(valor).toBeNull()
@@ -161,7 +175,7 @@ describe('F5.7 — useDadosExternos.concluir com 2xx sem o dado na resposta (res
     expect(gets(chamadas)).toHaveLength(1)
 
     await act(async () => {
-      await result.current.concluir(3, 'devolucoes')
+      await result.current.concluir(3, integracao('devolucoes'))
     })
 
     expect(gets(chamadas)).toHaveLength(2)
@@ -174,7 +188,7 @@ describe('F5.7 — useDadosExternos.concluir com 2xx sem o dado na resposta (res
 
     let valor: unknown = 'nao chamado'
     await act(async () => {
-      valor = await result.current.concluir(3, 'DEVOLUCOES')
+      valor = await result.current.concluir(3, integracao('DEVOLUCOES'))
     })
 
     expect(valor).toBeNull()
@@ -190,7 +204,7 @@ describe('F5.7 — useDadosExternos.concluir com 2xx sem o dado na resposta (res
     await waitFor(() => expect(result.current.dadosExternos.map((d) => d.id)).toEqual([3, 4]))
 
     await act(async () => {
-      await result.current.concluir(3, 'DEVOLUCOES')
+      await result.current.concluir(3, integracao('DEVOLUCOES'))
     })
 
     expect(result.current.dadosExternos.map((d) => d.id)).toEqual([4])
@@ -201,7 +215,7 @@ describe('F5.7 — useDadosExternos.concluir com 2xx sem o dado na resposta (res
 
     let erro: unknown
     await act(async () => {
-      erro = await result.current.concluir(3, 'XPTO').catch((e: unknown) => e)
+      erro = await result.current.concluir(3, integracao('XPTO')).catch((e: unknown) => e)
     })
 
     expect(erro).toBeInstanceOf(ApiError)

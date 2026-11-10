@@ -60,6 +60,20 @@ function ehObjeto(valor: unknown): valor is Record<string, unknown> {
   return typeof valor === 'object' && valor !== null && !Array.isArray(valor)
 }
 
+/** Campo opcional: ausente, `null` ou do tipo esperado. */
+function opcional(valor: unknown, validar: (v: unknown) => boolean): boolean {
+  return valor === undefined || valor === null || validar(valor)
+}
+
+/** Indicador vinculado: o nome (formato real da API) ou um objeto com `nome` textual. */
+function ehIndicadorDoApontamentoApi(valor: unknown): boolean {
+  return typeof valor === 'string' || (ehObjeto(valor) && typeof valor.nome === 'string')
+}
+
+/**
+ * `indicadores` pode estar ausente, ser `null` ou ser uma lista de nomes e/ou objetos `{ id, nome }`;
+ * qualquer outro formato (inclusive texto ou objeto solto no lugar da lista) invalida o apontamento.
+ */
 function ehApontamentoApi(valor: unknown): valor is ApontamentoApi {
   if (!ehObjeto(valor)) return false
   return (
@@ -68,7 +82,8 @@ function ehApontamentoApi(valor: unknown): valor is ApontamentoApi {
     typeof valor.ativo === 'boolean' &&
     typeof valor['id tipo'] === 'number' &&
     typeof valor.tipo === 'string' &&
-    typeof valor['tipo de valor'] === 'string'
+    typeof valor['tipo de valor'] === 'string' &&
+    opcional(valor.indicadores, (v) => Array.isArray(v) && v.every(ehIndicadorDoApontamentoApi))
   )
 }
 

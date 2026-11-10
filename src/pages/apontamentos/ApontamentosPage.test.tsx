@@ -9,6 +9,7 @@ import { respostaErro, respostaJson, simularApi } from '../../test/apiFalsa'
 import {
   APONTAMENTO_CHAMADOS_API,
   APONTAMENTO_CONCILIACAO_API,
+  APONTAMENTO_MARGEM_API,
   NOMES_APONTAMENTOS,
   TIPOS_DO_USUARIO_API,
   apontamentosApi,
@@ -158,6 +159,18 @@ describe('F4.2 — Listagem de apontamentos (ApontamentosPage)', () => {
       expect(celulas[4]).toHaveTextContent('Rotinas financeiras em dia')
       expect(celulas[5]).toHaveTextContent('15/09/2026 14:30')
       expect(celulas[5]).toHaveTextContent('por João Lima')
+    })
+
+    it('indicadores vindos da API como lista de nomes aparecem na coluna "Indicadores" separados por ", " (alteração de 09/11/2026)', async () => {
+      simularLista([APONTAMENTO_MARGEM_API, APONTAMENTO_CHAMADOS_API])
+      renderizar()
+      await aguardarTabela()
+
+      const margem = screen.getByText('Margem bruta apurada').closest('tr')!
+      expect(within(margem).getAllByRole('cell')[4]).toHaveTextContent(/^Margem, Ticket médio$/)
+      const chamados = screen.getByText('Chamados resolvidos no prazo').closest('tr')!
+      expect(within(chamados).getAllByRole('cell')[4]).toHaveTextContent(/^—$/)
+      expect(screen.queryByText('Resposta inválida do servidor.')).not.toBeInTheDocument()
     })
 
     it('mostra as etiquetas "Vinculado a dashboard" (dourado) e "Desativado, mas usado em indicador ativo" (alerta) nos apontamentos certos', async () => {

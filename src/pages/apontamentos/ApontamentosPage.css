@@ -3,6 +3,13 @@
  * (EstadoCarga) e um card que reúne a barra de filtros e a tabela (corpo sem padding).
  */
 
+/* A listagem tem várias colunas: nesta aba o conteúdo do layout (teto global de 1240px em
+   LayoutPrincipal.css) pode usar até 1440px, para a tabela caber sem rolagem lateral em telas largas.
+   O seletor só vale quando a página está montada, então as outras abas não mudam. */
+.layout-principal__conteudo:has(.apontamentos-page) {
+  max-width: 1440px;
+}
+
 .apontamentos-page {
   display: flex;
   flex-direction: column;

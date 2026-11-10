@@ -15,7 +15,7 @@ import {
   respostaDadosExternosApi,
   tarefaBitrixCriadaApi,
 } from '../test/dadosExternosFalsos'
-import type { NovoDadoExterno } from '../types/dominio'
+import type { IntegracaoDadoExterno, NovoDadoExterno } from '../types/dominio'
 import { ApiError, MENSAGEM_RESPOSTA_INVALIDA, MENSAGEM_SEM_CONEXAO, mensagemPadraoPorStatus } from './api'
 import {
   ROTULOS_SITUACAO_FILTRO_DADO_EXTERNO,
@@ -31,6 +31,16 @@ import {
 import { definirToken, limparToken } from './sessao'
 
 const ROTA = '/api/ped/dados-externos-cadastro'
+
+/** Integração informada ao concluir (contrato de 09/11/2026: os quatro campos são obrigatórios). */
+function integracao(identificador: string): IntegracaoDadoExterno {
+  return {
+    identificador,
+    url: 'https://ti.exemplo.com.br/api/consulta',
+    parametrosSaida: '{ "valor": "0" }',
+    parametrosEntrada: '{ "filial": "%filial%" }',
+  }
+}
 
 const NOVO_ADMIN: NovoDadoExterno = {
   nome: 'Faturamento líquido',
@@ -82,18 +92,27 @@ describe('F5.1 — Serviço de dados externos', () => {
   })
 
   describe('SITUACOES_FILTRO_DADO_EXTERNO e rótulos', () => {
-    it('as situações do filtro são todas, ativos, inativos, construcao e problemas, nesta ordem (valores da API)', () => {
-      expect(SITUACOES_FILTRO_DADO_EXTERNO).toEqual(['todas', 'ativos', 'inativos', 'construcao', 'problemas'])
+    it('as situações do filtro são todas, ativos, inativos, construcao, problemas e integracao_pendente, nesta ordem (valores da API; integracao_pendente desde 09/11/2026)', () => {
+      expect(SITUACOES_FILTRO_DADO_EXTERNO).toEqual(['todas', 'ativos', 'inativos', 'construcao', 'problemas', 'integracao_pendente'])
     })
 
-    it('os rótulos em pt-BR são Todas, Ativos, Inativos, Em construção e Com problemas', () => {
+    it('os rótulos em pt-BR são Todas, Ativos, Inativos, Em construção, Com problemas e Integração pendente (TI)', () => {
       expect(ROTULOS_SITUACAO_FILTRO_DADO_EXTERNO).toEqual({
         todas: 'Todas',
         ativos: 'Ativos',
         inativos: 'Inativos',
         construcao: 'Em construção',
         problemas: 'Com problemas',
+        integracao_pendente: 'Integração pendente (TI)',
       })
+    })
+
+    it('situacao integracao_pendente vai na query como ?situacao=integracao_pendente', async () => {
+      const chamadas = simularApi(fetchFalso, { [`GET ${ROTA}`]: () => respostaJson(respostaDadosExternosApi([])) })
+
+      await listarDadosExternos({ situacao: 'integracao_pendente' })
+
+      expect(chamadas[0].url.searchParams.get('situacao')).toBe('integracao_pendente')
     })
   })
 
@@ -164,6 +183,15 @@ describe('F5.1 — Serviço de dados externos', () => {
         cadastradoPor: 'Maria Souza',
         situacaoAlteradaEm: null,
         situacaoAlteradaPor: null,
+        url: null,
+        parametrosSaida: null,
+        parametrosEntrada: null,
+        variaveisUsadas: [],
+        integracaoPendente: false,
+        integracaoAlteradaEm: null,
+        integracaoAlteradaPor: null,
+        // Alteração de 10/11/2026: "fornece meta": true na listagem.
+        forneceMeta: true,
       })
       expect(dados[1].situacao).toBe('em_construcao')
       expect(dados[1].identificador).toBeNull()
@@ -230,6 +258,15 @@ describe('F5.1 — Serviço de dados externos', () => {
         cadastradoPor: 'master',
         situacaoAlteradaEm: null,
         situacaoAlteradaPor: null,
+        url: null,
+        parametrosSaida: null,
+        parametrosEntrada: null,
+        variaveisUsadas: [],
+        integracaoPendente: false,
+        integracaoAlteradaEm: null,
+        integracaoAlteradaPor: null,
+        // "fornece meta" ausente → false.
+        forneceMeta: false,
       })
     })
 
@@ -276,6 +313,63 @@ describe('F5.1 — Serviço de dados externos', () => {
 
       expect(dados).toHaveLength(2)
       expect(dados[1].tarefaBitrix).toEqual({ id: esperado, status: 'enviada', titulo: 'T' })
+    })
+
+    /**
+     * Alteração de 10/11/2026 (seção 2.5 de `RESPOSTA-FINAL-meta-via-api.md`): `"fornece meta"`
+     * (todos os perfis) → `forneceMeta`; ausente ou null → false; valor não booleano rejeita a lista.
+     */
+    describe('"fornece meta" → forneceMeta', () => {
+      it('converte true/false e trata ausente como false (Faturamento e Volume true, Cobertura false, Devoluções sem o campo)', async () => {
+        simularApi(fetchFalso, {
+          [`GET ${ROTA}`]: () => respostaJson(respostaDadosExternosApi(dadosExternosApi())),
+        })
+
+        const dados = await listarDadosExternos()
+
+        expect(dados.map((d) => [d.nome, d.forneceMeta])).toEqual([
+          ['Faturamento líquido', true],
+          ['Cobertura de clientes', false],
+          ['Devoluções de venda', false],
+          ['Prazo médio de recebimento', false],
+          ['Chamados atendidos no prazo', false],
+          ['Volume de vendas', true],
+        ])
+      })
+
+      it('"fornece meta": null vira false', async () => {
+        simularApi(fetchFalso, {
+          [`GET ${ROTA}`]: () => respostaJson(respostaDadosExternosApi([{ ...DADO_FATURAMENTO_API, 'fornece meta': null as unknown as boolean }])),
+        })
+
+        const [dado] = await listarDadosExternos()
+
+        expect(dado.forneceMeta).toBe(false)
+      })
+
+      it('a lista pura (sem "dados externos") também converte o campo', async () => {
+        simularApi(fetchFalso, { [`GET ${ROTA}`]: () => respostaJson([DADO_VOLUME_API]) })
+
+        const [dado] = await listarDadosExternos()
+
+        expect(dado.forneceMeta).toBe(true)
+      })
+
+      it.each<[string, unknown]>([
+        ['texto "sim"', 'sim'],
+        ['texto "true"', 'true'],
+        ['número 1', 1],
+        ['objeto', { valor: true }],
+      ])('"fornece meta" como %s rejeita a lista com ApiError(200, "Resposta inválida do servidor.")', async (_nome, valor) => {
+        simularApi(fetchFalso, {
+          [`GET ${ROTA}`]: () => respostaJson(respostaDadosExternosApi([DADO_CHAMADOS_API, { ...DADO_FATURAMENTO_API, 'fornece meta': valor } as never])),
+        })
+
+        const erro = await listarDadosExternos().catch((e: unknown) => e)
+
+        expect(erro).toBeInstanceOf(ApiError)
+        expect(erro).toMatchObject({ status: 200, mensagem: MENSAGEM_RESPOSTA_INVALIDA })
+      })
     })
 
     it('lista vazia resolve []', async () => {
@@ -755,18 +849,23 @@ describe('F5.1 — Serviço de dados externos', () => {
     })
   })
 
-  describe('concluirConstrucao(id, identificador)', () => {
-    it('PUT .../{id}/concluir com { identificador } em maiúsculas e sem espaços nas pontas', async () => {
+  describe('concluirConstrucao(id, integracao)', () => {
+    it('PUT .../{id}/concluir com os quatro campos da integração (identificador em maiúsculas e sem espaços nas pontas)', async () => {
       const concluido = { ...DADO_DEVOLUCOES_API, situacao: 'ativo' as const, identificador: 'DEVOLUCOES' }
       const chamadas = simularApi(fetchFalso, {
         [`PUT ${ROTA}/3/concluir`]: () => respostaJson(respostaConclusaoApi(concluido, null)),
       })
 
-      await concluirConstrucao(3, '  devolucoes ')
+      await concluirConstrucao(3, integracao('  devolucoes '))
 
       expect(chamadas[0].metodo).toBe('PUT')
       expect(chamadas[0].caminho).toBe(`${ROTA}/3/concluir`)
-      expect(corpoDaChamada(chamadas[0])).toEqual({ identificador: 'DEVOLUCOES' })
+      expect(corpoDaChamada(chamadas[0])).toEqual({
+        identificador: 'DEVOLUCOES',
+        url: 'https://ti.exemplo.com.br/api/consulta',
+        'parametros de saida': '{ "valor": "0" }',
+        'parametros de entrada': '{ "filial": "%filial%" }',
+      })
     })
 
     it('devolve o dado ativado e o indicador criado automaticamente', async () => {
@@ -775,7 +874,7 @@ describe('F5.1 — Serviço de dados externos', () => {
         [`PUT ${ROTA}/3/concluir`]: () => respostaJson(respostaConclusaoApi(concluido, { id: 30, nome: 'Devoluções de venda' })),
       })
 
-      const resultado = await concluirConstrucao(3, 'DEVOLUCOES')
+      const resultado = await concluirConstrucao(3, integracao('DEVOLUCOES'))
 
       expect(resultado?.dadoExterno.situacao).toBe('ativo')
       expect(resultado?.dadoExterno.identificador).toBe('DEVOLUCOES')
@@ -786,7 +885,7 @@ describe('F5.1 — Serviço de dados externos', () => {
       const concluido = { ...DADO_DEVOLUCOES_API, situacao: 'ativo' as const, identificador: 'DEVOLUCOES' }
       simularApi(fetchFalso, { [`PUT ${ROTA}/3/concluir`]: () => respostaJson({ 'dado externo': concluido }) })
 
-      await expect(concluirConstrucao(3, 'DEVOLUCOES')).resolves.toMatchObject({ indicadorCriado: null })
+      await expect(concluirConstrucao(3, integracao('DEVOLUCOES'))).resolves.toMatchObject({ indicadorCriado: null })
     })
 
     it('aceita também o dado na raiz com "indicador criado" ao lado', async () => {
@@ -795,7 +894,7 @@ describe('F5.1 — Serviço de dados externos', () => {
         [`PUT ${ROTA}/3/concluir`]: () => respostaJson({ ...concluido, 'indicador criado': { id: 31, nome: 'Devoluções de venda' } }),
       })
 
-      const resultado = await concluirConstrucao(3, 'DEVOLUCOES')
+      const resultado = await concluirConstrucao(3, integracao('DEVOLUCOES'))
 
       expect(resultado?.dadoExterno.id).toBe(3)
       expect(resultado?.indicadorCriado).toEqual({ id: 31, nome: 'Devoluções de venda' })
@@ -804,7 +903,7 @@ describe('F5.1 — Serviço de dados externos', () => {
     it('400 da API (identificador inválido) chega como ApiError com a mensagem', async () => {
       simularApi(fetchFalso, { [`PUT ${ROTA}/3/concluir`]: () => respostaErro(400, 'Identificador inválido.') })
 
-      await expect(concluirConstrucao(3, 'X Y')).rejects.toMatchObject({ status: 400, mensagem: 'Identificador inválido.' })
+      await expect(concluirConstrucao(3, integracao('X Y'))).rejects.toMatchObject({ status: 400, mensagem: 'Identificador inválido.' })
     })
 
   })

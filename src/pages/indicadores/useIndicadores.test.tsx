@@ -40,7 +40,7 @@ describe('F6.2 — useIndicadores (hook da listagem de indicadores)', () => {
     expect(result.current.carregando).toBe(true)
     expect(result.current.carregouUmaVez).toBe(false)
     expect(result.current.indicadores).toEqual([])
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 0, comComponenteDesativado: 0 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 0, comComponenteDesativado: 0, metaPendentePorFilial: 0 })
     expect(result.current.erro).toBeNull()
     expect(result.current.filtros).toEqual({ busca: '', situacao: 'todas' })
   })
@@ -58,7 +58,7 @@ describe('F6.2 — useIndicadores (hook da listagem de indicadores)', () => {
       expect.objectContaining({ id: 1, nome: 'Cobertura de visitas', calculo: 'media', vinculadoADashboard: true }),
       expect.objectContaining({ id: 4, nome: 'Devoluções de venda', criadoAutomaticamente: true, metaADefinir: true }),
     ])
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 0 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 0, metaPendentePorFilial: 0 })
     expect(gets(chamadas)).toHaveLength(1)
     expect(gets(chamadas)[0].url.search).toBe('')
   })
@@ -70,7 +70,7 @@ describe('F6.2 — useIndicadores (hook da listagem de indicadores)', () => {
 
     await waitFor(() => expect(result.current.carregando).toBe(false))
     expect(result.current.indicadores.map((i) => i.nome)).toEqual([...NOMES_INDICADORES])
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3, metaPendentePorFilial: 0 })
   })
 
   it('erro da API: expõe a mensagem em erro, encerra o carregamento e mantém lista vazia e alertas zerados', async () => {
@@ -82,7 +82,7 @@ describe('F6.2 — useIndicadores (hook da listagem de indicadores)', () => {
     expect(result.current.erro).toBe('Falha ao consultar os indicadores.')
     expect(result.current.carregouUmaVez).toBe(true)
     expect(result.current.indicadores).toEqual([])
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 0, comComponenteDesativado: 0 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 0, comComponenteDesativado: 0, metaPendentePorFilial: 0 })
   })
 
   it('falha de rede: erro "Não foi possível conectar ao servidor."', async () => {
@@ -109,6 +109,6 @@ describe('F6.2 — useIndicadores (hook da listagem de indicadores)', () => {
     expect(gets(chamadas)).toHaveLength(2)
     expect(result.current.erro).toBeNull()
     expect(result.current.indicadores.map((i) => i.nome)).toEqual(['Devoluções de venda'])
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 0 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 0, metaPendentePorFilial: 0 })
   })
 })

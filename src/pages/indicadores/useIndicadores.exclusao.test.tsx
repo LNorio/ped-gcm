@@ -60,7 +60,7 @@ describe('F6.7 — useIndicadores.excluir (exclusão de indicador — RF-37, RN-
       await result.current.excluir(2)
     })
 
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 2 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 2, metaPendentePorFilial: 0 })
   })
 
   it('excluir o automático aguardando meta decrementa "aguardando meta"', async () => {
@@ -70,7 +70,7 @@ describe('F6.7 — useIndicadores.excluir (exclusão de indicador — RF-37, RN-
       await result.current.excluir(4)
     })
 
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 0, comComponenteDesativado: 3 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 0, comComponenteDesativado: 3, metaPendentePorFilial: 0 })
   })
 
   it('excluir um inativo não altera os alertas', async () => {
@@ -80,7 +80,7 @@ describe('F6.7 — useIndicadores.excluir (exclusão de indicador — RF-37, RN-
       await result.current.excluir(5)
     })
 
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3, metaPendentePorFilial: 0 })
   })
 
   it('400 { mensagem, dashboards } (indicador em dashboard — RN-11) rejeita com a ApiError original, com a lista em dados.dashboards', async () => {
@@ -112,7 +112,7 @@ describe('F6.7 — useIndicadores.excluir (exclusão de indicador — RF-37, RN-
     expect(erro).toBeInstanceOf(ApiError)
     expect(erro).toMatchObject({ status: 400, mensagem: 'O indicador já foi vinculado a dashboard e não pode ser excluído.' })
     expect(result.current.indicadores).toHaveLength(7)
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 1, comComponenteDesativado: 3, metaPendentePorFilial: 0 })
     expect(result.current.erro).toBeNull()
   })
 })

@@ -4,8 +4,454 @@
 
 | Data | Tags | Resumo |
 | --- | --- | --- |
+| [09/11/2026](#2026-11-09) | #apontamentos #dados-externos #integracao #cadastro #api #validacao #componente #correcao #testes #documentacao | Build validada, indicadores do apontamento como lista de nomes (F4.9\*) e mudança de requisito "integração de dados externos" (F5.7 e F5.14–F5.18), da tela sem API ao contrato do back-end com validação híbrida |
+| [06/11/2026](#2026-11-06) | #tipos #indicadores #dashboards #dados-externos #cadastro #api #validacao #componente #correcao #testes #configuracao #documentacao | Build validada, id da tarefa Bitrix em texto, adequação aos documentos novos do back-end (grupos nos tipos, exclusão de indicador só pelo Admin, tarefas Bitrix, identificador com - e .) e 67/67 requisitos implementados |
 | [05/11/2026](#2026-11-05) | #indicadores #dashboards #faixas #apontamentos #dados-externos #cadastro #api #validacao #componente #layout #correcao #testes #documentacao | Abas Indicadores (F6), Dashboards (F7) e Faixas (F8) em TDD, modais alinhadas ao protótipo, RF-54 alterado e correções contra a API real |
 | [04/11/2026](#2026-11-04) | #apontamentos #dados-externos #tipos #cadastro #api #validacao #componente #layout #refatoracao #correcao #testes #configuracao #documentacao | Aba Apontamentos (F4) revisada e commitada, aba Dados Externos (F5) implementada, hooks genéricos, MenuAcoes, correção do POST e testes mais rápidos |
+
+---
+
+<a id="2026-11-09"></a>
+## 09/11/2026
+
+**Tags:** #apontamentos #dados-externos #integracao #cadastro #api #validacao #componente #correcao #testes #documentacao
+
+### Visão geral
+O dia começou pela build, que tinha falhado em 06/11 ("dashboard não está carregando novamente" / build). Em seguida o usuário relatou que "na aba de apontamentos não está mostrando os indicadores vinculados". Isso virou a correção F4.9\*, e a build foi refeita ("faça a nova build").
+
+A maior parte do dia foi a mudança de requisito "integração de dados externos" ("leia o arquivo de mudança e faça a implementação"). O ponto de partida foi o documento `docs/PED — Mudança de requisito integração de dados externos.md`. Ao concluir a construção de um dado externo, a TI passa a registrar numa modal a integração completa: identificador, URL, parâmetros de saída e de entrada. Os JSONs são validados, aceitam variáveis e expressões, e há um botão Configurações e um alerta de integração pendente. Tudo isso é só para o Admin.
+
+Como não havia contrato no back-end, o usuário decidiu de manhã fazer "só a tela, sem API". À tarde o back-end publicou o contrato (`docs/backend/FRONT-integracao-dado-externo.md` e `docs/backend/API (25).md`), e o usuário pediu "leia os novos arquivos de backend e faça as mudanças". Houve mudança de rumo: concluir, Configurações, variáveis, pendentes e validação passaram a usar as rotas reais.
+
+A validação em tempo real ficou híbrida ("front primeiro, back depois"), por decisão do usuário. A API (25) também foi comparada com a (24) ("leia também o arquivo de API(25)"). Tudo seguiu o TDD. Ao fim do dia:
+- 72 requisitos implementados;
+- `test:all` 3489/3489;
+- `test:implementados`: unitários 3069/3069 e integração 420/420;
+- typecheck ok e lint só com o aviso antigo (`AlertasMenu.tsx:48`);
+- plano em 72% (83/116).
+
+Nada foi commitado.
+
+### Implementações
+
+#### Build validada do sistema
+- **Tags:** #testes
+- **Arquivos:** `dist/` (gerado; fora do controle de versão)
+- **Descrição:** build feita pelo `build-validado`, só com 100% dos testes dos requisitos implementados.
+  - A build final, das 09:21, já inclui a F4.9\*: 67/67 requisitos, unitários 2646/2646, integração 377/377 e carga com 100% de respostas 2xx (28.185 requisições, média de 17 ms, p99 de 42 ms). O bundle gerado é o `index-BVDCRcit.js`, com 493 kB.
+  - Antes dela, segundo o registro do plano, houve uma build do mesmo dia sem a F4.9\*: unitários 2627/2627, integração 375/375 e `index-k_JAyCbp.js` com 492,87 kB.
+- **Motivação:** pedidos do usuário ("faça a build" no início do dia e "faça a nova build" depois da F4.9\*).
+- **Como usar / observações técnicas:**
+  - As builds de 06/11 e a primeira tentativa de 09/11 falharam por timeouts dos testes, com a máquina sobrecarregada (jogo, Spotify, Riot e Steam abertos). Com os programas fechados a pedido do usuário, passou. Não houve mudança de código por causa disso.
+  - Rode a build com a máquina aliviada.
+
+#### Motor local de validação da integração (F5.14)
+- **Tags:** #dados-externos #integracao #validacao
+- **Arquivos:** `src/utils/integracao/json.ts`, `url.ts`, `saida.ts`, `expressoes.ts`, `entrada.ts`, `erros.ts`, `exemplos.ts`, `modelos.ts` e os testes `*.test.ts` de cada um
+- **Descrição:** funções puras que validam a integração na tela.
+  - `json.ts`: parser JSON próprio, com a mesma gramática do `JSON.parse`. No erro, devolve linha e coluna (a partir de 1) e a explicação em pt-BR, no formato `Linha L, coluna C: <explicação>`. `\r\n` conta como uma quebra. Texto sem aspas de fechamento aponta para a aspa de abertura; fim inesperado aponta para logo depois do último caractere.
+  - `url.ts` (`urlValida`): sem os espaços das pontas, a URL começa com `http://` ou `https://`, tem algo depois do esquema e não tem espaços no meio.
+  - `saida.ts` (`validarSaida`):
+    - objeto → campos e tipos;
+    - lista → campos do primeiro item, que deve ser objeto;
+    - os tipos saem em português (texto, número, booleano, nulo, lista, objeto);
+    - o resultado é `vazio`, `valido` (com resumo, ex.: `3 campos: valor (texto), ...`) ou `invalido`.
+  - `expressoes.ts`:
+    - variáveis entre `%`;
+    - operadores `+ - * / ^`, parênteses e sinal negativo, com precedência: parênteses, potência (à direita), sinal negativo, multiplicação/divisão e soma/subtração;
+    - números com vírgula ou ponto; resultado com vírgula, sem zeros desnecessários;
+    - datas (variáveis do tipo `data` ou `dd/mm/aaaa`): data ± número soma ou subtrai dias, sufixo `m` são meses e `a` são anos, e data − data dá a quantidade de dias;
+    - dia inexistente no mês de destino vira o último dia desse mês;
+    - variável sem valor de exemplo vale 1 se for número, o próprio nome se for texto e `hoje` se for data.
+  - `entrada.ts` (`validarEntrada`): percorre objetos e listas aninhados na ordem do JSON e resolve cada texto. O caminho usa `.` e `[i]`. Devolve as variáveis usadas, os cálculos e a prévia do JSON resolvido. Os erros saem no formato `Campo "<caminho>": <motivo> em "<expressão>"`.
+  - `erros.ts` (`formatarErroIntegracao`): formata os erros do back-end. Com linha e coluna, usa o formato do parser; com caminho e expressão, o formato de campo; senão, só a mensagem.
+  - `exemplos.ts` (`valoresDeExemplo`):
+    - período no mês de `hoje`;
+    - `mesesRetro` da janela retroativa e `diaColeta` do dia da coleta (ambos `null` → 1);
+    - filial, colaborador e zona fictícios;
+    - o `exemplo` da API de variáveis prevalece.
+  - `modelos.ts`: `MODELO_JSON_SAIDA` e `MODELO_JSON_ENTRADA`, usados por "Inserir modelo" (válidos pelo próprio motor).
+- **Motivação:** documento de mudança de requisito de 09/11, que pede a validação dos JSONs antes de ativar o dado.
+  - O parser próprio existe porque o `JSON.parse` dá mensagens em inglês e sem posição.
+  - De manhã era a única validação ("só a tela, sem API"). À tarde passou a ser a primeira camada da validação híbrida (F5.18).
+- **Como usar / observações técnicas:**
+  - Requisito `F5.14` (atividade não planejada F5.14\*).
+  - Recusa entrada em lista `[ ]`, que o contrato aceita (pendência).
+  - A correção da revisão de que `aaaa-mm-dd` sozinho não vira conta não tem teste.
+
+#### Variáveis da integração pela API (F5.15)
+- **Tags:** #dados-externos #integracao #api #componente
+- **Arquivos:** `src/services/dadosExternosService.ts` (`listarVariaveisIntegracao`), `src/services/dadosExternosService.variaveis.test.ts`, `src/pages/dados-externos/useVariaveisIntegracao.ts`, `src/pages/dados-externos/PainelVariaveis.tsx`, `src/types/dominio.ts` (`VariavelIntegracao`, `TIPOS_VARIAVEL_INTEGRACAO`)
+- **Descrição:**
+  - `listarVariaveisIntegracao` chama `GET /api/ped/integracao/variaveis` (só Admin) e aceita lista pura ou `{ variaveis: [...] }`.
+  - Cada item vem como `{ variavel: "%filial%", nome, tipo, descricao, exemplo }`:
+    - o nome vem de `nome` (ou `variavel`), sem os `%`;
+    - o tipo é `numero`, `texto` ou `data`;
+    - descrição ausente vira `''`;
+    - exemplo numérico vira texto; ausente vira `null`.
+  - Item fora do formato rejeita a resposta com "Resposta inválida do servidor.".
+  - `useVariaveisIntegracao` carrega as variáveis a cada abertura da modal e ignora respostas atrasadas.
+  - `PainelVariaveis` mostra os botões das variáveis e dos operadores (`+ - * / ^ ( )`). Eles inserem o texto no cursor do JSON de entrada, e as variáveis usadas ficam destacadas (`aria-pressed`).
+- **Motivação:** decisão do usuário de manhã, de variáveis "só da API", sem a lista de reserva do documento. A rota inicial foi proposta pelo front (`GET /api/ped/dados-externos-cadastro/variaveis`). À tarde foi trocada pela rota real do contrato, cujo `exemplo` passou a ser usado na prévia.
+- **Como usar / observações técnicas:** requisito `F5.15`. `useVariaveisIntegracao` não tem teste próprio; é coberto pelos testes de integração.
+
+#### Configurações da integração (F5.16)
+- **Tags:** #dados-externos #integracao #cadastro #api
+- **Arquivos:** `src/sessao/permissoes.ts`, `src/sessao/permissoes.integracao.test.ts`, `src/services/dadosExternosService.ts` (`atualizarIntegracao`), `src/services/dadosExternosService.configuracoes.test.ts`, `src/pages/dados-externos/TabelaDadosExternos.tsx`, `TabelaDadosExternos.configuracoes.test.tsx`, `useDadosExternos.ts`, `useDadosExternos.configuracoes.test.tsx`, `DadosExternosPage.tsx`, `DadosExternosPage.configuracoes.integration.test.tsx`, `DialogoConcluirConstrucao.tsx`, `DialogoConcluirConstrucao.configuracoes.test.tsx`
+- **Descrição:**
+  - Nos dados ativos e inativos, o menu de ações ganhou, logo após "Ver detalhes", a ação "Configurações" ("Preencher integração" quando a integração está pendente).
+  - A ação abre a mesma modal em modo `configurar`: título "Configurações da integração" e botão "Salvar configurações". Os campos vêm preenchidos com os valores salvos (JSONs com `JSON.stringify(..., null, 2)`).
+  - Salvar envia `PUT /api/ped/dados-externos-cadastro/{id}/integracao`, com o mesmo corpo do concluir. Mostra "Integração atualizada.", recarrega a lista com os filtros atuais e consulta os pendentes de novo.
+  - A situação não muda e nenhum indicador é criado.
+  - A ação depende da nova permissão `configurar-integracao-dado-externo`, só do Admin.
+- **Motivação:** documento de mudança de requisito (botão Configurações para editar a integração). Ficou de fora de manhã por depender da API e foi feito com o contrato publicado à tarde.
+- **Como usar / observações técnicas:** requisito `F5.16`. Risco: os textos salvos não passam pelo back-end na abertura, então um dado salvo com entrada em lista abre com o botão bloqueado (pendência).
+
+#### Alerta de integração pendente (F5.17)
+- **Tags:** #dados-externos #integracao #api #componente
+- **Arquivos:** `src/services/dadosExternosService.ts` (`listarIntegracoesPendentes`), `src/services/dadosExternosService.pendentes.test.ts`, `src/pages/dados-externos/TabelaDadosExternos.tsx`, `TabelaDadosExternos.css`, `TabelaDadosExternos.pendentes.test.tsx`, `DadosExternosPage.tsx`, `DadosExternosPage.css`, `DadosExternosPage.pendentes.integration.test.tsx`
+- **Descrição:**
+  - Para o Admin, a página consulta `GET .../integracoes-pendentes` (`{ quantidade, dados: [{ id, nome, identificador, situacao }] }`) ao carregar e depois de concluir ou salvar.
+  - Com quantidade > 0:
+    - mostra o aviso "N dados externos com integração pendente (TI)." (singular com 1), com o botão "Ver pendentes", que aplica o filtro `integracao_pendente`;
+    - marca a aba Dados Externos no menu (`definirAlerta('dados-externos', ...)`). A marca não some ao sair da aba.
+  - A linha do dado pendente mostra a etiqueta "Integração pendente (TI)".
+  - Falha da consulta é silenciosa.
+- **Motivação:** documento de mudança de requisito (alerta de integração pendente). Feito com o contrato publicado à tarde.
+- **Como usar / observações técnicas:** requisito `F5.17`. O sinal usa o contexto `AlertasMenu` (05/11).
+
+#### Validação pelo back-end, híbrida (F5.18)
+- **Tags:** #dados-externos #integracao #validacao #api
+- **Arquivos:** `src/services/dadosExternosService.ts` (`validarIntegracao`), `src/services/dadosExternosService.validacao.test.ts`, `src/pages/dados-externos/useValidacaoServidor.ts`, `ValidacaoIntegracao.tsx`, `DialogoConcluirConstrucao.tsx`, `DialogoConcluirConstrucao.validacaoServidor.test.tsx`, `DadosExternosPage.validacaoServidor.integration.test.tsx`, `DialogoConcluirConstrucao.css`
+- **Descrição:**
+  - O motor local (F5.14) mostra o resultado na hora.
+  - 400 ms (`ATRASO_VALIDACAO_SERVIDOR_MS`) depois da última mudança, `useValidacaoServidor` chama `POST /api/ped/integracao/validar` só com os textos não vazios. Com os dois vazios, não chama; os valores salvos na abertura também não disparam chamada.
+  - O resultado do back-end vale por campo enquanto o texto for o enviado.
+  - Respostas fora de ordem ou após o fechamento são ignoradas. Falha mantém o resultado local, e a próxima mudança tenta de novo.
+  - A resposta é convertida:
+    - saída: campos e tipos, ou erro com linha/coluna;
+    - entrada: variáveis usadas, cálculos, prévia ou erros. O `campo` do back-end é lido como caminho no JSON, e `caminho`, quando vem, prevalece.
+  - `ValidacaoSaida` e `ValidacaoEntrada` exibem o resultado em vigor num `role="status"`.
+- **Motivação:** decisão do usuário pela validação híbrida "front primeiro, back depois". Foram descartadas a validação só pelo back-end (a recomendada, por evitar divergência) e só o motor do front.
+- **Como usar / observações técnicas:**
+  - Requisito `F5.18`.
+  - Correção da revisão: `overflow-wrap` nas faixas de validação.
+  - `useValidacaoServidor` não tem teste próprio; é coberto pelos testes de integração.
+  - A leitura de `campo` como caminho ainda precisa de confirmação do back-end.
+
+#### Documentos da mudança de requisito e do back-end
+- **Tags:** #documentacao #integracao
+- **Arquivos:** `docs/PED — Mudança de requisito integração de dados externos.md`, `docs/backend/FRONT-integracao-dado-externo.md`, `docs/backend/API (25).md`
+- **Descrição:** documentos novos incluídos no projeto (ainda não versionados).
+  - O primeiro é o documento de mudança de requisito, de 09/11, de Leonardo Norio.
+  - Os outros dois são o contrato da integração publicado pelo back-end à tarde.
+  - Na comparação com a API (24), a única novidade a implementar agora era a integração. O restante já tinha sido feito em 06/11 (tipos com grupos, exclusão de indicador só Admin, RN-12, Bitrix, filiais por abrangência) ou pertence a fases já anotadas no plano (reabertura F9.12, imagens F10.6/F10.7, referências F5.10).
+  - A aba Usuários continua fora do escopo (A-13).
+  - Nota nova em F11.2: o `aviso de acesso` vem `null` também para o Validador.
+- **Motivação:** pedidos do usuário ("leia o arquivo de mudança...", "leia os novos arquivos de backend...", "leia também o arquivo de API(25)").
+- **Como usar / observações técnicas:** o plano passou a citar esses documentos como fontes.
+
+### Modificações
+
+#### Indicadores do apontamento como lista de nomes (F4.9\*)
+- **Tags:** #apontamentos #api #correcao
+- **Arquivos:** `src/types/dominio.ts`, `src/services/adaptadores.ts`, `src/services/apontamentosService.ts`, `src/test/apontamentosFalsos.ts`, `src/services/adaptadores.test.ts`, `src/services/apontamentosService.test.ts`, `src/pages/apontamentos/ApontamentosPage.test.tsx`, `TabelaApontamentos.test.tsx`, `ApontamentosPage.integration.test.tsx`, `ApontamentosPage.exclusao.integration.test.tsx`
+- **Antes:** o front esperava `indicadores` como `[{ id, nome }]` (`ReferenciaNomeada[]`). Com a API real (`"indicadores": ["teste 2", "teste indicador", "testes"]`), a coluna Indicadores ficava vazia sem erro, e o aviso de bloqueio da exclusão listava nomes vazios.
+- **Depois:**
+  - Novo tipo `IndicadorDoApontamento { id: number | null; nome }`.
+  - `paraIndicadorDoApontamento` converte texto em `{ id: null, nome }` e mantém o `id` numérico dos objetos.
+  - `ehApontamentoApi` aceita `indicadores` ausente, `null` ou lista de textos e/ou objetos com `nome`. Outro formato rejeita a listagem com "Resposta inválida do servidor.", e no POST/PUT devolve `null`.
+  - A fixture aceita objetos, nomes ou lista mista.
+- **Motivação:** bug relatado pelo usuário contra a API real ("na aba de apontamentos não está mostrando os indicadores vinculados").
+- **Impacto:** aba Apontamentos (coluna Indicadores e aviso de bloqueio da exclusão). Requisitos F4.1, F4.2 e F4.6 passaram por `em-alteracao` e voltaram a `implementado`. Atividade não planejada F4.9\*.
+
+#### Modal de concluir construção com a integração completa (F5.7)
+- **Tags:** #dados-externos #integracao #cadastro #validacao #componente
+- **Arquivos:** `src/pages/dados-externos/DialogoConcluirConstrucao.tsx`, `DialogoConcluirConstrucao.css`, `DialogoConcluirConstrucao.test.tsx`, `PainelVariaveis.tsx`, `ValidacaoIntegracao.tsx`, `DadosExternosPage.tsx`, `DadosExternosPage.concluir.integration.test.tsx`, `useDadosExternos.ts`, `useDadosExternos.concluir.test.tsx`
+- **Antes:** o Admin informava só o identificador e clicava em ativar.
+- **Depois:** a modal, mais larga (1040 px, JSONs lado a lado), pede quatro campos obrigatórios, nesta ordem:
+  - identificador, com sugestões e `limparIdentificador`;
+  - URL;
+  - parâmetros de saída;
+  - parâmetros de entrada.
+
+  Cada JSON tem "Inserir modelo de saída/entrada", validação em tempo real e o painel de variáveis e operadores. "Concluir e ativar" só fica habilitado com tudo válido, e o texto ao lado diz o que falta (`falta: identificador, URL válida, JSON de saída válido, JSON de entrada válido`). A mesma modal serve ao modo Configurações (F5.16). Os erros da API ficam na modal, sem apagar o que foi preenchido: a mensagem geral no alerta e os erros 400 junto a cada campo. Clique duplo grava uma vez só.
+- **Motivação:** documento de mudança de requisito de 09/11.
+  - O identificador manteve a regra do back-end (A–Z, 0–9, `_`, `-`, `.`, maiúsculas), em vez de "só obrigatório" como no documento, por decisão do usuário.
+- **Impacto:** fluxo de conclusão da construção (Admin). Requisito F5.7 passou por `em-alteracao` e voltou a `implementado`.
+
+#### Contrato da integração: concluir com quatro campos e erros por campo (F1.3, F5.1)
+- **Tags:** #dados-externos #integracao #api
+- **Arquivos:** `src/services/dadosExternosService.ts`, `src/services/adaptadores.ts`, `src/types/dominio.ts`, `src/test/dadosExternosFalsos.ts`, `src/services/dadosExternosService.concluir.test.ts`, `src/services/dadosExternosService.test.ts`, `src/services/adaptadores.test.ts`
+- **Antes:**
+  - De manhã ("só a tela, sem API"), `concluirConstrucao(id, identificador)` enviava `{ identificador }`, e a URL e os JSONs ficavam só na tela.
+  - Os tipos não tinham campos de integração.
+- **Depois:**
+  - `concluirConstrucao(id, integracao)` envia `{ identificador, url, "parametros de saida", "parametros de entrada" }`: identificador em maiúsculas, URL aparada e JSONs como digitados.
+  - `errosDaIntegracao` lê os erros por campo do 400 (`{ mensagem, erros: [{ campo, mensagem, linha?, coluna?, caminho?, expressao? }] }`).
+  - `DadoExternoApi` e `DadoExterno` ganharam `url`, `parametrosSaida`, `parametrosEntrada`, `variaveisUsadas`, `integracaoPendente`, `integracaoAlteradaEm` e `integracaoAlteradaPor`, que só o Admin recebe.
+  - Novos tipos `IntegracaoDadoExterno`, `ErroIntegracao`, `IntegracoesPendentes` e os resultados da validação do servidor.
+- **Motivação:** mudança de rumo à tarde. O back-end publicou o contrato com quebra: concluir só com o identificador passa a dar 400.
+- **Impacto:** conclusão da construção e leitura da listagem de dados externos. Requisitos F1.3 e F5.1 passaram por `em-alteracao` e voltaram a `implementado`.
+
+#### Listagem e filtro de dados externos com a integração (F5.2, F5.3)
+- **Tags:** #dados-externos #integracao #componente
+- **Arquivos:** `src/pages/dados-externos/TabelaDadosExternos.tsx`, `TabelaDadosExternos.css`, `DadosExternosPage.tsx`, `src/services/dadosExternosService.ts`, `useDadosExternos.ts`, `DadosExternosPage.filtros.integration.test.tsx`, `DadosExternosPage.test.tsx`
+- **Antes:** a coluna Identificador mostrava só o identificador (ou "a definir pela TI"), e o filtro de situação tinha todas, ativos, inativos, em construção e com problemas.
+- **Depois:**
+  - A URL aparece abaixo do identificador, e a etiqueta "Integração pendente (TI)" fica na coluna Situação.
+  - O filtro ganhou a situação `integracao_pendente` ("Integração pendente (TI)"), oferecida só a quem tem `configurar-integracao-dado-externo` (Admin).
+  - Na lista, quem deixa de estar pendente sai pelo critério `integracao_pendente`.
+- **Motivação:** contrato do back-end publicado à tarde (URL na lista e filtro de pendentes), que de manhã tinham ficado de fora por dependerem da API.
+- **Impacto:** aba Dados Externos para o Admin; os demais perfis não veem a opção nova. Requisitos F5.2 e F5.3 passaram por `em-alteracao` e voltaram a `implementado`.
+
+#### Correções da revisão de qualidade
+- **Tags:** #correcao #validacao
+- **Arquivos:** `src/utils/integracao/expressoes.ts`, `src/pages/dados-externos/DialogoConcluirConstrucao.css`
+- **Antes:** um texto `aaaa-mm-dd` sozinho era tratado como conta (subtrações), e as mensagens longas das faixas de validação podiam estourar a largura.
+- **Depois:** `aaaa-mm-dd` sozinho não vira conta, e as faixas de validação usam `overflow-wrap`.
+- **Motivação:** apontamentos da revisão do `qualidade-testes`.
+- **Impacto:** prévia do JSON de entrada e leitura das mensagens na modal. O caso `aaaa-mm-dd` ainda não tem teste.
+
+#### Status dos requisitos e validação do dia
+- **Tags:** #testes
+- **Arquivos:** `requisitos.json`
+- **Antes:** 67 requisitos implementados; plano em 70% (77/110).
+- **Depois:**
+  - Novos requisitos F5.14 a F5.18, escritos em TDD e implementados.
+  - F1.3, F4.1, F4.2, F4.6, F5.1, F5.2, F5.3 e F5.7 passaram por `em-alteracao` e voltaram a `implementado`.
+  - 72 requisitos implementados.
+  - `test:all` 3489/3489; `test:implementados` com unitários 3069/3069 e integração 420/420.
+  - Typecheck ok e lint só com o aviso antigo de `AlertasMenu.tsx:48`.
+  - Plano em 72% (83/116).
+- **Motivação:** fluxo TDD do projeto (o requisito só passa a `implementado` com 100% dos testes).
+- **Impacto:** commit e build passam a exigir os novos requisitos. Nada foi commitado hoje.
+
+### Pendências
+- Média: o motor local recusa entrada em lista `[ ]`, que o contrato aceita. Em Configurações, os textos da abertura não passam pelo back-end, então um dado salvo com lista abre com o botão bloqueado. Depende de decisão do usuário.
+- Média: clicar numa variável sem ter focado o campo insere no início e quebra o JSON. Sugestão: inserir no fim.
+- Baixas:
+  - tipos `numero` (back-end) × `número` (motor local);
+  - limites de 60/500 caracteres do contrato não checados no front;
+  - erros 400 por campo só somem no novo envio;
+  - `aria-pressed` no destaque das variáveis e região de status oculta quando vazia.
+- Lacunas de teste: o caso `aaaa-mm-dd`, e `useVariaveisIntegracao` e `useValidacaoServidor` sem teste próprio.
+- Confirmar com o back-end que `campo` nos erros de `POST /api/ped/integracao/validar` é o caminho no JSON.
+- Pendências anteriores:
+  - edição de tipo sem grupo nem usuário;
+  - RF-13 e RF-37 no documento de requisitos;
+  - imagens por filial × por colaborador;
+  - id do usuário no Bitrix para o link;
+  - F2.7;
+  - vínculo colaborador × zona;
+  - `tarefaBitrix.ts` sem teste próprio.
+- Próximas atividades do plano: F5.10, F9.1, F10.1, F11.1 e F1.18.
+- Commit e push: nada foi commitado hoje (inclui o fechamento de 06/11). Aguardando pedido do usuário.
+
+---
+
+<a id="2026-11-06"></a>
+## 06/11/2026
+
+**Tags:** #tipos #indicadores #dashboards #dados-externos #cadastro #api #validacao #componente #correcao #testes #configuracao #documentacao
+
+### Visão geral
+O dia começou com a build do sistema ("faça a build do sistema"). Em seguida veio uma correção contra a API real: a listagem de dashboards voltou a falhar ("dashboard não está carregando novamente").
+
+Depois, o usuário pediu a análise de dois documentos novos do back-end ("leia os dois arquivos de documentos novos ... e verifique as mudanças que ocorreram no backend"). Com base nela, decidiu "fazer as adequações necessárias com as atualizações do backend". A adequação seguiu o TDD completo:
+- grupos e usuários nos tipos, com cadastro e edição (A-02);
+- exclusão de indicador liberada só para o Admin (A-09);
+- nova exibição das tarefas do Bitrix;
+- identificador de dado externo com `-` e `.`.
+
+Durante os testes contra a API real, apareceu mais uma divergência de formato, agora na aba Tipos ("a aba tipos está dando erro ao carregar as informações"), e ela foi corrigida. Por fim, o commit `f06e197` foi feito ("após o ajuste do erro, realizar o commit") e o dia foi encerrado.
+
+Toda alteração de comportamento seguiu o mesmo fluxo:
+1. o `gerador-testes` adequou os testes;
+2. os requisitos passaram por `em-alteracao`;
+3. os requisitos voltaram a `implementado` com o gate a 100%.
+
+Situação no fim do dia:
+- requisitos: 67 de 67 `implementado`;
+- plano: 70% (77 de 110 atividades), com as fases F3 e F6 concluídas;
+- commits: `f2f88d6`, `7df4dd4` e `f06e197` ainda não enviados ao GitHub.
+
+### Implementações
+
+#### Build validada do sistema
+- **Tags:** #configuracao #testes
+- **Arquivos:** `dist/` (gerado; fora do controle de versão)
+- **Descrição:** o `build-validado` rodou todas as baterias e só então gerou a build:
+  - unitários: 2380/2380;
+  - integração: 327/327;
+  - carga: 100% de respostas 2xx em 6687 requisições, com média de 75 ms e p99 de 142 ms.
+
+  O bundle principal saiu como `index-DtTYGzW6.js`, com 481 kB.
+- **Motivação:** pedido do usuário ("faça a build do sistema").
+- **Como usar / observações técnicas:** há um problema de ambiente. Se o caminho do projeto for aberto como `c:\` (minúsculo), o Vitest 5.0.5 carrega duas instâncias e falha 100% dos testes com "failed to find the current suite". A partir de `C:\` (maiúsculo), tudo funciona. Recomendação: abrir o editor ou o terminal em `C:\`.
+
+#### Análise dos documentos novos do back-end
+- **Tags:** #documentacao #api
+- **Arquivos:** `docs/backend/FRONT-PED-mudancas (1).md`, `docs/backend/FRONT-tarefas-bitrix (1).md` (adicionados ao repositório no commit `f06e197`)
+- **Descrição:** os dois documentos foram comparados com o front atual, e o resultado ficou em três grupos:
+  - o que afeta o que já foi implementado: formatos de tipos, tarefas e identificador, e a permissão de exclusão de indicador;
+  - o que desbloqueia: as pendências A-01..A-07 e A-09;
+  - o que fica fora do escopo: a aba Usuários (A-13) e os papéis no Premiações.
+- **Motivação:** pedido do usuário ("leia os dois arquivos de documentos novos ... e verifique as mudanças que ocorreram no backend").
+- **Como usar / observações técnicas:** a análise embasou as decisões do usuário registradas em "Modificações". Ficou esclarecido que a tarefa do Bitrix é disparada pelo próprio back-end. O front só pede para salvar e não faz requisição de criação de tarefa (já funcionava assim). A prévia `POST /dashboards/previa-tarefa`, que não grava, foi mantida.
+
+#### Cadastro de tipo de apontamento (F3.4)
+- **Tags:** #tipos #cadastro #validacao #componente #api
+- **Arquivos:** `src/pages/tipos/FormularioTipo.tsx`, `FormularioTipo.css`, `SecaoVinculosTipo.tsx`, `TiposPage.tsx`, `TiposPage.css`, `useTipos.ts`, `src/services/tiposService.ts`, `src/sessao/permissoes.ts`, `src/types/dominio.ts`; testes `FormularioTipo.test.tsx`, `TiposPage.cadastro.test.tsx`, `TiposPage.cadastro.integration.test.tsx`, `useTipos.cadastro.test.tsx`, `src/services/tiposService.grupos.test.ts`, `src/sessao/permissoes.tipos.cadastro.test.ts`; fixture `src/test/tiposFalsos.ts`
+- **Descrição:**
+  - o botão "Novo tipo" abre o `FormularioTipo`;
+  - o nome é obrigatório e único, sem diferenciar maiúsculas de minúsculas;
+  - é preciso vincular ao menos um grupo do ERP ou um usuário;
+  - a `SecaoVinculosTipo` faz a busca e seleção de grupos (`GET /api/ped/grupos[?busca=]`, que traz os tipos aos quais cada grupo já está vinculado) e de usuários (`/vinculos?tipo=colaboradores`);
+  - a gravação usa `POST /api/ped/tipos-apontamento` com `{ nome, grupos, usuarios }`.
+- **Motivação:** pendência A-02, desbloqueada pelos documentos novos do back-end, e decisão do usuário de fazer as adequações. A regra "ao menos um grupo ou usuário" segue a API; o RF-13 fala só em grupo e precisa ser atualizado.
+- **Como usar / observações técnicas:** a nova ação `cadastrar-tipo` vale para Admin e Validador. Pela regra "2xx = gravado", `criarTipo` resolve `TipoApontamento | null`.
+
+#### Edição dos vínculos de tipo (F3.5)
+- **Tags:** #tipos #cadastro #componente #api
+- **Arquivos:** `src/pages/tipos/FormularioVinculosTipo.tsx`, `SecaoVinculosTipo.tsx`, `TiposPage.tsx`, `useTipos.ts`, `src/services/tiposService.ts`, `src/sessao/permissoes.ts`; testes `FormularioVinculosTipo.test.tsx`, `TiposPage.edicao.test.tsx`, `TiposPage.edicao.integration.test.tsx`, `useTipos.edicao.test.tsx`, `src/sessao/permissoes.tipos.edicao.test.ts`
+- **Descrição:**
+  - a ação "Editar grupos" abre o `FormularioVinculosTipo`, que vale para tipos fixos e personalizados;
+  - a gravação usa `PUT /api/ped/tipos-apontamento/{id}` e envia só as listas alteradas (`grupos` e/ou `usuarios`).
+- **Motivação:** pendência A-02 e decisão do usuário de fazer as adequações com as atualizações do back-end.
+- **Como usar / observações técnicas:** a nova ação `editar-tipo` vale para Admin e Validador. Ainda está em aberto se a edição pode deixar o tipo sem nenhum grupo ou usuário.
+
+#### Exclusão de indicador (F6.7)
+- **Tags:** #indicadores #cadastro #api
+- **Arquivos:** `src/pages/indicadores/IndicadoresPage.tsx`, `src/sessao/permissoes.ts`; testes `IndicadoresPage.exclusao.integration.test.tsx`, `useIndicadores.exclusao.test.tsx`, `src/sessao/permissoes.indicadores.test.ts`, `src/services/indicadoresService.test.ts`
+- **Descrição:**
+  - a exclusão, que tinha o front pronto desde 05/11, foi liberada só para o Admin;
+  - quando a API responde 400 (indicador em uso), a tela mostra a mensagem da API, um separador e a lista "Dashboards: A, B.". O separador foi um pequeno ajuste do orquestrador.
+- **Motivação:** a rota foi publicada (A-09). A restrição ao Admin está explicada em "Modificações".
+- **Como usar / observações técnicas:** o requisito passou de `pendente` a `implementado`.
+
+#### Regra comum de exibição da tarefa Bitrix
+- **Tags:** #dashboards #dados-externos #componente
+- **Arquivos:** `src/utils/tarefaBitrix.ts` (novo)
+- **Descrição:** o arquivo traz:
+  - `ROTULO_AGUARDANDO_ENVIO` ("Aguardando envio ao Bitrix");
+  - `STATUS_AGUARDANDO_ENVIO` (`aguardando_envio`);
+  - `tarefaAguardandoEnvio`: verdadeiro quando o id é `null` ou o status é `aguardando_envio`;
+  - `numeroTarefaEnviada`;
+  - `textoTarefaBitrix(tarefa, prefixo)`, que gera `#N`, "Tarefa #N" ou o rótulo de aguardando envio;
+  - `fraseTarefaGravada`, que gera "Tarefa #N criada no Bitrix para a equipe de TI." ou "A tarefa para a TI será criada no Bitrix em instantes.".
+
+  Sem tarefa, nada é exibido, e não há link para o Bitrix24.
+- **Motivação:** seguir o documento `FRONT-tarefas-bitrix`, a pedido do usuário ("fazer as adequações necessárias com as atualizações do backend").
+- **Como usar / observações técnicas:** o arquivo não tem teste próprio; ele é coberto indiretamente pelos testes de tabelas e diálogos. Fica como pendência.
+
+#### Cobertura complementar dos tipos
+- **Tags:** #testes #tipos
+- **Arquivos:** testes da pasta `src/pages/tipos/`
+- **Descrição:** o `gerador-testes` acrescentou 16 testes no modo "cobertura complementar" depois da revisão de qualidade.
+- **Motivação:** fluxo do projeto (passo 5 do ciclo), para cobrir os casos apontados na revisão.
+- **Como usar / observações técnicas:** os testes cobrem, entre outros, o Enter na busca e a manutenção da tabela durante a recarga.
+
+### Modificações
+
+#### Id da tarefa Bitrix em texto (F7.13*)
+- **Tags:** #correcao #dashboards #dados-externos #api
+- **Arquivos:** `src/services/adaptadores.ts`, `src/services/dashboardsService.ts`, `src/services/dadosExternosService.ts` e testes (`dashboardsService.test.ts`, `dashboardsService.acoes.test.ts`, `dadosExternosService.test.ts`); fixtures `src/test/dashboardsFalsos.ts` e `dadosExternosFalsos.ts`
+- **Antes:** o id da tarefa só podia ser número ou `null`. Se um único item viesse com `"tarefa bitrix": { "id": "328439", "status": "enviada" }`, a listagem inteira de dashboards era rejeitada.
+- **Depois:**
+  - o id aceita número, `null` ou texto só com dígitos (após `trim()`), que é convertido para número pelo novo auxiliar `numeroDaTarefaBitrix`;
+  - texto não numérico (`''`, `'31a'`, `'31.5'`, `'-31'`) continua inválido;
+  - zeros à esquerda são aceitos (`"0031"` vira 31);
+  - no histórico, texto numérico solto também é aceito.
+
+  A regra vale para dashboards (listagem, detalhe, histórico, tarefas e gravação) e para dados externos.
+- **Motivação:** o usuário relatou "dashboard não está carregando novamente" e enviou o JSON real. A API passou a mandar o id em texto. Os zeros à esquerda e o texto solto no histórico foram decisões assumidas na correção.
+- **Impacto:** abas Dashboards e Dados Externos. Atividade não planejada F7.13*. Requisitos F5.1, F5.2, F7.1 e F7.2.
+
+#### Tipos: grupos vinculados, MenuAcoes e permissões (F3.1–F3.3)
+- **Tags:** #tipos #componente #api
+- **Arquivos:** `src/pages/tipos/TabelaTipos.tsx`, `TiposPage.tsx`, `TiposPage.css`, `useTipos.ts`, `src/services/tiposService.ts`, `src/services/adaptadores.ts`, `src/sessao/permissoes.ts`, `src/types/dominio.ts` e testes da pasta `src/pages/tipos/`
+- **Antes:** a listagem não mostrava os grupos vinculados, e as ações ficavam direto na linha.
+- **Depois:**
+  - a listagem tem a coluna "Grupos vinculados" e o `MenuAcoes` "Ações do tipo" (Editar grupos / Excluir);
+  - Admin e Validador recebem `grupos` e `usuarios`, que vêm `null` para o Preenchedor;
+  - o Validador cadastra, edita e exclui tipos.
+- **Motivação:** pendência A-02 e documento `FRONT-PED-mudancas`. O usuário decidiu implementar os tipos já ("Tipos implementado já").
+- **Impacto:** aba Tipos de Apontamento.
+
+#### Formato dos usuários vinculados ao tipo
+- **Tags:** #correcao #tipos #api
+- **Arquivos:** `src/services/adaptadores.ts` (`UsuarioVinculadoApi`), `src/services/tiposService.ts` e testes
+- **Antes:** os usuários vinculados eram lidos como `{ id, nome }`, conforme o documento do back-end.
+- **Depois:** são aceitos `{ "id colaborador", nome }` (formato real) e `{ id, nome }`; se vierem os dois, vale `"id colaborador"`. Os grupos continuam `{ id, nome }`.
+- **Motivação:** o usuário relatou "a aba tipos está dando erro ao carregar as informações" e enviou o JSON real, que diverge do documento do back-end. A correção também respondeu qual id vai em `usuarios`.
+- **Impacto:** aba Tipos. Requisitos F3.1, F3.2 e F3.5.
+
+#### Correções da revisão de qualidade nos tipos
+- **Tags:** #correcao #tipos #componente
+- **Arquivos:** `src/pages/tipos/SecaoVinculosTipo.tsx`, `TiposPage.tsx`
+- **Antes:** o Enter na busca de vínculos enviava o formulário. Além disso, a tabela de tipos sumia durante a recarga, e o foco se perdia.
+- **Depois:** o Enter na busca não envia o formulário, e a tabela continua visível durante a recarga.
+- **Motivação:** problemas apontados pelo `qualidade-testes` na revisão.
+- **Impacto:** aba Tipos. O mesmo problema do Enter existe nos dashboards e virou a nova atividade F1.18 (mover o `SeletorBusca` para `src/components` e corrigir o Enter).
+
+#### Exclusão de indicador só pelo Admin
+- **Tags:** #indicadores #validacao
+- **Arquivos:** `src/sessao/permissoes.ts`, `src/sessao/permissoes.indicadores.test.ts`, testes de `src/pages/indicadores/`
+- **Antes:** a ação `excluir-indicador` valia para Admin e Validador, como no documento de requisitos.
+- **Depois:** a ação vale só para o Admin, como na API.
+- **Motivação:** decisão do usuário ("só Admin, como a API"). Se o front liberasse a ação, o Validador receberia 403 da API. O documento de requisitos foi preterido e precisa ser atualizado (RF-37).
+- **Impacto:** aba Indicadores; o Validador deixa de ver a ação Excluir.
+
+#### Exibição e mensagens das tarefas Bitrix
+- **Tags:** #dashboards #dados-externos #api #componente
+- **Arquivos:** `src/pages/dashboards/TabelaDashboards.tsx`, `DialogoConcluirDashboard.tsx`, `DialogoHistoricoDashboard.tsx`, `FormularioDashboard.tsx`, `DashboardsPage.tsx`, `src/pages/dados-externos/TabelaDadosExternos.tsx`, `DialogoConcluirConstrucao.tsx`, `DadosExternosPage.tsx`, `src/services/dashboardsService.ts`, `src/services/dadosExternosService.ts`, `src/utils/tarefaBitrix.ts` e testes correspondentes
+- **Antes:** a tarefa aparecia como "Tarefa nº" só quando havia número, e a resposta da gravação não lia `"id bitrix"`.
+- **Depois:**
+  - a resposta da gravação passa a ler `"id bitrix"`;
+  - ao gravar, a mensagem é "Tarefa #N criada no Bitrix para a equipe de TI." ou "(Salvo.) A tarefa para a TI será criada no Bitrix em instantes.";
+  - as tabelas mostram `#N`, e os diálogos mostram "Tarefa #N";
+  - tarefa sem número ou com status `aguardando_envio` aparece como "Aguardando envio ao Bitrix";
+  - o histórico aceita tarefa com id `null`.
+- **Motivação:** documento `FRONT-tarefas-bitrix` e decisão do usuário de tratar os itens de tarefa como alteração de requisito.
+- **Impacto:** abas Dashboards e Dados Externos. Requisitos F5.1, F5.2, F5.6, F5.7, F7.1–F7.3 e F7.7–F7.10.
+
+#### Identificador de dado externo com `-` e `.` e aviso da tarefa
+- **Tags:** #dados-externos #validacao #cadastro
+- **Arquivos:** `src/utils/identificador.ts`, `src/utils/identificador.test.ts`, `src/pages/dados-externos/FormularioDadoExterno.tsx` e testes (`FormularioDadoExterno.admin.test.tsx`, `FormularioDadoExterno.solicitacao.test.tsx`, `DadosExternosPage.*.integration.test.tsx`)
+- **Antes:** `limparIdentificador` mantinha só A–Z, 0–9 e `_`.
+- **Depois:**
+  - `limparIdentificador` mantém também `-` e `.`, em maiúsculas (ex.: `"fat.liq/2026!@#$%&*()+=-"` vira `"FAT.LIQ2026-"`);
+  - o formulário mostra a Validador e Preenchedor o aviso "Ao salvar, será aberta uma tarefa para a equipe de TI.".
+- **Motivação:** documento `FRONT-PED-mudancas`, item 7: o back-end aceita letras sem acento, números, `_`, `-` e `.`. O usuário decidiu tratar o identificador como alteração de requisito.
+- **Impacto:** aba Dados Externos. Requisitos F5.5–F5.7.
+
+#### Status dos requisitos e commit do dia
+- **Tags:** #testes #documentacao
+- **Arquivos:** `requisitos.json`, `docs/diario-implementacao.md`, `docs/documentacao.md` (entradas de 05/11), `docs/plano-implementacao.md` (mantido pelo `plano-implementacao`)
+- **Antes:** 64 requisitos `implementado` e 1 `pendente` (F6.7).
+- **Depois:**
+  - F3.1–F3.3, F5.1, F5.2, F5.5–F5.7, F6.1, F6.2, F6.5, F6.6, F7.1–F7.3 e F7.7–F7.10 passaram por `em-alteracao` e voltaram a `implementado`;
+  - F3.4 e F3.5 são novos;
+  - F6.7 passou a `implementado`;
+  - total: 67 de 67.
+
+  O commit `f06e197` foi feito depois dos testes do commit (unitários 2627/2627, integração 375/375), com o hook aprovado. Ele incluiu o diário e a documentação de 05/11.
+- **Motivação:** pedido do usuário ("após o ajuste do erro, realizar o commit").
+- **Impacto:** o plano chegou a 77 de 110 (70%), com F3 e F6 concluídas. F5.10, F9.12 e F10.7 foram desbloqueadas, F1.18 foi criada e F12.5 ficou parcial (falta o id do usuário no Bitrix para o link).
+
+### Pendências
+- Enviar ao GitHub os commits `f2f88d6`, `7df4dd4` e `f06e197`.
+- Definir se a edição de tipo pode ficar sem nenhum grupo ou usuário.
+- Atualizar RF-13 (ao menos um grupo ou usuário) e RF-37 (exclusão só pelo Admin) no documento de requisitos.
+- Imagens de dashboard: o back-end gera imagem por filial, mas o documento de requisitos e a F7.5 preveem uma por colaborador mais "Filial (sem colaborador vinculado)".
+- Id do usuário no Bitrix para o link da tarefa (F12.5 parcial).
+- F2.7: cancelar ou manter.
+- Vínculo colaborador ↔ zona.
+- `src/utils/tarefaBitrix.ts` sem teste próprio.
+- F1.18: mover o `SeletorBusca` para `src/components` e corrigir o Enter nos dashboards.
+- Ambiente: abrir o editor ou terminal em `C:\` maiúsculo, por causa da falha do Vitest 5.0.5 com `c:\`.
+- Os dias 22/10 e 03/11 continuam sem fechamento.
 
 ---
 

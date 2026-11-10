@@ -4,7 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { limparToken } from '../../services/sessao'
 import { FILIAIS_API, acessoApi, respostaJson, simularApi, type ChamadaRegistrada } from '../../test/apiFalsa'
 import { TIPOS_DO_USUARIO_API } from '../../test/apontamentosFalsos'
-import { dadosExternosApi, identificadoresApi, rotaListarDadosExternos } from '../../test/dadosExternosFalsos'
+import {
+  type DadoExternoApiFalso,
+  dadosExternosAdminApi,
+  dadosExternosApi,
+  identificadoresApi,
+  rotaListarDadosExternos,
+} from '../../test/dadosExternosFalsos'
 import { renderizarApp } from '../../test/renderizarApp'
 
 const ROTA = '/api/ped/dados-externos-cadastro'
@@ -36,14 +42,14 @@ describe('F5.3 — Filtros dos dados externos (integração: /dados-externos)', 
     })
   }
 
-  function simularSessao(perfil: 'admin' | 'validador' | 'preenchedor' = 'admin') {
+  function simularSessao(perfil: 'admin' | 'validador' | 'preenchedor' = 'admin', obterLista: () => DadoExternoApiFalso[] = dadosExternosApi) {
     const acesso =
       perfil === 'preenchedor'
         ? acessoApi({ perfil, tipos: [TIPOS_DO_USUARIO_API[0]], 'todas as filiais': false, filiais: [FILIAIS_API[1]] })
         : acessoApi({ perfil, tipos: TIPOS_DO_USUARIO_API, 'todas as filiais': true, filiais: FILIAIS_API })
     return simularApi(fetchFalso, {
       'GET /api/ped/acesso': () => respostaJson(acesso),
-      [`GET ${ROTA}`]: rotaListarDadosExternos(dadosExternosApi),
+      [`GET ${ROTA}`]: rotaListarDadosExternos(obterLista),
       [`GET ${ROTA}/identificadores`]: () => respostaJson(identificadoresApi()),
     })
   }
@@ -72,13 +78,45 @@ describe('F5.3 — Filtros dos dados externos (integração: /dados-externos)', 
     )
   })
 
-  it('situações Todas, Ativos, Inativos, Em construção e Com problemas, com "Todas" selecionada', async () => {
+  it('Admin: situações Todas, Ativos, Inativos, Em construção, Com problemas e Integração pendente (TI), com "Todas" selecionada', async () => {
     simularSessao()
     await abrirTela()
 
     const opcoes = within(screen.getByRole('listbox', { name: 'Situação' })).getAllByRole('option')
-    expect(opcoes.map((opcao) => opcao.textContent)).toEqual(['Todas', 'Ativos', 'Inativos', 'Em construção', 'Com problemas'])
+    expect(opcoes.map((opcao) => opcao.textContent)).toEqual([
+      'Todas',
+      'Ativos',
+      'Inativos',
+      'Em construção',
+      'Com problemas',
+      'Integração pendente (TI)',
+    ])
     expect(opcaoSituacao('Todas')).toHaveAttribute('aria-selected', 'true')
+  })
+
+  it.each(['validador', 'preenchedor'] as const)(
+    '%s: situações Todas, Ativos, Inativos, Em construção e Com problemas (sem "Integração pendente (TI)", que é só do Admin)',
+    async (perfil) => {
+      simularSessao(perfil)
+      await abrirTela()
+
+      const opcoes = within(screen.getByRole('listbox', { name: 'Situação' })).getAllByRole('option')
+      expect(opcoes.map((opcao) => opcao.textContent)).toEqual(['Todas', 'Ativos', 'Inativos', 'Em construção', 'Com problemas'])
+    },
+  )
+
+  it('Admin: "Integração pendente (TI)" consulta na hora com situacao=integracao_pendente e mostra só os pendentes', async () => {
+    const user = configurarUsuario()
+    const chamadas = simularSessao('admin', dadosExternosAdminApi)
+    const tabela = await abrirTela()
+
+    await user.click(opcaoSituacao('Integração pendente (TI)'))
+
+    await waitFor(() => expect(ultimoGet(chamadas).url.searchParams.get('situacao')).toBe('integracao_pendente'))
+    await waitFor(() => expect(within(tabela).queryByText('Faturamento líquido')).not.toBeInTheDocument())
+    expect(within(tabela).getByText('Cobertura de clientes')).toBeInTheDocument()
+    expect(within(tabela).getByText('Chamados atendidos no prazo')).toBeInTheDocument()
+    expect(opcaoSituacao('Integração pendente (TI)')).toHaveAttribute('aria-selected', 'true')
   })
 
   it('digitar na busca consulta a API 500 ms após a última tecla e mostra só o que ela devolveu', async () => {

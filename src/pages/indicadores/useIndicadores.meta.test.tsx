@@ -85,7 +85,7 @@ describe('F6.5 — useIndicadores.definirMeta (meta do indicador automático —
       await result.current.definirMeta(4, { meta: 2500, sentido: 'maior_melhor', metaEditavel: true })
     })
 
-    expect(result.current.alertas).toEqual({ aguardandoMeta: 0, comComponenteDesativado: 3 })
+    expect(result.current.alertas).toEqual({ aguardandoMeta: 0, comComponenteDesativado: 3, metaPendentePorFilial: 0 })
   })
 
   it('com o filtro "Aguardando meta", o indicador com meta definida sai da lista na hora', async () => {

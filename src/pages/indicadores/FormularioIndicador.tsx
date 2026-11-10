@@ -2,6 +2,18 @@
  * Formulário de cadastro de indicador (F6.4 — RF-34, RF-35, RF-37).
  *
  * Campos: Nome, Meta (pt-BR, maior que zero), Sentido, Descrição e "Meta editável no preenchimento".
+ * Meta por filial (F6.10, ver `useMetaPorFilial`): na visão "Todas as filiais", o checkbox "Replicar a
+ * meta para todas as filiais" (marcado por padrão) mantém o campo "Meta"; desmarcado, o campo dá lugar
+ * ao grupo "Metas por filial", com um campo por filial de `filiais`. Na visão de uma filial, há um
+ * único campo "Meta da filial {código} - {nome}". Envia `meta` ou `metasPorFilial`, nunca os dois.
+ * Erros 400 por filial (`errosFiliais`) aparecem nos campos das filiais, como em `useMetaPorFilial`.
+ * Meta via API (F6.11): o checkbox "Buscar metas via API" (desmarcado por padrão) esconde os campos de
+ * meta e "Meta editável no preenchimento"; a meta não é validada e o envio leva `origemDaMeta:
+ * 'terceiro'` e `metaEditavel: false`, sem `meta` nem `metasPorFilial`. Desmarcar restaura os campos
+ * como estavam. Contrato final (F6.11): marcado, com um dado externo que fornece meta, aparece
+ * "Meta vinda do dado externo" (marcado por padrão → `fonteDaMeta: 'dado_externo'`); nos demais casos
+ * a fonte é `integracao`. Com `consultaIntegracaoDisponivel` `false`, a fonte `integracao` mostra um
+ * aviso, sem bloquear o envio.
  * A composição é exclusiva (RF-35): ou um ou mais apontamentos (com "Cálculo do realizado" obrigatório),
  * ou um dado externo. Apontamentos e dado externo são escolhidos em dropdowns com busca (como no
  * protótipo, bloco indModal); a área de itens mostra só o que foi escolhido, com "Remover". Escolher
@@ -21,6 +33,8 @@ import { ErroCampo } from '../../components/ErroCampo'
 import { Etiqueta } from '../../components/Etiqueta'
 import { RegiaoStatus } from '../../components/RegiaoStatus'
 import { Select, type OpcaoSelect } from '../../components/Select'
+import type { ErroDeFilial } from '../../services/indicadoresService'
+import type { FilialSelecionada } from '../../sessao/SessaoProvider'
 import {
   CALCULOS,
   ROTULOS_CALCULO,
@@ -32,9 +46,13 @@ import {
   SENTIDOS,
   type Apontamento,
   type DadoExterno,
+  type Filial,
   type NovoIndicador,
 } from '../../types/dominio'
-import { lerDecimal, normalizarBusca } from '../../utils/formato'
+import { normalizarBusca } from '../../utils/formato'
+import { CaixaMetaViaApi, CampoMeta, OpcoesFonteDaMeta, OpcoesMetaPorFilial } from './CamposMetaPorFilial'
+import { fonteDaMetaEscolhida } from '../../utils/metaViaApi'
+import { useMetaPorFilial } from './useMetaPorFilial'
 import './FormularioIndicador.css'
 
 export interface FormularioIndicadorProps {
@@ -50,11 +68,31 @@ export interface FormularioIndicadorProps {
   salvando: boolean
   /** Mensagem de erro devolvida ao salvar; `null` quando não há. */
   erro: string | null
+  /**
+   * Filial do cabeçalho (F6.10). Ausente, `null` ou `'todas'` = visão "Todas as filiais" (checkbox
+   * "Replicar a meta para todas as filiais"); uma filial = meta só para ela.
+   */
+  filialSelecionada?: FilialSelecionada
+  /** Filiais do acesso, listadas quando a meta não é replicada (F6.10). Padrão `[]`. */
+  filiais?: Filial[]
+  /**
+   * Erros 400 por filial devolvidos pela API (F6.10, `errosPorFilial`). Padrão `[]`. Cada erro com
+   * `filial` aparece no campo "Meta da filial {código} - {nome}" daquela filial (aria-invalid e
+   * descrição acessível) e some ao editar o campo; `filial: null`, filial sem campo na tela ou
+   * "Replicar" marcado ficam só no alerta geral (`erro`).
+   */
+  errosFiliais?: readonly ErroDeFilial[]
+  /**
+   * F6.11: a consulta da fonte `integracao` já roda no back-end (padrão `true`). Com `false`, a fonte
+   * `integracao` mostra o aviso de consulta indisponível, sem bloquear o envio.
+   */
+  consultaIntegracaoDisponivel?: boolean
   onSalvar: (dados: NovoIndicador) => void
   onCancelar: () => void
 }
 
-type CampoFormularioIndicador = 'nome' | 'meta' | 'sentido' | 'calculo' | 'composicao'
+/** A meta é validada à parte, por `useMetaPorFilial`. */
+type CampoFormularioIndicador = 'nome' | 'sentido' | 'calculo' | 'composicao'
 
 type ErrosFormulario = Partial<Record<CampoFormularioIndicador, string>>
 
@@ -108,6 +146,9 @@ const ICONE_SETA = (
     <path d="M6 9l6 6 6-6" />
   </svg>
 )
+
+const SEM_FILIAIS: Filial[] = []
+const SEM_ERROS_FILIAIS: readonly ErroDeFilial[] = []
 
 function encontrar<T extends string>(valores: readonly T[], texto: string): T | undefined {
   return valores.find((valor) => valor === texto)
@@ -264,14 +305,20 @@ export function FormularioIndicador({
   erroComponentes,
   salvando,
   erro,
+  filialSelecionada,
+  filiais = SEM_FILIAIS,
+  errosFiliais = SEM_ERROS_FILIAIS,
+  consultaIntegracaoDisponivel = true,
   onSalvar,
   onCancelar,
 }: FormularioIndicadorProps) {
   const [nome, setNome] = useState('')
   const [descricao, setDescricao] = useState('')
-  const [meta, setMeta] = useState('')
+  const meta = useMetaPorFilial(filialSelecionada, filiais, { errosFiliais })
   const [sentido, setSentido] = useState('')
   const [metaEditavel, setMetaEditavel] = useState(false)
+  const [metaViaApi, setMetaViaApi] = useState(false)
+  const [metaDoDado, setMetaDoDado] = useState(true)
   const [calculo, setCalculo] = useState('')
   const [idsApontamentos, setIdsApontamentos] = useState<number[]>([])
   const [idDadoExterno, setIdDadoExterno] = useState<number | null>(null)
@@ -288,6 +335,7 @@ export function FormularioIndicador({
   const dadoEscolhido = dadosExternos.find((item) => item.id === idDadoExterno)
   const temApontamentos = escolhidosApontamento.length > 0
   const temDadoExterno = dadoEscolhido !== undefined
+  const dadoForneceMeta = dadoEscolhido?.forneceMeta === true
   const carregadoSemErro = !carregandoComponentes && erroComponentes === null
 
   // Opções: ativos ainda não escolhidos, filtrados pela busca (só pelo nome).
@@ -327,6 +375,8 @@ export function FormularioIndicador({
   // Escolher o dado externo define o componente e fecha o painel.
   function escolherDadoExterno(id: number) {
     setIdDadoExterno(id)
+    // F6.11: "Meta vinda do dado externo" volta ao padrão (marcado) a cada dado escolhido.
+    setMetaDoDado(true)
     setPainelAberto(null)
     setBuscaDadoExterno('')
     limparErro('composicao')
@@ -337,7 +387,8 @@ export function FormularioIndicador({
     if (salvando) return
 
     const nomeLimpo = nome.trim()
-    const valorMeta = lerDecimal(meta)
+    // Com a meta via API (F6.11), a meta digitada é ignorada e não é validada.
+    const metaValidada = metaViaApi ? {} : meta.validar()
     const sentidoEscolhido = encontrar(SENTIDOS, sentido)
     const calculoEscolhido = encontrar(CALCULOS, calculo)
     const apontamentosEnviados = escolhidosApontamento.map((item) => item.id)
@@ -345,7 +396,6 @@ export function FormularioIndicador({
 
     const novosErros: ErrosFormulario = {}
     if (nomeLimpo === '') novosErros.nome = 'Informe o nome.'
-    if (valorMeta === null || valorMeta <= 0) novosErros.meta = 'Informe uma meta maior que zero.'
     if (!sentidoEscolhido) novosErros.sentido = 'Selecione o sentido.'
     if (apontamentosEnviados.length === 0 && dadoEnviado === undefined) {
       novosErros.composicao = 'Escolha ao menos um apontamento ou um dado externo.'
@@ -354,15 +404,18 @@ export function FormularioIndicador({
     }
     setErros(novosErros)
 
-    if (Object.keys(novosErros).length > 0 || valorMeta === null || !sentidoEscolhido) return
+    if (Object.keys(novosErros).length > 0 || metaValidada === null || !sentidoEscolhido) return
 
-    const base = {
-      nome: nomeLimpo,
-      descricao: textoOuNulo(descricao),
-      meta: valorMeta,
-      sentido: sentidoEscolhido,
-      metaEditavel,
-    }
+    const base: NovoIndicador = metaViaApi
+      ? {
+          nome: nomeLimpo,
+          descricao: textoOuNulo(descricao),
+          origemDaMeta: 'terceiro',
+          fonteDaMeta: fonteDaMetaEscolhida(dadoForneceMeta, metaDoDado),
+          sentido: sentidoEscolhido,
+          metaEditavel: false,
+        }
+      : { nome: nomeLimpo, descricao: textoOuNulo(descricao), ...metaValidada, sentido: sentidoEscolhido, metaEditavel }
     if (dadoEnviado !== undefined) {
       onSalvar({ ...base, dadoExterno: dadoEnviado })
       return
@@ -389,18 +442,7 @@ export function FormularioIndicador({
             if (evento.target.value.trim() !== '') limparErro('nome')
           }}
         />
-        <Campo
-          rotulo="Meta"
-          obrigatorio
-          inputMode="decimal"
-          autoComplete="off"
-          value={meta}
-          erro={erros.meta}
-          onChange={(evento) => {
-            setMeta(evento.target.value)
-            limparErro('meta')
-          }}
-        />
+        {metaViaApi ? null : <CampoMeta estado={meta} />}
         <Select
           rotulo="Sentido"
           obrigatorio
@@ -415,10 +457,23 @@ export function FormularioIndicador({
         />
         <AreaTexto rotulo="Descrição" rows={3} value={descricao} onChange={(evento) => setDescricao(evento.target.value)} />
       </div>
-      <label className="formulario-indicador__caixa">
-        <input type="checkbox" checked={metaEditavel} onChange={(evento) => setMetaEditavel(evento.target.checked)} />
-        Meta editável no preenchimento
-      </label>
+      <CaixaMetaViaApi marcada={metaViaApi} onAlterar={setMetaViaApi} />
+      <OpcoesFonteDaMeta
+        viaApi={metaViaApi}
+        dadoForneceMeta={dadoForneceMeta}
+        metaDoDado={metaDoDado}
+        onAlterarMetaDoDado={setMetaDoDado}
+        consultaIntegracaoDisponivel={consultaIntegracaoDisponivel}
+      />
+      {metaViaApi ? null : (
+        <>
+          <OpcoesMetaPorFilial estado={meta} />
+          <label className="formulario-indicador__caixa">
+            <input type="checkbox" checked={metaEditavel} onChange={(evento) => setMetaEditavel(evento.target.checked)} />
+            Meta editável no preenchimento
+          </label>
+        </>
+      )}
       <p className="formulario-indicador__nota">
         Um indicador é composto por <strong>um ou vários apontamentos</strong> ou por <strong>apenas um dado externo</strong>.
         Escolhendo um tipo, o outro fica bloqueado.

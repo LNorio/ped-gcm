@@ -25,7 +25,13 @@
  * - identificadores: lista de `{ identificador, quantidade }`;
  * - POST: `{ "dado externo": {...}, "tarefa": {...} | null }`;
  * - concluir: `{ "dado externo": {...}, "indicador criado": { id, nome } | null }`.
+ *
+ * Integração (contrato de 09/11/2026, `docs/backend/FRONT-integracao-dado-externo.md`): as constantes
+ * padrão vêm sem os campos da integração (como para Validador e Preenchedor); `dadosExternosAdminApi`
+ * traz a lista como o Admin a recebe (URL, parâmetros, variáveis usadas, integração pendente).
+ * Variáveis: `variaveisIntegracaoApi` no formato real de `GET /api/ped/integracao/variaveis`.
  */
+import type { VariavelIntegracao } from '../types/dominio'
 import { normalizarBusca } from '../utils/formato'
 import type { RotaFalsa } from './apiFalsa'
 import { respostaJson } from './apiFalsa'
@@ -66,6 +72,22 @@ export interface DadoExternoApiFalso {
   'cadastrado por': string | null
   'situacao alterada em': string | null
   'situacao alterada por': string | null
+  // Campos da integração (09/11/2026): só o Admin os recebe na listagem; ausentes para Validador e
+  // Preenchedor. As constantes padrão abaixo não os trazem (ver `dadosExternosAdminApi`).
+  url?: string | null
+  'parametros de saida'?: unknown
+  'parametros de entrada'?: unknown
+  'variaveis usadas'?: string[] | null
+  'integracao pendente'?: boolean
+  'integracao alterada em'?: string | null
+  'integracao alterada por'?: string | null
+  /**
+   * Alteração de 10/11/2026 (seção 2.5 de `RESPOSTA-FINAL-meta-via-api.md`): para todos os perfis,
+   * `true` quando a coleta do dado fornece meta (faturamento e os 6 volumes). Opcional aqui para testar
+   * a ausência (→ `forneceMeta: false`). Nas constantes: Faturamento líquido e Volume de vendas
+   * `true`, Cobertura de clientes `false`, demais ausentes.
+   */
+  'fornece meta'?: boolean
 }
 
 export interface IdentificadorApiFalso {
@@ -114,6 +136,7 @@ export const DADO_FATURAMENTO_API: DadoExternoApiFalso = {
   'cadastrado por': 'Maria Souza',
   'situacao alterada em': null,
   'situacao alterada por': null,
+  'fornece meta': true,
 }
 
 /** Inativo e usado em indicador (filtro "Com problemas"); já teve a situação alterada. */
@@ -143,6 +166,7 @@ export const DADO_COBERTURA_API: DadoExternoApiFalso = {
   'cadastrado por': 'João Lima',
   'situacao alterada em': '2026-10-20 11:05:00',
   'situacao alterada por': 'Ana Costa',
+  'fornece meta': false,
 }
 
 /** Em construção (TI) com a tarefa #1044 já enviada ao Bitrix24 (`enviada`); identificador a definir pela TI. */
@@ -259,6 +283,7 @@ export const DADO_VOLUME_API: DadoExternoApiFalso = {
   'cadastrado por': 'Maria Souza',
   'situacao alterada em': null,
   'situacao alterada por': null,
+  'fornece meta': true,
 }
 
 /** Resposta real de GET /api/ped/dados-externos-cadastro (05/11/2026): `indicadores` em texto. */
@@ -373,11 +398,13 @@ export const NOMES_DADOS_EXTERNOS = [
 ] as const
 
 function copiar(dado: DadoExternoApiFalso): DadoExternoApiFalso {
-  return {
+  const copia: DadoExternoApiFalso = {
     ...dado,
     'tarefa bitrix': dado['tarefa bitrix'] ? { ...dado['tarefa bitrix'] } : null,
     indicadores: [...dado.indicadores],
   }
+  if (Array.isArray(dado['variaveis usadas'])) copia['variaveis usadas'] = [...dado['variaveis usadas']]
+  return copia
 }
 
 /** Lista padrão (6 dados externos), na ordem acima. Devolve sempre cópias novas. */
@@ -448,6 +475,7 @@ function casaBusca(dado: DadoExternoApiFalso, termo: string): boolean {
     dado['sistema de origem'],
     dado['sistema de origem descricao'],
     dado.identificador ?? '',
+    dado.url ?? '',
     dado['campo calculo'] ?? '',
     dado.tipo,
     dado.referencia,
@@ -465,6 +493,8 @@ function casaSituacao(dado: DadoExternoApiFalso, situacao: string | null): boole
       return dado.situacao === 'em_construcao'
     case 'problemas':
       return dado.situacao === 'inativo' && dado.indicadores.length > 0
+    case 'integracao_pendente':
+      return dado['integracao pendente'] === true
     default:
       return true
   }
@@ -486,4 +516,182 @@ export function filtrarDadosExternosApi(lista: DadoExternoApiFalso[], url: URL) 
  */
 export function rotaListarDadosExternos(obterLista: () => DadoExternoApiFalso[]): RotaFalsa {
   return (_init, url) => respostaJson(filtrarDadosExternosApi(obterLista(), url))
+}
+
+
+// ---------------------------------------------------------------------------
+// Integração do dado externo (F5.7, F5.16, F5.17 — contrato de 09/11/2026)
+// ---------------------------------------------------------------------------
+
+/**
+ * URL e parâmetros gravados da integração de "Faturamento líquido" (lista do Admin). Desde 10/11/2026 a
+ * saída é uma lista com um item por filial (`filial` e `valor`; `competencia` opcional).
+ */
+export const URL_FATURAMENTO = 'https://ti.exemplo.com.br/api/faturamento'
+export const SAIDA_FATURAMENTO_API = [{ filial: '101', valor: '0' }]
+export const ENTRADA_FATURAMENTO_API = { filial: '%filial%', inicio: '%dataInicial% - 3m', fim: '%dataFinal%' }
+
+/** URL e parâmetros gravados da integração de "Volume de vendas" (lista do Admin). */
+export const URL_VOLUME = 'https://ti.exemplo.com.br/api/volume'
+export const SAIDA_VOLUME_API = [{ filial: '101', valor: '0', competencia: '10/2026' }]
+export const ENTRADA_VOLUME_API = { filial: '%filial%', competencia: '%competencia%' }
+
+/** Campos da integração como o Admin recebe na listagem. */
+export interface IntegracaoApiFalsa {
+  url: string | null
+  'parametros de saida': unknown
+  'parametros de entrada': unknown
+  'variaveis usadas': string[]
+  'integracao pendente': boolean
+  'integracao alterada em': string | null
+  'integracao alterada por': string | null
+}
+
+/** Integração ainda não gravada; `pendente` = dado ativo/inativo sem integração. */
+export function semIntegracaoApi(pendente: boolean): IntegracaoApiFalsa {
+  return {
+    url: null,
+    'parametros de saida': null,
+    'parametros de entrada': null,
+    'variaveis usadas': [],
+    'integracao pendente': pendente,
+    'integracao alterada em': null,
+    'integracao alterada por': null,
+  }
+}
+
+/** O dado com os campos da integração do Admin (padrão: sem integração e não pendente). */
+export function comIntegracaoApi(
+  dado: DadoExternoApiFalso,
+  integracao: Partial<IntegracaoApiFalsa> = {},
+): DadoExternoApiFalso {
+  return { ...copiar(dado), ...semIntegracaoApi(false), ...integracao }
+}
+
+/**
+ * Lista padrão como o **Admin** a recebe (mesma ordem de `dadosExternosApi`), com os campos da
+ * integração:
+ * - Faturamento líquido — ativo, integração gravada (URL_FATURAMENTO, saída e entrada);
+ * - Cobertura de clientes — inativo, **integração pendente** (sem URL);
+ * - Devoluções de venda e Prazo médio — em construção (sem integração, não pendentes);
+ * - Chamados atendidos no prazo — ativo, **integração pendente** (sem URL);
+ * - Volume de vendas — ativo, integração gravada (URL_VOLUME, saída em lista).
+ */
+export function dadosExternosAdminApi(): DadoExternoApiFalso[] {
+  return [
+    comIntegracaoApi(DADO_FATURAMENTO_API, {
+      url: URL_FATURAMENTO,
+      'parametros de saida': SAIDA_FATURAMENTO_API.map((item) => ({ ...item })),
+      'parametros de entrada': { ...ENTRADA_FATURAMENTO_API },
+      'variaveis usadas': ['dataFinal', 'dataInicial', 'filial'],
+      'integracao alterada em': '2026-11-09 10:00:00',
+      'integracao alterada por': 'Equipe TI',
+    }),
+    comIntegracaoApi(DADO_COBERTURA_API, semIntegracaoApi(true)),
+    comIntegracaoApi(DADO_DEVOLUCOES_API),
+    comIntegracaoApi(DADO_PRAZO_API),
+    comIntegracaoApi(DADO_CHAMADOS_API, semIntegracaoApi(true)),
+    comIntegracaoApi(DADO_VOLUME_API, {
+      url: URL_VOLUME,
+      'parametros de saida': SAIDA_VOLUME_API.map((item) => ({ ...item })),
+      'parametros de entrada': { ...ENTRADA_VOLUME_API },
+      'variaveis usadas': ['competencia', 'filial'],
+      'integracao alterada em': '2026-11-08 17:30:00',
+      'integracao alterada por': 'Equipe TI',
+    }),
+  ]
+}
+
+/** Item de `GET .../integracoes-pendentes`. */
+export interface DadoPendenteApiFalso {
+  id: number
+  nome: string
+  identificador: string | null
+  situacao: DadoExternoApiFalso['situacao']
+}
+
+/** Corpo de `GET /api/ped/dados-externos-cadastro/integracoes-pendentes` calculado a partir da lista. */
+export function integracoesPendentesApi(lista: DadoExternoApiFalso[]) {
+  const dados: DadoPendenteApiFalso[] = lista
+    .filter((dado) => dado['integracao pendente'] === true)
+    .map((dado) => ({ id: dado.id, nome: dado.nome, identificador: dado.identificador, situacao: dado.situacao }))
+  return { quantidade: dados.length, dados }
+}
+
+/** Rota falsa de `GET .../integracoes-pendentes`; `obterLista` é lida a cada requisição. */
+export function rotaIntegracoesPendentes(obterLista: () => DadoExternoApiFalso[]): RotaFalsa {
+  return () => respostaJson(integracoesPendentesApi(obterLista()))
+}
+
+/** Corpo enviado em `PUT .../concluir` e `PUT .../integracao` (os quatro campos são obrigatórios). */
+export interface CorpoIntegracaoApiFalso {
+  identificador: string
+  url: string
+  'parametros de saida': string
+  'parametros de entrada': string
+}
+
+// ---------------------------------------------------------------------------
+// Variáveis da integração (F5.14, F5.15)
+// ---------------------------------------------------------------------------
+
+/**
+ * Variável no formato de `GET /api/ped/integracao/variaveis` (contrato de 09/11/2026):
+ * `{ variavel: "%filial%", nome: "filial", tipo, descricao, exemplo: "100" }`. As descrições do
+ * back-end vêm sem acento. Campos opcionais aqui para os testes de formato.
+ */
+export interface VariavelIntegracaoApiFalsa {
+  variavel?: string
+  nome?: string
+  tipo: string
+  descricao?: string | null
+  exemplo?: string | null
+}
+
+/**
+ * As 13 variáveis devolvidas pela API (formato real), na ordem do documento. Os exemplos seguem a
+ * prévia do back-end: filial 100, empresa 1, empresas "1,6,7,8,9", período 10/2026, 3 meses
+ * retroativos; `%hoje%` fixo em 09/11/2026. `%empresa%` e `%empresas%` entraram em 10/11/2026
+ * (seção 3 de `RESPOSTA-FINAL-meta-via-api.md`).
+ */
+export function variaveisIntegracaoApi(): VariavelIntegracaoApiFalsa[] {
+  return [
+    { variavel: '%filial%', nome: 'filial', tipo: 'numero', descricao: 'Codigo da filial', exemplo: '100' },
+    { variavel: '%empresa%', nome: 'empresa', tipo: 'numero', descricao: 'Codigo da empresa da filial consultada', exemplo: '1' },
+    {
+      variavel: '%empresas%',
+      nome: 'empresas',
+      tipo: 'texto',
+      descricao: 'Empresas participantes, em ordem e separadas por virgula',
+      exemplo: '1,6,7,8,9',
+    },
+    { variavel: '%colaborador%', nome: 'colaborador', tipo: 'texto', descricao: 'Matricula do colaborador', exemplo: '000123' },
+    { variavel: '%zona%', nome: 'zona', tipo: 'texto', descricao: 'Codigo da zona de venda', exemplo: 'Z01' },
+    { variavel: '%mes%', nome: 'mes', tipo: 'numero', descricao: 'Mes do periodo (1 a 12)', exemplo: '10' },
+    { variavel: '%ano%', nome: 'ano', tipo: 'numero', descricao: 'Ano do periodo', exemplo: '2026' },
+    { variavel: '%competencia%', nome: 'competencia', tipo: 'texto', descricao: 'Competencia MM/AAAA', exemplo: '10/2026' },
+    { variavel: '%dataInicial%', nome: 'dataInicial', tipo: 'data', descricao: 'Primeiro dia do periodo', exemplo: '01/10/2026' },
+    { variavel: '%dataFinal%', nome: 'dataFinal', tipo: 'data', descricao: 'Ultimo dia do periodo', exemplo: '31/10/2026' },
+    { variavel: '%hoje%', nome: 'hoje', tipo: 'data', descricao: 'Data da execucao da consulta', exemplo: '09/11/2026' },
+    { variavel: '%diaColeta%', nome: 'diaColeta', tipo: 'numero', descricao: 'Dia de coleta configurado no dado', exemplo: '1' },
+    { variavel: '%mesesRetro%', nome: 'mesesRetro', tipo: 'numero', descricao: 'Meses de periodicidade retroativa do dado', exemplo: '3' },
+  ]
+}
+
+/** As mesmas 13 variáveis já convertidas para o domínio (`VariavelIntegracao`, com o `exemplo`). */
+export function variaveisIntegracao(): VariavelIntegracao[] {
+  return variaveisIntegracaoApi().map((v) => ({
+    nome: v.nome ?? '',
+    descricao: v.descricao ?? '',
+    tipo: v.tipo as VariavelIntegracao['tipo'],
+    exemplo: v.exemplo ?? null,
+  }))
+}
+
+/**
+ * As 13 variáveis no domínio **sem exemplo** (`exemplo: null`): a prévia local usa os valores
+ * calculados a partir do dado e de `hoje` (`valoresDeExemplo`).
+ */
+export function variaveisIntegracaoSemExemplo(): VariavelIntegracao[] {
+  return variaveisIntegracao().map((v) => ({ ...v, exemplo: null }))
 }
