@@ -4,11 +4,11 @@
  *
  * Reaproveita a modal da integração do dado externo (`DialogoConcluirConstrucao`, modo `configurar`,
  * `tipoAlvo: 'indicador'`) e os mesmos recursos da aba Dados Externos:
- * - `abrir(indicador)`: monta o alvo `{ id, nome, ...indicador.integracao }` (com `mapeamentoSaida`, `null`
- *   no formato antigo da saída ou sem integração salva) e consulta, a cada
- *   abertura, os identificadores existentes (`listarIdentificadores`; falha = sem sugestões) e as
+ * - `abrir(indicador)`: monta o alvo `{ id, nome, identificador, url, parametrosSaida, parametrosEntrada }`
+ *   da `indicador.integracao` e consulta, a cada abertura, os identificadores existentes (`listarIdentificadores`; falha = sem sugestões) e as
  *   variáveis (`useVariaveisIntegracao`, 1 GET por abertura);
- * - `confirmar(dados)`: chama `atualizarIntegracao` com os quatro campos e o `mapeamento` da modal (do `useIndicadores`, que grava e recarrega a lista)
+ * - `confirmar(dados)`: chama `atualizarIntegracao` só com os quatro campos (sem mapeamento da saída desde
+ *   11/11/2026 — `RESPOSTA-FRONT-saida-sem-mapeamento.md`; do `useIndicadores`, que grava e recarrega a lista)
  *   uma única vez por envio (clique duplo ignorado); no sucesso fecha a modal e chama `onSalva`; no erro
  *   deixa a modal aberta com a mensagem geral (`erro`) e os erros por campo (`errosDaIntegracao`);
  * - `fechar()`: ignorado durante a gravação; não chama a API.
@@ -39,7 +39,6 @@ function paraAlvo(indicador: Indicador): AlvoIntegracao {
     url: integracao?.url ?? null,
     parametrosSaida: integracao?.parametrosSaida ?? null,
     parametrosEntrada: integracao?.parametrosEntrada ?? null,
-    mapeamentoSaida: integracao?.mapeamentoSaida ?? null,
   }
 }
 
@@ -95,14 +94,14 @@ export function useIntegracaoIndicador({ atualizarIntegracao, onSalva }: UseInte
     variaveis.descartar()
   }
 
-  /** Os quatro campos e o mapeamento da saída vão à API; `variaveisUsadas` fica na tela. */
-  async function confirmar({ identificador, url, parametrosSaida, parametrosEntrada, mapeamento }: DadosConclusaoConstrucao) {
+  /** Só os quatro campos vão à API; `variaveisUsadas` fica na tela. */
+  async function confirmar({ identificador, url, parametrosSaida, parametrosEntrada }: DadosConclusaoConstrucao) {
     if (gravandoRef.current || alvo === null) return
     gravandoRef.current = true
     setGravando(true)
     limparErros()
     try {
-      await atualizarIntegracao(alvo.id, { identificador, url, parametrosSaida, parametrosEntrada, mapeamento })
+      await atualizarIntegracao(alvo.id, { identificador, url, parametrosSaida, parametrosEntrada })
       if (!montadoRef.current) return
       setAlvo(null)
       variaveis.descartar()

@@ -37,9 +37,8 @@ const ROTA_VARIAVEIS = '/api/ped/integracao/variaveis'
 const grupoVariaveis = (dialogo: HTMLElement) => within(dialogo).getByRole('group', { name: 'Variáveis disponíveis' })
 
 /**
- * Corpo esperado do PUT .../concluir com os modelos: os quatro campos (contrato de 09/11/2026) e o
- * mapeamento da saída (saída por "chave: tipo", 11/11/2026 — `"campo da filial"` e `"campo do valor"`; sem
- * competência, `"campo da competencia"` não vai).
+ * Corpo esperado do PUT .../concluir com os modelos: só os quatro campos (contrato de 09/11/2026). Desde
+ * 11/11/2026 (saída sem mapeamento) não vão `"campo da filial"`, `"campo do valor"` nem `"campo da competencia"`.
  */
 function corpoConclusao(identificador: string) {
   return {
@@ -47,8 +46,6 @@ function corpoConclusao(identificador: string) {
     url: URL_VALIDA,
     'parametros de saida': MODELO_JSON_SAIDA,
     'parametros de entrada': MODELO_JSON_ENTRADA,
-    'campo da filial': 'codfil',
-    'campo do valor': 'vlrLiq',
   }
 }
 
@@ -114,21 +111,14 @@ describe('F5.7 — Concluir construção de dado externo (Admin registra a integ
     return screen.getByRole('dialog', { name: 'Concluir construção' })
   }
 
-  /** Escolhe o campo da filial e o do valor do modelo de saída (codfil e vlrLiq). */
-  async function escolherMapeamento(user: Usuario, dialogo: HTMLElement) {
-    await user.selectOptions(within(dialogo).getByLabelText('Campo da filial'), 'codfil')
-    await user.selectOptions(within(dialogo).getByLabelText('Campo do valor'), 'vlrLiq')
-  }
-
   /**
-   * Preenche URL, os dois JSONs com os modelos e o mapeamento do modelo de saída (o identificador fica a
-   * cargo de cada teste) e espera as variáveis da API: o modelo de entrada só é válido com elas carregadas.
+   * Preenche URL e os dois JSONs com os modelos (o identificador fica a cargo de cada teste; sem mapeamento
+   * desde 11/11/2026) e espera as variáveis da API: o modelo de entrada só é válido com elas carregadas.
    */
   async function preencherIntegracao(user: Usuario, dialogo: HTMLElement) {
     await within(grupoVariaveis(dialogo)).findByRole('button', { name: /%filial%/ })
     await colar(user, within(dialogo).getByLabelText('URL'), URL_VALIDA)
     await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de saída' }))
-    await escolherMapeamento(user, dialogo)
     await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de entrada' }))
   }
 
@@ -430,11 +420,7 @@ describe('F5.7 — Concluir construção de dado externo (Admin registra a integ
       expect(chamadas.map((c) => c.caminho)).not.toContain(`${ROTA}/variaveis`)
       expect(cabecalhoDaChamada(variaveisGets(chamadas)[0], 'Authorization')).toBe('Bearer token-salvo')
       expect(botaoConcluir(dialogo)).toBeDisabled()
-      expect(
-        within(dialogo).getByText(
-          'falta: identificador, URL válida, JSON de saída válido, campo da filial, campo do valor, JSON de entrada válido',
-        ),
-      ).toBeInTheDocument()
+      expect(within(dialogo).getByText('falta: identificador, URL válida, JSON de saída válido, JSON de entrada válido')).toBeInTheDocument()
     })
 
     it('não consulta mais GET /api/ped/integracao/variaveis-saida nem mostra "Marcadores da saída" (saída por "chave: tipo", 11/11/2026)', async () => {
@@ -447,7 +433,7 @@ describe('F5.7 — Concluir construção de dado externo (Admin registra a integ
       expect(within(dialogo).queryByRole('group', { name: 'Marcadores da saída' })).not.toBeInTheDocument()
     })
 
-    it('com os campos válidos e o mapeamento escolhido: "Todos os campos obrigatórios preenchidos" e o PUT leva os quatro campos e o mapeamento', async () => {
+    it('com os campos válidos: "Todos os campos obrigatórios preenchidos" e o PUT leva só os quatro campos (sem mapeamento)', async () => {
       const user = usuarioRapido()
       const chamadas = simularAdmin()
       const dialogo = await abrirConclusao(user)
@@ -533,11 +519,11 @@ describe('F5.7 — Concluir construção de dado externo (Admin registra a integ
       const validacao = within(dialogo).getByRole('status', { name: 'Validação dos parâmetros de saída' })
       expect(validacao).toHaveTextContent('JSON de saída inválido')
       expect(validacao).toHaveTextContent('Linha 2, coluna 15: vírgula sobrando')
-      expect(within(dialogo).getByText('falta: JSON de saída válido, campo da filial, campo do valor')).toBeInTheDocument()
+      expect(within(dialogo).getByText('falta: JSON de saída válido')).toBeInTheDocument()
       expect(botaoConcluir(dialogo)).toBeDisabled()
     })
 
-    it('saída por "chave: tipo" (11/11/2026): orientação do formato; lista (formato antigo) e tipo inválido bloqueiam e o PUT não sai; com a saída corrigida, o mapeamento escolhido vale de novo', async () => {
+    it('saída por "chave: tipo" (11/11/2026): orientação do formato; lista (formato antigo) e tipo inválido bloqueiam e o PUT não sai; com a saída corrigida, o botão libera', async () => {
       const user = usuarioRapido()
       const chamadas = simularAdmin()
       const dialogo = await abrirConclusao(user)
@@ -557,7 +543,7 @@ describe('F5.7 — Concluir construção de dado externo (Admin registra a integ
       await user.clear(campoSaida)
       await colar(user, campoSaida, '{"codfil": "string", "vlrLiq": "numero"}')
       expect(validacao()).toHaveTextContent('O campo "vlrLiq" da saída tem tipo "numero"; use string, number, date ou boolean')
-      expect(within(dialogo).getByText('falta: JSON de saída válido, campo da filial, campo do valor')).toBeInTheDocument()
+      expect(within(dialogo).getByText('falta: JSON de saída válido')).toBeInTheDocument()
       await user.click(botaoConcluir(dialogo))
       expect(puts(chamadas)).toHaveLength(0)
 
@@ -568,45 +554,36 @@ describe('F5.7 — Concluir construção de dado externo (Admin registra a integ
       expect(corpoDaChamada(puts(chamadas)[0])).toEqual(corpoConclusao('DEVOLUCOES'))
     })
 
-    it('mapeamento com o valor num campo string: erro junto ao "Campo do valor", "falta: campo do valor" e o PUT não sai', async () => {
+    /**
+     * Alteração de 11/11/2026 (saída sem mapeamento — `RESPOSTA-FRONT-saida-sem-mapeamento.md`): a modal não
+     * tem as listas do mapeamento; qualquer saída válida libera o botão e o PUT leva só os quatro campos.
+     */
+    it('sem mapeamento: a modal não tem "Campo da filial"/"Campo do valor"/"Campo da competência" e uma saída qualquer (com date) vai como digitada, sem "campo da ..."', async () => {
       const user = usuarioRapido()
       const chamadas = simularAdmin()
       const dialogo = await abrirConclusao(user)
       await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'devolucoes')
       await preencherIntegracao(user, dialogo)
+      const saida = '{ "codemp": "string", "total": "number", "datCpt": "date" }'
 
-      const campoValor = within(dialogo).getByLabelText('Campo do valor')
-      await user.selectOptions(campoValor, 'codfil')
-
-      expect(campoValor).toHaveAccessibleDescription(expect.stringContaining('O campo do valor ("codfil") é do tipo string; precisa ser number'))
-      expect(within(dialogo).getByText('falta: campo do valor')).toBeInTheDocument()
-      await user.click(botaoConcluir(dialogo))
-      expect(puts(chamadas)).toHaveLength(0)
-    })
-
-    it('competência escolhida vai no PUT como "campo da competencia"', async () => {
-      const user = usuarioRapido()
-      const chamadas = simularAdmin()
-      const dialogo = await abrirConclusao(user)
-      await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'devolucoes')
-      await preencherIntegracao(user, dialogo)
-      const saida = '{ "codfil": "string", "vlrLiq": "number", "datCpt": "date" }'
-
+      for (const rotulo of ['Campo da filial', 'Campo do valor', 'Campo da meta', 'Campo da competência']) {
+        expect(within(dialogo).queryByLabelText(new RegExp(`^${rotulo}`))).not.toBeInTheDocument()
+      }
       const campoSaida = within(dialogo).getByLabelText('Parâmetros de saída')
       await user.clear(campoSaida)
       await colar(user, campoSaida, saida)
-      await user.selectOptions(within(dialogo).getByLabelText('Campo da competência'), 'datCpt')
+      expect(within(dialogo).getByText('Todos os campos obrigatórios preenchidos')).toBeInTheDocument()
       await user.click(botaoConcluir(dialogo))
 
       await screen.findByText('Construção concluída.')
-      expect(corpoDaChamada(puts(chamadas)[0])).toEqual({
-        ...corpoConclusao('DEVOLUCOES'),
-        'parametros de saida': saida,
-        'campo da competencia': 'datCpt',
-      })
+      const corpo = corpoDaChamada(puts(chamadas)[0]) as Record<string, unknown>
+      expect(corpo).toEqual({ ...corpoConclusao('DEVOLUCOES'), 'parametros de saida': saida })
+      for (const chave of ['campo da filial', 'campo do valor', 'campo da meta', 'campo da competencia']) {
+        expect(corpo).not.toHaveProperty([chave])
+      }
     })
 
-    it('400 com erros do mapeamento ("campo da filial", "campo do valor"): cada erro junto à sua lista, a modal continua aberta', async () => {
+    it('400 com erros "campo da filial"/"campo do valor" (back-end sem a versão nova): vão para o alerta geral e a modal continua aberta com os valores', async () => {
       const user = usuarioRapido()
       simularAdmin({
         aoConcluir: () =>
@@ -614,8 +591,8 @@ describe('F5.7 — Concluir construção de dado externo (Admin registra a integ
             {
               mensagem: 'integracao invalida: ...',
               erros: [
-                { campo: 'campo da filial', mensagem: 'o "campo da filial" aponta para "x", que nao existe na saida' },
-                { campo: 'campo do valor', mensagem: 'o "campo do valor" ("codemp") e do tipo string; precisa ser number' },
+                { campo: 'campo da filial', mensagem: 'informe o "campo da filial"' },
+                { campo: 'campo do valor', mensagem: 'informe o "campo do valor"' },
               ],
             },
             400,
@@ -626,14 +603,12 @@ describe('F5.7 — Concluir construção de dado externo (Admin registra a integ
       await preencherIntegracao(user, dialogo)
       await user.click(botaoConcluir(dialogo))
 
-      await within(dialogo).findByText('integracao invalida: ...')
-      expect(within(dialogo).getByLabelText('Campo da filial')).toHaveAccessibleDescription(
-        expect.stringContaining('o "campo da filial" aponta para "x", que nao existe na saida'),
-      )
-      expect(within(dialogo).getByLabelText('Campo do valor')).toHaveAccessibleDescription(
-        expect.stringContaining('o "campo do valor" ("codemp") e do tipo string; precisa ser number'),
-      )
-      expect(within(dialogo).getByLabelText('Campo da filial')).toHaveValue('codfil')
+      const alerta = await within(dialogo).findByRole('alert')
+      expect(alerta).toHaveTextContent('integracao invalida: ...')
+      expect(alerta).toHaveTextContent('informe o "campo da filial"')
+      expect(alerta).toHaveTextContent('informe o "campo do valor"')
+      expect(within(dialogo).getByLabelText('Parâmetros de saída')).toHaveValue(MODELO_JSON_SAIDA)
+      expect(within(dialogo).getByLabelText('Parâmetros de saída')).not.toHaveAttribute('aria-invalid', 'true')
       expect(screen.getByRole('dialog', { name: 'Concluir construção' })).toBeInTheDocument()
     })
 
@@ -648,7 +623,6 @@ describe('F5.7 — Concluir construção de dado externo (Admin registra a integ
       await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'devolucoes')
       await colar(user, within(dialogo).getByLabelText('URL'), URL_VALIDA)
       await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de saída' }))
-      await escolherMapeamento(user, dialogo)
       await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de entrada' }))
 
       const validacao = within(dialogo).getByRole('status', { name: 'Validação dos parâmetros de entrada' })

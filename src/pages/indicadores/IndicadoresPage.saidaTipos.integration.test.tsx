@@ -10,7 +10,6 @@ import {
   SAIDA_META_VIA_API_ANTIGA,
   URL_META_VIA_API,
   indicadoresComSaidaPorTiposApi,
-  mapeamentoDoCorpoApi,
   rotaListarIndicadoresComIntegracao,
   type CorpoIntegracaoIndicadorApiFalso,
   type IndicadorApiFalso,
@@ -25,12 +24,14 @@ import { type Usuario, colar, usuarioRapido } from '../../test/usuario'
  * (11/11/2026, opção B do back-end). Decisões do usuário: a modal só salva no formato novo e os marcadores da
  * saída foram retirados.
  *
- * - "Configurações" (Admin, fonte `integracao`) abre a modal (`tipoAlvo` "indicador") com a saída salva e as
- *   listas "Campo da filial", "Campo da meta" e "Campo da competência" preenchidas pelo `mapeamento da saida`;
- * - salvar envia `campo da filial`, `campo da meta` e `campo da competencia` (quando escolhido);
- * - integração salva no formato antigo (saída em lista, `mapeamento da saida: null`) abre com a lista salva e
- *   "Salvar configurações" bloqueado; reescrita no formato novo, com o mapeamento, salva normalmente;
- * - 400 do back-end com erro do mapeamento (`campo: "parametros de saida"`) aparece junto da saída.
+ * Alteração de 11/11/2026 (saída sem mapeamento — `RESPOSTA-FRONT-saida-sem-mapeamento.md`): os parâmetros de
+ * saída só mostram ao back-end a saída esperada; não há amarração.
+ * - "Configurações" (Admin, fonte `integracao`) abre a modal (`tipoAlvo` "indicador") com a saída salva e
+ *   **sem** as listas do mapeamento, mesmo com o `mapeamento da saida` que a listagem ainda traz;
+ * - salvar envia só os quatro campos (sem `campo da filial`, `campo da meta`, `campo da competencia`);
+ * - integração salva no formato antigo (saída em lista) abre com a lista salva e "Salvar configurações"
+ *   bloqueado; reescrita no formato novo, salva sem escolher nada;
+ * - 400 do back-end com erro em `campo: "parametros de saida"` aparece junto da saída.
  */
 const ROTA = '/api/ped/indicadores-cadastro'
 const ROTA_APONTAMENTOS = '/api/ped/apontamentos'
@@ -64,7 +65,7 @@ describe('F6.11 — Saída "chave: tipo" na integração do indicador (integraç
     aoAtualizar?: () => Response | undefined
   }
 
-  /** API com estado (Admin): PUT .../integracao grava a saída e o mapeamento como o back-end devolve na listagem. */
+  /** API com estado (Admin): PUT .../integracao grava a saída e a entrada como o back-end devolve na listagem. */
   function simular(opcoes: Opcoes = {}) {
     const acesso = acessoApi({ perfil: 'admin', tipos: TIPOS_DO_USUARIO_API, 'todas as filiais': true, filiais: FILIAIS_API })
     let indicadores = indicadoresComSaidaPorTiposApi()
@@ -81,7 +82,6 @@ describe('F6.11 — Saída "chave: tipo" na integração do indicador (integraç
                 url: corpo.url,
                 'parametros de saida': JSON.parse(corpo['parametros de saida']) as unknown,
                 'parametros de entrada': JSON.parse(corpo['parametros de entrada']) as unknown,
-                'mapeamento da saida': mapeamentoDoCorpoApi(corpo),
                 'integracao pendente': false,
               }
             : i,
@@ -117,8 +117,8 @@ describe('F6.11 — Saída "chave: tipo" na integração do indicador (integraç
     return dialogo
   }
 
-  describe('formato novo com a competência mapeada', () => {
-    it('"Configurações" mostra a saída { chave: tipo } e as três listas com o mapeamento salvo', async () => {
+  describe('formato novo (saída com campo de competência)', () => {
+    it('"Configurações" mostra a saída { chave: tipo } e nenhuma lista do mapeamento; o salvar fica liberado', async () => {
       const user = usuarioRapido()
       simular()
       await abrirTela()
@@ -126,14 +126,13 @@ describe('F6.11 — Saída "chave: tipo" na integração do indicador (integraç
       const dialogo = await abrirConfiguracoes(user, 'Volume com meta da TI')
 
       expect(within(dialogo).getByLabelText('Parâmetros de saída')).toHaveValue(SAIDA_COM_COMPETENCIA_TEXTO)
-      expect(listaDoMapeamento(dialogo, 'Campo da filial')).toHaveValue('codfil')
-      expect(listaDoMapeamento(dialogo, 'Campo da meta')).toHaveValue('metVlr')
-      expect(listaDoMapeamento(dialogo, 'Campo da competência')).toHaveValue('data')
-      expect(listaDoMapeamento(dialogo, 'Campo do valor')).not.toBeInTheDocument()
+      for (const nome of ['Campo da filial', 'Campo da meta', 'Campo da competência', 'Campo do valor'] as const) {
+        expect(listaDoMapeamento(dialogo, nome)).not.toBeInTheDocument()
+      }
       expect(salvarConfiguracoes(dialogo)).toBeEnabled()
     })
 
-    it('salvar envia "campo da filial", "campo da meta" e "campo da competencia"; reabrir mostra o mapeamento gravado', async () => {
+    it('salvar envia só os quatro campos (sem "campo da ..."); reabrir mostra a saída gravada', async () => {
       const user = usuarioRapido()
       const chamadas = simular()
       await abrirTela()
@@ -150,17 +149,15 @@ describe('F6.11 — Saída "chave: tipo" na integração do indicador (integraç
         url: URL_META_VIA_API,
         'parametros de saida': SAIDA_COM_COMPETENCIA_TEXTO,
         'parametros de entrada': ENTRADA_TEXTO,
-        'campo da filial': 'codfil',
-        'campo da meta': 'metVlr',
-        'campo da competencia': 'data',
       })
       await waitFor(() => expect(gets(chamadas, ROTA).length).toBeGreaterThan(listasAntes))
 
       const reaberto = await abrirConfiguracoes(user, 'Volume com meta da TI')
-      expect(listaDoMapeamento(reaberto, 'Campo da competência')).toHaveValue('data')
+      expect(within(reaberto).getByLabelText('Parâmetros de saída')).toHaveValue(SAIDA_COM_COMPETENCIA_TEXTO)
+      expect(listaDoMapeamento(reaberto, 'Campo da competência')).not.toBeInTheDocument()
     })
 
-    it('400 com erro do mapeamento (campo "parametros de saida"): mensagem geral no alerta e o erro junto da saída; a modal continua aberta', async () => {
+    it('400 com erro na saída (campo "parametros de saida"): mensagem geral no alerta e o erro junto da saída; a modal continua aberta', async () => {
       const user = usuarioRapido()
       const chamadas = simular({
         aoAtualizar: () =>
@@ -202,7 +199,7 @@ describe('F6.11 — Saída "chave: tipo" na integração do indicador (integraç
       expect(puts(chamadas)).toHaveLength(0)
     })
 
-    it('reescrita no formato novo e com o mapeamento escolhido, salva no formato novo (sem "campo da competencia")', async () => {
+    it('reescrita no formato novo, salva sem escolher nada e o corpo não leva nenhum "campo da ..."', async () => {
       const user = usuarioRapido()
       const chamadas = simular()
       await abrirTela()
@@ -211,8 +208,6 @@ describe('F6.11 — Saída "chave: tipo" na integração do indicador (integraç
       const saida = within(dialogo).getByLabelText('Parâmetros de saída')
       await user.clear(saida)
       await colar(user, saida, SAIDA_NOVA_DIGITADA)
-      await user.selectOptions(listaDoMapeamento(dialogo, 'Campo da filial')!, 'codfil')
-      await user.selectOptions(listaDoMapeamento(dialogo, 'Campo da meta')!, 'metVlr')
       expect(salvarConfiguracoes(dialogo)).toBeEnabled()
       await user.click(salvarConfiguracoes(dialogo))
 
@@ -223,11 +218,8 @@ describe('F6.11 — Saída "chave: tipo" na integração do indicador (integraç
         identificador: 'META_COBERTURA',
         'parametros de saida': SAIDA_NOVA_DIGITADA,
         'parametros de entrada': ENTRADA_TEXTO,
-        'campo da filial': 'codfil',
-        'campo da meta': 'metVlr',
       })
-      expect(corpo).not.toHaveProperty('campo da competencia')
-      expect(corpo).not.toHaveProperty('campo do valor')
+      expect(Object.keys(corpo).sort()).toEqual(['identificador', 'parametros de entrada', 'parametros de saida', 'url'])
     })
   })
 })

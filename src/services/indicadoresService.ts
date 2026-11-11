@@ -551,37 +551,17 @@ export async function definirMetasPendentes(id: number, metas: readonly MetaDaFi
 }
 
 /**
- * Corpo do `PUT .../{id}/integracao` do indicador: os quatro campos da integração do dado externo
- * (`corpoIntegracao`: identificador em maiúsculas e sem espaços nas pontas, url sem espaços nas pontas,
- * JSONs como digitados) e o mapeamento da saída do indicador (saída por "chave: tipo",
- * `docs/propostas-backend/FRONT-saida-chave-tipo.md`): `"campo da filial"`, `"campo da meta"` e
- * `"campo da competencia"` (os dois últimos omitidos quando vazios; a meta é obrigatória e o back-end
- * responde 400 sem ela). `"campo do valor"` é só do dado externo e nunca vai.
- */
-function corpoIntegracaoIndicador(integracao: IntegracaoDadoExterno): Record<string, string> {
-  const base = corpoIntegracao(integracao)
-  const { campoFilial, campoMeta, campoCompetencia } = integracao.mapeamento
-  const corpo: Record<string, string> = {
-    identificador: base.identificador,
-    url: base.url,
-    'parametros de saida': base['parametros de saida'],
-    'parametros de entrada': base['parametros de entrada'],
-    'campo da filial': campoFilial,
-  }
-  if (campoMeta) corpo['campo da meta'] = campoMeta
-  if (campoCompetencia) corpo['campo da competencia'] = campoCompetencia
-  return corpo
-}
-
-/**
  * Grava a integração da meta via API do indicador (F6.11; só Admin): `PUT .../{id}/integracao` com
- * `corpoIntegracaoIndicador`. Qualquer 2xx significa gravado e resolve sem valor (a resposta não é lida);
+ * os quatro campos do dado externo (`corpoIntegracao`: identificador em maiúsculas e sem espaços nas pontas,
+ * url sem espaços nas pontas, JSONs como digitados). Desde 11/11/2026 (saída sem mapeamento —
+ * `RESPOSTA-FRONT-saida-sem-mapeamento.md`) não vão `"campo da filial"`, `"campo da meta"` nem
+ * `"campo da competencia"`. Qualquer 2xx significa gravado e resolve sem valor (a resposta não é lida);
  * quem chama recarrega a lista. Erros HTTP e de rede são propagados como `ApiError` — o 400 traz
  * `dados.erros`, lidos por `errosDaIntegracao`.
  */
 export async function atualizarIntegracaoIndicador(id: number, integracao: IntegracaoDadoExterno): Promise<void> {
   await apiFetch<unknown>(`${ROTA_INDICADORES}/${id}/integracao`, {
     method: 'PUT',
-    body: corpoIntegracaoIndicador(integracao),
+    body: corpoIntegracao(integracao),
   })
 }

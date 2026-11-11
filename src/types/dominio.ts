@@ -283,28 +283,13 @@ export interface DadoExterno extends Auditoria {
   ultimaConsultaEm: DataApi | null
   /** Executor (F5.22): erro da última consulta; `null` quando não houve erro (ou não é Admin). */
   erroUltimaConsulta: string | null
-  /**
-   * Saída por "chave: tipo" (11/11/2026, só Admin): campos da saída escolhidos para cada papel, de
-   * `"mapeamento da saida"`; `null` no formato antigo (lista), sem integração ou para quem não é Admin.
-   */
-  mapeamentoSaida: MapeamentoSaida | null
-}
-
-/**
- * Mapeamento da saída da integração (11/11/2026, `FRONT-saida-chave-tipo.md`): o nome do campo da saída
- * que traz cada informação. `campoValor` no dado externo, `campoMeta` no indicador; `campoCompetencia`
- * é opcional (`null` sem competência).
- */
-export interface MapeamentoSaida {
-  campoFilial: string
-  campoValor?: string
-  campoMeta?: string
-  campoCompetencia?: string | null
 }
 
 /**
  * Integração do dado externo informada pela TI (F5.7, F5.16): corpo de `PUT .../concluir` e de
- * `PUT .../integracao`. Os quatro campos são obrigatórios; os JSONs vão como digitados.
+ * `PUT .../integracao`. Os quatro campos são obrigatórios; os JSONs vão como digitados. Desde 11/11/2026
+ * (saída sem mapeamento — `RESPOSTA-FRONT-saida-sem-mapeamento.md`) não há mapeamento da saída: a saída
+ * só descreve ao back-end os campos esperados do web service.
  */
 export interface IntegracaoDadoExterno {
   identificador: string
@@ -313,8 +298,6 @@ export interface IntegracaoDadoExterno {
   parametrosSaida: string
   /** Texto do JSON de entrada, como digitado. */
   parametrosEntrada: string
-  /** Campos da saída para cada papel (saída por "chave: tipo", 11/11/2026). */
-  mapeamento: MapeamentoSaida
 }
 
 /**
@@ -347,50 +330,18 @@ export interface IntegracoesPendentes {
   dados: DadoIntegracaoPendente[]
 }
 
-/** Parâmetros de `POST /api/ped/integracao/validar` (F5.18); vazios ou ausentes não são enviados. */
+/**
+ * Parâmetros de `POST /api/ped/integracao/validar` (F5.18); vazios ou ausentes não são enviados. Desde
+ * 11/11/2026 (saída sem mapeamento) só a entrada vai ao servidor; a saída é validada só na tela.
+ */
 export interface ParametrosValidacaoIntegracao {
-  parametrosSaida?: string
   parametrosEntrada?: string
   /**
    * Campo de valor exigido na saída (11/11/2026, `FRONT-meta-via-api-fase1.md`, item 2.2): `valor` na
    * modal do dado externo, `meta` na do indicador. Enviado só quando informado.
    */
   finalidade?: 'valor' | 'meta'
-  /**
-   * Mapeamento da saída (11/11/2026): enviado só junto com a saída e só com os campos preenchidos.
-   */
-  mapeamento?: MapeamentoSaida
 }
-
-/** Campo do JSON de saída validado pelo back-end (na saída por tipos: `string`, `number`, `date` ou `boolean`). */
-export interface CampoSaidaServidor {
-  nome: string
-  tipo: string
-}
-
-/** Erro de JSON da saída (validação do back-end). */
-export interface ErroJsonServidor {
-  mensagem: string
-  linha: number | null
-  coluna: number | null
-}
-
-/**
- * Resultado da validação do JSON de saída pelo back-end. No inválido, `erros` traz os erros da estrutura
- * (saída que não é lista, item sem `filial`/valor — 11/11/2026); `[]` quando o back-end não manda.
- */
-export type ResultadoValidacaoSaidaServidor =
-  | {
-      valido: true
-      campos: CampoSaidaServidor[]
-      /** `tipos` na saída por "chave: tipo"; `null` no formato antigo (lista) ou ausente. */
-      formato: string | null
-      /** Resumo do back-end (ex.: `3 campos: codemp (string), ...`); `null` se ausente. */
-      resumo: string | null
-      /** Mapeamento conferido pelo back-end; `null` se ausente ou fora do formato. */
-      mapeamento: MapeamentoSaida | null
-    }
-  | { valido: false; erro: ErroJsonServidor; erros: ErroIntegracao[] }
 
 /** Conta resolvida na prévia do JSON de entrada (back-end). */
 export interface CalculoEntradaServidor {
@@ -404,9 +355,11 @@ export type ResultadoValidacaoEntradaServidor =
   | { valido: true; variaveisUsadas: string[]; calculos: CalculoEntradaServidor[]; previa: unknown }
   | { valido: false; erros: ErroIntegracao[] }
 
-/** Resposta de `POST /api/ped/integracao/validar`: `null` no campo não enviado (ou vazio). */
+/**
+ * Resposta de `POST /api/ped/integracao/validar`: `null` quando a entrada não foi enviada (ou veio vazia).
+ * A `saida` que o back-end ainda possa devolver é ignorada (saída sem mapeamento, 11/11/2026).
+ */
 export interface ResultadoValidacaoIntegracao {
-  saida: ResultadoValidacaoSaidaServidor | null
   entrada: ResultadoValidacaoEntradaServidor | null
 }
 
@@ -588,12 +541,6 @@ export interface IntegracaoDoIndicador {
   ultimaConsultaEm: DataApi | null
   /** Executor (F6.11, fase 2): erro da última consulta da meta; `null` quando não houve erro. */
   erroUltimaConsulta: string | null
-  /**
-   * Saída por "chave: tipo" (F6.11, 11/11/2026): `campoFilial`, `campoMeta` e `campoCompetencia` de
-   * `"mapeamento da saida"`; `null` no formato antigo (saída em lista), sem integração salva, fora do
-   * formato ou para quem não é Admin.
-   */
-  mapeamentoSaida: MapeamentoSaida | null
 }
 
 export interface PontosDashboard {

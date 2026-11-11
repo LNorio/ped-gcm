@@ -35,8 +35,7 @@ describe('F6.11 — Meta via API: adaptadores (paraIndicador e paraCorpoNovoIndi
         url: URL_META_VIA_API,
         parametrosSaida: SAIDA_META_VIA_API,
         parametrosEntrada: ENTRADA_META_VIA_API,
-        // Saída por "chave: tipo" (11/11/2026): mapeamento da saída de "mapeamento da saida".
-        mapeamentoSaida: { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: null },
+        // Saída sem mapeamento (11/11/2026): "mapeamento da saida" da listagem é ignorado (sem mapeamentoSaida).
         variaveisUsadas: ['competencia', 'empresas'],
         pendente: false,
         alteradaEm: '2026-11-10 09:00:00',
@@ -54,7 +53,6 @@ describe('F6.11 — Meta via API: adaptadores (paraIndicador e paraCorpoNovoIndi
         url: null,
         parametrosSaida: null,
         parametrosEntrada: null,
-        mapeamentoSaida: null,
         variaveisUsadas: [],
         pendente: true,
         alteradaEm: null,
@@ -83,7 +81,6 @@ describe('F6.11 — Meta via API: adaptadores (paraIndicador e paraCorpoNovoIndi
         url: null,
         parametrosSaida: null,
         parametrosEntrada: null,
-        mapeamentoSaida: null,
         variaveisUsadas: [],
         pendente: false,
         alteradaEm: null,

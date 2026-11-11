@@ -12,7 +12,6 @@ import {
   integracaoMetaPendenteApi,
   respostaIndicadorApi,
   rotaListarIndicadoresComIntegracao,
-  mapeamentoDoCorpoApi,
   type CorpoIntegracaoIndicadorApiFalso,
   type IndicadorApiFalso,
 } from '../../test/indicadoresFalsos'
@@ -35,8 +34,6 @@ const INTEGRACAO: IntegracaoDadoExterno = {
   url: URL_META_VIA_API,
   parametrosSaida: SAIDA,
   parametrosEntrada: ENTRADA,
-  // Saída por "chave: tipo" (11/11/2026): mapeamento escolhido na modal.
-  mapeamento: { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: null },
 }
 
 describe('F6.11 — useIndicadores: integração da meta via API', () => {
@@ -80,7 +77,6 @@ describe('F6.11 — useIndicadores: integração da meta via API', () => {
                   url: corpo.url,
                   'parametros de saida': JSON.parse(corpo['parametros de saida']) as unknown,
                   'parametros de entrada': JSON.parse(corpo['parametros de entrada']) as unknown,
-                  'mapeamento da saida': mapeamentoDoCorpoApi(corpo),
                   'integracao pendente': false,
                 }
               : i,
@@ -126,19 +122,18 @@ describe('F6.11 — useIndicadores: integração da meta via API', () => {
 
     const put = chamadas.find((c) => c.metodo === 'PUT')!
     expect(put.caminho).toBe(`${ROTA}/10/integracao`)
-    expect(corpoDaChamada(put)).toEqual({
+    // Saída sem mapeamento (11/11/2026): só os quatro campos.
+    expect(corpoDaChamada(put)).toStrictEqual({
       identificador: 'META_FATURAMENTO',
       url: URL_META_VIA_API,
       'parametros de saida': SAIDA,
       'parametros de entrada': ENTRADA,
-      'campo da filial': 'codfil',
-      'campo da meta': 'metVlr',
     })
     expect(gets(chamadas).length).toBe(consultasAntes + 1)
     expect(result.current.indicadores.find((i) => i.id === 10)?.integracao).toMatchObject({
       pendente: false,
       url: URL_META_VIA_API,
-      mapeamentoSaida: { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: null },
+      parametrosSaida: SAIDA_META_VIA_API,
     })
     expect(result.current.alertas.integracaoPendente).toBe(0)
   })

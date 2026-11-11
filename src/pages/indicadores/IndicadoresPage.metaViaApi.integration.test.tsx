@@ -25,7 +25,6 @@ import {
   URL_META_VIA_API,
   indicadoresComMetaViaApiApi,
   integracaoMetaPendenteApi,
-  mapeamentoDoCorpoApi,
   respostaIndicadorApi,
   rotaListarIndicadoresComIntegracao,
   type CorpoIntegracaoIndicadorApiFalso,
@@ -52,10 +51,12 @@ import { MODELO_JSON_ENTRADA } from '../../utils/integracao/modelos'
  * situação a `aguardando_consulta`.
  *
  * Saída por "chave: tipo" (docs/propostas-backend/FRONT-saida-chave-tipo.md, 11/11/2026): a saída é um objeto
- * `{ chave: tipo }` (`SAIDA_META_VIA_API` = `{ codfil: string, metVlr: number }`), a modal tem as listas
- * "Campo da filial", "Campo da meta" e "Campo da competência" (sem "Campo do valor" nem o grupo
- * "Marcadores da saída") e o PUT leva `campo da filial` / `campo da meta` (ver também
- * IndicadoresPage.saidaTipos.integration.test.tsx).
+ * `{ chave: tipo }` (`SAIDA_META_VIA_API` = `{ codfil: string, metVlr: number }`), sem o grupo "Marcadores da
+ * saída" (ver também IndicadoresPage.saidaTipos.integration.test.tsx).
+ *
+ * Alteração de 11/11/2026 (saída sem mapeamento — `RESPOSTA-FRONT-saida-sem-mapeamento.md`): a modal não tem
+ * "Campo da filial", "Campo da meta", "Campo da competência" nem "Campo do valor" e o PUT leva só os quatro
+ * campos (sem `campo da filial` / `campo da meta`).
  */
 const ROTA = '/api/ped/indicadores-cadastro'
 const ROTA_APONTAMENTOS = '/api/ped/apontamentos'
@@ -114,7 +115,6 @@ describe('F6.11 — Meta buscada via API (integração: /indicadores)', () => {
                 url: corpo.url,
                 'parametros de saida': JSON.parse(corpo['parametros de saida']) as unknown,
                 'parametros de entrada': JSON.parse(corpo['parametros de entrada']) as unknown,
-                'mapeamento da saida': mapeamentoDoCorpoApi(corpo),
                 'integracao pendente': false,
                 'situacao da meta via api': 'aguardando_consulta',
               }
@@ -240,17 +240,16 @@ describe('F6.11 — Meta buscada via API (integração: /indicadores)', () => {
       expect(within(dialogo).getByLabelText('URL')).toHaveValue(URL_META_VIA_API)
       expect(within(dialogo).getByLabelText('Parâmetros de saída')).toHaveValue(SAIDA_TEXTO)
       expect(within(dialogo).getByLabelText('Parâmetros de entrada')).toHaveValue(ENTRADA_TEXTO)
-      // Saída "chave: tipo": listas do mapeamento com os campos salvos; sem "Campo do valor" nem marcadores da saída.
-      expect(listaDoMapeamento(dialogo, 'Campo da filial')).toHaveValue('codfil')
-      expect(listaDoMapeamento(dialogo, 'Campo da meta')).toHaveValue('metVlr')
-      expect(listaDoMapeamento(dialogo, 'Campo da competência')).toHaveValue('')
-      expect(listaDoMapeamento(dialogo, 'Campo do valor')).not.toBeInTheDocument()
+      // Saída sem mapeamento (11/11/2026): nenhuma lista do mapeamento, nem marcadores da saída.
+      for (const nome of ['Campo da filial', 'Campo da meta', 'Campo da competência', 'Campo do valor'] as const) {
+        expect(listaDoMapeamento(dialogo, nome)).not.toBeInTheDocument()
+      }
       expect(within(dialogo).queryByRole('group', { name: 'Marcadores da saída' })).not.toBeInTheDocument()
       expect(gets(chamadas, ROTA_VARIAVEIS)).toHaveLength(1)
       expect(salvarConfiguracoes(dialogo)).toBeEnabled()
     })
 
-    it('salvar: PUT .../{id}/integracao com os quatro campos e o mapeamento da saída → fecha, "Integração atualizada." e recarrega a lista', async () => {
+    it('salvar: PUT .../{id}/integracao só com os quatro campos (sem mapeamento) → fecha, "Integração atualizada." e recarrega a lista', async () => {
       const user = usuarioRapido()
       const chamadas = simular()
       await abrirTela()
@@ -273,14 +272,12 @@ describe('F6.11 — Meta buscada via API (integração: /indicadores)', () => {
         url: URL_NOVA,
         'parametros de saida': SAIDA_TEXTO,
         'parametros de entrada': ENTRADA_TEXTO,
-        'campo da filial': 'codfil',
-        'campo da meta': 'metVlr',
       })
       expect(chamadas.some((c) => c.caminho === `${ROTA_DADOS_EXTERNOS}/11/integracao`)).toBe(false)
       await waitFor(() => expect(gets(chamadas, ROTA).length).toBeGreaterThan(listasAntes))
     })
 
-    it('"Preencher integração" abre com os campos vazios; com a saída "chave: tipo" e o mapeamento escolhido, salva e a etiqueta "Integração pendente (TI)" sai da linha', async () => {
+    it('"Preencher integração" abre com os campos vazios; com a saída "chave: tipo" (sem escolher campos), salva e a etiqueta "Integração pendente (TI)" sai da linha', async () => {
       const user = usuarioRapido()
       const chamadas = simular()
       await abrirTela()
@@ -296,10 +293,7 @@ describe('F6.11 — Meta buscada via API (integração: /indicadores)', () => {
       await colar(user, within(dialogo).getByLabelText('URL'), URL_META_VIA_API)
       await colar(user, within(dialogo).getByLabelText('Parâmetros de saída'), SAIDA_DIGITADA)
       await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de entrada' }))
-      // Sem o mapeamento (campo da filial e campo da meta obrigatórios) não salva.
-      expect(salvarConfiguracoes(dialogo)).toBeDisabled()
-      await user.selectOptions(listaDoMapeamento(dialogo, 'Campo da filial')!, 'codfil')
-      await user.selectOptions(listaDoMapeamento(dialogo, 'Campo da meta')!, 'metVlr')
+      // Saída sem mapeamento (11/11/2026): com os quatro campos válidos, já salva.
       expect(salvarConfiguracoes(dialogo)).toBeEnabled()
       await user.click(salvarConfiguracoes(dialogo))
 
@@ -309,8 +303,6 @@ describe('F6.11 — Meta buscada via API (integração: /indicadores)', () => {
         url: URL_META_VIA_API,
         'parametros de saida': SAIDA_DIGITADA,
         'parametros de entrada': MODELO_JSON_ENTRADA,
-        'campo da filial': 'codfil',
-        'campo da meta': 'metVlr',
       })
       await waitFor(() =>
         expect(within(linha('Faturamento com meta da TI')).queryByText('Integração pendente (TI)')).not.toBeInTheDocument(),

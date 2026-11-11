@@ -94,7 +94,9 @@ export interface IndicadorApiFalso {
   'parametros de entrada'?: unknown
   /**
    * Saída por "chave: tipo" (FRONT-saida-chave-tipo.md, 11/11/2026): campos de mapeamento da saída;
-   * `null` quando a integração está no formato antigo (saída em lista) ou não foi configurada.
+   * `null` quando a integração está no formato antigo (saída em lista) ou não foi configurada. O back-end
+   * ainda pode devolver, mas desde 11/11/2026 (saída sem mapeamento —
+   * `RESPOSTA-FRONT-saida-sem-mapeamento.md`) o front **ignora** o campo.
    */
   'mapeamento da saida'?: MapeamentoSaidaApiFalso | null
   'variaveis usadas'?: string[] | null
@@ -121,8 +123,9 @@ export interface IndicadorApiFalso {
 }
 
 /**
- * Mapeamento da saída como a listagem devolve (FRONT-saida-chave-tipo.md §5): no indicador vêm
+ * Mapeamento da saída como a listagem ainda pode devolver (FRONT-saida-chave-tipo.md §5): no indicador vêm
  * `campo da filial`, `campo da meta` e, opcional, `campo da competencia` (`unknown` para os testes de formato).
+ * Ignorado pelo front desde 11/11/2026 (saída sem mapeamento).
  */
 export interface MapeamentoSaidaApiFalso {
   'campo da filial': unknown
@@ -683,7 +686,7 @@ export const URL_META_VIA_API = 'https://ti.exemplo.com.br/api/metas'
  * o objeto descreve um item da resposta; `codfil` é o campo da filial e `metVlr` o da meta.
  */
 export const SAIDA_META_VIA_API: Record<string, string> = { codfil: 'string', metVlr: 'number' }
-/** Mapeamento da saída de `SAIDA_META_VIA_API`, como a listagem devolve (`mapeamento da saida`). */
+/** Mapeamento antigo de `SAIDA_META_VIA_API`, como a listagem ainda pode devolver (ignorado pelo front). */
 export const MAPEAMENTO_META_VIA_API: MapeamentoSaidaApiFalso = { 'campo da filial': 'codfil', 'campo da meta': 'metVlr' }
 /**
  * Saída no formato ANTIGO (lista com um item por filial: `filial` e `meta`, contrato de 10/11/2026),
@@ -724,7 +727,10 @@ export function integracaoMetaPendenteApi(): IntegracaoMetaApiFalsa {
   }
 }
 
-/** Integração da meta configurada (META_MARGEM, URL_META_VIA_API, saída "chave: tipo" com mapeamento e entrada). */
+/**
+ * Integração da meta configurada (META_MARGEM, URL_META_VIA_API, saída "chave: tipo" e entrada). Traz o
+ * `"mapeamento da saida"` antigo, como o back-end ainda pode devolver (o front ignora).
+ */
 export function integracaoMetaConfiguradaApi(): IntegracaoMetaApiFalsa {
   return {
     identificador: 'META_MARGEM',
@@ -826,27 +832,15 @@ export function rotaListarIndicadoresComIntegracao(obterLista: () => IndicadorAp
 }
 
 /**
- * Corpo de `PUT /api/ped/indicadores-cadastro/{id}/integracao`: os quatro campos do dado externo mais o
- * mapeamento da saída do indicador (FRONT-saida-chave-tipo.md §2): `campo da filial`, `campo da meta`
- * e `campo da competencia` (omitido quando vazio).
+ * Corpo de `PUT /api/ped/indicadores-cadastro/{id}/integracao`: só os quatro campos do dado externo. Desde
+ * 11/11/2026 (saída sem mapeamento — `RESPOSTA-FRONT-saida-sem-mapeamento.md`) o corpo **não** leva
+ * `campo da filial`, `campo da meta`, `campo do valor` nem `campo da competencia`.
  */
 export interface CorpoIntegracaoIndicadorApiFalso {
   identificador: string
   url: string
   'parametros de saida': string
   'parametros de entrada': string
-  'campo da filial': string
-  'campo da meta': string
-  'campo da competencia'?: string
-}
-
-/** Mapeamento da listagem a partir do corpo do PUT (o que o back-end grava e devolve). */
-export function mapeamentoDoCorpoApi(corpo: CorpoIntegracaoIndicadorApiFalso): MapeamentoSaidaApiFalso {
-  return {
-    'campo da filial': corpo['campo da filial'],
-    'campo da meta': corpo['campo da meta'],
-    ...(corpo['campo da competencia'] ? { 'campo da competencia': corpo['campo da competencia'] } : {}),
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1203,11 +1197,11 @@ export function comoValidadorRecebe(indicador: IndicadorApiFalso): IndicadorApiF
 //
 // - `parametros de saida` volta como objeto `{ chave: tipo }` (formato novo) ou lista (antigo).
 // - `mapeamento da saida`: `{ "campo da filial", "campo da meta", "campo da competencia"? }` ou `null`
-//   no formato antigo.
+//   no formato antigo. O back-end ainda pode devolver; o front ignora desde 11/11/2026 (saída sem mapeamento).
 //
 // As fixtures abaixo NÃO entram na lista padrão nem nas listas anteriores.
 
-/** Saída "chave: tipo" com a competência (`data`), para o mapeamento completo. */
+/** Saída "chave: tipo" com a competência (`data`); o mapeamento ao lado é o que o back-end ainda pode devolver. */
 export const SAIDA_META_COM_COMPETENCIA: Record<string, string> = { codfil: 'string', metVlr: 'number', data: 'date' }
 export const MAPEAMENTO_META_COM_COMPETENCIA: MapeamentoSaidaApiFalso = {
   'campo da filial': 'codfil',
@@ -1231,7 +1225,7 @@ export const INDICADOR_META_SAIDA_ANTIGA_API: IndicadorApiFalso = {
   tarefa: null,
 }
 
-/** Fonte `integracao` com a saída "chave: tipo" e a competência mapeada. */
+/** Fonte `integracao` com a saída "chave: tipo" com competência (e o mapeamento antigo que o front ignora). */
 export const INDICADOR_META_COM_COMPETENCIA_API: IndicadorApiFalso = {
   ...BASE_META_VIA_API,
   id: 19,

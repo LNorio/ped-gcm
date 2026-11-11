@@ -195,8 +195,7 @@ describe('F5.1 — Serviço de dados externos', () => {
         // Executor (11/11/2026, só Admin): ausentes → null.
         ultimaConsultaEm: null,
         erroUltimaConsulta: null,
-        // Saída por "chave: tipo" (11/11/2026, só Admin): "mapeamento da saida" ausente → null.
-        mapeamentoSaida: null,
+        // Saída sem mapeamento (11/11/2026): o dado não tem mais `mapeamentoSaida` (toEqual exige a ausência).
       })
       expect(dados[1].situacao).toBe('em_construcao')
       expect(dados[1].identificador).toBeNull()
@@ -275,8 +274,7 @@ describe('F5.1 — Serviço de dados externos', () => {
         // Executor (11/11/2026, só Admin): ausentes → null.
         ultimaConsultaEm: null,
         erroUltimaConsulta: null,
-        // Saída por "chave: tipo" (11/11/2026, só Admin): "mapeamento da saida" ausente → null.
-        mapeamentoSaida: null,
+        // Saída sem mapeamento (11/11/2026): o dado não tem mais `mapeamentoSaida` (toEqual exige a ausência).
       })
     })
 

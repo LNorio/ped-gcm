@@ -26,8 +26,8 @@ import { definirToken, limparToken } from './sessao'
  *   nem `metas por filial`, `"meta editavel": false` e, no contrato final (10/11/2026), `"fonte da meta"`
  *   (sem `fonteDaMeta` → `integracao`; ver `indicadoresService.fonteDaMeta.test.ts`);
  * - `atualizarIntegracaoIndicador(id, integracao)` → `PUT /api/ped/indicadores-cadastro/{id}/integracao`,
- *   mesmo corpo da integração do dado externo mais o mapeamento da saída (`campo da filial`, `campo da meta`,
- *   `campo da competencia` — 11/11/2026, ver `indicadoresService.saidaTipos.test.ts`); 2xx = gravado (resolve sem valor);
+ *   mesmo corpo da integração do dado externo — só os quatro campos, sem mapeamento da saída (11/11/2026,
+ *   saída sem mapeamento; ver `indicadoresService.saidaTipos.test.ts`); 2xx = gravado (resolve sem valor);
  * - listagem: campos da integração em `Indicador.integracao` (só com origem `terceiro`) e o alerta
  *   opcional `alertas["integracao pendente"]` → `alertas.integracaoPendente` (ausente → `undefined`,
  *   tratado como 0 pela tela).
@@ -42,8 +42,6 @@ function integracao(sobrescrever: Partial<IntegracaoDadoExterno> = {}): Integrac
     url: URL_META_VIA_API,
     parametrosSaida: SAIDA,
     parametrosEntrada: ENTRADA,
-    // Saída por "chave: tipo" (11/11/2026): mapeamento da saída escolhido na modal.
-    mapeamento: { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: null },
     ...sobrescrever,
   }
 }
@@ -203,7 +201,7 @@ describe('F6.11 — Meta via API: serviço de indicadores', () => {
   describe('atualizarIntegracaoIndicador(id, integracao)', () => {
     const RESPOSTA_OK = { mensagem: 'integracao atualizada', 'variaveis usadas': ['competencia', 'empresas'] }
 
-    it('PUT /api/ped/indicadores-cadastro/{id}/integracao com o token, os quatro campos (identificador em maiúsculas e sem espaços nas pontas, url sem espaços nas pontas, JSONs como digitados) e o mapeamento da saída', async () => {
+    it('PUT /api/ped/indicadores-cadastro/{id}/integracao com o token, os quatro campos (identificador em maiúsculas e sem espaços nas pontas, url sem espaços nas pontas, JSONs como digitados), sem mapeamento da saída', async () => {
       const chamadas = simularApi(fetchFalso, { [`PUT ${ROTA}/11/integracao`]: () => respostaJson(RESPOSTA_OK) })
 
       await atualizarIntegracaoIndicador(11, integracao({ identificador: ' meta_margem ', url: `  ${URL_META_VIA_API} ` }))
@@ -212,13 +210,11 @@ describe('F6.11 — Meta via API: serviço de indicadores', () => {
       expect(chamadas[0].metodo).toBe('PUT')
       expect(chamadas[0].caminho).toBe(`${ROTA}/11/integracao`)
       expect(cabecalhoDaChamada(chamadas[0], 'Authorization')).toBe('Bearer token-123')
-      expect(corpoDaChamada(chamadas[0])).toEqual({
+      expect(corpoDaChamada(chamadas[0])).toStrictEqual({
         identificador: 'META_MARGEM',
         url: URL_META_VIA_API,
         'parametros de saida': SAIDA,
         'parametros de entrada': ENTRADA,
-        'campo da filial': 'codfil',
-        'campo da meta': 'metVlr',
       })
     })
 

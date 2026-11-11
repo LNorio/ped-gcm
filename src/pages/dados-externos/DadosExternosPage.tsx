@@ -281,15 +281,15 @@ export function DadosExternosPage() {
 
   /**
    * Concluir (PUT .../concluir) ou salvar as configurações (PUT .../integracao): os quatro campos vão à
-   * API (contrato de 09/11/2026) com o mapeamento da saída (11/11/2026); `variaveisUsadas` fica na tela. Depois do sucesso, os pendentes são
+   * API (contrato de 09/11/2026) só com os quatro campos (sem mapeamento da saída desde 11/11/2026); `variaveisUsadas` fica na tela. Depois do sucesso, os pendentes são
    * consultados de novo. No erro, a mensagem geral e os erros por campo ficam na modal aberta.
    */
-  async function confirmarIntegracao({ identificador, url, parametrosSaida, parametrosEntrada, mapeamento }: DadosConclusaoConstrucao) {
+  async function confirmarIntegracao({ identificador, url, parametrosSaida, parametrosEntrada }: DadosConclusaoConstrucao) {
     if (gravandoIntegracaoRef.current || integracaoDado === null) return
     gravandoIntegracaoRef.current = true
     setGravandoIntegracao(true)
     limparErrosIntegracao()
-    const integracao = { identificador, url, parametrosSaida, parametrosEntrada, mapeamento }
+    const integracao = { identificador, url, parametrosSaida, parametrosEntrada }
     try {
       if (modoIntegracao === 'concluir') {
         const resultado = await concluir(integracaoDado.id, integracao)

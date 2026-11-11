@@ -12,22 +12,24 @@ import {
   SAIDA_META_VIA_API_ANTIGA,
   URL_META_VIA_API,
 } from '../../test/indicadoresFalsos'
-import type { Indicador, IntegracaoDadoExterno, IntegracaoDoIndicador, MapeamentoSaida } from '../../types/dominio'
+import type { Indicador, IntegracaoDadoExterno, IntegracaoDoIndicador } from '../../types/dominio'
 import type { DadosConclusaoConstrucao } from '../dados-externos/DialogoConcluirConstrucao'
 import { useIntegracaoIndicador } from './useIntegracaoIndicador'
 
 /**
  * F6.11 — Saída "chave: tipo" no hook `useIntegracaoIndicador` (docs/propostas-backend/FRONT-saida-chave-tipo.md,
- * 11/11/2026):
- * - `abrir(indicador)`: o alvo da modal (`AlvoIntegracao`) passa a levar `mapeamentoSaida` =
- *   `indicador.integracao.mapeamentoSaida` (`null` no formato antigo, na integração pendente ou sem integração),
- *   além de `parametrosSaida` como veio (objeto no formato novo, lista no antigo);
- * - `confirmar(dados)`: repassa a `atualizarIntegracao(id, integracao)` o `mapeamento` recebido da modal
- *   (`DadosConclusaoConstrucao.mapeamento`), junto dos quatro campos; `variaveisUsadas` continua fora.
+ * 11/11/2026).
+ *
+ * Alteração de 11/11/2026 (saída sem mapeamento — `RESPOSTA-FRONT-saida-sem-mapeamento.md`): os parâmetros
+ * de saída só mostram ao back-end a saída esperada; não há amarração na modal.
+ * - `abrir(indicador)`: o alvo da modal (`AlvoIntegracao`) leva `parametrosSaida` como veio (objeto no
+ *   formato novo, lista no antigo) e **não** leva `mapeamentoSaida`;
+ * - `confirmar(dados)`: repassa a `atualizarIntegracao(id, integracao)` **só** os quatro campos
+ *   (`identificador`, `url`, `parametrosSaida`, `parametrosEntrada`); `variaveisUsadas` continua fora e não
+ *   há `mapeamento`.
  */
 const ROTA_IDENTIFICADORES = '/api/ped/dados-externos-cadastro/identificadores'
 const ROTA_VARIAVEIS = '/api/ped/integracao/variaveis'
-const MAPEAMENTO: MapeamentoSaida = { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: null }
 
 function comIntegracao(base: Indicador, integracao: Partial<IntegracaoDoIndicador>): Indicador {
   return { ...base, integracao: { ...base.integracao!, ...integracao } }
@@ -35,15 +37,13 @@ function comIntegracao(base: Indicador, integracao: Partial<IntegracaoDoIndicado
 
 const CONFIGURADO = comIntegracao(paraIndicador(INDICADOR_META_API_CONFIGURADO_API as IndicadorApi), {
   parametrosSaida: SAIDA_META_VIA_API,
-  mapeamentoSaida: MAPEAMENTO,
 })
 const SAIDA_ANTIGA = comIntegracao(paraIndicador(INDICADOR_META_API_CONFIGURADO_API as IndicadorApi), {
   parametrosSaida: SAIDA_META_VIA_API_ANTIGA,
-  mapeamentoSaida: null,
 })
-const PENDENTE = comIntegracao(paraIndicador(INDICADOR_META_API_PENDENTE_API as IndicadorApi), { mapeamentoSaida: null })
+const PENDENTE = paraIndicador(INDICADOR_META_API_PENDENTE_API as IndicadorApi)
 
-describe('F6.11 — useIntegracaoIndicador: mapeamento da saída ("chave: tipo")', () => {
+describe('F6.11 — useIntegracaoIndicador: saída "chave: tipo" sem mapeamento', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
 
   beforeEach(() => {
@@ -71,7 +71,7 @@ describe('F6.11 — useIntegracaoIndicador: mapeamento da saída ("chave: tipo")
     return { ...resultado, atualizarIntegracao, onSalva }
   }
 
-  it('abrir (formato novo): o alvo leva parametrosSaida { chave: tipo } e mapeamentoSaida do indicador', () => {
+  it('abrir (formato novo): o alvo leva parametrosSaida { chave: tipo }, sem mapeamentoSaida', () => {
     const { result } = montar()
 
     act(() => result.current.abrir(CONFIGURADO))
@@ -82,37 +82,31 @@ describe('F6.11 — useIntegracaoIndicador: mapeamento da saída ("chave: tipo")
       identificador: 'META_MARGEM',
       url: URL_META_VIA_API,
       parametrosSaida: SAIDA_META_VIA_API,
-      mapeamentoSaida: MAPEAMENTO,
     })
+    expect(result.current.alvo).not.toHaveProperty('mapeamentoSaida')
   })
 
-  it('abrir (formato antigo, saída em lista): mapeamentoSaida null e a lista como veio', () => {
+  it('abrir (formato antigo, saída em lista): a lista como veio, sem mapeamentoSaida', () => {
     const { result } = montar()
 
     act(() => result.current.abrir(SAIDA_ANTIGA))
 
     expect(result.current.alvo?.parametrosSaida).toEqual(SAIDA_META_VIA_API_ANTIGA)
-    expect(result.current.alvo?.mapeamentoSaida).toBeNull()
+    expect(result.current.alvo).not.toHaveProperty('mapeamentoSaida')
   })
 
-  it('abrir (integração pendente): mapeamentoSaida null', () => {
+  it('abrir (integração pendente ou indicador sem integracao): sem mapeamentoSaida', () => {
     const { result } = montar()
 
     act(() => result.current.abrir(PENDENTE))
+    expect(result.current.alvo).toMatchObject({ id: 10, parametrosSaida: null })
+    expect(result.current.alvo).not.toHaveProperty('mapeamentoSaida')
 
-    expect(result.current.alvo).toMatchObject({ id: 10, parametrosSaida: null, mapeamentoSaida: null })
+    act(() => result.current.abrir({ ...CONFIGURADO, integracao: undefined }))
+    expect(result.current.alvo).not.toHaveProperty('mapeamentoSaida')
   })
 
-  it('abrir (indicador sem integracao): mapeamentoSaida null', () => {
-    const { result } = montar()
-    const semIntegracao: Indicador = { ...CONFIGURADO, integracao: undefined }
-
-    act(() => result.current.abrir(semIntegracao))
-
-    expect(result.current.alvo?.mapeamentoSaida).toBeNull()
-  })
-
-  it('confirmar repassa o mapeamento recebido da modal a atualizarIntegracao (sem variaveisUsadas)', async () => {
+  it('confirmar repassa só os quatro campos a atualizarIntegracao (sem mapeamento nem variaveisUsadas)', async () => {
     const { result, atualizarIntegracao, onSalva } = montar()
     act(() => result.current.abrir(CONFIGURADO))
     const dados: DadosConclusaoConstrucao = {
@@ -121,7 +115,6 @@ describe('F6.11 — useIntegracaoIndicador: mapeamento da saída ("chave: tipo")
       parametrosSaida: JSON.stringify({ codfil: 'string', metVlr: 'number', data: 'date' }, null, 2),
       parametrosEntrada: JSON.stringify(ENTRADA_META_VIA_API, null, 2),
       variaveisUsadas: ['competencia', 'empresas'],
-      mapeamento: { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: 'data' },
     }
 
     await act(async () => {
@@ -129,14 +122,33 @@ describe('F6.11 — useIntegracaoIndicador: mapeamento da saída ("chave: tipo")
     })
 
     expect(atualizarIntegracao).toHaveBeenCalledTimes(1)
-    expect(atualizarIntegracao).toHaveBeenCalledWith(11, {
+    expect(atualizarIntegracao.mock.calls[0][0]).toBe(11)
+    expect(atualizarIntegracao.mock.calls[0][1]).toStrictEqual({
       identificador: 'META_MARGEM',
       url: URL_META_VIA_API,
       parametrosSaida: dados.parametrosSaida,
       parametrosEntrada: dados.parametrosEntrada,
-      mapeamento: { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: 'data' },
     })
     expect(onSalva).toHaveBeenCalledTimes(1)
     expect(result.current.alvo).toBeNull()
+  })
+
+  it('confirmar com dados de uma modal antiga (com mapeamento) também não repassa o mapeamento', async () => {
+    const { result, atualizarIntegracao } = montar()
+    act(() => result.current.abrir(CONFIGURADO))
+    const antigos = {
+      identificador: 'META_MARGEM',
+      url: URL_META_VIA_API,
+      parametrosSaida: JSON.stringify(SAIDA_META_VIA_API, null, 2),
+      parametrosEntrada: JSON.stringify(ENTRADA_META_VIA_API, null, 2),
+      variaveisUsadas: [],
+      mapeamento: { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: null },
+    } as DadosConclusaoConstrucao
+
+    await act(async () => {
+      await result.current.confirmar(antigos)
+    })
+
+    expect(atualizarIntegracao.mock.calls[0][1]).not.toHaveProperty('mapeamento')
   })
 })

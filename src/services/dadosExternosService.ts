@@ -56,7 +56,6 @@
 import {
   COLETAS,
   type CalculoEntradaServidor,
-  type CampoSaidaServidor,
   type DadoExterno,
   type DadoIntegracaoPendente,
   type ErroIntegracao,
@@ -64,7 +63,6 @@ import {
   type IntegracaoDadoExterno,
   type IntegracoesPendentes,
   JANELAS_RETROATIVAS,
-  type MapeamentoSaida,
   type MesConsiderado,
   type NovoDadoExterno,
   type ParametrosValidacaoIntegracao,
@@ -73,7 +71,6 @@ import {
   type ReferenciaNomeada,
   type ResultadoValidacaoEntradaServidor,
   type ResultadoValidacaoIntegracao,
-  type ResultadoValidacaoSaidaServidor,
   SENTIDOS_CALCULO,
   SISTEMAS_ORIGEM,
   SITUACOES_DADO_EXTERNO,
@@ -86,7 +83,6 @@ import {
   numeroDaTarefaBitrix,
   paraCorpoNovoDadoExterno,
   paraDadoExterno,
-  paraMapeamentoSaida,
 } from './adaptadores'
 import { ApiError, MENSAGEM_RESPOSTA_INVALIDA, type ValorQuery, apiFetch } from './api'
 
@@ -95,9 +91,6 @@ const ROTA_INTEGRACAO = '/ped/integracao'
 
 /** Nome do campo da modal usado nos erros do JSON de entrada. */
 const CAMPO_PARAMETROS_ENTRADA = 'parametros de entrada'
-
-/** Nome do campo da modal usado nos erros do JSON de saída. */
-const CAMPO_PARAMETROS_SAIDA = 'parametros de saida'
 
 /**
  * Situações aceitas pelo filtro da API, na ordem exibida na tela. `integracao_pendente` (09/11/2026)
@@ -393,30 +386,10 @@ function erroDaIntegracaoOuNulo(valor: unknown): ErroIntegracao | null {
 }
 
 /**
- * Chaves do mapeamento da saída no formato do back-end (saída por "chave: tipo", 11/11/2026 —
- * `FRONT-saida-chave-tipo.md`, seção 2): só os campos preenchidos (após `trim()`), aparados.
- */
-function corpoMapeamento(mapeamento: MapeamentoSaida | undefined): Record<string, string> {
-  const corpo: Record<string, string> = {}
-  if (mapeamento === undefined) return corpo
-  const pares: Array<[string, string | null | undefined]> = [
-    ['campo da filial', mapeamento.campoFilial],
-    ['campo do valor', mapeamento.campoValor],
-    ['campo da meta', mapeamento.campoMeta],
-    ['campo da competencia', mapeamento.campoCompetencia],
-  ]
-  for (const [chave, valor] of pares) {
-    const texto = valor?.trim() ?? ''
-    if (texto !== '') corpo[chave] = texto
-  }
-  return corpo
-}
-
-/**
- * Corpo de `concluir` e de `integracao`: identificador em maiúsculas, URL aparada, os JSONs como digitados
- * e o mapeamento da saída (`"campo da filial"`, `"campo do valor"` ou `"campo da meta"`, pela chave
- * presente, e `"campo da competencia"`, omitido quando vazio). Também usado pela integração da meta do
- * indicador (F6.11, `atualizarIntegracaoIndicador`).
+ * Corpo de `concluir` e de `integracao`: só os quatro campos — identificador em maiúsculas, URL aparada e os
+ * JSONs como digitados. Desde 11/11/2026 (saída sem mapeamento — `RESPOSTA-FRONT-saida-sem-mapeamento.md`)
+ * não leva `"campo da filial"`, `"campo do valor"`, `"campo da meta"` nem `"campo da competencia"`. Também
+ * usado pela integração da meta do indicador (F6.11, `atualizarIntegracaoIndicador`).
  */
 export function corpoIntegracao(integracao: IntegracaoDadoExterno): Record<string, string> {
   return {
@@ -424,59 +397,6 @@ export function corpoIntegracao(integracao: IntegracaoDadoExterno): Record<strin
     url: integracao.url.trim(),
     'parametros de saida': integracao.parametrosSaida,
     [CAMPO_PARAMETROS_ENTRADA]: integracao.parametrosEntrada,
-    ...corpoMapeamento(integracao.mapeamento),
-  }
-}
-
-/** Campo da saída validada: `campo` (ou `nome`) e `tipo` em texto. */
-function converterCampoSaida(valor: unknown): CampoSaidaServidor {
-  if (!ehObjeto(valor)) throw respostaInvalida()
-  const nome = valor.campo ?? valor.nome
-  if (!ehTexto(nome) || !ehTexto(valor.tipo)) throw respostaInvalida()
-  return { nome, tipo: valor.tipo }
-}
-
-/**
- * Erro da estrutura da saída em `validar` (11/11/2026): no domínio, `campo` é sempre `parametros de saida`
- * e `caminho` vazio vira `null`. Sem `mensagem` em texto devolve `null` (o item é ignorado).
- */
-function erroDaSaidaOuNulo(valor: unknown): ErroIntegracao | null {
-  if (ehTexto(valor)) {
-    // Saída por "chave: tipo" (11/11/2026): `erros` pode vir como lista de textos.
-    if (valor.trim() === '') return null
-    return { campo: CAMPO_PARAMETROS_SAIDA, mensagem: valor, linha: null, coluna: null, caminho: null, expressao: null }
-  }
-  const erro = erroDaIntegracaoOuNulo(valor)
-  if (erro === null) return null
-  return { ...erro, campo: CAMPO_PARAMETROS_SAIDA, caminho: textoPreenchidoOuNulo(erro.caminho) }
-}
-
-/**
- * Saída de `validar`: `null`/ausente → `null`; válida com `campos` e, na saída por tipos (11/11/2026),
- * `formato`, `resumo` e `mapeamento` (ausentes ou fora do formato → `null`); inválida com `erro { mensagem, linha?,
- * coluna? }` e a lista `erros` (ausente ou fora do formato → `[]`; itens sem mensagem são ignorados).
- */
-function converterValidacaoSaida(valor: unknown): ResultadoValidacaoSaidaServidor | null {
-  if (valor === undefined || valor === null) return null
-  if (!ehObjeto(valor) || typeof valor.valido !== 'boolean') throw respostaInvalida()
-  if (valor.valido) {
-    if (!Array.isArray(valor.campos)) throw respostaInvalida()
-    return {
-      valido: true,
-      campos: valor.campos.map(converterCampoSaida),
-      formato: ehTexto(valor.formato) ? valor.formato : null,
-      resumo: ehTexto(valor.resumo) ? valor.resumo : null,
-      mapeamento: paraMapeamentoSaida(valor.mapeamento),
-    }
-  }
-  const erro = valor.erro
-  if (!ehObjeto(erro) || !ehTexto(erro.mensagem)) throw respostaInvalida()
-  return {
-    valido: false,
-    erro: { mensagem: erro.mensagem, linha: numeroOuNulo(erro.linha), coluna: numeroOuNulo(erro.coluna) },
-    erros: Array.isArray(valor.erros)
-      ? valor.erros.map(erroDaSaidaOuNulo).filter((item): item is ErroIntegracao => item !== null)
-      : [],
   }
 }
 
@@ -699,24 +619,22 @@ export async function listarIntegracoesPendentes(): Promise<IntegracoesPendentes
 }
 
 /**
- * Valida os JSONs da integração no back-end, sem gravar (F5.18): `POST /api/ped/integracao/validar`.
+ * Valida o JSON de entrada da integração no back-end, sem gravar (F5.18): `POST /api/ped/integracao/validar`.
  *
- * Só os textos não vazios (após `trim()`) vão no corpo, como digitados, e `finalidade` (`valor`/`meta`) só
- * quando informada; o mapeamento da saída (só os campos preenchidos) vai só junto com a saída; com os dois textos vazios a API não é chamada e resolve `{ saida: null, entrada: null }`. Na resposta, `saida`/`entrada` `null` ou ausentes
- * viram `null`. Fora do formato vira `ApiError(200, MENSAGEM_RESPOSTA_INVALIDA)`; erros HTTP e de rede
- * são propagados.
+ * Desde 11/11/2026 (saída sem mapeamento — `RESPOSTA-FRONT-saida-sem-mapeamento.md`) a saída é validada só
+ * na tela: o corpo leva só `"parametros de entrada"` (como digitado) e `finalidade` (`valor`/`meta`, quando
+ * informada). Com a entrada vazia (após `trim()`) ou ausente a API não é chamada e resolve `{ entrada: null }`.
+ * Na resposta, `entrada` `null` ou ausente vira `null` e a `saida`, se vier, é ignorada. Fora do formato vira
+ * `ApiError(200, MENSAGEM_RESPOSTA_INVALIDA)`; erros HTTP e de rede são propagados.
  */
 export async function validarIntegracao(
   parametros: ParametrosValidacaoIntegracao,
 ): Promise<ResultadoValidacaoIntegracao> {
-  const corpo: Record<string, string> = {}
-  if (parametros.parametrosSaida?.trim()) corpo['parametros de saida'] = parametros.parametrosSaida
-  if (parametros.parametrosEntrada?.trim()) corpo[CAMPO_PARAMETROS_ENTRADA] = parametros.parametrosEntrada
-  if (Object.keys(corpo).length === 0) return { saida: null, entrada: null }
+  if (!parametros.parametrosEntrada?.trim()) return { entrada: null }
+  const corpo: Record<string, string> = { [CAMPO_PARAMETROS_ENTRADA]: parametros.parametrosEntrada }
   if (parametros.finalidade !== undefined) corpo.finalidade = parametros.finalidade
-  if (corpo['parametros de saida'] !== undefined) Object.assign(corpo, corpoMapeamento(parametros.mapeamento))
 
   const resposta = await apiFetch<unknown>(`${ROTA_INTEGRACAO}/validar`, { method: 'POST', body: corpo })
   if (!ehObjeto(resposta)) throw respostaInvalida()
-  return { saida: converterValidacaoSaida(resposta.saida), entrada: converterValidacaoEntrada(resposta.entrada) }
+  return { entrada: converterValidacaoEntrada(resposta.entrada) }
 }

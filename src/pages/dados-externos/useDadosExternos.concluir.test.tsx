@@ -15,7 +15,7 @@ import { useDadosExternos } from './useDadosExternos'
 
 const ROTA = '/api/ped/dados-externos-cadastro'
 const URL_CONSULTA = 'https://ti.exemplo.com.br/api/devolucoes'
-/** Saída por "chave: tipo" (11/11/2026). */
+/** Saída por "chave: tipo" (11/11/2026); sem mapeamento no corpo desde 11/11/2026 (saída sem mapeamento). */
 const SAIDA = '{ "codfil": "string", "vlrLiq": "number" }'
 const ENTRADA = '{ "filial": "%filial%" }'
 
@@ -26,7 +26,6 @@ function integracao(identificador: string): IntegracaoDadoExterno {
     url: URL_CONSULTA,
     parametrosSaida: SAIDA,
     parametrosEntrada: ENTRADA,
-    mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: null },
   }
 }
 const CONCLUIDO = {
@@ -79,13 +78,11 @@ describe('F5.7 — useDadosExternos.concluir (concluir construção — RF-28)',
 
     const put = chamadas.find((c) => c.metodo === 'PUT')!
     expect(put.caminho).toBe(`${ROTA}/3/concluir`)
-    expect(corpoDaChamada(put)).toEqual({
+    expect(corpoDaChamada(put)).toStrictEqual({
       identificador: 'DEVOLUCOES',
       url: URL_CONSULTA,
       'parametros de saida': SAIDA,
       'parametros de entrada': ENTRADA,
-      'campo da filial': 'codfil',
-      'campo do valor': 'vlrLiq',
     })
     expect(resposta?.indicadorCriado).toEqual({ id: 30, nome: 'Devoluções de venda' })
     expect(resposta?.dadoExterno).toMatchObject({ id: 3, situacao: 'ativo', identificador: 'DEVOLUCOES' })

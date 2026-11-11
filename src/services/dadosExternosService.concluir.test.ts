@@ -11,14 +11,13 @@ const ROTA = '/api/ped/dados-externos-cadastro'
 const SAIDA = '{\n  "codfil": "string",\n  "vlrLiq": "number",\n  "data": "date"\n}'
 const ENTRADA = '{ "filial": "%filial%", "inicio": "%dataInicial% - 3m" }'
 
-/** Integração válida informada na modal (textos das caixas, como digitados, e o mapeamento da saída). */
+/** Integração válida informada na modal (textos das caixas, como digitados; sem mapeamento desde 11/11/2026). */
 function integracao(sobrescrever: Partial<IntegracaoDadoExterno> = {}): IntegracaoDadoExterno {
   return {
     identificador: 'DEVOLUCOES',
     url: 'https://ti.exemplo.com.br/api/consulta',
     parametrosSaida: SAIDA,
     parametrosEntrada: ENTRADA,
-    mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: 'data' },
     ...sobrescrever,
   }
 }
@@ -53,7 +52,7 @@ describe('F5.7 — Serviço de dados externos: concluirConstrucao(id, integracao
   const CONCLUIDO_API = { ...DADO_DEVOLUCOES_API, situacao: 'ativo' as const, identificador: 'DEVOLUCOES' }
 
   describe('corpo do PUT .../{id}/concluir', () => {
-    it('envia identificador (maiúsculas, sem espaços nas pontas), url (sem espaços nas pontas), os textos dos dois JSONs como digitados e o mapeamento da saída', async () => {
+    it('envia identificador (maiúsculas, sem espaços nas pontas), url (sem espaços nas pontas), os textos dos dois JSONs como digitados e nada mais', async () => {
       const chamadas = simularApi(fetchFalso, {
         [`PUT ${ROTA}/3/concluir`]: () => respostaJson(respostaConclusaoApi(CONCLUIDO_API, null)),
       })
@@ -64,14 +63,11 @@ describe('F5.7 — Serviço de dados externos: concluirConstrucao(id, integracao
       expect(chamadas[0].metodo).toBe('PUT')
       expect(chamadas[0].caminho).toBe(`${ROTA}/3/concluir`)
       expect(cabecalhoDaChamada(chamadas[0], 'Authorization')).toBe('Bearer token-123')
-      expect(corpoDaChamada(chamadas[0])).toEqual({
+      expect(corpoDaChamada(chamadas[0])).toStrictEqual({
         identificador: 'DEVOLUCOES',
         url: 'https://ti.exemplo.com.br/api/consulta',
         'parametros de saida': SAIDA,
         'parametros de entrada': ENTRADA,
-        'campo da filial': 'codfil',
-        'campo do valor': 'vlrLiq',
-        'campo da competencia': 'data',
       })
     })
 
@@ -83,56 +79,31 @@ describe('F5.7 — Serviço de dados externos: concluirConstrucao(id, integracao
       await concluirConstrucao(3, { ...integracao(), variaveisUsadas: ['filial'] } as IntegracaoDadoExterno)
 
       expect(Object.keys(corpoDaChamada(chamadas[0]) as object).sort()).toEqual(
-        ['identificador', 'parametros de entrada', 'parametros de saida', 'url', 'campo da filial', 'campo do valor', 'campo da competencia'].sort(),
+        ['identificador', 'parametros de entrada', 'parametros de saida', 'url'].sort(),
       )
     })
 
     /**
-     * Alteração de 11/11/2026 (saída por "chave: tipo", opção B — `FRONT-saida-chave-tipo.md`, seção 2):
-     * `IntegracaoDadoExterno.mapeamento` vira `"campo da filial"`, `"campo do valor"` (dado externo) ou
-     * `"campo da meta"` (indicador, pelo `campoMeta`) e `"campo da competencia"` (opcional: omitido quando
-     * `null`, vazio ou ausente). Só as chaves informadas vão no corpo.
+     * Alteração de 11/11/2026 (saída sem mapeamento — `RESPOSTA-FRONT-saida-sem-mapeamento.md`): os
+     * parâmetros de saída só mostram ao back-end a saída esperada; não há amarração. O corpo **não** leva
+     * `"campo da filial"`, `"campo do valor"`, `"campo da meta"` nem `"campo da competencia"` (nem o objeto
+     * `mapeamento`), mesmo que um chamador antigo ainda mande o mapeamento.
      */
-    it.each([
-      ['null', null],
-      ['texto vazio', ''],
-      ['ausente', undefined],
-    ])('competência %s → "campo da competencia" omitido do corpo', async (_nome, competencia) => {
+    it('não envia o mapeamento da saída, mesmo que venha na integração (chamador antigo)', async () => {
       const chamadas = simularApi(fetchFalso, {
         [`PUT ${ROTA}/3/concluir`]: () => respostaJson(respostaConclusaoApi(CONCLUIDO_API, null)),
       })
+      const comMapeamento = {
+        ...integracao(),
+        mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoMeta: 'metVlr', campoCompetencia: 'data' },
+      } as IntegracaoDadoExterno
 
-      await concluirConstrucao(3, integracao({ mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: competencia } }))
-
-      const corpo = corpoDaChamada(chamadas[0]) as Record<string, unknown>
-      expect(corpo).toMatchObject({ 'campo da filial': 'codfil', 'campo do valor': 'vlrLiq' })
-      expect(corpo).not.toHaveProperty('campo da competencia')
-      expect(corpo).not.toHaveProperty('campo da meta')
-    })
-
-    it('mapeamento com campoMeta (integração do indicador) vira "campo da meta", sem "campo do valor"', async () => {
-      const chamadas = simularApi(fetchFalso, {
-        [`PUT ${ROTA}/3/concluir`]: () => respostaJson(respostaConclusaoApi(CONCLUIDO_API, null)),
-      })
-
-      await concluirConstrucao(3, integracao({ mapeamento: { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: null } }))
+      await concluirConstrucao(3, comMapeamento)
 
       const corpo = corpoDaChamada(chamadas[0]) as Record<string, unknown>
-      expect(corpo['campo da filial']).toBe('codfil')
-      expect(corpo['campo da meta']).toBe('metVlr')
-      expect(corpo).not.toHaveProperty('campo do valor')
-    })
-
-    it('o objeto do mapeamento não vai no corpo (só as chaves do back-end)', async () => {
-      const chamadas = simularApi(fetchFalso, {
-        [`PUT ${ROTA}/3/concluir`]: () => respostaJson(respostaConclusaoApi(CONCLUIDO_API, null)),
-      })
-
-      await concluirConstrucao(3, integracao())
-
-      const corpo = corpoDaChamada(chamadas[0]) as Record<string, unknown>
-      expect(corpo).not.toHaveProperty('mapeamento')
-      expect(corpo).not.toHaveProperty('campoFilial')
+      for (const chave of ['campo da filial', 'campo do valor', 'campo da meta', 'campo da competencia', 'mapeamento', 'campoFilial']) {
+        expect(corpo).not.toHaveProperty([chave])
+      }
     })
 
     it('os textos dos JSONs vão como estão (quebras de linha e espaços preservados, sem reformatar)', async () => {

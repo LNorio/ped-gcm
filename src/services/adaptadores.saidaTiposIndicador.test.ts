@@ -9,7 +9,6 @@ import {
   SAIDA_META_VIA_API,
   SAIDA_META_VIA_API_ANTIGA,
   comoValidadorRecebe,
-  type IndicadorApiFalso,
 } from '../test/indicadoresFalsos'
 import { type IndicadorApi, paraIndicador } from './adaptadores'
 
@@ -17,69 +16,50 @@ import { type IndicadorApi, paraIndicador } from './adaptadores'
  * F6.11 — Saída da integração da meta por "chave: tipo" (docs/propostas-backend/FRONT-saida-chave-tipo.md,
  * 11/11/2026, opção B do back-end) no adaptador do indicador (fonte `integracao`, só o Admin):
  * - `"parametros de saida"` vem como objeto `{ chave: tipo }` (formato novo) ou lista (formato antigo) e
- *   entra no domínio como veio (`IntegracaoDoIndicador.parametrosSaida`);
- * - `"mapeamento da saida"` → `IntegracaoDoIndicador.mapeamentoSaida: MapeamentoSaida | null`:
- *   `{ campoFilial, campoMeta, campoCompetencia }` (de `"campo da filial"`, `"campo da meta"`,
- *   `"campo da competencia"`; competência ausente, `null` ou vazia → `null`);
- *   ausente/`null` → `null`; formato antigo (saída em lista) → `null`, mesmo que o mapeamento venha.
+ *   entra no domínio como veio (`IntegracaoDoIndicador.parametrosSaida`).
+ *
+ * Alteração de 11/11/2026 (saída sem mapeamento — `RESPOSTA-FRONT-saida-sem-mapeamento.md`): o
+ * `"mapeamento da saida"` que o back-end ainda pode devolver é **ignorado** — `IntegracaoDoIndicador` não tem
+ * mais `mapeamentoSaida` — e nenhum valor do campo rejeita o indicador.
  */
-describe('F6.11 — Saída "chave: tipo": adaptador do indicador (mapeamento da saída)', () => {
-  it('formato novo: parametrosSaida é o objeto { chave: tipo } e mapeamentoSaida traz filial e meta (competência null)', () => {
+describe('F6.11 — Saída "chave: tipo": adaptador do indicador (sem mapeamento da saída)', () => {
+  it('formato novo: parametrosSaida é o objeto { chave: tipo }, sem mapeamentoSaida', () => {
     const indicador = paraIndicador(INDICADOR_META_API_CONFIGURADO_API as IndicadorApi)
 
     expect(indicador.integracao?.parametrosSaida).toEqual(SAIDA_META_VIA_API)
-    expect(indicador.integracao?.mapeamentoSaida).toEqual({ campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: null })
+    expect(indicador.integracao).not.toHaveProperty('mapeamentoSaida')
   })
 
-  it('formato novo com "campo da competencia": mapeamentoSaida com campoCompetencia', () => {
+  it('formato novo com o campo de competência na saída: parametrosSaida como veio, sem mapeamentoSaida', () => {
     const indicador = paraIndicador(INDICADOR_META_COM_COMPETENCIA_API as IndicadorApi)
 
     expect(indicador.integracao?.parametrosSaida).toEqual(SAIDA_META_COM_COMPETENCIA)
-    expect(indicador.integracao?.mapeamentoSaida).toEqual({ campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: 'data' })
+    expect(indicador.integracao).not.toHaveProperty('mapeamentoSaida')
   })
 
-  it.each<[string, unknown]>([
-    ['null', null],
-    ['texto vazio', ''],
-  ])('"campo da competencia" %s vira campoCompetencia null', (_nome, valor) => {
-    const indicador = paraIndicador({
-      ...INDICADOR_META_API_CONFIGURADO_API,
-      'mapeamento da saida': { ...MAPEAMENTO_META_VIA_API, 'campo da competencia': valor },
-    } as IndicadorApi)
-
-    expect(indicador.integracao?.mapeamentoSaida).toEqual({ campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: null })
-  })
-
-  it('formato antigo (saída em lista, "mapeamento da saida" null): parametrosSaida é a lista e mapeamentoSaida null', () => {
+  it('formato antigo (saída em lista): parametrosSaida é a lista, sem mapeamentoSaida', () => {
     const indicador = paraIndicador(INDICADOR_META_SAIDA_ANTIGA_API as IndicadorApi)
 
     expect(indicador.integracao?.parametrosSaida).toEqual(SAIDA_META_VIA_API_ANTIGA)
-    expect(indicador.integracao?.mapeamentoSaida).toBeNull()
+    expect(indicador.integracao).not.toHaveProperty('mapeamentoSaida')
   })
 
-  it('saída em lista com mapeamento informado (incoerente): o formato decide e mapeamentoSaida fica null', () => {
-    const indicador = paraIndicador({
-      ...INDICADOR_META_SAIDA_ANTIGA_API,
-      'mapeamento da saida': { ...MAPEAMENTO_META_VIA_API },
-    } as IndicadorApi)
+  it.each<[string, unknown]>([
+    ['objeto do formato anterior', { ...MAPEAMENTO_META_VIA_API }],
+    ['null', null],
+    ['texto', 'codfil'],
+    ['"campo da filial" não textual', { ...MAPEAMENTO_META_VIA_API, 'campo da filial': 10 }],
+  ])('"mapeamento da saida" %s é ignorado, sem rejeitar o indicador', (_nome, mapeamento) => {
+    const indicador = paraIndicador({ ...INDICADOR_META_API_CONFIGURADO_API, 'mapeamento da saida': mapeamento } as IndicadorApi)
 
-    expect(indicador.integracao?.mapeamentoSaida).toBeNull()
+    expect(indicador.integracao?.parametrosSaida).toEqual(SAIDA_META_VIA_API)
+    expect(indicador.integracao).not.toHaveProperty('mapeamentoSaida')
   })
 
-  it('"mapeamento da saida" ausente (API anterior) → mapeamentoSaida null', () => {
-    const semMapeamento: IndicadorApiFalso = { ...INDICADOR_META_API_CONFIGURADO_API }
-    delete semMapeamento['mapeamento da saida']
-
-    expect(paraIndicador(semMapeamento as IndicadorApi).integracao?.mapeamentoSaida).toBeNull()
-  })
-
-  it('integração pendente (sem saída salva) → mapeamentoSaida null', () => {
-    expect(paraIndicador(INDICADOR_META_API_PENDENTE_API as IndicadorApi).integracao?.mapeamentoSaida).toBeNull()
-  })
-
-  it('Validador (sem os campos do Admin) → mapeamentoSaida null', () => {
-    const indicador = paraIndicador(comoValidadorRecebe(INDICADOR_META_API_CONFIGURADO_API) as IndicadorApi)
-
-    expect(indicador.integracao?.mapeamentoSaida).toBeNull()
+  it('integração pendente e Validador (sem os campos do Admin): sem mapeamentoSaida', () => {
+    expect(paraIndicador(INDICADOR_META_API_PENDENTE_API as IndicadorApi).integracao).not.toHaveProperty('mapeamentoSaida')
+    expect(paraIndicador(comoValidadorRecebe(INDICADOR_META_API_CONFIGURADO_API) as IndicadorApi).integracao).not.toHaveProperty(
+      'mapeamentoSaida',
+    )
   })
 })

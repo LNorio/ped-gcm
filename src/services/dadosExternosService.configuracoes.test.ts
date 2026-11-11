@@ -27,7 +27,6 @@ function integracao(sobrescrever: Partial<IntegracaoDadoExterno> = {}): Integrac
     url: URL_FATURAMENTO,
     parametrosSaida: SAIDA,
     parametrosEntrada: ENTRADA,
-    mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: null },
     ...sobrescrever,
   }
 }
@@ -39,10 +38,10 @@ function integracao(sobrescrever: Partial<IntegracaoDadoExterno> = {}): Integrac
  * - na listagem, só o Admin recebe `url`, `parametros de saida`, `parametros de entrada`,
  *   `variaveis usadas`, `integracao pendente`, `integracao alterada em` e `integracao alterada por`.
  *
- * Alteração de 11/11/2026 (saída por "chave: tipo", opção B — `FRONT-saida-chave-tipo.md`, seções 2 e 5):
- * o corpo leva também o mapeamento (`"campo da filial"`, `"campo do valor"`, `"campo da competencia"` só
- * quando informada) e a listagem do Admin traz `"mapeamento da saida"` → `DadoExterno.mapeamentoSaida`
- * (`MapeamentoSaida`; ausente ou `null` — formato antigo — → `null`).
+ * Alteração de 11/11/2026 (saída sem mapeamento — `RESPOSTA-FRONT-saida-sem-mapeamento.md`): o corpo leva
+ * **só** os quatro campos (sem `"campo da filial"`, `"campo do valor"`, `"campo da meta"` nem
+ * `"campo da competencia"`) e o `"mapeamento da saida"` da listagem é ignorado (`DadoExterno` sem
+ * `mapeamentoSaida`).
  */
 describe('F5.16 — Serviço: atualizarIntegracao(id, integracao) (botão Configurações)', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
@@ -63,7 +62,7 @@ describe('F5.16 — Serviço: atualizarIntegracao(id, integracao) (botão Config
 
   const RESPOSTA_OK = { mensagem: 'integracao atualizada', 'variaveis usadas': ['dataFinal', 'dataInicial', 'filial'] }
 
-  it('PUT .../{id}/integracao com o token, os quatro campos (identificador em maiúsculas e sem espaços nas pontas, url sem espaços nas pontas, JSONs como digitados) e o mapeamento', async () => {
+  it('PUT .../{id}/integracao com o token, os quatro campos (identificador em maiúsculas e sem espaços nas pontas, url sem espaços nas pontas, JSONs como digitados) e nada mais', async () => {
     const chamadas = simularApi(fetchFalso, { [`PUT ${ROTA}/1/integracao`]: () => respostaJson(RESPOSTA_OK) })
 
     await atualizarIntegracao(1, integracao({ identificador: ' faturamento ', url: `  ${URL_FATURAMENTO} ` }))
@@ -72,26 +71,27 @@ describe('F5.16 — Serviço: atualizarIntegracao(id, integracao) (botão Config
     expect(chamadas[0].metodo).toBe('PUT')
     expect(chamadas[0].caminho).toBe(`${ROTA}/1/integracao`)
     expect(cabecalhoDaChamada(chamadas[0], 'Authorization')).toBe('Bearer token-123')
-    expect(corpoDaChamada(chamadas[0])).toEqual({
+    expect(corpoDaChamada(chamadas[0])).toStrictEqual({
       identificador: 'FATURAMENTO',
       url: URL_FATURAMENTO,
       'parametros de saida': SAIDA,
       'parametros de entrada': ENTRADA,
-      'campo da filial': 'codfil',
-      'campo do valor': 'vlrLiq',
     })
   })
 
-  it('com competência informada, envia "campo da competencia"', async () => {
+  it('não envia o mapeamento da saída, mesmo que venha na integração (chamador antigo)', async () => {
     const chamadas = simularApi(fetchFalso, { [`PUT ${ROTA}/1/integracao`]: () => respostaJson(RESPOSTA_OK) })
+    const comMapeamento = {
+      ...integracao(),
+      mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: 'datCpt' },
+    } as IntegracaoDadoExterno
 
-    await atualizarIntegracao(1, integracao({ mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: 'datCpt' } }))
+    await atualizarIntegracao(1, comMapeamento)
 
-    expect(corpoDaChamada(chamadas[0])).toMatchObject({
-      'campo da filial': 'codfil',
-      'campo do valor': 'vlrLiq',
-      'campo da competencia': 'datCpt',
-    })
+    const corpo = corpoDaChamada(chamadas[0]) as Record<string, unknown>
+    for (const chave of ['campo da filial', 'campo do valor', 'campo da meta', 'campo da competencia', 'mapeamento']) {
+      expect(corpo).not.toHaveProperty([chave])
+    }
   })
 
   it('não usa a rota de conclusão (PUT .../concluir)', async () => {
@@ -189,7 +189,6 @@ describe('F5.16 — Serviço: listarDadosExternos com os campos da integração 
       url: URL_FATURAMENTO,
       parametrosSaida: SAIDA_FATURAMENTO_API,
       parametrosEntrada: ENTRADA_FATURAMENTO_API,
-      mapeamentoSaida: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: 'datCpt' },
       variaveisUsadas: ['dataFinal', 'dataInicial', 'empresas'],
       integracaoPendente: false,
       integracaoAlteradaEm: '2026-11-09 10:00:00',
@@ -209,71 +208,30 @@ describe('F5.16 — Serviço: listarDadosExternos com os campos da integração 
       ['Volume de vendas', false, 'https://ti.exemplo.com.br/api/volume'],
     ])
     expect(dados[5].parametrosSaida).toEqual(SAIDA_VOLUME_API)
-    expect(dados[5].mapeamentoSaida).toBeNull()
-    expect(dados[1]).toMatchObject({ parametrosSaida: null, parametrosEntrada: null, mapeamentoSaida: null, variaveisUsadas: [] })
+    expect(dados[1]).toMatchObject({ parametrosSaida: null, parametrosEntrada: null, variaveisUsadas: [] })
   })
 
-  describe('"mapeamento da saida" (saída por "chave: tipo", 11/11/2026) → mapeamentoSaida', () => {
-    it('mapeamento do dado externo com competência', async () => {
-      const [dado] = await listar([comIntegracaoApi(DADO_FATURAMENTO_API, { 'mapeamento da saida': { ...MAPEAMENTO_FATURAMENTO_API } })])
-
-      expect(dado.mapeamentoSaida).toEqual({ campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: 'datCpt' })
-    })
-
-    it('sem "campo da competencia" (ou null/vazio) → campoCompetencia null', async () => {
-      const dados = await listar([
-        comIntegracaoApi(DADO_FATURAMENTO_API, { 'mapeamento da saida': { 'campo da filial': 'codfil', 'campo do valor': 'vlrLiq' } }),
-        comIntegracaoApi(DADO_COBERTURA_API, {
-          'mapeamento da saida': { 'campo da filial': 'codfil', 'campo do valor': 'vlrLiq', 'campo da competencia': null },
-        }),
-        comIntegracaoApi({ ...DADO_FATURAMENTO_API, id: 9 }, {
-          'mapeamento da saida': { 'campo da filial': 'codfil', 'campo do valor': 'vlrLiq', 'campo da competencia': '' },
-        }),
-      ])
-
-      for (const dado of dados) {
-        expect(dado.mapeamentoSaida).toEqual({ campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: null })
-      }
-    })
-
-    it('"campo da meta" (se vier) é lido em campoMeta', async () => {
-      const [dado] = await listar([
-        comIntegracaoApi(DADO_FATURAMENTO_API, { 'mapeamento da saida': { 'campo da filial': 'codfil', 'campo da meta': 'metVlr' } }),
-      ])
-
-      expect(dado.mapeamentoSaida).toEqual({ campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: null })
-    })
-
+  /**
+   * Alteração de 11/11/2026 (saída sem mapeamento): o back-end ainda pode devolver `"mapeamento da saida"`
+   * na listagem do Admin, mas o front não o lê — o `DadoExterno` não tem mais `mapeamentoSaida` e um
+   * valor fora do formato não rejeita a lista.
+   */
+  describe('"mapeamento da saida" na listagem é ignorado (saída sem mapeamento, 11/11/2026)', () => {
     it.each<[string, unknown]>([
-      ['null (formato antigo)', null],
-      ['ausente', undefined],
-    ])('%s → null', async (_nome, mapeamento) => {
-      const bruto = comIntegracaoApi(DADO_FATURAMENTO_API)
-      if (mapeamento === undefined) delete bruto['mapeamento da saida']
-      else bruto['mapeamento da saida'] = mapeamento
-
-      const [dado] = await listar([bruto])
-
-      expect(dado.mapeamentoSaida).toBeNull()
-    })
-
-    it.each<[string, unknown]>([
+      ['objeto do formato anterior', { ...MAPEAMENTO_FATURAMENTO_API }],
+      ['null', null],
       ['texto', 'codfil'],
       ['lista', ['codfil', 'vlrLiq']],
-      ['objeto sem "campo da filial"', { 'campo do valor': 'vlrLiq' }],
-      ['"campo da filial" vazio', { 'campo da filial': '', 'campo do valor': 'vlrLiq' }],
       ['"campo da filial" que não é texto', { 'campo da filial': 101, 'campo do valor': 'vlrLiq' }],
-    ])('fora do formato (%s) vira null, sem rejeitar a lista', async (_nome, mapeamento) => {
-      const dados = await listar([comIntegracaoApi(DADO_FATURAMENTO_API, { 'mapeamento da saida': mapeamento }), comIntegracaoApi(DADO_COBERTURA_API)])
+    ])('%s: o dado é convertido sem mapeamentoSaida e sem rejeitar a lista', async (_nome, mapeamento) => {
+      const dados = await listar([comIntegracaoApi(DADO_FATURAMENTO_API, {
+          'parametros de saida': { ...SAIDA_FATURAMENTO_API },
+          'mapeamento da saida': mapeamento,
+        }), comIntegracaoApi(DADO_COBERTURA_API)])
 
       expect(dados).toHaveLength(2)
-      expect(dados[0].mapeamentoSaida).toBeNull()
-    })
-
-    it('sem os campos da integração (Validador e Preenchedor) → null', async () => {
-      const [dado] = await listar([DADO_FATURAMENTO_API])
-
-      expect(dado.mapeamentoSaida).toBeNull()
+      expect(dados[0]).not.toHaveProperty('mapeamentoSaida')
+      expect(dados[0].parametrosSaida).toEqual(SAIDA_FATURAMENTO_API)
     })
   })
 

@@ -99,8 +99,9 @@ export interface DadoExternoApiFalso {
   'tipo de servico'?: unknown
   /**
    * Saída por "chave: tipo" (11/11/2026 — `FRONT-saida-chave-tipo.md`, seção 5; só Admin):
-   * `{ "campo da filial", "campo do valor", "campo da competencia"? }`, ou `null` quando a integração está no
-   * formato antigo (saída em lista). Ausente nas constantes padrão.
+   * `{ "campo da filial", "campo do valor", "campo da competencia"? }`, ou `null`. O back-end ainda pode
+   * devolver, mas desde 11/11/2026 (`RESPOSTA-FRONT-saida-sem-mapeamento.md`) o front **ignora** o campo:
+   * não há mapeamento na modal. Ausente nas constantes padrão.
    */
   'mapeamento da saida'?: unknown
 }
@@ -540,14 +541,18 @@ export function rotaListarDadosExternos(obterLista: () => DadoExternoApiFalso[])
 
 /**
  * URL e parâmetros gravados da integração de "Faturamento líquido" (lista do Admin). Desde 11/11/2026
- * (saída por "chave: tipo", `FRONT-saida-chave-tipo.md`) a saída é o **objeto** `{ "campo": "tipo" }`
- * e o mapeamento aponta a filial e o valor (`MAPEAMENTO_FATURAMENTO_API`). Desde 11/11/2026 (executor,
+ * (saída por "chave: tipo", `FRONT-saida-chave-tipo.md`) a saída é o **objeto** `{ "campo": "tipo" }`.
+ * A listagem ainda traz o `"mapeamento da saida"` antigo (`MAPEAMENTO_FATURAMENTO_API`), que o front ignora
+ * desde 11/11/2026 (saída sem mapeamento — `RESPOSTA-FRONT-saida-sem-mapeamento.md`). Desde 11/11/2026 (executor,
  * `FRONT-meta-via-api-fase2.md` seção 2.1) a entrada SOAP é `{ operacao, parametros }`, com `%empresas%`
  * (a consulta traz todas as filiais).
  */
 export const URL_FATURAMENTO = 'https://ti.exemplo.com.br/api/faturamento'
 export const SAIDA_FATURAMENTO_API = { codemp: 'string', codfil: 'string', vlrLiq: 'number', datCpt: 'date' }
-/** `"mapeamento da saida"` de "Faturamento líquido" na listagem do Admin (com competência). */
+/**
+ * `"mapeamento da saida"` de "Faturamento líquido" como o back-end ainda pode devolver na listagem do Admin.
+ * O front não lê o campo (saída sem mapeamento, 11/11/2026).
+ */
 export const MAPEAMENTO_FATURAMENTO_API = { 'campo da filial': 'codfil', 'campo do valor': 'vlrLiq', 'campo da competencia': 'datCpt' }
 export const ENTRADA_FATURAMENTO_API = {
   operacao: 'FaturamentoLiquido',
@@ -576,7 +581,7 @@ export interface IntegracaoApiFalsa {
   'ultima consulta em'?: unknown
   'erro da ultima consulta'?: unknown
   'tipo de servico'?: unknown
-  /** Saída por "chave: tipo" (11/11/2026): `null` sem integração ou no formato antigo. */
+  /** Resto da saída com mapeamento (11/11/2026): o back-end ainda pode devolver; o front ignora. */
   'mapeamento da saida'?: unknown
 }
 
@@ -605,8 +610,8 @@ export function comIntegracaoApi(
 /**
  * Lista padrão como o **Admin** a recebe (mesma ordem de `dadosExternosApi`), com os campos da
  * integração:
- * - Faturamento líquido — ativo, integração gravada (URL_FATURAMENTO, saída em "chave: tipo", mapeamento
- *   `MAPEAMENTO_FATURAMENTO_API` e entrada);
+ * - Faturamento líquido — ativo, integração gravada (URL_FATURAMENTO, saída em "chave: tipo" e entrada; a
+ *   listagem ainda traz o `"mapeamento da saida"` antigo, ignorado pelo front);
  * - Cobertura de clientes — inativo, **integração pendente** (sem URL);
  * - Devoluções de venda e Prazo médio — em construção (sem integração, não pendentes);
  * - Chamados atendidos no prazo — ativo, **integração pendente** (sem URL);
@@ -661,19 +666,15 @@ export function rotaIntegracoesPendentes(obterLista: () => DadoExternoApiFalso[]
 }
 
 /**
- * Corpo enviado em `PUT .../concluir` e `PUT .../integracao`: os quatro campos e, desde 11/11/2026
- * (saída por "chave: tipo"), o mapeamento — `"campo da filial"`, `"campo do valor"` (dado externo) ou
- * `"campo da meta"` (indicador) e `"campo da competencia"` (omitido quando não informado).
+ * Corpo enviado em `PUT .../concluir` e `PUT .../integracao`: só os quatro campos. Desde 11/11/2026
+ * (saída sem mapeamento — `RESPOSTA-FRONT-saida-sem-mapeamento.md`) o corpo **não** leva
+ * `"campo da filial"`, `"campo do valor"`, `"campo da meta"` nem `"campo da competencia"`.
  */
 export interface CorpoIntegracaoApiFalso {
   identificador: string
   url: string
   'parametros de saida': string
   'parametros de entrada': string
-  'campo da filial': string
-  'campo do valor'?: string
-  'campo da meta'?: string
-  'campo da competencia'?: string
 }
 
 // ---------------------------------------------------------------------------

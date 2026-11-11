@@ -1,15 +1,15 @@
 /**
  * Faixas de validação dos JSONs da integração no `DialogoConcluirConstrucao` (F5.7, F5.14, F5.18).
  *
- * Recebem o resultado em vigor (do back-end para o texto atual, senão o do motor local) e o exibem num
- * `role="status"` com nome acessível: vazio não mostra nada; válido mostra "JSON válido" e o resumo
- * (saída) ou as variáveis usadas, os cálculos e a prévia (entrada); inválido mostra o título e a(s)
- * mensagem(ns). Na saída, os erros do back-end (`erros`) aparecem em lista; na entrada válida, os avisos
- * (ex.: `%filial%` sem valor numa consulta de todas as filiais) aparecem sem bloquear. Os estilos ficam
- * em `DialogoConcluirConstrucao.css`.
+ * Recebem o resultado em vigor e o exibem num `role="status"` com nome acessível: vazio não mostra nada;
+ * válido mostra "JSON válido" e o resumo (saída) ou as variáveis usadas, os cálculos e a prévia (entrada);
+ * inválido mostra o título e a(s) mensagem(ns). A saída é validada só pelo motor local (saída sem
+ * mapeamento, 11/11/2026); a entrada usa o resultado do back-end para o texto atual, senão o local. Na
+ * entrada válida, os avisos (ex.: `%filial%` sem valor numa consulta de todas as filiais) aparecem sem
+ * bloquear. Os estilos ficam em `DialogoConcluirConstrucao.css`.
  */
 import type { ResultadoEntrada } from '../../utils/integracao/entrada'
-import type { ResultadoSaidaExibido } from './useValidacaoServidor'
+import type { ResultadoSaida } from '../../utils/integracao/saida'
 
 function classesValidacao(estado: 'vazio' | 'valido' | 'invalido'): string {
   const classes = ['dialogo-concluir__validacao']
@@ -18,7 +18,7 @@ function classesValidacao(estado: 'vazio' | 'valido' | 'invalido'): string {
   return classes.join(' ')
 }
 
-export function ValidacaoSaida({ resultado }: { resultado: ResultadoSaidaExibido }) {
+export function ValidacaoSaida({ resultado }: { resultado: ResultadoSaida }) {
   return (
     <div role="status" aria-label="Validação dos parâmetros de saída" aria-atomic="true" className={classesValidacao(resultado.estado)}>
       {resultado.estado === 'valido' ? (
@@ -31,13 +31,6 @@ export function ValidacaoSaida({ resultado }: { resultado: ResultadoSaidaExibido
         <>
           <p className="dialogo-concluir__validacao-titulo">JSON de saída inválido</p>
           <p>{resultado.mensagem}</p>
-          {resultado.erros && resultado.erros.length > 0 ? (
-            <ul className="dialogo-concluir__erros">
-              {resultado.erros.map((texto, indice) => (
-                <li key={indice}>{texto}</li>
-              ))}
-            </ul>
-          ) : null}
         </>
       ) : null}
     </div>

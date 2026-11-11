@@ -48,19 +48,6 @@
   align-self: flex-start;
 }
 
-/* Mapeamento da saída: campo da filial, do valor (ou da meta) e da competência. */
-.dialogo-concluir__mapeamento {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: 0.75rem;
-  align-items: start;
-}
-
-/* Erro da lista do mapeamento, exibido na descrição da lista (mesma cor do erro de campo). */
-.dialogo-concluir__erro-mapeamento {
-  color: var(--cor-perigo);
-}
-
 /* Validação em tempo real: faixa verde (válido) ou vermelha (inválido); vazia não aparece. */
 .dialogo-concluir__validacao {
   display: flex;

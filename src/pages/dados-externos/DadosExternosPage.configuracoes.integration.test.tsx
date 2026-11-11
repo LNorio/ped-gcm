@@ -45,11 +45,12 @@ const AVISO_FORMATO_ANTIGO = 'Esta integração está no formato antigo (lista).
  * `.../{id}/integracao` → fecha, "Integração atualizada.", recarrega a lista e os pendentes. Não muda a
  * situação nem cria indicador. A URL aparece abaixo do identificador.
  *
- * Alteração de 11/11/2026 (saída por "chave: tipo", opção B — `FRONT-saida-chave-tipo.md`): a página passa
- * o `mapeamentoSaida` do dado à modal (listas "Campo da filial", "Campo do valor" e "Campo da competência"
- * preenchidas) e o PUT leva o mapeamento (`"campo da filial"`, `"campo do valor"`, `"campo da competencia"`).
- * "Volume de vendas" está salvo no formato antigo (saída em lista, `"mapeamento da saida": null`): abre com o
- * aviso para reescrever e o salvar bloqueado.
+ * Alteração de 11/11/2026 (saída por "chave: tipo", opção B — `FRONT-saida-chave-tipo.md`): "Volume de vendas"
+ * está salvo no formato antigo (saída em lista): abre com o aviso para reescrever e o salvar bloqueado.
+ *
+ * Alteração de 11/11/2026 (saída sem mapeamento — `RESPOSTA-FRONT-saida-sem-mapeamento.md`): a modal não tem
+ * as listas do mapeamento (mesmo com o `"mapeamento da saida"` que a listagem ainda traz em "Faturamento
+ * líquido") e o PUT leva só os quatro campos; um 400 com `campo` "campo do valor" vai para o alerta geral.
  */
 describe('F5.16 — Configurações da integração do dado externo (integração: /dados-externos)', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
@@ -94,11 +95,6 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
                 url: corpo.url,
                 'parametros de saida': JSON.parse(corpo['parametros de saida']) as unknown,
                 'parametros de entrada': JSON.parse(corpo['parametros de entrada']) as unknown,
-                'mapeamento da saida': {
-                  'campo da filial': corpo['campo da filial'],
-                  'campo do valor': corpo['campo do valor'],
-                  'campo da competencia': corpo['campo da competencia'] ?? null,
-                },
                 'integracao pendente': false,
               }
             : d,
@@ -192,9 +188,10 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
     expect(within(dialogo).getByLabelText('URL')).toHaveValue(URL_FATURAMENTO)
     expect(within(dialogo).getByLabelText('Parâmetros de saída')).toHaveValue(SAIDA_TEXTO)
     expect(within(dialogo).getByLabelText('Parâmetros de entrada')).toHaveValue(ENTRADA_TEXTO)
-    expect(within(dialogo).getByLabelText('Campo da filial')).toHaveValue('codfil')
-    expect(within(dialogo).getByLabelText('Campo do valor')).toHaveValue('vlrLiq')
-    expect(within(dialogo).getByLabelText('Campo da competência')).toHaveValue('datCpt')
+    // Saída sem mapeamento (11/11/2026): o "mapeamento da saida" da listagem não aparece na modal.
+    for (const rotulo of ['Campo da filial', 'Campo do valor', 'Campo da meta', 'Campo da competência']) {
+      expect(within(dialogo).queryByLabelText(new RegExp(`^${rotulo}`))).not.toBeInTheDocument()
+    }
     expect(within(dialogo).queryByText(AVISO_FORMATO_ANTIGO)).not.toBeInTheDocument()
     expect(gets(chamadas, ROTA_VARIAVEIS)).toHaveLength(1)
     expect(chamadas.map((c) => c.caminho)).not.toContain('/api/ped/integracao/variaveis-saida')
@@ -202,7 +199,7 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
     expect(salvar(dialogo)).toBeEnabled()
   })
 
-  it('salvar: PUT .../{id}/integracao com os quatro campos e o mapeamento → fecha, "Integração atualizada.", recarrega lista e pendentes; situação mantida e nenhum indicador criado', async () => {
+  it('salvar: PUT .../{id}/integracao só com os quatro campos (sem mapeamento) → fecha, "Integração atualizada.", recarrega lista e pendentes; situação mantida e nenhum indicador criado', async () => {
     const user = usuarioRapido()
     const chamadas = simular()
     await abrirTela()
@@ -226,9 +223,6 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
       url: URL_NOVA,
       'parametros de saida': SAIDA_TEXTO,
       'parametros de entrada': ENTRADA_TEXTO,
-      'campo da filial': 'codfil',
-      'campo do valor': 'vlrLiq',
-      'campo da competencia': 'datCpt',
     })
     await waitFor(() => expect(gets(chamadas, ROTA).length).toBeGreaterThan(listasAntes))
     await waitFor(() => expect(gets(chamadas, ROTA_PENDENTES).length).toBeGreaterThan(pendentesAntes))
@@ -253,8 +247,6 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
 
     await colar(user, within(dialogo).getByLabelText('URL'), 'https://ti.exemplo.com.br/api/cobertura')
     await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de saída' }))
-    await user.selectOptions(within(dialogo).getByLabelText('Campo da filial'), 'codfil')
-    await user.selectOptions(within(dialogo).getByLabelText('Campo do valor'), 'vlrLiq')
     await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de entrada' }))
     await user.click(salvar(dialogo))
 
@@ -264,8 +256,6 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
       url: 'https://ti.exemplo.com.br/api/cobertura',
       'parametros de saida': MODELO_JSON_SAIDA,
       'parametros de entrada': MODELO_JSON_ENTRADA,
-      'campo da filial': 'codfil',
-      'campo do valor': 'vlrLiq',
     })
     await waitFor(() => expect(within(linha('Cobertura de clientes')).queryByText('Integração pendente (TI)')).not.toBeInTheDocument())
     expect(within(linha('Cobertura de clientes')).getByText('Inativo')).toBeInTheDocument()
@@ -308,7 +298,7 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
   })
 
   describe('integração salva no formato antigo (Volume de vendas: saída em lista, sem mapeamento)', () => {
-    it('abre com o texto antigo, o aviso para reescrever, as listas vazias e o salvar bloqueado', async () => {
+    it('abre com o texto antigo, o aviso para reescrever e o salvar bloqueado', async () => {
       const user = usuarioRapido()
       const chamadas = simular()
       await abrirTela()
@@ -320,13 +310,13 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
       expect(within(dialogo).getByRole('status', { name: 'Validação dos parâmetros de saída' })).toHaveTextContent(
         'Formato antigo (lista). Reescreva a saída como { "campo": "tipo" }.',
       )
-      expect(within(dialogo).getByLabelText('Campo da filial')).toHaveValue('')
+      expect(within(dialogo).getByText('falta: JSON de saída válido')).toBeInTheDocument()
       expect(salvar(dialogo)).toBeDisabled()
       await user.click(salvar(dialogo))
       expect(puts(chamadas)).toHaveLength(0)
     })
 
-    it('reescrever a saída no formato novo e escolher o mapeamento libera o salvar; o PUT leva a saída nova e o mapeamento', async () => {
+    it('reescrever a saída no formato novo libera o salvar, sem escolher nada; o PUT leva a saída nova e nenhum "campo da ..."', async () => {
       const user = usuarioRapido()
       const chamadas = simular()
       await abrirTela()
@@ -337,23 +327,18 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
       await user.clear(campoSaida)
       await colar(user, campoSaida, saidaNova)
       expect(within(dialogo).queryByText(AVISO_FORMATO_ANTIGO)).not.toBeInTheDocument()
-      await user.selectOptions(within(dialogo).getByLabelText('Campo da filial'), 'codfil')
-      await user.selectOptions(within(dialogo).getByLabelText('Campo do valor'), 'volLiq')
-      await user.selectOptions(within(dialogo).getByLabelText('Campo da competência'), 'datCpt')
+      expect(salvar(dialogo)).toBeEnabled()
       await user.click(salvar(dialogo))
 
       await screen.findByText('Integração atualizada.')
       expect(puts(chamadas)[0].caminho).toBe(`${ROTA}/6/integracao`)
-      expect(corpoDaChamada(puts(chamadas)[0])).toMatchObject({
-        'parametros de saida': saidaNova,
-        'campo da filial': 'codfil',
-        'campo do valor': 'volLiq',
-        'campo da competencia': 'datCpt',
-      })
+      const corpo = corpoDaChamada(puts(chamadas)[0]) as Record<string, unknown>
+      expect(corpo).toMatchObject({ 'parametros de saida': saidaNova })
+      expect(Object.keys(corpo).sort()).toEqual(['identificador', 'parametros de entrada', 'parametros de saida', 'url'])
     })
   })
 
-  it('400 com erro do mapeamento ("campo do valor"): o erro aparece junto ao "Campo do valor"', async () => {
+  it('400 com erro "campo do valor" (back-end sem a versão nova): o erro vai para o alerta geral', async () => {
     const user = usuarioRapido()
     simular({
       aoAtualizar: () =>
@@ -371,10 +356,9 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
     await user.click(salvar(dialogo))
 
     await within(dialogo).findByText('integracao invalida: ...')
-    expect(within(dialogo).getByLabelText('Campo do valor')).toHaveAttribute('aria-invalid', 'true')
-    expect(within(dialogo).getByLabelText('Campo do valor')).toHaveAccessibleDescription(
-      expect.stringContaining('o "campo do valor" ("codemp") e do tipo string; precisa ser number'),
-    )
+    expect(within(dialogo).getByRole('alert')).toHaveTextContent('o "campo do valor" ("codemp") e do tipo string; precisa ser number')
+    expect(within(dialogo).queryByLabelText(/^Campo do valor/)).not.toBeInTheDocument()
+    expect(within(dialogo).getByLabelText('Parâmetros de saída')).not.toHaveAttribute('aria-invalid', 'true')
   })
 
   it('clicar numa variável sem antes clicar na caixa de entrada insere no fim do texto salvo (não antes do "{")', async () => {

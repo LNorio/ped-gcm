@@ -239,8 +239,7 @@ describe('F1.3 — Adaptadores da API (ida: resposta → tipo)', () => {
       // Executor (11/11/2026): "ultima consulta em"/"erro da ultima consulta" ausentes → null.
       ultimaConsultaEm: null,
       erroUltimaConsulta: null,
-      // Saída por "chave: tipo" (11/11/2026, só Admin): "mapeamento da saida" ausente → null.
-      mapeamentoSaida: null,
+      // Saída sem mapeamento (11/11/2026): sem `mapeamentoSaida` (toEqual exige a ausência).
     })
   })
 
@@ -324,41 +323,26 @@ describe('F1.3 — Adaptadores da API (ida: resposta → tipo)', () => {
   })
 
   /**
-   * Alteração de 11/11/2026 (saída por "chave: tipo" — `FRONT-saida-chave-tipo.md`, seção 5): o Admin recebe
-   * `"mapeamento da saida"` → `mapeamentoSaida: MapeamentoSaida | null` (`"campo da filial"` → `campoFilial`,
-   * `"campo do valor"` → `campoValor`, `"campo da meta"` → `campoMeta`, `"campo da competencia"` →
-   * `campoCompetencia`, ausente/`null`/vazio → `null`). `null`, ausente ou fora do formato (sem
-   * `"campo da filial"` em texto não vazio) → `null`. A saída em objeto continua em `parametrosSaida`.
+   * Alteração de 11/11/2026 (saída sem mapeamento — `RESPOSTA-FRONT-saida-sem-mapeamento.md`): o back-end
+   * ainda pode mandar `"mapeamento da saida"`, mas o adaptador não o lê — `DadoExterno` não tem mais
+   * `mapeamentoSaida` — e nenhum valor do campo rejeita o dado. A saída em objeto continua em `parametrosSaida`.
    */
-  it('paraDadoExterno: "mapeamento da saida" vira mapeamentoSaida (saída por "chave: tipo")', () => {
-    const base = { ...DADO_TAREFA_SEM_NUMERO_API, 'parametros de saida': { codfil: 'string', vlrLiq: 'number', data: 'date' } }
-
-    expect(
-      paraDadoExterno({
-        ...base,
-        'mapeamento da saida': { 'campo da filial': 'codfil', 'campo do valor': 'vlrLiq', 'campo da competencia': 'data' },
-      } as Parameters<typeof paraDadoExterno>[0]),
-    ).toMatchObject({
-      parametrosSaida: { codfil: 'string', vlrLiq: 'number', data: 'date' },
-      mapeamentoSaida: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: 'data' },
-    })
-    expect(
-      paraDadoExterno({ ...base, 'mapeamento da saida': { 'campo da filial': 'codfil', 'campo do valor': 'vlrLiq' } } as Parameters<
-        typeof paraDadoExterno
-      >[0]).mapeamentoSaida,
-    ).toEqual({ campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: null })
-  })
-
   it.each<[string, unknown]>([
-    ['null (formato antigo)', null],
-    ['ausente', undefined],
+    ['objeto do formato anterior', { 'campo da filial': 'codfil', 'campo do valor': 'vlrLiq', 'campo da competencia': 'data' }],
+    ['null', null],
     ['texto', 'codfil'],
     ['sem "campo da filial"', { 'campo do valor': 'vlrLiq' }],
-  ])('paraDadoExterno: "mapeamento da saida" %s → mapeamentoSaida null', (_nome, mapeamento) => {
-    const bruto: Record<string, unknown> = { ...DADO_TAREFA_SEM_NUMERO_API, 'parametros de saida': [{ filial: '101', valor: '0' }] }
-    if (mapeamento !== undefined) bruto['mapeamento da saida'] = mapeamento
+  ])('paraDadoExterno: "mapeamento da saida" %s é ignorado (sem mapeamentoSaida)', (_nome, mapeamento) => {
+    const bruto: Record<string, unknown> = {
+      ...DADO_TAREFA_SEM_NUMERO_API,
+      'parametros de saida': { codfil: 'string', vlrLiq: 'number', data: 'date' },
+      'mapeamento da saida': mapeamento,
+    }
 
-    expect(paraDadoExterno(bruto as Parameters<typeof paraDadoExterno>[0]).mapeamentoSaida).toBeNull()
+    const dado = paraDadoExterno(bruto as Parameters<typeof paraDadoExterno>[0])
+
+    expect(dado.parametrosSaida).toEqual({ codfil: 'string', vlrLiq: 'number', data: 'date' })
+    expect(dado).not.toHaveProperty('mapeamentoSaida')
   })
 
   it('paraDadoExterno: dado ativo do Admin com identificador, sem tarefa e com janela nula em "ultimo"', () => {

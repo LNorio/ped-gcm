@@ -10,8 +10,9 @@ import { validarSaida } from './saida'
  * real continua sendo uma lista com todas as filiais; o objeto só declara os campos de cada item.
  *
  * `validarSaida(texto, campoValor)` (`campoValor`: `'valor'` no dado externo, `'meta'` no indicador; a
- * regra da saída é a mesma nos dois — quem aponta a filial e o valor/meta é o mapeamento, ver
- * `mapeamento.test.ts`):
+ * regra da saída é a mesma nos dois). Desde 11/11/2026 (saída sem mapeamento —
+ * `RESPOSTA-FRONT-saida-sem-mapeamento.md`) a saída só mostra ao back-end a saída esperada do web service: não
+ * há mapeamento na modal, e esta é a **única** validação da saída (ela não vai mais ao `validar` do back-end):
  * - vazio → `{ estado: 'vazio' }`;
  * - válido → `campos` (`{ nome, tipo }`, na ordem do objeto) e `resumo` `"N campos: a (string), b (number)"`
  *   (singular `"1 campo: ..."`), o mesmo texto que o back-end devolve em `resumo`;

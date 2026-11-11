@@ -4,8 +4,9 @@
  * Desde 11/11/2026 (saída por "chave: tipo", opção B — `docs/propostas-backend/FRONT-saida-chave-tipo.md`)
  * a saída é um **objeto** `{ "campo": "tipo" }`, com os tipos `string`, `number`, `date` ou `boolean`
  * (exatos, em minúsculas). A resposta real continua sendo uma lista com todas as filiais; o objeto só
- * declara os campos de cada item. Quem aponta a filial, o valor/meta e a competência é o mapeamento
- * (`mapeamento.ts`).
+ * declara os campos de cada item. Desde 11/11/2026 (saída sem mapeamento —
+ * `RESPOSTA-FRONT-saida-sem-mapeamento.md`) a saída só mostra ao back-end a saída esperada do web service:
+ * não há mapeamento na modal, e esta é a única validação da saída (ela não vai mais ao `validar`).
  *
  * A lista (formato antigo, com valores ou marcadores) não é mais aceita na modal: a TI reescreve no
  * formato novo (decisão do usuário de 11/11/2026).

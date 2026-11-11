@@ -113,7 +113,7 @@ describe('F6.11 — Meta via API, executor: serviço de indicadores', () => {
     expect(resultado.metaViaApi).toEqual({ dadoExterno: true, integracao: true })
   })
 
-  it('atualizarIntegracaoIndicador não envia "tipo de servico" (só os quatro campos da integração e o mapeamento da saída)', async () => {
+  it('atualizarIntegracaoIndicador não envia "tipo de servico" (só os quatro campos da integração, sem mapeamento da saída)', async () => {
     const chamadas = simularApi(fetchFalso, {
       [`PUT ${ROTA}/16/integracao`]: () => respostaJson({ mensagem: 'integracao atualizada', 'variaveis usadas': [] }),
     })
@@ -123,14 +123,11 @@ describe('F6.11 — Meta via API, executor: serviço de indicadores', () => {
       url: URL_META_VIA_API,
       parametrosSaida: JSON.stringify(SAIDA_META_VIA_API),
       parametrosEntrada: JSON.stringify(ENTRADA_META_VIA_API),
-      mapeamento: { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: null },
     })
 
     const corpo = corpoDaChamada(chamadas[0]) as Record<string, unknown>
     expect(corpo).not.toHaveProperty('tipo de servico')
     expect(Object.keys(corpo).sort()).toEqual([
-      'campo da filial',
-      'campo da meta',
       'identificador',
       'parametros de entrada',
       'parametros de saida',

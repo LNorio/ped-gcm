@@ -168,7 +168,7 @@ describe('F5.19 — DialogoConcluirConstrucao em modo "leitura" (integração do
   it('não chama a validação no servidor, mesmo recebendo validarNoServidor', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     const validar = vi.fn<(parametros: ParametrosValidacaoIntegracao) => Promise<ResultadoValidacaoIntegracao>>(() =>
-      Promise.resolve({ saida: null, entrada: null }),
+      Promise.resolve({ entrada: null }),
     )
     renderizar({ validarNoServidor: validar })
 
@@ -211,48 +211,31 @@ describe('F5.19 — DialogoConcluirConstrucao em modo "leitura" (integração do
   })
 
   /**
-   * Alteração de 11/11/2026 (saída por "chave: tipo", opção B — `FRONT-saida-chave-tipo.md`): com
-   * `mapeamentoSaida` no dado, o modo leitura mostra também o mapeamento, depois da saída e antes da
-   * entrada, em três campos só leitura (não listas de seleção): "Campo da filial", "Campo do valor" e
-   * "Campo da competência" (vazio quando `null`). Sem mapeamento (`null` ou ausente — formato antigo), esses
-   * campos não aparecem. Nenhum aviso de formato antigo no modo leitura (não há validação).
+   * Alteração de 11/11/2026 (saída sem mapeamento — `RESPOSTA-FRONT-saida-sem-mapeamento.md`): não há mais
+   * mapeamento da saída; o modo leitura **não** mostra "Campo da filial", "Campo do valor", "Campo da meta"
+   * nem "Campo da competência", mesmo que um alvo antigo ainda traga `mapeamentoSaida`. Nenhum aviso de
+   * formato antigo no modo leitura (não há validação).
    */
-  describe('mapeamento da saída (só leitura)', () => {
-    const COM_MAPEAMENTO: AlvoIntegracao = {
-      ...INTEGRACAO_FATURAMENTO,
-      parametrosSaida: { codfil: 'string', vlrLiq: 'number', datCpt: 'date' },
-      mapeamentoSaida: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: 'datCpt' },
-    }
-    const ROTULOS_MAPEAMENTO = ['Campo da filial', 'Campo do valor', 'Campo da competência']
-
-    it('mostra os três campos com os valores salvos, só leitura, entre a saída e a entrada', () => {
-      renderizar({ dado: COM_MAPEAMENTO })
-
-      const campos = ROTULOS_MAPEAMENTO.map((rotulo) => within(dialogo()).getByLabelText(rotulo) as HTMLInputElement)
-      expect(campos.map((c) => c.value)).toEqual(['codfil', 'vlrLiq', 'datCpt'])
-      for (const c of campos) {
-        expect(c.tagName).toBe('INPUT')
-        expect(c).toHaveAttribute('readonly')
-        expect(c).not.toHaveAttribute('aria-required', 'true')
-      }
-      expect(campo('Parâmetros de saída').compareDocumentPosition(campos[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-      expect(campos[2].compareDocumentPosition(campo('Parâmetros de entrada')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-      expect(within(dialogo()).queryByRole('combobox')).not.toBeInTheDocument()
-    })
-
-    it('competência null aparece vazia', () => {
-      renderizar({ dado: { ...COM_MAPEAMENTO, mapeamentoSaida: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: null } } })
-
-      expect(within(dialogo()).getByLabelText('Campo da competência')).toHaveValue('')
-    })
+  describe('sem mapeamento da saída', () => {
+    const ROTULOS_MAPEAMENTO = ['Campo da filial', 'Campo do valor', 'Campo da meta', 'Campo da competência']
 
     it.each<[string, AlvoIntegracao]>([
-      ['null (formato antigo)', { ...INTEGRACAO_FATURAMENTO, mapeamentoSaida: null }],
-      ['ausente', INTEGRACAO_FATURAMENTO],
-    ])('sem mapeamento (%s), os campos do mapeamento não aparecem', (_nome, dado) => {
+      ['saída "chave: tipo"', { ...INTEGRACAO_FATURAMENTO, parametrosSaida: { codfil: 'string', vlrLiq: 'number', datCpt: 'date' } }],
+      [
+        'alvo antigo com mapeamentoSaida',
+        {
+          ...INTEGRACAO_FATURAMENTO,
+          parametrosSaida: { codfil: 'string', vlrLiq: 'number', datCpt: 'date' },
+          mapeamentoSaida: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: 'datCpt' },
+        } as AlvoIntegracao,
+      ],
+      ['saída em lista', INTEGRACAO_FATURAMENTO],
+    ])('%s: os campos do mapeamento não aparecem; só os quatro campos', (_nome, dado) => {
       renderizar({ dado })
 
       for (const rotulo of ROTULOS_MAPEAMENTO) expect(within(dialogo()).queryByLabelText(rotulo)).not.toBeInTheDocument()
+      expect(within(dialogo()).getAllByRole('textbox')).toHaveLength(4)
+      expect(within(dialogo()).queryByRole('combobox')).not.toBeInTheDocument()
     })
 
     it('saída salva em lista não mostra aviso de formato antigo no modo leitura', () => {
