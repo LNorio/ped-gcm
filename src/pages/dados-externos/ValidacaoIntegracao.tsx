@@ -4,7 +4,9 @@
  * Recebem o resultado em vigor (do back-end para o texto atual, senão o do motor local) e o exibem num
  * `role="status"` com nome acessível: vazio não mostra nada; válido mostra "JSON válido" e o resumo
  * (saída) ou as variáveis usadas, os cálculos e a prévia (entrada); inválido mostra o título e a(s)
- * mensagem(ns). Os estilos ficam em `DialogoConcluirConstrucao.css`.
+ * mensagem(ns). Na saída, os erros do back-end (`erros`) aparecem em lista; na entrada válida, os avisos
+ * (ex.: `%filial%` sem valor numa consulta de todas as filiais) aparecem sem bloquear. Os estilos ficam
+ * em `DialogoConcluirConstrucao.css`.
  */
 import type { ResultadoEntrada } from '../../utils/integracao/entrada'
 import type { ResultadoSaidaExibido } from './useValidacaoServidor'
@@ -29,6 +31,13 @@ export function ValidacaoSaida({ resultado }: { resultado: ResultadoSaidaExibido
         <>
           <p className="dialogo-concluir__validacao-titulo">JSON de saída inválido</p>
           <p>{resultado.mensagem}</p>
+          {resultado.erros && resultado.erros.length > 0 ? (
+            <ul className="dialogo-concluir__erros">
+              {resultado.erros.map((texto, indice) => (
+                <li key={indice}>{texto}</li>
+              ))}
+            </ul>
+          ) : null}
         </>
       ) : null}
     </div>
@@ -52,6 +61,11 @@ export function ValidacaoEntrada({ resultado }: { resultado: ResultadoEntrada })
             </ul>
           ) : null}
           <pre className="dialogo-concluir__previa">{resultado.previa}</pre>
+          {resultado.avisos.map((aviso) => (
+            <p key={aviso} className="dialogo-concluir__aviso">
+              {aviso}
+            </p>
+          ))}
         </>
       ) : null}
       {resultado.estado === 'invalido' ? (

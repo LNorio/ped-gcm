@@ -31,12 +31,24 @@ const ROTA_VALIDAR = '/api/ped/integracao/validar'
 const ATRASO_MS = 400
 const URL_VALIDA = 'https://ti.exemplo.com.br/api/devolucoes'
 
-type CorpoValidar = { 'parametros de saida'?: string; 'parametros de entrada'?: string }
+type CorpoValidar = {
+  'parametros de saida'?: string
+  'parametros de entrada'?: string
+  finalidade?: string
+  'campo da filial'?: string
+  'campo do valor'?: string
+  'campo da competencia'?: string
+}
 
 /**
  * Validação híbrida "front primeiro, back depois" (F5.18) na página: a modal mostra o resultado do
  * motor local na hora e, ~400 ms depois de parar de digitar, chama `POST /api/ped/integracao/validar`;
  * a resposta do back-end prevalece para o texto atual. Falha da chamada mantém o resultado local.
+ *
+ * Alteração de 11/11/2026 (saída por "chave: tipo", opção B — `FRONT-saida-chave-tipo.md`, seção 4): o
+ * mapeamento vai no POST com as chaves do back-end; a resposta traz `formato`, `resumo` e `mapeamento`
+ * (o resumo prevalece na exibição) e os `erros` da saída podem vir como textos. Uma resposta válida sem
+ * `formato: "tipos"` (lista, formato antigo) não libera a conclusão.
  */
 describe('F5.18 — Validação da integração pelo back-end (integração: /dados-externos)', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
@@ -93,7 +105,7 @@ describe('F5.18 — Validação da integração pelo back-end (integração: /da
     await screen.findByRole('table', { name: 'Dados externos' })
     await escolherAcao(user, rotuloAcoesDadoExterno('Devoluções de venda'), 'Concluir construção')
     const dialogo = screen.getByRole('dialog', { name: 'Concluir construção' })
-    await within(dialogo).findByRole('button', { name: /%filial%/ })
+    await within(within(dialogo).getByRole('group', { name: 'Variáveis disponíveis' })).findByRole('button', { name: /%filial%/ })
     return dialogo
   }
 
@@ -106,39 +118,133 @@ describe('F5.18 — Validação da integração pelo back-end (integração: /da
   const validacaoEntrada = (dialogo: HTMLElement) => within(dialogo).getByRole('status', { name: 'Validação dos parâmetros de entrada' })
   const botaoConcluir = (dialogo: HTMLElement) => within(dialogo).getByRole('button', { name: 'Concluir e ativar' })
 
+  /** Escolhe o campo da filial e o do valor (padrão: os do modelo de saída, codfil e vlrLiq). */
+  async function escolherMapeamento(user: Usuario, dialogo: HTMLElement, filial = 'codfil', valor = 'vlrLiq') {
+    await user.selectOptions(within(dialogo).getByLabelText('Campo da filial'), filial)
+    await user.selectOptions(within(dialogo).getByLabelText('Campo do valor'), valor)
+  }
+
+  /** Saída válida do back-end no formato novo ("chave: tipo"), como no exemplo do documento. */
+  const saidaTiposApi = (campos: { campo: string; tipo: string }[], extra: Record<string, unknown> = {}) => ({
+    valido: true,
+    formato: 'tipos',
+    campos,
+    ...extra,
+  })
+
   it('400 ms depois de digitar, POST /api/ped/integracao/validar com o token e só o campo preenchido; a resposta substitui o resultado local', async () => {
     const user = configurarUsuario()
     const chamadas = simular(() =>
       respostaJson({
-        saida: {
-          valido: true,
-          campos: [
-            { campo: 'filial', tipo: 'texto' },
-            { campo: 'valor', tipo: 'numero' },
-          ],
-        },
+        saida: saidaTiposApi([
+          { campo: 'codfil', tipo: 'string' },
+          { campo: 'vlrLiq', tipo: 'number' },
+        ]),
         entrada: null,
       }),
     )
     const dialogo = await abrirConclusao(user)
 
-    // O local vê "valor" como texto e a resposta (simulada) como numero: prova que o resultado do back-end aparece.
-    await colar(user, within(dialogo).getByLabelText('Parâmetros de saída'), '[{"filial": "101", "valor": "1"}]')
-    expect(validacaoSaida(dialogo)).toHaveTextContent('2 campos: filial (texto), valor (texto)')
+    // O local vê "vlrLiq" como string e a resposta (simulada) como number: prova que o resultado do back-end aparece.
+    await colar(user, within(dialogo).getByLabelText('Parâmetros de saída'), '{"codfil": "string", "vlrLiq": "string"}')
+    expect(validacaoSaida(dialogo)).toHaveTextContent('2 campos: codfil (string), vlrLiq (string)')
     await avancar()
 
     await waitFor(() => expect(posts(chamadas)).toHaveLength(1))
     expect(cabecalhoDaChamada(posts(chamadas)[0], 'Authorization')).toBe('Bearer token-salvo')
-    expect(corpoDaChamada(posts(chamadas)[0])).toStrictEqual({ 'parametros de saida': '[{"filial": "101", "valor": "1"}]' })
-    await waitFor(() => expect(validacaoSaida(dialogo)).toHaveTextContent('2 campos: filial (texto), valor (numero)'))
+    // finalidade "valor": modal do dado externo (FRONT-meta-via-api-fase1.md, item 2.2 — 11/11/2026).
+    expect(corpoDaChamada(posts(chamadas)[0])).toStrictEqual({ 'parametros de saida': '{"codfil": "string", "vlrLiq": "string"}', finalidade: 'valor' })
+    await waitFor(() => expect(validacaoSaida(dialogo)).toHaveTextContent('2 campos: codfil (string), vlrLiq (number)'))
     expect(validacaoSaida(dialogo)).toHaveTextContent('JSON válido')
+  })
+
+  it('o resumo devolvido pelo back-end ("resumo") é o exibido', async () => {
+    const user = configurarUsuario()
+    simular(() =>
+      respostaJson({
+        saida: saidaTiposApi([{ campo: 'codfil', tipo: 'string' }], { resumo: '3 campos: codemp (string), codfil (string), vlrLiq (number)' }),
+        entrada: null,
+      }),
+    )
+    const dialogo = await abrirConclusao(user)
+
+    await colar(user, within(dialogo).getByLabelText('Parâmetros de saída'), '{"codemp": "string", "codfil": "string", "vlrLiq": "number"}')
+    await avancar()
+
+    await waitFor(() => expect(validacaoSaida(dialogo)).toHaveTextContent('3 campos: codemp (string), codfil (string), vlrLiq (number)'))
+    expect(validacaoSaida(dialogo)).not.toHaveTextContent('1 campo')
+  })
+
+  it('escolher o mapeamento valida de novo com as chaves do back-end ("campo da filial", "campo do valor")', async () => {
+    const user = configurarUsuario()
+    const chamadas = simular((corpo) =>
+      respostaJson({
+        saida: corpo['parametros de saida']
+          ? saidaTiposApi(
+              [
+                { campo: 'codfil', tipo: 'string' },
+                { campo: 'vlrLiq', tipo: 'number' },
+              ],
+              { mapeamento: { 'campo da filial': corpo['campo da filial'] ?? null, 'campo do valor': corpo['campo do valor'] ?? null } },
+            )
+          : null,
+        entrada: null,
+      }),
+    )
+    const dialogo = await abrirConclusao(user)
+    await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de saída' }))
+    await avancar()
+    await waitFor(() => expect(posts(chamadas)).toHaveLength(1))
+
+    await escolherMapeamento(user, dialogo)
+    await avancar()
+
+    await waitFor(() => expect(posts(chamadas)).toHaveLength(2))
+    expect(corpoDaChamada(posts(chamadas)[1])).toStrictEqual({
+      'parametros de saida': MODELO_JSON_SAIDA,
+      finalidade: 'valor',
+      'campo da filial': 'codfil',
+      'campo do valor': 'vlrLiq',
+    })
+  })
+
+  it('erros da saída em lista de textos (exemplo do documento): aparecem na validação da saída e bloqueiam', async () => {
+    const user = configurarUsuario()
+    const chamadas = simular((corpo) =>
+      respostaJson({
+        saida: corpo['parametros de saida']
+          ? {
+              valido: false,
+              erro: { mensagem: 'integracao invalida', linha: null, coluna: null },
+              erros: ['o "campo do valor" ("codfil") e do tipo string; precisa ser number'],
+            }
+          : null,
+        entrada: null,
+      }),
+    )
+    const dialogo = await abrirConclusao(user)
+    await preencherIdentificadorEUrl(user, dialogo)
+    await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de saída' }))
+    await escolherMapeamento(user, dialogo)
+    await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de entrada' }))
+    expect(botaoConcluir(dialogo)).toBeEnabled()
+
+    await avancar()
+
+    await waitFor(() => expect(validacaoSaida(dialogo)).toHaveTextContent('JSON de saída inválido'))
+    expect(within(validacaoSaida(dialogo)).getAllByRole('listitem').map((i) => i.textContent)).toEqual([
+      'o "campo do valor" ("codfil") e do tipo string; precisa ser number',
+    ])
+    expect(botaoConcluir(dialogo)).toBeDisabled()
+    await user.click(botaoConcluir(dialogo))
+    expect(puts(chamadas)).toHaveLength(0)
   })
 
   it('divergência — o back-end recusa a entrada que o motor local aceita: prevalece o back-end, o botão bloqueia e o PUT não sai', async () => {
     const user = configurarUsuario()
     const chamadas = simular((corpo) =>
       respostaJson({
-        saida: corpo['parametros de saida'] ? { valido: true, campos: [{ campo: 'valor', tipo: 'texto' }] } : null,
+        saida: null,
         entrada: corpo['parametros de entrada']
           ? { valido: false, erros: [{ campo: 'inicio', expressao: '%dataInicial% - 3m', mensagem: 'data inexistente' }] }
           : null,
@@ -147,7 +253,12 @@ describe('F5.18 — Validação da integração pelo back-end (integração: /da
     const dialogo = await abrirConclusao(user)
     await preencherIdentificadorEUrl(user, dialogo)
     await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de saída' }))
-    await colar(user, within(dialogo).getByLabelText('Parâmetros de entrada'), '{"inicio": "%dataInicial% - 3m"}')
+    await escolherMapeamento(user, dialogo)
+    await colar(
+      user,
+      within(dialogo).getByLabelText('Parâmetros de entrada'),
+      '{"operacao": "Consulta", "parametros": {"inicio": "%dataInicial% - 3m"}}',
+    )
     expect(validacaoEntrada(dialogo)).toHaveTextContent('JSON válido')
     expect(botaoConcluir(dialogo)).toBeEnabled()
 
@@ -163,11 +274,11 @@ describe('F5.18 — Validação da integração pelo back-end (integração: /da
     expect(puts(chamadas)).toHaveLength(0)
   })
 
-  it('divergência — o back-end aceita o que o motor local recusa: prevalece o back-end e a conclusão é enviada', async () => {
+  it('divergência — o back-end aceita a entrada que o motor local recusa: prevalece o back-end e a conclusão é enviada com o mapeamento', async () => {
     const user = configurarUsuario()
     const chamadas = simular((corpo) =>
       respostaJson({
-        saida: corpo['parametros de saida'] ? { valido: true, campos: [{ campo: 'valor', tipo: 'texto' }] } : null,
+        saida: null,
         entrada: corpo['parametros de entrada']
           ? { valido: true, 'variaveis usadas': ['regiao'], calculos: [], previa: { r: 'Centro-Oeste' } }
           : null,
@@ -176,6 +287,7 @@ describe('F5.18 — Validação da integração pelo back-end (integração: /da
     const dialogo = await abrirConclusao(user)
     await preencherIdentificadorEUrl(user, dialogo)
     await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de saída' }))
+    await escolherMapeamento(user, dialogo)
     await colar(user, within(dialogo).getByLabelText('Parâmetros de entrada'), '{"r": "%regiao%"}')
     expect(validacaoEntrada(dialogo)).toHaveTextContent('JSON de entrada inválido')
     expect(botaoConcluir(dialogo)).toBeDisabled()
@@ -194,10 +306,12 @@ describe('F5.18 — Validação da integração pelo back-end (integração: /da
       url: URL_VALIDA,
       'parametros de saida': MODELO_JSON_SAIDA,
       'parametros de entrada': '{"r": "%regiao%"}',
+      'campo da filial': 'codfil',
+      'campo do valor': 'vlrLiq',
     })
   })
 
-  it('saída em lista (10/11/2026): objeto solto recusado pelo motor local e aceito pelo back-end — prevalece o back-end e a conclusão é enviada com o texto digitado', async () => {
+  it('formato antigo: a lista aceita pelo back-end (resposta sem "formato") continua bloqueada — a modal só salva no formato novo', async () => {
     const user = configurarUsuario()
     const chamadas = simular((corpo) =>
       respostaJson({
@@ -208,21 +322,20 @@ describe('F5.18 — Validação da integração pelo back-end (integração: /da
       }),
     )
     const dialogo = await abrirConclusao(user)
-    await within(dialogo).findByRole('button', { name: /%filial%/ })
     await preencherIdentificadorEUrl(user, dialogo)
-    await colar(user, within(dialogo).getByLabelText('Parâmetros de saída'), '{"filial": "101", "valor": 1}')
+    await colar(user, within(dialogo).getByLabelText('Parâmetros de saída'), '[{"filial": "101", "valor": 1}]')
     await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de entrada' }))
-    expect(validacaoSaida(dialogo)).toHaveTextContent('A saída deve ser uma lista com um item por filial')
-    expect(botaoConcluir(dialogo)).toBeDisabled()
+    expect(validacaoSaida(dialogo)).toHaveTextContent('Formato antigo (lista). Reescreva a saída como { "campo": "tipo" }.')
 
     await avancar()
+    await waitFor(() => expect(posts(chamadas).length).toBeGreaterThan(0))
+    await avancar(50)
 
-    await waitFor(() => expect(within(dialogo).getByText('Todos os campos obrigatórios preenchidos')).toBeInTheDocument())
-    expect(validacaoSaida(dialogo)).toHaveTextContent('2 campos: filial (texto), valor (numero)')
+    expect(validacaoSaida(dialogo)).toHaveTextContent('Formato antigo (lista). Reescreva a saída como { "campo": "tipo" }.')
+    expect(validacaoSaida(dialogo)).not.toHaveTextContent('filial (texto)')
+    expect(botaoConcluir(dialogo)).toBeDisabled()
     await user.click(botaoConcluir(dialogo))
-
-    await screen.findByText('Construção concluída.')
-    expect(corpoDaChamada(puts(chamadas)[0])).toMatchObject({ 'parametros de saida': '{"filial": "101", "valor": 1}' })
+    expect(puts(chamadas)).toHaveLength(0)
   })
 
   it('saída inválida pelo back-end: "JSON de saída inválido" com "Linha L, coluna C: mensagem" como veio', async () => {
@@ -245,13 +358,13 @@ describe('F5.18 — Validação da integração pelo back-end (integração: /da
     const chamadas = simular(() => respostaErro(500))
     const dialogo = await abrirConclusao(user)
 
-    await colar(user, within(dialogo).getByLabelText('Parâmetros de saída'), '[{"filial": "101", "valor": 1}]')
+    await colar(user, within(dialogo).getByLabelText('Parâmetros de saída'), '{"codfil": "string", "vlrLiq": "number"}')
     await avancar()
     await waitFor(() => expect(posts(chamadas)).toHaveLength(1))
     await avancar(50)
 
     expect(validacaoSaida(dialogo)).toHaveTextContent('JSON válido')
-    expect(validacaoSaida(dialogo)).toHaveTextContent('2 campos: filial (texto), valor (numero)')
+    expect(validacaoSaida(dialogo)).toHaveTextContent('2 campos: codfil (string), vlrLiq (number)')
     expect(within(dialogo).queryByRole('alert')).not.toBeInTheDocument()
   })
 
@@ -266,17 +379,15 @@ describe('F5.18 — Validação da integração pelo back-end (integração: /da
     expect(posts(chamadas)).toHaveLength(0)
   })
 
-  it('a modal de Configurações também valida no back-end ao editar', async () => {
+  it('a modal de Configurações também valida no back-end ao editar, levando o mapeamento salvo do dado', async () => {
     const user = configurarUsuario()
     const chamadas = simular(() =>
       respostaJson({
-        saida: {
-          valido: true,
-          campos: [
-            { campo: 'filial', tipo: 'texto' },
-            { campo: 'valor', tipo: 'numero' },
-          ],
-        },
+        saida: saidaTiposApi([
+          { campo: 'codfil', tipo: 'string' },
+          { campo: 'vlrLiq', tipo: 'number' },
+          { campo: 'datCpt', tipo: 'date' },
+        ]),
         entrada: null,
       }),
     )
@@ -284,16 +395,22 @@ describe('F5.18 — Validação da integração pelo back-end (integração: /da
     await screen.findByRole('table', { name: 'Dados externos' })
     await escolherAcao(user, rotuloAcoesDadoExterno('Faturamento líquido'), 'Configurações')
     const dialogo = screen.getByRole('dialog', { name: 'Configurações da integração' })
-    await within(dialogo).findByRole('button', { name: /%filial%/ })
+    await within(within(dialogo).getByRole('group', { name: 'Variáveis disponíveis' })).findByRole('button', { name: /%filial%/ })
 
     const saida = within(dialogo).getByLabelText('Parâmetros de saída')
     await user.clear(saida)
-    await colar(user, saida, '[{"filial": "101", "valor": "1"}]')
-    expect(validacaoSaida(dialogo)).toHaveTextContent('2 campos: filial (texto), valor (texto)')
+    await colar(user, saida, '{"codfil": "string", "vlrLiq": "string", "datCpt": "date"}')
+    expect(validacaoSaida(dialogo)).toHaveTextContent('3 campos: codfil (string), vlrLiq (string), datCpt (date)')
     await avancar()
 
     await waitFor(() => expect(posts(chamadas).length).toBeGreaterThan(0))
-    expect(corpoDaChamada(posts(chamadas).at(-1)!)).toMatchObject({ 'parametros de saida': '[{"filial": "101", "valor": "1"}]' })
-    await waitFor(() => expect(validacaoSaida(dialogo)).toHaveTextContent('2 campos: filial (texto), valor (numero)'))
+    expect(corpoDaChamada(posts(chamadas).at(-1)!)).toMatchObject({
+      'parametros de saida': '{"codfil": "string", "vlrLiq": "string", "datCpt": "date"}',
+      finalidade: 'valor',
+      'campo da filial': 'codfil',
+      'campo do valor': 'vlrLiq',
+      'campo da competencia': 'datCpt',
+    })
+    await waitFor(() => expect(validacaoSaida(dialogo)).toHaveTextContent('3 campos: codfil (string), vlrLiq (number), datCpt (date)'))
   })
 })

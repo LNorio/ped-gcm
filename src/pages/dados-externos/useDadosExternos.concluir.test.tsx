@@ -15,12 +15,19 @@ import { useDadosExternos } from './useDadosExternos'
 
 const ROTA = '/api/ped/dados-externos-cadastro'
 const URL_CONSULTA = 'https://ti.exemplo.com.br/api/devolucoes'
-const SAIDA = '{ "valor": "0" }'
+/** Saída por "chave: tipo" (11/11/2026). */
+const SAIDA = '{ "codfil": "string", "vlrLiq": "number" }'
 const ENTRADA = '{ "filial": "%filial%" }'
 
 /** Integração informada na modal (contrato de 09/11/2026: os quatro campos vão no PUT). */
 function integracao(identificador: string): IntegracaoDadoExterno {
-  return { identificador, url: URL_CONSULTA, parametrosSaida: SAIDA, parametrosEntrada: ENTRADA }
+  return {
+    identificador,
+    url: URL_CONSULTA,
+    parametrosSaida: SAIDA,
+    parametrosEntrada: ENTRADA,
+    mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: null },
+  }
 }
 const CONCLUIDO = {
   ...DADO_DEVOLUCOES_API,
@@ -77,6 +84,8 @@ describe('F5.7 — useDadosExternos.concluir (concluir construção — RF-28)',
       url: URL_CONSULTA,
       'parametros de saida': SAIDA,
       'parametros de entrada': ENTRADA,
+      'campo da filial': 'codfil',
+      'campo do valor': 'vlrLiq',
     })
     expect(resposta?.indicadorCriado).toEqual({ id: 30, nome: 'Devoluções de venda' })
     expect(resposta?.dadoExterno).toMatchObject({ id: 3, situacao: 'ativo', identificador: 'DEVOLUCOES' })

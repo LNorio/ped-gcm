@@ -92,6 +92,11 @@ export interface IndicadorApiFalso {
   url?: string | null
   'parametros de saida'?: unknown
   'parametros de entrada'?: unknown
+  /**
+   * Saída por "chave: tipo" (FRONT-saida-chave-tipo.md, 11/11/2026): campos de mapeamento da saída;
+   * `null` quando a integração está no formato antigo (saída em lista) ou não foi configurada.
+   */
+  'mapeamento da saida'?: MapeamentoSaidaApiFalso | null
   'variaveis usadas'?: string[] | null
   /** `true` quando `origem da meta = terceiro` e não há integração salva. */
   'integracao pendente'?: boolean
@@ -106,6 +111,24 @@ export interface IndicadorApiFalso {
   tarefa?: TarefaIndicadorApiFalsa | null
   /** Só o Admin, fonte `dado_externo`: integração do dado externo, só para leitura. */
   'integracao do dado externo'?: IntegracaoDoDadoExternoApiFalsa | null
+  // Executor das integrações (fase 2 — FRONT-meta-via-api-fase2.md e API (27).md, 11/11/2026): só o Admin, fonte `integracao`.
+  /** `soap` (padrão do back-end) ou `rest`; opcional, só leitura na listagem (texto livre nos testes de formato). */
+  'tipo de servico'?: string | null
+  /** Data e hora do último **sucesso** da consulta da meta; `null` antes da primeira consulta. */
+  'ultima consulta em'?: string | null
+  /** Texto do erro da última consulta (situação `erro`); `null` sem erro. */
+  'erro da ultima consulta'?: string | null
+}
+
+/**
+ * Mapeamento da saída como a listagem devolve (FRONT-saida-chave-tipo.md §5): no indicador vêm
+ * `campo da filial`, `campo da meta` e, opcional, `campo da competencia` (`unknown` para os testes de formato).
+ */
+export interface MapeamentoSaidaApiFalso {
+  'campo da filial': unknown
+  'campo da meta'?: unknown
+  'campo do valor'?: unknown
+  'campo da competencia'?: unknown
 }
 
 /** Tarefa do Bitrix no indicador (`{ titulo, status, "id bitrix" }`, mesmo formato do dado externo). */
@@ -655,9 +678,23 @@ export function rotaListarIndicadoresComMetas(obterLista: () => IndicadorApiFals
 // As fixtures abaixo NÃO entram na lista padrão (`indicadoresApi()`).
 
 export const URL_META_VIA_API = 'https://ti.exemplo.com.br/api/metas'
-/** Saída da integração da meta: lista com um item por filial (`filial` e `meta`), contrato final de 10/11/2026. */
-export const SAIDA_META_VIA_API = [{ filial: '100', meta: '4600000' }]
-export const ENTRADA_META_VIA_API = { filial: '%filial%', competencia: '%competencia%' }
+/**
+ * Saída da integração da meta no formato novo "chave: tipo" (FRONT-saida-chave-tipo.md, 11/11/2026):
+ * o objeto descreve um item da resposta; `codfil` é o campo da filial e `metVlr` o da meta.
+ */
+export const SAIDA_META_VIA_API: Record<string, string> = { codfil: 'string', metVlr: 'number' }
+/** Mapeamento da saída de `SAIDA_META_VIA_API`, como a listagem devolve (`mapeamento da saida`). */
+export const MAPEAMENTO_META_VIA_API: MapeamentoSaidaApiFalso = { 'campo da filial': 'codfil', 'campo da meta': 'metVlr' }
+/**
+ * Saída no formato ANTIGO (lista com um item por filial: `filial` e `meta`, contrato de 10/11/2026),
+ * ainda aceita pelo back-end; a listagem traz `mapeamento da saida: null`.
+ */
+export const SAIDA_META_VIA_API_ANTIGA = [{ filial: '100', meta: '4600000' }]
+/**
+ * Entrada da integração da meta no formato SOAP exigido pelo back-end
+ * (`{ operacao, parametros }`, docs/backend/FRONT-meta-via-api-fase2.md §2.1, 11/11/2026).
+ */
+export const ENTRADA_META_VIA_API = { operacao: 'MetasFaturamento', parametros: { ECodEmp: '%empresas%', ECompet: '%competencia%' } }
 
 /** Campos da integração da meta como o Admin recebe na listagem. */
 export interface IntegracaoMetaApiFalsa {
@@ -665,6 +702,7 @@ export interface IntegracaoMetaApiFalsa {
   url: string | null
   'parametros de saida': unknown
   'parametros de entrada': unknown
+  'mapeamento da saida': MapeamentoSaidaApiFalso | null
   'variaveis usadas': string[]
   'integracao pendente': boolean
   'integracao alterada em': string | null
@@ -678,6 +716,7 @@ export function integracaoMetaPendenteApi(): IntegracaoMetaApiFalsa {
     url: null,
     'parametros de saida': null,
     'parametros de entrada': null,
+    'mapeamento da saida': null,
     'variaveis usadas': [],
     'integracao pendente': true,
     'integracao alterada em': null,
@@ -685,14 +724,15 @@ export function integracaoMetaPendenteApi(): IntegracaoMetaApiFalsa {
   }
 }
 
-/** Integração da meta configurada (META_MARGEM, URL_META_VIA_API, saída e entrada). */
+/** Integração da meta configurada (META_MARGEM, URL_META_VIA_API, saída "chave: tipo" com mapeamento e entrada). */
 export function integracaoMetaConfiguradaApi(): IntegracaoMetaApiFalsa {
   return {
     identificador: 'META_MARGEM',
     url: URL_META_VIA_API,
-    'parametros de saida': SAIDA_META_VIA_API.map((item) => ({ ...item })),
-    'parametros de entrada': { ...ENTRADA_META_VIA_API },
-    'variaveis usadas': ['competencia', 'filial'],
+    'parametros de saida': { ...SAIDA_META_VIA_API },
+    'parametros de entrada': { ...ENTRADA_META_VIA_API, parametros: { ...ENTRADA_META_VIA_API.parametros } },
+    'mapeamento da saida': { ...MAPEAMENTO_META_VIA_API },
+    'variaveis usadas': ['competencia', 'empresas'],
     'integracao pendente': false,
     'integracao alterada em': '2026-11-10 09:00:00',
     'integracao alterada por': 'Equipe TI',
@@ -785,12 +825,28 @@ export function rotaListarIndicadoresComIntegracao(obterLista: () => IndicadorAp
   }
 }
 
-/** Corpo de `PUT /api/ped/indicadores-cadastro/{id}/integracao` (mesmo do dado externo). */
+/**
+ * Corpo de `PUT /api/ped/indicadores-cadastro/{id}/integracao`: os quatro campos do dado externo mais o
+ * mapeamento da saída do indicador (FRONT-saida-chave-tipo.md §2): `campo da filial`, `campo da meta`
+ * e `campo da competencia` (omitido quando vazio).
+ */
 export interface CorpoIntegracaoIndicadorApiFalso {
   identificador: string
   url: string
   'parametros de saida': string
   'parametros de entrada': string
+  'campo da filial': string
+  'campo da meta': string
+  'campo da competencia'?: string
+}
+
+/** Mapeamento da listagem a partir do corpo do PUT (o que o back-end grava e devolve). */
+export function mapeamentoDoCorpoApi(corpo: CorpoIntegracaoIndicadorApiFalso): MapeamentoSaidaApiFalso {
+  return {
+    'campo da filial': corpo['campo da filial'],
+    'campo da meta': corpo['campo da meta'],
+    ...(corpo['campo da competencia'] ? { 'campo da competencia': corpo['campo da competencia'] } : {}),
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1057,4 +1113,141 @@ export function rotaListarIndicadoresComFonteDaMeta(
     }
     return respostaJson({ ...filtrarIndicadoresApi(lista, url), alertas, ...topo })
   }
+}
+
+// ---------------------------------------------------------------------------
+// F6.11 — Executor das integrações (fase 2: FRONT-meta-via-api-fase2.md e API (27).md, seção
+// "Executor das integrações", 11/11/2026)
+// ---------------------------------------------------------------------------
+//
+// - Fonte `integracao`: `situacao da meta via api` passa a `ok` ou `erro` depois da consulta;
+//   `filiais sem meta` lista as filiais sem meta no mês aberto depois da primeira consulta.
+// - Só o Admin: `ultima consulta em` (último sucesso), `erro da ultima consulta` e `tipo de servico`.
+// - Topo: `"meta via api".integracao` `true` com o executor ligado (`META_VIA_API_COMPLETA`).
+//
+// As fixtures abaixo NÃO entram na lista padrão (`indicadoresApi()`) nem em `indicadoresComFonteDaMetaApi()`.
+
+/** Data e hora da última consulta bem-sucedida do indicador 16 (e do 17, antes do erro). */
+export const ULTIMA_CONSULTA_META_EM = '2026-11-11 02:30:00'
+export const ULTIMA_CONSULTA_META_ANTERIOR_EM = '2026-11-10 02:30:00'
+/** Erro registrado na última consulta do indicador 17. */
+export const ERRO_ULTIMA_CONSULTA_META = 'valor ambiguo na filial 101: 1.500 (use 1500 ou 1500,00)'
+
+/** Fonte `integracao` já consultada (situação `ok`) com as filiais 101 e 102 sem meta no mês aberto; SOAP. */
+export const INDICADOR_META_CONSULTADO_API: IndicadorApiFalso = {
+  ...BASE_META_VIA_API,
+  id: 16,
+  nome: 'Ticket com meta da TI',
+  composicao: { tipo: 'apontamentos', itens: [{ id: 6, nome: 'Positivação de clientes', ativo: true }] },
+  calculo: 'soma',
+  ...integracaoMetaConfiguradaApi(),
+  identificador: 'META_TICKET',
+  'tipo de servico': 'soap',
+  'fonte da meta': 'integracao',
+  'situacao da meta via api': 'ok',
+  'filiais sem meta': ['101', '102'],
+  'ultima consulta em': ULTIMA_CONSULTA_META_EM,
+  'erro da ultima consulta': null,
+  tarefa: null,
+}
+
+/** Fonte `integracao` com erro na última consulta (o último sucesso foi em 10/11/2026 02:30); SOAP. */
+export const INDICADOR_META_ERRO_CONSULTA_API: IndicadorApiFalso = {
+  ...BASE_META_VIA_API,
+  id: 17,
+  nome: 'Positivação com meta da TI',
+  composicao: { tipo: 'apontamentos', itens: [{ id: 6, nome: 'Positivação de clientes', ativo: true }] },
+  calculo: 'soma',
+  ...integracaoMetaConfiguradaApi(),
+  identificador: 'META_POSITIVACAO',
+  'tipo de servico': 'soap',
+  'fonte da meta': 'integracao',
+  'situacao da meta via api': 'erro',
+  'ultima consulta em': ULTIMA_CONSULTA_META_ANTERIOR_EM,
+  'erro da ultima consulta': ERRO_ULTIMA_CONSULTA_META,
+  tarefa: null,
+}
+
+/** `indicadoresComFonteDaMetaApi()` (7 + 10 a 15) seguida dos indicadores 16 (consultado) e 17 (erro). Cópias novas. */
+export function indicadoresComExecutorApi(): IndicadorApiFalso[] {
+  return [...indicadoresComFonteDaMetaApi(), INDICADOR_META_CONSULTADO_API, INDICADOR_META_ERRO_CONSULTA_API].map(copiarComIntegracao)
+}
+
+/** Campos que só o Admin recebe na listagem (integração da meta, executor e integração do dado externo). */
+const CAMPOS_SO_DO_ADMIN = [
+  'identificador',
+  'url',
+  'parametros de saida',
+  'parametros de entrada',
+  'mapeamento da saida',
+  'variaveis usadas',
+  'integracao pendente',
+  'integracao alterada em',
+  'integracao alterada por',
+  'tipo de servico',
+  'ultima consulta em',
+  'erro da ultima consulta',
+  'integracao do dado externo',
+] as const
+
+/** Cópia do indicador como o Validador recebe (sem os campos só do Admin). */
+export function comoValidadorRecebe(indicador: IndicadorApiFalso): IndicadorApiFalso {
+  const copia = copiarComIntegracao(indicador)
+  for (const campo of CAMPOS_SO_DO_ADMIN) delete copia[campo]
+  return copia
+}
+
+// ---------------------------------------------------------------------------
+// F6.11 — Saída por "chave: tipo" (docs/propostas-backend/FRONT-saida-chave-tipo.md, 11/11/2026)
+// ---------------------------------------------------------------------------
+//
+// - `parametros de saida` volta como objeto `{ chave: tipo }` (formato novo) ou lista (antigo).
+// - `mapeamento da saida`: `{ "campo da filial", "campo da meta", "campo da competencia"? }` ou `null`
+//   no formato antigo.
+//
+// As fixtures abaixo NÃO entram na lista padrão nem nas listas anteriores.
+
+/** Saída "chave: tipo" com a competência (`data`), para o mapeamento completo. */
+export const SAIDA_META_COM_COMPETENCIA: Record<string, string> = { codfil: 'string', metVlr: 'number', data: 'date' }
+export const MAPEAMENTO_META_COM_COMPETENCIA: MapeamentoSaidaApiFalso = {
+  'campo da filial': 'codfil',
+  'campo da meta': 'metVlr',
+  'campo da competencia': 'data',
+}
+
+/** Fonte `integracao` com a saída salva em lista (formato antigo) e `mapeamento da saida: null`. */
+export const INDICADOR_META_SAIDA_ANTIGA_API: IndicadorApiFalso = {
+  ...BASE_META_VIA_API,
+  id: 18,
+  nome: 'Cobertura com meta da TI',
+  composicao: { tipo: 'apontamentos', itens: [{ id: 6, nome: 'Positivação de clientes', ativo: true }] },
+  calculo: 'soma',
+  ...integracaoMetaConfiguradaApi(),
+  identificador: 'META_COBERTURA',
+  'parametros de saida': SAIDA_META_VIA_API_ANTIGA.map((item) => ({ ...item })),
+  'mapeamento da saida': null,
+  'fonte da meta': 'integracao',
+  'situacao da meta via api': 'ok',
+  tarefa: null,
+}
+
+/** Fonte `integracao` com a saída "chave: tipo" e a competência mapeada. */
+export const INDICADOR_META_COM_COMPETENCIA_API: IndicadorApiFalso = {
+  ...BASE_META_VIA_API,
+  id: 19,
+  nome: 'Volume com meta da TI',
+  composicao: { tipo: 'apontamentos', itens: [{ id: 6, nome: 'Positivação de clientes', ativo: true }] },
+  calculo: 'soma',
+  ...integracaoMetaConfiguradaApi(),
+  identificador: 'META_VOLUME',
+  'parametros de saida': { ...SAIDA_META_COM_COMPETENCIA },
+  'mapeamento da saida': { ...MAPEAMENTO_META_COM_COMPETENCIA },
+  'fonte da meta': 'integracao',
+  'situacao da meta via api': 'ok',
+  tarefa: null,
+}
+
+/** `indicadoresComMetaViaApiApi()` (7 + 10 e 11) seguida dos indicadores 18 (saída antiga) e 19 (com competência). Cópias novas. */
+export function indicadoresComSaidaPorTiposApi(): IndicadorApiFalso[] {
+  return [...indicadoresComMetaViaApiApi(), INDICADOR_META_SAIDA_ANTIGA_API, INDICADOR_META_COM_COMPETENCIA_API].map(copiarComIntegracao)
 }

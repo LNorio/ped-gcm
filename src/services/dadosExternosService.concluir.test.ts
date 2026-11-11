@@ -7,16 +7,18 @@ import { concluirConstrucao, errosDaIntegracao } from './dadosExternosService'
 import { definirToken, limparToken } from './sessao'
 
 const ROTA = '/api/ped/dados-externos-cadastro'
-const SAIDA = '{\n  "valor": "0",\n  "referencia": "x"\n}'
+/** Saída no formato "chave: tipo" (11/11/2026 — `FRONT-saida-chave-tipo.md`). */
+const SAIDA = '{\n  "codfil": "string",\n  "vlrLiq": "number",\n  "data": "date"\n}'
 const ENTRADA = '{ "filial": "%filial%", "inicio": "%dataInicial% - 3m" }'
 
-/** Integração válida informada na modal (textos das caixas, como digitados). */
+/** Integração válida informada na modal (textos das caixas, como digitados, e o mapeamento da saída). */
 function integracao(sobrescrever: Partial<IntegracaoDadoExterno> = {}): IntegracaoDadoExterno {
   return {
     identificador: 'DEVOLUCOES',
     url: 'https://ti.exemplo.com.br/api/consulta',
     parametrosSaida: SAIDA,
     parametrosEntrada: ENTRADA,
+    mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: 'data' },
     ...sobrescrever,
   }
 }
@@ -51,7 +53,7 @@ describe('F5.7 — Serviço de dados externos: concluirConstrucao(id, integracao
   const CONCLUIDO_API = { ...DADO_DEVOLUCOES_API, situacao: 'ativo' as const, identificador: 'DEVOLUCOES' }
 
   describe('corpo do PUT .../{id}/concluir', () => {
-    it('envia os quatro campos: identificador (maiúsculas, sem espaços nas pontas), url (sem espaços nas pontas) e os textos dos dois JSONs como digitados', async () => {
+    it('envia identificador (maiúsculas, sem espaços nas pontas), url (sem espaços nas pontas), os textos dos dois JSONs como digitados e o mapeamento da saída', async () => {
       const chamadas = simularApi(fetchFalso, {
         [`PUT ${ROTA}/3/concluir`]: () => respostaJson(respostaConclusaoApi(CONCLUIDO_API, null)),
       })
@@ -67,10 +69,13 @@ describe('F5.7 — Serviço de dados externos: concluirConstrucao(id, integracao
         url: 'https://ti.exemplo.com.br/api/consulta',
         'parametros de saida': SAIDA,
         'parametros de entrada': ENTRADA,
+        'campo da filial': 'codfil',
+        'campo do valor': 'vlrLiq',
+        'campo da competencia': 'data',
       })
     })
 
-    it('o corpo tem exatamente as quatro chaves (nem só o identificador, nem campos extras)', async () => {
+    it('o corpo tem exatamente as chaves do contrato (nem só o identificador, nem campos extras)', async () => {
       const chamadas = simularApi(fetchFalso, {
         [`PUT ${ROTA}/3/concluir`]: () => respostaJson(respostaConclusaoApi(CONCLUIDO_API, null)),
       })
@@ -78,15 +83,63 @@ describe('F5.7 — Serviço de dados externos: concluirConstrucao(id, integracao
       await concluirConstrucao(3, { ...integracao(), variaveisUsadas: ['filial'] } as IntegracaoDadoExterno)
 
       expect(Object.keys(corpoDaChamada(chamadas[0]) as object).sort()).toEqual(
-        ['identificador', 'parametros de entrada', 'parametros de saida', 'url'].sort(),
+        ['identificador', 'parametros de entrada', 'parametros de saida', 'url', 'campo da filial', 'campo do valor', 'campo da competencia'].sort(),
       )
+    })
+
+    /**
+     * Alteração de 11/11/2026 (saída por "chave: tipo", opção B — `FRONT-saida-chave-tipo.md`, seção 2):
+     * `IntegracaoDadoExterno.mapeamento` vira `"campo da filial"`, `"campo do valor"` (dado externo) ou
+     * `"campo da meta"` (indicador, pelo `campoMeta`) e `"campo da competencia"` (opcional: omitido quando
+     * `null`, vazio ou ausente). Só as chaves informadas vão no corpo.
+     */
+    it.each([
+      ['null', null],
+      ['texto vazio', ''],
+      ['ausente', undefined],
+    ])('competência %s → "campo da competencia" omitido do corpo', async (_nome, competencia) => {
+      const chamadas = simularApi(fetchFalso, {
+        [`PUT ${ROTA}/3/concluir`]: () => respostaJson(respostaConclusaoApi(CONCLUIDO_API, null)),
+      })
+
+      await concluirConstrucao(3, integracao({ mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: competencia } }))
+
+      const corpo = corpoDaChamada(chamadas[0]) as Record<string, unknown>
+      expect(corpo).toMatchObject({ 'campo da filial': 'codfil', 'campo do valor': 'vlrLiq' })
+      expect(corpo).not.toHaveProperty('campo da competencia')
+      expect(corpo).not.toHaveProperty('campo da meta')
+    })
+
+    it('mapeamento com campoMeta (integração do indicador) vira "campo da meta", sem "campo do valor"', async () => {
+      const chamadas = simularApi(fetchFalso, {
+        [`PUT ${ROTA}/3/concluir`]: () => respostaJson(respostaConclusaoApi(CONCLUIDO_API, null)),
+      })
+
+      await concluirConstrucao(3, integracao({ mapeamento: { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: null } }))
+
+      const corpo = corpoDaChamada(chamadas[0]) as Record<string, unknown>
+      expect(corpo['campo da filial']).toBe('codfil')
+      expect(corpo['campo da meta']).toBe('metVlr')
+      expect(corpo).not.toHaveProperty('campo do valor')
+    })
+
+    it('o objeto do mapeamento não vai no corpo (só as chaves do back-end)', async () => {
+      const chamadas = simularApi(fetchFalso, {
+        [`PUT ${ROTA}/3/concluir`]: () => respostaJson(respostaConclusaoApi(CONCLUIDO_API, null)),
+      })
+
+      await concluirConstrucao(3, integracao())
+
+      const corpo = corpoDaChamada(chamadas[0]) as Record<string, unknown>
+      expect(corpo).not.toHaveProperty('mapeamento')
+      expect(corpo).not.toHaveProperty('campoFilial')
     })
 
     it('os textos dos JSONs vão como estão (quebras de linha e espaços preservados, sem reformatar)', async () => {
       const chamadas = simularApi(fetchFalso, {
         [`PUT ${ROTA}/3/concluir`]: () => respostaJson(respostaConclusaoApi(CONCLUIDO_API, null)),
       })
-      const saida = '  [ { "valor": 1 } ]\n'
+      const saida = '  { "codfil": "string" }\n'
       const entrada = '{\r\n"x": "(%mesesRetro% * 30) - 1"\r\n}'
 
       await concluirConstrucao(3, integracao({ parametrosSaida: saida, parametrosEntrada: entrada }))

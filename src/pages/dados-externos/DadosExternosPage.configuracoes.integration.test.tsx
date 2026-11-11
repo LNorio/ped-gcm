@@ -17,6 +17,7 @@ import {
   ENTRADA_FATURAMENTO_API,
   NOMES_DADOS_EXTERNOS,
   SAIDA_FATURAMENTO_API,
+  SAIDA_VOLUME_API,
   URL_FATURAMENTO,
   dadosExternosAdminApi,
   identificadoresApi,
@@ -35,6 +36,7 @@ const ROTA_PENDENTES = `${ROTA}/integracoes-pendentes`
 const URL_NOVA = 'https://ti.exemplo.com.br/api/faturamento-v2'
 const SAIDA_TEXTO = JSON.stringify(SAIDA_FATURAMENTO_API, null, 2)
 const ENTRADA_TEXTO = JSON.stringify(ENTRADA_FATURAMENTO_API, null, 2)
+const AVISO_FORMATO_ANTIGO = 'Esta integração está no formato antigo (lista). Reescreva a saída no formato "campo": "tipo" para salvar.'
 
 /**
  * Configurações da integração (F5.16, mudança de 09/11/2026) — Admin, dado ativo ou inativo:
@@ -42,6 +44,12 @@ const ENTRADA_TEXTO = JSON.stringify(ENTRADA_FATURAMENTO_API, null, 2)
  * ("Configurações da integração", campos preenchidos, "Salvar configurações") → PUT
  * `.../{id}/integracao` → fecha, "Integração atualizada.", recarrega a lista e os pendentes. Não muda a
  * situação nem cria indicador. A URL aparece abaixo do identificador.
+ *
+ * Alteração de 11/11/2026 (saída por "chave: tipo", opção B — `FRONT-saida-chave-tipo.md`): a página passa
+ * o `mapeamentoSaida` do dado à modal (listas "Campo da filial", "Campo do valor" e "Campo da competência"
+ * preenchidas) e o PUT leva o mapeamento (`"campo da filial"`, `"campo do valor"`, `"campo da competencia"`).
+ * "Volume de vendas" está salvo no formato antigo (saída em lista, `"mapeamento da saida": null`): abre com o
+ * aviso para reescrever e o salvar bloqueado.
  */
 describe('F5.16 — Configurações da integração do dado externo (integração: /dados-externos)', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
@@ -86,6 +94,11 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
                 url: corpo.url,
                 'parametros de saida': JSON.parse(corpo['parametros de saida']) as unknown,
                 'parametros de entrada': JSON.parse(corpo['parametros de entrada']) as unknown,
+                'mapeamento da saida': {
+                  'campo da filial': corpo['campo da filial'],
+                  'campo do valor': corpo['campo do valor'],
+                  'campo da competencia': corpo['campo da competencia'] ?? null,
+                },
                 'integracao pendente': false,
               }
             : d,
@@ -100,6 +113,7 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
       [`GET ${ROTA_PENDENTES}`]: rotaIntegracoesPendentes(() => lista),
       [`PUT ${ROTA}/1/integracao`]: atualizar(1),
       [`PUT ${ROTA}/2/integracao`]: atualizar(2),
+      [`PUT ${ROTA}/6/integracao`]: atualizar(6),
     })
   }
 
@@ -116,7 +130,7 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
   async function abrirConfiguracoes(user: Usuario, nome: string, item: 'Configurações' | 'Preencher integração' = 'Configurações') {
     await escolherAcao(user, rotuloAcoesDadoExterno(nome), item)
     const dialogo = screen.getByRole('dialog', { name: 'Configurações da integração' })
-    await within(dialogo).findByRole('button', { name: /%filial%/ })
+    await within(within(dialogo).getByRole('group', { name: 'Variáveis disponíveis' })).findByRole('button', { name: /%filial%/ })
     return dialogo
   }
 
@@ -178,12 +192,17 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
     expect(within(dialogo).getByLabelText('URL')).toHaveValue(URL_FATURAMENTO)
     expect(within(dialogo).getByLabelText('Parâmetros de saída')).toHaveValue(SAIDA_TEXTO)
     expect(within(dialogo).getByLabelText('Parâmetros de entrada')).toHaveValue(ENTRADA_TEXTO)
+    expect(within(dialogo).getByLabelText('Campo da filial')).toHaveValue('codfil')
+    expect(within(dialogo).getByLabelText('Campo do valor')).toHaveValue('vlrLiq')
+    expect(within(dialogo).getByLabelText('Campo da competência')).toHaveValue('datCpt')
+    expect(within(dialogo).queryByText(AVISO_FORMATO_ANTIGO)).not.toBeInTheDocument()
     expect(gets(chamadas, ROTA_VARIAVEIS)).toHaveLength(1)
+    expect(chamadas.map((c) => c.caminho)).not.toContain('/api/ped/integracao/variaveis-saida')
     expect(within(dialogo).getByText('Todos os campos obrigatórios preenchidos')).toBeInTheDocument()
     expect(salvar(dialogo)).toBeEnabled()
   })
 
-  it('salvar: PUT .../{id}/integracao com os quatro campos → fecha, "Integração atualizada.", recarrega lista e pendentes; situação mantida e nenhum indicador criado', async () => {
+  it('salvar: PUT .../{id}/integracao com os quatro campos e o mapeamento → fecha, "Integração atualizada.", recarrega lista e pendentes; situação mantida e nenhum indicador criado', async () => {
     const user = usuarioRapido()
     const chamadas = simular()
     await abrirTela()
@@ -207,6 +226,9 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
       url: URL_NOVA,
       'parametros de saida': SAIDA_TEXTO,
       'parametros de entrada': ENTRADA_TEXTO,
+      'campo da filial': 'codfil',
+      'campo do valor': 'vlrLiq',
+      'campo da competencia': 'datCpt',
     })
     await waitFor(() => expect(gets(chamadas, ROTA).length).toBeGreaterThan(listasAntes))
     await waitFor(() => expect(gets(chamadas, ROTA_PENDENTES).length).toBeGreaterThan(pendentesAntes))
@@ -231,6 +253,8 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
 
     await colar(user, within(dialogo).getByLabelText('URL'), 'https://ti.exemplo.com.br/api/cobertura')
     await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de saída' }))
+    await user.selectOptions(within(dialogo).getByLabelText('Campo da filial'), 'codfil')
+    await user.selectOptions(within(dialogo).getByLabelText('Campo do valor'), 'vlrLiq')
     await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de entrada' }))
     await user.click(salvar(dialogo))
 
@@ -240,6 +264,8 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
       url: 'https://ti.exemplo.com.br/api/cobertura',
       'parametros de saida': MODELO_JSON_SAIDA,
       'parametros de entrada': MODELO_JSON_ENTRADA,
+      'campo da filial': 'codfil',
+      'campo do valor': 'vlrLiq',
     })
     await waitFor(() => expect(within(linha('Cobertura de clientes')).queryByText('Integração pendente (TI)')).not.toBeInTheDocument())
     expect(within(linha('Cobertura de clientes')).getByText('Inativo')).toBeInTheDocument()
@@ -279,6 +305,76 @@ describe('F5.16 — Configurações da integração do dado externo (integraçã
     expect(within(dialogo).getByLabelText('Parâmetros de saída')).toHaveValue(SAIDA_TEXTO)
     expect(screen.queryByText('Integração atualizada.')).not.toBeInTheDocument()
     expect(puts(chamadas)).toHaveLength(1)
+  })
+
+  describe('integração salva no formato antigo (Volume de vendas: saída em lista, sem mapeamento)', () => {
+    it('abre com o texto antigo, o aviso para reescrever, as listas vazias e o salvar bloqueado', async () => {
+      const user = usuarioRapido()
+      const chamadas = simular()
+      await abrirTela()
+
+      const dialogo = await abrirConfiguracoes(user, 'Volume de vendas')
+
+      expect(within(dialogo).getByLabelText('Parâmetros de saída')).toHaveValue(JSON.stringify(SAIDA_VOLUME_API, null, 2))
+      expect(within(dialogo).getByText(AVISO_FORMATO_ANTIGO)).toBeInTheDocument()
+      expect(within(dialogo).getByRole('status', { name: 'Validação dos parâmetros de saída' })).toHaveTextContent(
+        'Formato antigo (lista). Reescreva a saída como { "campo": "tipo" }.',
+      )
+      expect(within(dialogo).getByLabelText('Campo da filial')).toHaveValue('')
+      expect(salvar(dialogo)).toBeDisabled()
+      await user.click(salvar(dialogo))
+      expect(puts(chamadas)).toHaveLength(0)
+    })
+
+    it('reescrever a saída no formato novo e escolher o mapeamento libera o salvar; o PUT leva a saída nova e o mapeamento', async () => {
+      const user = usuarioRapido()
+      const chamadas = simular()
+      await abrirTela()
+      const dialogo = await abrirConfiguracoes(user, 'Volume de vendas')
+      const saidaNova = '{ "codfil": "string", "volLiq": "number", "datCpt": "date" }'
+
+      const campoSaida = within(dialogo).getByLabelText('Parâmetros de saída')
+      await user.clear(campoSaida)
+      await colar(user, campoSaida, saidaNova)
+      expect(within(dialogo).queryByText(AVISO_FORMATO_ANTIGO)).not.toBeInTheDocument()
+      await user.selectOptions(within(dialogo).getByLabelText('Campo da filial'), 'codfil')
+      await user.selectOptions(within(dialogo).getByLabelText('Campo do valor'), 'volLiq')
+      await user.selectOptions(within(dialogo).getByLabelText('Campo da competência'), 'datCpt')
+      await user.click(salvar(dialogo))
+
+      await screen.findByText('Integração atualizada.')
+      expect(puts(chamadas)[0].caminho).toBe(`${ROTA}/6/integracao`)
+      expect(corpoDaChamada(puts(chamadas)[0])).toMatchObject({
+        'parametros de saida': saidaNova,
+        'campo da filial': 'codfil',
+        'campo do valor': 'volLiq',
+        'campo da competencia': 'datCpt',
+      })
+    })
+  })
+
+  it('400 com erro do mapeamento ("campo do valor"): o erro aparece junto ao "Campo do valor"', async () => {
+    const user = usuarioRapido()
+    simular({
+      aoAtualizar: () =>
+        respostaJson(
+          {
+            mensagem: 'integracao invalida: ...',
+            erros: [{ campo: 'campo do valor', mensagem: 'o "campo do valor" ("codemp") e do tipo string; precisa ser number' }],
+          },
+          400,
+        ),
+    })
+    await abrirTela()
+    const dialogo = await abrirConfiguracoes(user, 'Faturamento líquido')
+
+    await user.click(salvar(dialogo))
+
+    await within(dialogo).findByText('integracao invalida: ...')
+    expect(within(dialogo).getByLabelText('Campo do valor')).toHaveAttribute('aria-invalid', 'true')
+    expect(within(dialogo).getByLabelText('Campo do valor')).toHaveAccessibleDescription(
+      expect.stringContaining('o "campo do valor" ("codemp") e do tipo string; precisa ser number'),
+    )
   })
 
   it('clicar numa variável sem antes clicar na caixa de entrada insere no fim do texto salvo (não antes do "{")', async () => {

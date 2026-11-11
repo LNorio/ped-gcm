@@ -29,6 +29,9 @@
  *   listagem, `identificador`, `url`, `parametros de saida/entrada`, `variaveis usadas`,
  *   `integracao pendente` e `integracao alterada em/por` (ausentes viram `null`/`[]`/`false`; fora do
  *   formato rejeitam a resposta) e o alerta opcional `"integracao pendente"`;
+ * - executor das integrações (F6.11, fase 2 — `docs/backend/FRONT-meta-via-api-fase2.md`): na listagem
+ *   (Admin, fonte `integracao`), `"ultima consulta em"` e `"erro da ultima consulta"` (texto ou `null`,
+ *   opcionais) e `"tipo de servico"` (`soap`/`rest`/`null`, opcional, aceito mas não usado nem enviado);
  * - histórico de metas: lista pura ou `{ historico: [...] }`;
  * - situação: `{ indicador, "dashboards afetados": [{ id, nome, "pontos base" }] }` ou o indicador na
  *   raiz. Os dashboards afetados ausentes ou fora do formato viram `[]` (fase 4 da API);
@@ -75,6 +78,7 @@ import {
   paraTarefaDoIndicador,
   numeroDaTarefaBitrix,
   type TarefaIndicadorApi,
+  TIPOS_SERVICO_INTEGRACAO_API,
 } from './adaptadores'
 import { ApiError, MENSAGEM_RESPOSTA_INVALIDA, type ValorQuery, apiFetch } from './api'
 import { corpoIntegracao } from './dadosExternosService'
@@ -294,6 +298,9 @@ function ehIndicadorApi(valor: unknown): valor is IndicadorApi {
     opcional(valor['situacao da meta via api'], (v) => ehUmDe(SITUACOES_META_VIA_API, v)) &&
     opcional(valor.tarefa, ehTarefaIndicadorApi) &&
     opcional(valor['integracao do dado externo'], ehIntegracaoDoDadoExternoApi) &&
+    opcional(valor['ultima consulta em'], ehTexto) &&
+    opcional(valor['erro da ultima consulta'], ehTexto) &&
+    opcional(valor['tipo de servico'], (v) => ehUmDe(TIPOS_SERVICO_INTEGRACAO_API, v)) &&
     opcional(valor['cadastrado em'], ehTexto) &&
     opcional(valor['cadastrado por'], ehTexto) &&
     opcional(valor['situacao alterada em'], ehTexto) &&
@@ -544,14 +551,37 @@ export async function definirMetasPendentes(id: number, metas: readonly MetaDaFi
 }
 
 /**
- * Grava a integração da meta via API do indicador (F6.11, contrato proposto; só Admin): `PUT
- * .../{id}/integracao` com o mesmo corpo da integração do dado externo (`corpoIntegracao`). Qualquer 2xx
- * significa gravado e resolve sem valor (a resposta não é lida); quem chama recarrega a lista. Erros HTTP
- * e de rede são propagados como `ApiError` — o 400 traz `dados.erros`, lidos por `errosDaIntegracao`.
+ * Corpo do `PUT .../{id}/integracao` do indicador: os quatro campos da integração do dado externo
+ * (`corpoIntegracao`: identificador em maiúsculas e sem espaços nas pontas, url sem espaços nas pontas,
+ * JSONs como digitados) e o mapeamento da saída do indicador (saída por "chave: tipo",
+ * `docs/propostas-backend/FRONT-saida-chave-tipo.md`): `"campo da filial"`, `"campo da meta"` e
+ * `"campo da competencia"` (os dois últimos omitidos quando vazios; a meta é obrigatória e o back-end
+ * responde 400 sem ela). `"campo do valor"` é só do dado externo e nunca vai.
+ */
+function corpoIntegracaoIndicador(integracao: IntegracaoDadoExterno): Record<string, string> {
+  const base = corpoIntegracao(integracao)
+  const { campoFilial, campoMeta, campoCompetencia } = integracao.mapeamento
+  const corpo: Record<string, string> = {
+    identificador: base.identificador,
+    url: base.url,
+    'parametros de saida': base['parametros de saida'],
+    'parametros de entrada': base['parametros de entrada'],
+    'campo da filial': campoFilial,
+  }
+  if (campoMeta) corpo['campo da meta'] = campoMeta
+  if (campoCompetencia) corpo['campo da competencia'] = campoCompetencia
+  return corpo
+}
+
+/**
+ * Grava a integração da meta via API do indicador (F6.11; só Admin): `PUT .../{id}/integracao` com
+ * `corpoIntegracaoIndicador`. Qualquer 2xx significa gravado e resolve sem valor (a resposta não é lida);
+ * quem chama recarrega a lista. Erros HTTP e de rede são propagados como `ApiError` — o 400 traz
+ * `dados.erros`, lidos por `errosDaIntegracao`.
  */
 export async function atualizarIntegracaoIndicador(id: number, integracao: IntegracaoDadoExterno): Promise<void> {
   await apiFetch<unknown>(`${ROTA_INDICADORES}/${id}/integracao`, {
     method: 'PUT',
-    body: corpoIntegracao(integracao),
+    body: corpoIntegracaoIndicador(integracao),
   })
 }

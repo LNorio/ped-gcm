@@ -31,6 +31,7 @@ import {
   type Indicador,
   type IndicadorDoApontamento,
   type IntegracaoDoIndicador,
+  type MapeamentoSaida,
   type JanelaRetroativa,
   type MetaDaFilial,
   type MetaPorFilialIndicador,
@@ -187,6 +188,15 @@ export interface DadoExternoApi extends AuditoriaApi {
   'integracao alterada por'?: string | null
   /** A coleta também traz a meta (10/11/2026; todos os perfis). */
   'fornece meta'?: boolean | null
+  // F5.22 (executor, 11/11/2026; só o Admin). Leitura tolerante: fora do formato vira `null`.
+  /** Data da última consulta bem-sucedida (`"aaaa-mm-dd hh:mm:ss"`). */
+  'ultima consulta em'?: unknown
+  /** Erro da última consulta; vazio ou só com espaços vira `null`. */
+  'erro da ultima consulta'?: unknown
+  /** `soap`/`rest`: aceito com qualquer valor, mas não usado nem enviado pelo front. */
+  'tipo de servico'?: unknown
+  /** Saída por "chave: tipo" (11/11/2026): `{ "campo da filial", "campo do valor", "campo da competencia"? }` ou `null`. */
+  'mapeamento da saida'?: unknown
 }
 
 export interface ComponenteIndicadorApi {
@@ -263,7 +273,24 @@ export interface IndicadorApi extends AuditoriaApi {
   tarefa?: TarefaIndicadorApi | null
   /** Só o Admin, fonte `dado_externo`: integração do dado externo (só leitura). */
   'integracao do dado externo'?: IntegracaoDoDadoExternoApi | null
+  // F6.11 (executor, fase 2 — API (27).md): só o Admin, fonte `integracao`.
+  /** Data da última consulta bem-sucedida da meta. */
+  'ultima consulta em'?: string | null
+  /** Erro da última consulta da meta; `null` sem erro. */
+  'erro da ultima consulta'?: string | null
+  /** Aceito na listagem, mas não usado nem enviado pelo front. */
+  'tipo de servico'?: TipoServicoIntegracaoApi | null
+  /**
+   * Saída por "chave: tipo" (FRONT-saida-chave-tipo.md §5; só o Admin, fonte `integracao`):
+   * `{ "campo da filial", "campo da meta", "campo da competencia"? }` ou `null` no formato antigo.
+   * Leitura tolerante: fora do formato vira `mapeamentoSaida: null` sem rejeitar a listagem.
+   */
+  'mapeamento da saida'?: unknown
 }
+
+/** Tipo de serviço da integração informado pelo executor (F6.11, fase 2); não entra no domínio. */
+export const TIPOS_SERVICO_INTEGRACAO_API = ['soap', 'rest'] as const
+export type TipoServicoIntegracaoApi = (typeof TIPOS_SERVICO_INTEGRACAO_API)[number]
 
 /** Tarefa do Bitrix no indicador (F6.11): `"id bitrix"` `null` = aguardando envio. */
 export interface TarefaIndicadorApi {
@@ -623,7 +650,36 @@ export function paraDadoExterno(dado: DadoExternoApi): DadoExterno {
     integracaoAlteradaEm: ouNulo(dado['integracao alterada em']),
     integracaoAlteradaPor: ouNulo(dado['integracao alterada por']),
     forneceMeta: dado['fornece meta'] === true,
+    ultimaConsultaEm: textoPreenchidoOuNulo(dado['ultima consulta em']),
+    erroUltimaConsulta: textoPreenchidoOuNulo(dado['erro da ultima consulta']),
+    mapeamentoSaida: paraMapeamentoSaida(dado['mapeamento da saida']),
   }
+}
+
+/** Texto com conteúdo (após `trim()`), devolvido como veio; qualquer outro valor vira `null`. */
+function textoPreenchidoOuNulo(valor: unknown): string | null {
+  return typeof valor === 'string' && valor.trim() !== '' ? valor : null
+}
+
+/**
+ * Mapeamento da saída no formato da API (saída por "chave: tipo", 11/11/2026 —
+ * `FRONT-saida-chave-tipo.md`, seções 4 e 5): `"campo da filial"` → `campoFilial`, `"campo do valor"` →
+ * `campoValor` e `"campo da meta"` → `campoMeta` (só quando vierem em texto não vazio) e
+ * `"campo da competencia"` → `campoCompetencia` (ausente/vazio → `null`). Fora do formato (não objeto
+ * ou sem `"campo da filial"` em texto não vazio) → `null`, sem rejeitar a resposta.
+ */
+export function paraMapeamentoSaida(valor: unknown): MapeamentoSaida | null {
+  if (typeof valor !== 'object' || valor === null || Array.isArray(valor)) return null
+  const bruto = valor as Record<string, unknown>
+  const campoFilial = textoPreenchidoOuNulo(bruto['campo da filial'])
+  if (campoFilial === null) return null
+  const mapeamento: MapeamentoSaida = { campoFilial }
+  const campoValor = textoPreenchidoOuNulo(bruto['campo do valor'])
+  if (campoValor !== null) mapeamento.campoValor = campoValor
+  const campoMeta = textoPreenchidoOuNulo(bruto['campo da meta'])
+  if (campoMeta !== null) mapeamento.campoMeta = campoMeta
+  mapeamento.campoCompetencia = textoPreenchidoOuNulo(bruto['campo da competencia'])
+  return mapeamento
 }
 
 function paraComponenteIndicador(item: ComponenteIndicadorApi): ComponenteIndicador {
@@ -671,7 +727,35 @@ function paraIntegracaoDoIndicador(indicador: IndicadorApi): IntegracaoDoIndicad
     pendente: indicador['integracao pendente'] === true,
     alteradaEm: ouNulo(indicador['integracao alterada em']),
     alteradaPor: ouNulo(indicador['integracao alterada por']),
+    ultimaConsultaEm: ouNulo(indicador['ultima consulta em']),
+    erroUltimaConsulta: ouNulo(indicador['erro da ultima consulta']),
+    mapeamentoSaida: paraMapeamentoSaidaDoIndicador(indicador),
   }
+}
+
+/**
+ * Mapeamento da saída do indicador (saída por "chave: tipo", FRONT-saida-chave-tipo.md §5): só quando
+ * `"parametros de saida"` é objeto (formato novo; lista = formato antigo → `null`, mesmo com mapeamento) e
+ * `"mapeamento da saida"` é objeto com `"campo da filial"` em texto não vazio; senão `null`, sem rejeitar.
+ * `campoMeta` vazio, ausente ou não textual fica ausente; `campoCompetencia` nesses casos vira `null`.
+ */
+function paraMapeamentoSaidaDoIndicador(indicador: IndicadorApi): MapeamentoSaida | null {
+  const saida = indicador['parametros de saida']
+  const mapeamento = indicador['mapeamento da saida']
+  if (!ehObjetoNaoListaDoIndicador(saida) || !ehObjetoNaoListaDoIndicador(mapeamento)) return null
+  const campoFilial = textoPreenchidoOuNulo(mapeamento['campo da filial'])
+  if (campoFilial === null) return null
+  const campoMeta = textoPreenchidoOuNulo(mapeamento['campo da meta'])
+  return {
+    campoFilial,
+    ...(campoMeta === null ? {} : { campoMeta }),
+    campoCompetencia: textoPreenchidoOuNulo(mapeamento['campo da competencia']),
+  }
+}
+
+/** Objeto JSON (não lista, não `null`). */
+function ehObjetoNaoListaDoIndicador(valor: unknown): valor is Record<string, unknown> {
+  return typeof valor === 'object' && valor !== null && !Array.isArray(valor)
 }
 
 /** Tarefa do Bitrix no formato do indicador (F6.11); ausente/`null` → `null`. */

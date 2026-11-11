@@ -119,9 +119,12 @@ describe('F5.17 — Alerta de integração pendente (integração: /dados-extern
   async function preencherIntegracao(user: Usuario, nome: string) {
     await escolherAcao(user, rotuloAcoesDadoExterno(nome), 'Preencher integração')
     const dialogo = screen.getByRole('dialog', { name: 'Configurações da integração' })
-    await within(dialogo).findByRole('button', { name: /%filial%/ })
+    await within(within(dialogo).getByRole('group', { name: 'Variáveis disponíveis' })).findByRole('button', { name: /%filial%/ })
     await colar(user, within(dialogo).getByLabelText('URL'), 'https://ti.exemplo.com.br/api/consulta')
     await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de saída' }))
+    // Saída por "chave: tipo" (11/11/2026): o mapeamento do modelo é obrigatório para salvar.
+    await user.selectOptions(within(dialogo).getByLabelText('Campo da filial'), 'codfil')
+    await user.selectOptions(within(dialogo).getByLabelText('Campo do valor'), 'vlrLiq')
     await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de entrada' }))
     await user.click(within(dialogo).getByRole('button', { name: 'Salvar configurações' }))
     await screen.findByText('Integração atualizada.')
@@ -251,10 +254,12 @@ describe('F5.17 — Alerta de integração pendente (integração: /dados-extern
 
       await escolherAcao(user, rotuloAcoesDadoExterno('Devoluções de venda'), 'Concluir construção')
       const dialogo = screen.getByRole('dialog', { name: 'Concluir construção' })
-      await within(dialogo).findByRole('button', { name: /%filial%/ })
+      await within(within(dialogo).getByRole('group', { name: 'Variáveis disponíveis' })).findByRole('button', { name: /%filial%/ })
       await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'devolucoes')
       await colar(user, within(dialogo).getByLabelText('URL'), 'https://ti.exemplo.com.br/api/devolucoes')
       await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de saída' }))
+      await user.selectOptions(within(dialogo).getByLabelText('Campo da filial'), 'codfil')
+      await user.selectOptions(within(dialogo).getByLabelText('Campo do valor'), 'vlrLiq')
       await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de entrada' }))
       await user.click(within(dialogo).getByRole('button', { name: 'Concluir e ativar' }))
 

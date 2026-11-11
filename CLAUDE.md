@@ -74,8 +74,8 @@ Crie as pastas conforme forem necessárias; não crie estruturas vazias.
 | `integracao-api` | Serviços de acesso ao backend, tipos de dados, tratamento de erros de rede |
 | `qualidade-testes` | Revisão de código, testes, build e lint antes de considerar uma tarefa concluída |
 | `gerador-testes` | TDD: escreve os testes de cada requisito antes da implementação e adequa os testes quando um requisito muda |
-| `testes-unitarios` | Antes de todo commit: executa os testes unitários relacionados aos arquivos do commit |
-| `testes-integracao` | Antes de todo commit: executa os testes de integração relacionados aos arquivos do commit |
+| `testes-unitarios` | Antes de todo commit: executa um lote de até 150 testes unitários (um agente por lote, em paralelo) |
+| `testes-integracao` | Antes de todo commit: executa um lote de até 150 testes de integração (um agente por lote, em paralelo) |
 | `build-validado` | Quando o usuário pedir a build: roda todos os testes e só gera a build com 100% de sucesso |
 | `fechamento-dia` | Ao final do dia: registra implementações e modificações no diário e na documentação |
 | `resumo-semanal` | Gera ou atualiza o resumo dos últimos 7 dias a partir da documentação |
@@ -153,19 +153,42 @@ comportamento coberto por testes; se alterar, trate como alteração de requisit
 Quando o usuário pedir um commit:
 
 1. Prepare os arquivos (`git add`) e obtenha a lista com `git diff --cached --name-only`.
-2. Acione **em paralelo**, enviando a lista de arquivos:
-   - `testes-unitarios`;
-   - `testes-integracao`;
+2. Divida as baterias em **lotes de até 150 testes** (veja "Execução de testes em lotes" abaixo):
+
+   ```text
+   node scripts/lotes-testes.mjs --projeto unit --saida <scratchpad>/lotes-unit.json
+   node scripts/lotes-testes.mjs --projeto integration --saida <scratchpad>/lotes-integracao.json
+   ```
+
+3. Acione **em paralelo**, enviando a lista de arquivos do commit:
+   - um `testes-unitarios` **por lote** da bateria unitária (com o número do lote e os arquivos de teste dele);
+   - um `testes-integracao` **por lote** da bateria de integração;
    - `plano-implementacao` no **modo `commit`** (envie também a mensagem pretendida, se houver).
-3. Se ambos os testes retornarem **APROVADO** (100%), adicione o plano atualizado ao commit
+4. Se **todos os lotes** retornarem **APROVADO** (100%), adicione o plano atualizado ao commit
    (`git add docs/plano-implementacao.md docs/plano-implementacao.html`) e faça o commit, usando a
    mensagem pedida pelo usuário ou a
    sugerida pelo `plano-implementacao`. O hook de pre-commit executa os testes novamente como garantia.
-4. Se qualquer teste retornar **REPROVADO**, **não faça o commit**. Informe ao usuário que o teste não
-   foi concluído com sucesso, o percentual de sucesso de cada bateria e cada erro retornado. A
-   atualização do plano fica no disco e entra no próximo commit aprovado.
-5. Repasse ao usuário os alertas de arquivos sem testes relacionados e os **desvios do plano**
-   apontados pelo `plano-implementacao` (desvios não bloqueiam o commit).
+5. Se qualquer lote retornar **REPROVADO**, **não faça o commit**. Informe ao usuário que o teste não
+   foi concluído com sucesso, o percentual de sucesso de cada bateria (somando os lotes) e cada erro
+   retornado. A atualização do plano fica no disco e entra no próximo commit aprovado.
+6. Repasse ao usuário os alertas de arquivos sem testes relacionados e os **desvios do plano**
+   apontados pelo `plano-implementacao` (desvios não bloqueiam o commit). O alerta de arquivos sem
+   testes é seu: arquivos `.ts`/`.tsx` de `src/` do commit que não são importados por nenhum arquivo de
+   teste (verifique com `Grep` pelo nome do módulo nos `*.test.ts(x)`).
+
+### Execução de testes em lotes
+
+Vale para todo acionamento de `testes-unitarios` e `testes-integracao`:
+
+- **Até 150 testes por agente.** `scripts/lotes-testes.mjs` divide a bateria em lotes de até 150
+  testes (sem quebrar arquivos) e grava a lista de arquivos de cada lote. Suba **um agente por lote**.
+- **2 testes simultâneos por agente.** Cada agente roda o seu lote com `--maxWorkers=2`.
+- **No máximo 10 agentes de teste ao mesmo tempo**, somando unitários e integração. Com mais de 10
+  lotes, suba os 10 primeiros e, à medida que cada um termina, suba o próximo, até cobrir todos.
+- **Windows:** os comandos de teste e o script rodam a partir de `C:\` com C maiúsculo (PowerShell
+  com `Set-Location C:\Users\gcmsu\Desktop\Projetos\ped-gcm`).
+- Consolide o resultado de cada bateria somando os lotes. A bateria só é **APROVADA** com 100% em
+  todos os lotes.
 
 ## Build
 
@@ -215,3 +238,5 @@ onde a data é o início do período (hoje menos 6 dias).
 - Toda tarefa só é considerada concluída com `npm run typecheck`, `npm run lint` e
   `npm run test:implementados` sem erros.
 - Commits apenas quando o usuário pedir.
+- No máximo **10 subagentes ao mesmo tempo**, de qualquer tipo, para não travar a máquina. Se houver
+  mais trabalho, suba os próximos à medida que os anteriores terminarem.

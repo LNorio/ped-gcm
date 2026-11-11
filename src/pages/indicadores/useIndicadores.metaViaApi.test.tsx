@@ -12,6 +12,7 @@ import {
   integracaoMetaPendenteApi,
   respostaIndicadorApi,
   rotaListarIndicadoresComIntegracao,
+  mapeamentoDoCorpoApi,
   type CorpoIntegracaoIndicadorApiFalso,
   type IndicadorApiFalso,
 } from '../../test/indicadoresFalsos'
@@ -34,6 +35,8 @@ const INTEGRACAO: IntegracaoDadoExterno = {
   url: URL_META_VIA_API,
   parametrosSaida: SAIDA,
   parametrosEntrada: ENTRADA,
+  // Saída por "chave: tipo" (11/11/2026): mapeamento escolhido na modal.
+  mapeamento: { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: null },
 }
 
 describe('F6.11 — useIndicadores: integração da meta via API', () => {
@@ -77,11 +80,12 @@ describe('F6.11 — useIndicadores: integração da meta via API', () => {
                   url: corpo.url,
                   'parametros de saida': JSON.parse(corpo['parametros de saida']) as unknown,
                   'parametros de entrada': JSON.parse(corpo['parametros de entrada']) as unknown,
+                  'mapeamento da saida': mapeamentoDoCorpoApi(corpo),
                   'integracao pendente': false,
                 }
               : i,
         )
-        return respostaJson({ mensagem: 'integracao atualizada', 'variaveis usadas': ['competencia', 'filial'] })
+        return respostaJson({ mensagem: 'integracao atualizada', 'variaveis usadas': ['competencia', 'empresas'] })
       },
       [`PUT ${ROTA}/4/meta`]: () => {
         if (opcoes.aoDefinir) return opcoes.aoDefinir()
@@ -127,11 +131,14 @@ describe('F6.11 — useIndicadores: integração da meta via API', () => {
       url: URL_META_VIA_API,
       'parametros de saida': SAIDA,
       'parametros de entrada': ENTRADA,
+      'campo da filial': 'codfil',
+      'campo da meta': 'metVlr',
     })
     expect(gets(chamadas).length).toBe(consultasAntes + 1)
     expect(result.current.indicadores.find((i) => i.id === 10)?.integracao).toMatchObject({
       pendente: false,
       url: URL_META_VIA_API,
+      mapeamentoSaida: { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: null },
     })
     expect(result.current.alertas.integracaoPendente).toBe(0)
   })

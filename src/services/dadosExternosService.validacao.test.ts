@@ -5,8 +5,8 @@ import { validarIntegracao } from './dadosExternosService'
 import { definirToken, limparToken } from './sessao'
 
 const ROTA = '/api/ped/integracao/validar'
-const SAIDA = '{ "valor": "0", "referencia": "x" }'
-const ENTRADA = '{ "filial": "%filial%", "inicio": "%dataInicial% - 3m" }'
+const SAIDA = '{ "codemp": "string", "codfil": "string", "vlrLiq": "number" }'
+const ENTRADA = '{ "operacao": "Consulta", "parametros": { "ECodEmp": "%empresas%", "EDatIni": "%dataInicial% - 3m" } }'
 
 /** Resposta 200 documentada em `FRONT-integracao-dado-externo.md`, seção 2. */
 const RESPOSTA_VALIDA = {
@@ -27,10 +27,11 @@ const RESPOSTA_VALIDA = {
 
 /**
  * Validação da integração pelo back-end (F5.18): `POST /api/ped/integracao/validar`, sem gravar.
+ * Desde 11/11/2026 a saída é "chave: tipo" e o mapeamento também vai no corpo (bloco próprio abaixo).
  * Corpo: `"parametros de saida"` e/ou `"parametros de entrada"` (só os não vazios). Resposta convertida
  * para o domínio (`ResultadoValidacaoIntegracao`): `saida`/`entrada` `null` quando não enviados.
  */
-describe('F5.18 — Serviço: validarIntegracao({ parametrosSaida?, parametrosEntrada? })', () => {
+describe('F5.18 — Serviço: validarIntegracao({ parametrosSaida?, parametrosEntrada?, finalidade?, mapeamento? })', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
 
   beforeEach(() => {
@@ -108,6 +109,9 @@ describe('F5.18 — Serviço: validarIntegracao({ parametrosSaida?, parametrosEn
             { nome: 'valor', tipo: 'texto' },
             { nome: 'referencia', tipo: 'texto' },
           ],
+          formato: null,
+          resumo: null,
+          mapeamento: null,
         },
         entrada: {
           valido: true,
@@ -145,6 +149,9 @@ describe('F5.18 — Serviço: validarIntegracao({ parametrosSaida?, parametrosEn
           { nome: 'extra', tipo: 'objeto' },
           { nome: 'vazio', tipo: 'nulo' },
         ],
+        formato: null,
+        resumo: null,
+        mapeamento: null,
       })
     })
 
@@ -154,7 +161,7 @@ describe('F5.18 — Serviço: validarIntegracao({ parametrosSaida?, parametrosEn
       )
 
       await expect(validarIntegracao({ parametrosSaida: '{"a": 1,}' })).resolves.toEqual({
-        saida: { valido: false, erro: { mensagem: "virgula sobrando antes de '}'", linha: 1, coluna: 12 } },
+        saida: { valido: false, erro: { mensagem: "virgula sobrando antes de '}'", linha: 1, coluna: 12 }, erros: [] },
         entrada: null,
       })
     })
@@ -164,7 +171,7 @@ describe('F5.18 — Serviço: validarIntegracao({ parametrosSaida?, parametrosEn
 
       const { saida } = await validarIntegracao({ parametrosSaida: '1' })
 
-      expect(saida).toEqual({ valido: false, erro: { mensagem: 'o JSON deve ser objeto ou lista', linha: null, coluna: null } })
+      expect(saida).toEqual({ valido: false, erro: { mensagem: 'o JSON deve ser objeto ou lista', linha: null, coluna: null }, erros: [] })
     })
 
     it('entrada válida: variáveis usadas sem os % e cálculos com "caminho" também aceitos', async () => {
@@ -243,6 +250,336 @@ describe('F5.18 — Serviço: validarIntegracao({ parametrosSaida?, parametrosEn
         saida: null,
         entrada: null,
       })
+    })
+  })
+
+  /**
+   * Alteração de 11/11/2026 (`FRONT-meta-via-api-fase1.md`, item 2.2, e `API (27).md`):
+   * - `finalidade` (opcional): `"valor"` na modal do dado externo e `"meta"` na do indicador; enviada só
+   *   quando informada (sem ela o back-end aceita `valor` ou `meta`);
+   * - saída que não é lista (erro não sintático): `{ valido: false, erro: { mensagem, linha: null,
+   *   coluna: null }, erros: [...] }` → no domínio, o inválido ganha `erros: ErroIntegracao[]` (campo
+   *   `"parametros de saida"`; `erros` ausente ou fora do formato → `[]`; item sem `mensagem` em texto é
+   *   ignorado; `caminho` ausente ou vazio → `null`);
+   * - erro da entrada SOAP sem `operacao`/`parametros` vem com `campo: ""` (raiz do JSON) → `caminho: null`.
+   */
+  describe('finalidade, saída em lista e erros da entrada SOAP (11/11/2026)', () => {
+    it.each<['valor' | 'meta']>([['valor'], ['meta']])('finalidade "%s" vai no corpo, junto com os textos', async (finalidade) => {
+      const chamadas = simular()
+
+      await validarIntegracao({ parametrosSaida: SAIDA, parametrosEntrada: ENTRADA, finalidade })
+
+      expect(corpoDaChamada(chamadas[0])).toStrictEqual({
+        'parametros de saida': SAIDA,
+        'parametros de entrada': ENTRADA,
+        finalidade,
+      })
+    })
+
+    it('finalidade com só a entrada preenchida também vai no corpo', async () => {
+      const chamadas = simular(() => respostaJson({ saida: null, entrada: RESPOSTA_VALIDA.entrada }))
+
+      await validarIntegracao({ parametrosEntrada: ENTRADA, finalidade: 'meta' })
+
+      expect(corpoDaChamada(chamadas[0])).toStrictEqual({ 'parametros de entrada': ENTRADA, finalidade: 'meta' })
+    })
+
+    it('sem finalidade o corpo não leva a chave', async () => {
+      const chamadas = simular()
+
+      await validarIntegracao({ parametrosSaida: SAIDA })
+
+      expect(corpoDaChamada(chamadas[0])).not.toHaveProperty('finalidade')
+    })
+
+    it('com os dois JSONs vazios não chama a API, mesmo com finalidade', async () => {
+      const chamadas = simular()
+
+      await expect(validarIntegracao({ parametrosSaida: ' ', finalidade: 'valor' })).resolves.toEqual({ saida: null, entrada: null })
+      expect(chamadas).toHaveLength(0)
+    })
+
+    it('saída inválida sem posição (ex.: formato da lista de 10/11/2026): linha e coluna null e a lista "erros" de objetos convertida', async () => {
+      simular(() =>
+        respostaJson({
+          saida: {
+            valido: false,
+            erro: { mensagem: 'a saida deve ser uma lista com todas as filiais', linha: null, coluna: null },
+            erros: [
+              { campo: 'parametros de saida', mensagem: 'a saida deve ser uma lista com todas as filiais' },
+              { campo: 'parametros de saida', caminho: '[0]', mensagem: 'item 1 sem filial' },
+              { campo: 'parametros de saida', caminho: '', mensagem: 'item 2 sem valor' },
+            ],
+          },
+          entrada: null,
+        }),
+      )
+
+      const { saida } = await validarIntegracao({ parametrosSaida: '{"filial": "101", "valor": 1}', finalidade: 'valor' })
+
+      expect(saida).toEqual({
+        valido: false,
+        erro: { mensagem: 'a saida deve ser uma lista com todas as filiais', linha: null, coluna: null },
+        erros: [
+          {
+            campo: 'parametros de saida',
+            caminho: null,
+            expressao: null,
+            mensagem: 'a saida deve ser uma lista com todas as filiais',
+            linha: null,
+            coluna: null,
+          },
+          { campo: 'parametros de saida', caminho: '[0]', expressao: null, mensagem: 'item 1 sem filial', linha: null, coluna: null },
+          { campo: 'parametros de saida', caminho: null, expressao: null, mensagem: 'item 2 sem valor', linha: null, coluna: null },
+        ],
+      })
+    })
+
+    it.each<[string, unknown]>([
+      ['ausente', undefined],
+      ['null', null],
+      ['texto', 'erro'],
+      ['objeto', { mensagem: 'x' }],
+    ])('"erros" da saída %s → []', async (_nome, erros) => {
+      simular(() => respostaJson({ saida: { valido: false, erro: { mensagem: 'saida invalida', linha: null, coluna: null }, erros } }))
+
+      const { saida } = await validarIntegracao({ parametrosSaida: SAIDA })
+
+      expect(saida).toEqual({ valido: false, erro: { mensagem: 'saida invalida', linha: null, coluna: null }, erros: [] })
+    })
+
+    it('item de "erros" da saída sem mensagem em texto (ou texto vazio) é ignorado, sem rejeitar a resposta', async () => {
+      simular(() =>
+        respostaJson({
+          saida: {
+            valido: false,
+            erro: { mensagem: 'saida invalida', linha: null, coluna: null },
+            erros: [{ campo: 'parametros de saida' }, '', '  ', 7, null, { mensagem: 10 }, { mensagem: 'item 1 sem filial' }],
+          },
+        }),
+      )
+
+      const { saida } = await validarIntegracao({ parametrosSaida: SAIDA })
+
+      expect(saida).toEqual({
+        valido: false,
+        erro: { mensagem: 'saida invalida', linha: null, coluna: null },
+        erros: [{ campo: 'parametros de saida', caminho: null, expressao: null, mensagem: 'item 1 sem filial', linha: null, coluna: null }],
+      })
+    })
+
+    it('erro da entrada com campo "" (falta "operacao"/"parametros", raiz do JSON): caminho null e entra na lista', async () => {
+      simular(() =>
+        respostaJson({
+          saida: null,
+          entrada: {
+            valido: false,
+            erros: [
+              { campo: '', mensagem: 'a entrada SOAP precisa de "operacao" e "parametros" (ou "chamadas")' },
+              { campo: '', caminho: '', expressao: 'x', mensagem: 'operacao invalida' },
+              { campo: 'parametros.EDatIni', expressao: '5 / 0', mensagem: 'divisao por zero' },
+            ],
+          },
+        }),
+      )
+
+      const { entrada } = await validarIntegracao({ parametrosEntrada: '{"filial": "%filial%"}', finalidade: 'valor' })
+
+      expect(entrada).toEqual({
+        valido: false,
+        erros: [
+          {
+            campo: 'parametros de entrada',
+            caminho: null,
+            expressao: null,
+            mensagem: 'a entrada SOAP precisa de "operacao" e "parametros" (ou "chamadas")',
+            linha: null,
+            coluna: null,
+          },
+          { campo: 'parametros de entrada', caminho: null, expressao: 'x', mensagem: 'operacao invalida', linha: null, coluna: null },
+          {
+            campo: 'parametros de entrada',
+            caminho: 'parametros.EDatIni',
+            expressao: '5 / 0',
+            mensagem: 'divisao por zero',
+            linha: null,
+            coluna: null,
+          },
+        ],
+      })
+    })
+  })
+
+  /**
+   * Alteração de 11/11/2026 (saída por "chave: tipo", opção B — `FRONT-saida-chave-tipo.md`, seção 4):
+   * - requisição: `mapeamento` (`MapeamentoSaida`) vai com as chaves do back-end — `"campo da filial"`,
+   *   `"campo do valor"` (de `campoValor`), `"campo da meta"` (de `campoMeta`) e `"campo da competencia"` —,
+   *   só as preenchidas (vazio, só espaços, `null` ou ausente não vão) e só junto com a saída (sem
+   *   `"parametros de saida"` no corpo, o mapeamento não é enviado);
+   * - resposta válida na saída por tipos: `formato` (`"tipos"`), `resumo` (texto) e `mapeamento`
+   *   (`{ "campo da filial", "campo do valor"/"campo da meta", "campo da competencia"? }`) → no domínio
+   *   `formato`, `resumo` e `mapeamento` (`MapeamentoSaida`); ausentes ou fora do formato → `null` (não
+   *   rejeitam a resposta). No formato antigo (lista) o back-end responde sem `formato` → `null`;
+   * - resposta inválida: `erros` pode vir como **lista de textos** (`["...", "..."]`); cada texto não vazio
+   *   vira um `ErroIntegracao` do campo `"parametros de saida"` (sem linha, coluna, caminho nem expressão).
+   */
+  describe('saída por "chave: tipo" (11/11/2026)', () => {
+    const RESPOSTA_TIPOS = {
+      saida: {
+        valido: true,
+        formato: 'tipos',
+        campos: [
+          { campo: 'codemp', tipo: 'string' },
+          { campo: 'codfil', tipo: 'string' },
+          { campo: 'vlrLiq', tipo: 'number' },
+        ],
+        resumo: '3 campos: codemp (string), codfil (string), vlrLiq (number)',
+        mapeamento: { 'campo da filial': 'codfil', 'campo do valor': 'vlrLiq' },
+      },
+    }
+
+    it('envia o mapeamento com as chaves do back-end, junto com a saída e a finalidade', async () => {
+      const chamadas = simular(() => respostaJson(RESPOSTA_TIPOS))
+
+      await validarIntegracao({
+        parametrosSaida: SAIDA,
+        parametrosEntrada: ENTRADA,
+        finalidade: 'valor',
+        mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: 'data' },
+      })
+
+      expect(corpoDaChamada(chamadas[0])).toStrictEqual({
+        'parametros de saida': SAIDA,
+        'parametros de entrada': ENTRADA,
+        finalidade: 'valor',
+        'campo da filial': 'codfil',
+        'campo do valor': 'vlrLiq',
+        'campo da competencia': 'data',
+      })
+    })
+
+    it('indicador: campoMeta vai como "campo da meta"', async () => {
+      const chamadas = simular(() => respostaJson(RESPOSTA_TIPOS))
+
+      await validarIntegracao({
+        parametrosSaida: SAIDA,
+        finalidade: 'meta',
+        mapeamento: { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: null },
+      })
+
+      expect(corpoDaChamada(chamadas[0])).toStrictEqual({
+        'parametros de saida': SAIDA,
+        finalidade: 'meta',
+        'campo da filial': 'codfil',
+        'campo da meta': 'metVlr',
+      })
+    })
+
+    it('campos do mapeamento vazios, só com espaços ou null não vão no corpo', async () => {
+      const chamadas = simular(() => respostaJson(RESPOSTA_TIPOS))
+
+      await validarIntegracao({ parametrosSaida: SAIDA, mapeamento: { campoFilial: '', campoValor: '  ', campoCompetencia: null } })
+
+      expect(corpoDaChamada(chamadas[0])).toStrictEqual({ 'parametros de saida': SAIDA })
+    })
+
+    it('só com a entrada, o mapeamento não é enviado', async () => {
+      const chamadas = simular(() => respostaJson({ saida: null, entrada: RESPOSTA_VALIDA.entrada }))
+
+      await validarIntegracao({ parametrosEntrada: ENTRADA, mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: null } })
+
+      expect(corpoDaChamada(chamadas[0])).toStrictEqual({ 'parametros de entrada': ENTRADA })
+    })
+
+    it('com os dois JSONs vazios não chama a API, mesmo com o mapeamento', async () => {
+      const chamadas = simular()
+
+      await expect(
+        validarIntegracao({ parametrosSaida: '', mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: null } }),
+      ).resolves.toEqual({ saida: null, entrada: null })
+      expect(chamadas).toHaveLength(0)
+    })
+
+    it('resposta válida por tipos (exemplo do documento): campos, formato, resumo e mapeamento', async () => {
+      simular(() => respostaJson(RESPOSTA_TIPOS))
+
+      const { saida } = await validarIntegracao({ parametrosSaida: SAIDA, finalidade: 'valor' })
+
+      expect(saida).toEqual({
+        valido: true,
+        campos: [
+          { nome: 'codemp', tipo: 'string' },
+          { nome: 'codfil', tipo: 'string' },
+          { nome: 'vlrLiq', tipo: 'number' },
+        ],
+        formato: 'tipos',
+        resumo: '3 campos: codemp (string), codfil (string), vlrLiq (number)',
+        mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: null },
+      })
+    })
+
+    it('mapeamento da resposta com "campo da meta" e "campo da competencia"', async () => {
+      simular(() =>
+        respostaJson({
+          saida: {
+            ...RESPOSTA_TIPOS.saida,
+            mapeamento: { 'campo da filial': 'codfil', 'campo da meta': 'metVlr', 'campo da competencia': 'data' },
+          },
+        }),
+      )
+
+      const { saida } = await validarIntegracao({ parametrosSaida: SAIDA, finalidade: 'meta' })
+
+      expect(saida).toMatchObject({ mapeamento: { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: 'data' } })
+    })
+
+    it.each<[string, Record<string, unknown>]>([
+      ['formato que não é texto', { formato: 1 }],
+      ['resumo que não é texto', { resumo: ['3 campos'] }],
+      ['mapeamento em texto', { mapeamento: 'codfil' }],
+      ['mapeamento sem "campo da filial"', { mapeamento: { 'campo do valor': 'vlrLiq' } }],
+    ])('%s → null no campo, sem rejeitar a resposta', async (_nome, extra) => {
+      simular(() => respostaJson({ saida: { ...RESPOSTA_TIPOS.saida, ...extra } }))
+
+      const { saida } = await validarIntegracao({ parametrosSaida: SAIDA })
+
+      const [chave] = Object.keys(extra)
+      expect(saida).toMatchObject({ valido: true, [chave]: null })
+    })
+
+    it('"erros" da saída como lista de textos (exemplo do documento) → ErroIntegracao do campo "parametros de saida"', async () => {
+      const tipo = 'o campo "vlrLiq" da saida tem tipo "texto"; use string, number, date ou boolean'
+      const filial = 'informe o "campo da filial" (o nome do campo da saida que traz o codigo da filial)'
+      simular(() =>
+        respostaJson({ saida: { valido: false, erro: { mensagem: tipo, linha: null, coluna: null }, erros: [tipo, filial] } }),
+      )
+
+      const { saida } = await validarIntegracao({ parametrosSaida: '{"vlrLiq": "texto"}', finalidade: 'valor' })
+
+      expect(saida).toEqual({
+        valido: false,
+        erro: { mensagem: tipo, linha: null, coluna: null },
+        erros: [
+          { campo: 'parametros de saida', caminho: null, expressao: null, mensagem: tipo, linha: null, coluna: null },
+          { campo: 'parametros de saida', caminho: null, expressao: null, mensagem: filial, linha: null, coluna: null },
+        ],
+      })
+    })
+
+    it('textos e objetos misturados em "erros" são aceitos, na ordem', async () => {
+      simular(() =>
+        respostaJson({
+          saida: {
+            valido: false,
+            erro: { mensagem: 'saida invalida', linha: null, coluna: null },
+            erros: ['primeiro', { campo: 'parametros de saida', mensagem: 'segundo' }],
+          },
+        }),
+      )
+
+      const { saida } = await validarIntegracao({ parametrosSaida: SAIDA })
+
+      expect(saida).toMatchObject({ erros: [{ mensagem: 'primeiro' }, { mensagem: 'segundo' }] })
     })
   })
 

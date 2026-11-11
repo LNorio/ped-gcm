@@ -1,19 +1,23 @@
 /**
- * Parâmetros de saída da integração (F5.14): a estrutura que a consulta devolve ao PED.
+ * Parâmetros de saída da integração (F5.14): a estrutura de **um item** da resposta da consulta.
  *
- * Desde 10/11/2026 (contrato final da meta via API, seção 2.3 de
- * `docs/propostas-backend/RESPOSTA-FINAL-meta-via-api.md`) a saída **é uma lista** com um item por
- * filial: cada item é um objeto com `filial` e o campo de valor (`valor` na integração do dado externo,
- * `meta` na do indicador); `competencia` é opcional. O resumo descreve os campos do primeiro item.
- * Tipos com os nomes do back-end (iguais aos devolvidos por `POST /api/ped/integracao/validar` — F5.18):
- * `texto`, `numero` (sem acento), `booleano`, `nulo`, `lista`, `objeto`.
+ * Desde 11/11/2026 (saída por "chave: tipo", opção B — `docs/propostas-backend/FRONT-saida-chave-tipo.md`)
+ * a saída é um **objeto** `{ "campo": "tipo" }`, com os tipos `string`, `number`, `date` ou `boolean`
+ * (exatos, em minúsculas). A resposta real continua sendo uma lista com todas as filiais; o objeto só
+ * declara os campos de cada item. Quem aponta a filial, o valor/meta e a competência é o mapeamento
+ * (`mapeamento.ts`).
+ *
+ * A lista (formato antigo, com valores ou marcadores) não é mais aceita na modal: a TI reescreve no
+ * formato novo (decisão do usuário de 11/11/2026).
  */
 
 import { analisarJson, type ValorJson } from './json'
 
-export type TipoCampoSaida = 'texto' | 'numero' | 'booleano' | 'nulo' | 'lista' | 'objeto'
+export type TipoCampoSaida = 'string' | 'number' | 'date' | 'boolean'
 
-/** Campo de valor exigido em cada item: `valor` (dado externo) ou `meta` (indicador). */
+export const TIPOS_CAMPO_SAIDA: readonly TipoCampoSaida[] = ['string', 'number', 'date', 'boolean']
+
+/** Campo de valor da integração: `valor` (dado externo) ou `meta` (indicador). */
 export type CampoValorSaida = 'valor' | 'meta'
 
 export interface CampoSaida {
@@ -23,7 +27,7 @@ export interface CampoSaida {
 
 /**
  * - `vazio`: texto vazio ou só com espaços (nada aparece);
- * - `valido`: campos do primeiro item e o resumo (ex.: `3 campos: filial (texto), valor (texto), ...`);
+ * - `valido`: campos do objeto e o resumo (ex.: `3 campos: codemp (string), codfil (string), vlrLiq (number)`);
  * - `invalido`: mensagem com linha, coluna e explicação, ou o motivo de a estrutura não ser aceita.
  */
 export type ResultadoSaida =
@@ -31,48 +35,49 @@ export type ResultadoSaida =
   | { estado: 'valido'; campos: CampoSaida[]; resumo: string }
   | { estado: 'invalido'; mensagem: string }
 
-const MENSAGEM_NAO_LISTA = 'A saída deve ser uma lista com um item por filial'
+export const MENSAGEM_FORMATO_ANTIGO_SAIDA = 'Formato antigo (lista). Reescreva a saída como { "campo": "tipo" }.'
+const MENSAGEM_SAIDA_VAZIA = 'A saída precisa descrever ao menos um campo, ex.: { "codfil": "string", "vlrLiq": "number" }'
+const MENSAGEM_NAO_OBJETO = 'A saída deve ser um objeto { "campo": "tipo" }'
 
 function ehObjetoJson(valor: ValorJson): valor is { [chave: string]: ValorJson } {
   return typeof valor === 'object' && valor !== null && !Array.isArray(valor)
 }
 
-function tipoDoValor(valor: ValorJson): TipoCampoSaida {
-  if (valor === null) return 'nulo'
-  if (Array.isArray(valor)) return 'lista'
-  if (typeof valor === 'string') return 'texto'
-  if (typeof valor === 'number') return 'numero'
-  if (typeof valor === 'boolean') return 'booleano'
-  return 'objeto'
+function ehTipoCampoSaida(valor: ValorJson): valor is TipoCampoSaida {
+  return typeof valor === 'string' && (TIPOS_CAMPO_SAIDA as readonly string[]).includes(valor)
 }
 
-/** Problema do item (posição a partir de 1), ou `null` quando o item é válido. */
-function problemaDoItem(item: ValorJson, posicao: number, campoValor: CampoValorSaida): string | null {
-  if (!ehObjetoJson(item)) return `Item ${posicao}: deve ser um objeto`
-  const faltando = ['filial', campoValor].filter((campo) => !Object.hasOwn(item, campo))
-  if (faltando.length === 0) return null
-  if (faltando.length === 1) return `Item ${posicao}: falta o campo ${faltando[0]}`
-  return `Item ${posicao}: faltam os campos ${faltando.join(' e ')}`
+/** Resumo no formato do back-end: `N campos: a (string), b (number)` (singular `1 campo: ...`). */
+export function resumoDosCampos(campos: readonly CampoSaida[]): string {
+  const quantidade = campos.length === 1 ? '1 campo' : `${campos.length} campos`
+  return `${quantidade}: ${campos.map(({ nome, tipo }) => `${nome} (${tipo})`).join(', ')}`
 }
 
-/** Valida o JSON de saída (lista, um item por filial) e descreve os campos do primeiro item. */
-export function validarSaida(texto: string, campoValor: CampoValorSaida): ResultadoSaida {
+/**
+ * Valida o JSON de saída (`{ "campo": "tipo" }`). `campoValor` é mantido na assinatura: a regra da saída
+ * é a mesma no dado externo e no indicador.
+ */
+export function validarSaida(texto: string, _campoValor: CampoValorSaida): ResultadoSaida {
   if (texto.trim() === '') return { estado: 'vazio' }
   const analise = analisarJson(texto)
   if (!analise.ok) return { estado: 'invalido', mensagem: analise.erro.mensagem }
 
-  const lista = analise.valor
-  if (!Array.isArray(lista)) return { estado: 'invalido', mensagem: MENSAGEM_NAO_LISTA }
-  if (lista.length === 0) return { estado: 'invalido', mensagem: 'A lista está vazia' }
+  const objeto = analise.valor
+  if (Array.isArray(objeto)) return { estado: 'invalido', mensagem: MENSAGEM_FORMATO_ANTIGO_SAIDA }
+  if (!ehObjetoJson(objeto)) return { estado: 'invalido', mensagem: MENSAGEM_NAO_OBJETO }
 
-  for (const [indice, item] of lista.entries()) {
-    const problema = problemaDoItem(item, indice + 1, campoValor)
-    if (problema !== null) return { estado: 'invalido', mensagem: problema }
+  const entradas = Object.entries(objeto)
+  if (entradas.length === 0) return { estado: 'invalido', mensagem: MENSAGEM_SAIDA_VAZIA }
+
+  const campos: CampoSaida[] = []
+  for (const [nome, tipo] of entradas) {
+    if (!ehTipoCampoSaida(tipo)) {
+      return {
+        estado: 'invalido',
+        mensagem: `O campo "${nome}" da saída tem tipo ${JSON.stringify(tipo)}; use string, number, date ou boolean`,
+      }
+    }
+    campos.push({ nome, tipo })
   }
-
-  const primeiro = lista[0] as { [chave: string]: ValorJson }
-  const campos = Object.entries(primeiro).map(([nome, valor]): CampoSaida => ({ nome, tipo: tipoDoValor(valor) }))
-  const descricao = campos.map((campo) => `${campo.nome} (${campo.tipo})`).join(', ')
-  const quantidade = campos.length === 1 ? '1 campo' : `${campos.length} campos`
-  return { estado: 'valido', campos, resumo: `${quantidade}: ${descricao}` }
+  return { estado: 'valido', campos, resumo: resumoDosCampos(campos) }
 }

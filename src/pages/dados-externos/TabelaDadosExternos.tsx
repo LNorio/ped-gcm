@@ -12,6 +12,11 @@
  * da linha (várias linhas podem ficar abertas). Os detalhes trazem, como pares rótulo e valor,
  * Campo/cálculo, Referência, Coleta, Janela retroativa e Tipo de valor e, quando existem, os
  * comentários e quem alterou a situação e quando (RNF-01).
+ *
+ * Executor das integrações (F5.22, só Admin): com `erroUltimaConsulta`, a Situação ganha a etiqueta
+ * "Erro na última consulta"; nos detalhes, "Última consulta" (data do último sucesso ou "Nenhuma consulta
+ * ainda" quando a integração está salva) e "Erro da última consulta" (o texto do back-end). Sem
+ * integração salva nem data (outros perfis ou integração pendente), nada sobre a consulta.
  */
 import { useState } from 'react'
 import { Etiqueta, type TomEtiqueta } from '../../components/Etiqueta'
@@ -79,6 +84,10 @@ function detalhes(dado: DadoExterno) {
     ['Janela retroativa', rotuloJanela(dado.janelaRetroativa)],
     ['Tipo de valor', ROTULOS_TIPO_VALOR[dado.tipoValor]],
   ]
+  if (dado.ultimaConsultaEm !== null || dado.url !== null) {
+    pares.push(['Última consulta', dado.ultimaConsultaEm !== null ? formatarDataHora(dado.ultimaConsultaEm) : 'Nenhuma consulta ainda'])
+  }
+  if (dado.erroUltimaConsulta !== null) pares.push(['Erro da última consulta', dado.erroUltimaConsulta])
   return (
     <div className="tabela-dados-externos__pilha">
       <dl className="tabela-dados-externos__campos">
@@ -149,6 +158,7 @@ export function TabelaDadosExternos({
         <div className="tabela-dados-externos__pilha">
           <Etiqueta tom={TOM_SITUACAO[dado.situacao]}>{ROTULOS_SITUACAO_DADO_EXTERNO[dado.situacao]}</Etiqueta>
           {dado.integracaoPendente ? <Etiqueta tom="alerta">Integração pendente (TI)</Etiqueta> : null}
+          {dado.erroUltimaConsulta !== null ? <Etiqueta tom="perigo">Erro na última consulta</Etiqueta> : null}
           {dado.tarefaBitrix ? (
             <span className="tabela-dados-externos__secundario">{textoTarefaBitrix(dado.tarefaBitrix)}</span>
           ) : null}

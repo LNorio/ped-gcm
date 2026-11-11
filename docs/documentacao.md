@@ -4,10 +4,249 @@
 
 | Data | Tags | Resumo |
 | --- | --- | --- |
+| [10/11/2026](#2026-11-10) | #dados-externos #integracao #indicadores #dashboards #apontamentos #cadastro #api #validacao #componente #layout #navegacao #configuracao #testes #documentacao | Duas builds validadas, decisões da integração, `TextoTruncado`, tabelas sem rolagem, build dividida e abas sob demanda, meta por filial com metas pendentes, meta via API pelo contrato final e commit `a2ab9cc` |
 | [09/11/2026](#2026-11-09) | #apontamentos #dados-externos #integracao #cadastro #api #validacao #componente #correcao #testes #documentacao | Build validada, indicadores do apontamento como lista de nomes (F4.9\*) e mudança de requisito "integração de dados externos" (F5.7 e F5.14–F5.18), da tela sem API ao contrato do back-end com validação híbrida |
 | [06/11/2026](#2026-11-06) | #tipos #indicadores #dashboards #dados-externos #cadastro #api #validacao #componente #correcao #testes #configuracao #documentacao | Build validada, id da tarefa Bitrix em texto, adequação aos documentos novos do back-end (grupos nos tipos, exclusão de indicador só pelo Admin, tarefas Bitrix, identificador com - e .) e 67/67 requisitos implementados |
 | [05/11/2026](#2026-11-05) | #indicadores #dashboards #faixas #apontamentos #dados-externos #cadastro #api #validacao #componente #layout #correcao #testes #documentacao | Abas Indicadores (F6), Dashboards (F7) e Faixas (F8) em TDD, modais alinhadas ao protótipo, RF-54 alterado e correções contra a API real |
 | [04/11/2026](#2026-11-04) | #apontamentos #dados-externos #tipos #cadastro #api #validacao #componente #layout #refatoracao #correcao #testes #configuracao #documentacao | Aba Apontamentos (F4) revisada e commitada, aba Dados Externos (F5) implementada, hooks genéricos, MenuAcoes, correção do POST e testes mais rápidos |
+
+---
+
+<a id="2026-11-10"></a>
+## 10/11/2026
+
+**Tags:** #dados-externos #integracao #indicadores #dashboards #apontamentos #cadastro #api #validacao #componente #layout #navegacao #configuracao #testes #documentacao
+
+### Visão geral
+De manhã o usuário pediu a build ("gere uma build") e decidiu as dúvidas da integração do dado externo que a revisão de qualidade levantou em 09/11. Depois vieram ajustes visuais nas listagens de Dados Externos e Apontamentos. Para resolver o aviso de chunk > 500 kB, a build foi dividida em `vendor` × `index` e as abas passaram a carregar sob demanda. Uma build em andamento foi interrompida para incluir essas mudanças, e a nova build validada saiu por volta das 13h.
+
+À tarde vieram três funcionalidades da aba Indicadores:
+- **meta por filial**: o front propôs o contrato, o back-end publicou o seu com diferenças e o front se adequou;
+- **"Definir metas pendentes"**: incluída por decisão do usuário, porque sem ela a pendência não tinha como sumir;
+- **meta via API**: negociada com o back-end em proposta, contraproposta, resposta do front, resposta final e confirmação. O front foi adequado ao contrato final, mas nada está implementado no back-end.
+
+Também foi ajustado o estilo da modal "Definir meta". O dia terminou com o commit `a2ab9cc`, que reúne o trabalho de 06/11 a 10/11 (o anterior era `f06e197`). A primeira tentativa foi reprovada por timeouts sob carga.
+
+Ao fim do dia:
+- 78 requisitos `implementado`;
+- typecheck ok e lint só com o aviso antigo (`AlertasMenu.tsx:48`);
+- `test:implementados`: unitários 3588/3588 e integração 482/482;
+- plano em 73% (93/127).
+
+Também hoje a assinatura do Claude deu erro de cobrança uma vez. Um agente parou e foi retomado, sem efeito no código.
+
+### Implementações
+
+#### Builds validadas do sistema
+- **Tags:** #testes #configuracao
+- **Arquivos:** `dist/` (gerado; fora do controle de versão)
+- **Descrição:** duas builds feitas pelo `build-validado`, só com 100% dos testes dos requisitos implementados.
+  - **1ª build** ("gere uma build"), antes dos ajustes do dia:
+    - 72/72 requisitos;
+    - unitários 3069/3069 e integração 420/420, em baterias separadas, porque a execução única do `test:implementados` falhou por timeouts com Steam, Riot e Spotify abertos;
+    - carga 100% 2xx (10.983 requisições, média 45 ms, p99 98 ms);
+    - `index-BUMhKzHh.js` com 521 kB e aviso do Vite de chunk > 500 kB.
+  - **2ª build** (~13h), iniciada depois da F12.6\* e da F2.9\*. Uma build anterior, já em andamento, foi interrompida para incluir as abas sob demanda.
+    - 74/74 requisitos;
+    - unitários 3145/3145 e integração 424/424 na execução única;
+    - carga 100% 2xx (5.183 requisições, média 97 ms, p99 264 ms, com a máquina carregada);
+    - primeira visita com `vendor` 310 kB + `index` 32 kB e um chunk por aba.
+- **Motivação:** pedidos do usuário ("gere uma build" e "faça uma nova build dividindo o código em duas partes...").
+- **Como usar / observações técnicas:** nenhuma das builds inclui o que foi feito depois das 13h: F4.10\*, F5.19\*, F6.10\*–F6.13\* e a adequação ao contrato final da meta via API.
+
+#### Componente `TextoTruncado` (F1.19\*)
+- **Tags:** #componente #layout #dados-externos
+- **Arquivos:** `src/components/TextoTruncado.tsx`, `src/components/TextoTruncado.css`, `src/components/TextoTruncado.test.tsx`, `src/pages/dados-externos/TabelaDadosExternos.tsx`, `src/pages/dados-externos/TabelaDadosExternos.configuracoes.test.tsx`
+- **Descrição:** texto em uma linha que, quando passa da largura disponível, é cortado com reticências e esmaece no final.
+  - O texto completo fica no DOM e no `title`, e aparece como dica ao passar o mouse.
+  - O corte é detectado por `scrollWidth > clientWidth` e marcado com `data-cortado="true"`. Só nesse caso o esmaecer é aplicado.
+  - A medida é refeita com `ResizeObserver`, quando disponível.
+  - Aplicado na URL da listagem de Dados Externos.
+- **Motivação:** pedido do usuário: "A URL na lista de dados externos está estourando..." (a URL passava da largura da tela).
+- **Como usar / observações técnicas:** `<TextoTruncado texto={...} className={...} />`. Houve desvio do TDD: o `ui-componentes` implementou o componente antes dos testes, por ser ajuste visual. O `gerador-testes` escreveu os testes depois (15 em `TextoTruncado.test.tsx` e 1 em `TabelaDadosExternos.configuracoes.test.tsx`). O requisito `F1.19` foi criado já como `implementado`.
+
+#### Build dividida em `vendor` e `index` (F12.6\*)
+- **Tags:** #configuracao
+- **Arquivos:** `vite.config.ts`
+- **Descrição:** a build passou a gerar o grupo `vendor`, com as bibliotecas de `node_modules` (React, React Router), separado do `index`, com o código do sistema. A configuração está em `build.rolldownOptions.output.codeSplitting.groups`. Resultado: `vendor` com 310 kB e `index` com 212 kB.
+- **Motivação:** pedido do usuário ("faça uma nova build dividindo o código em duas partes..."), depois do aviso do Vite de chunk > 500 kB (521 kB). O `vendor` muda pouco e fica no cache do navegador entre versões.
+- **Como usar / observações técnicas:** sem dependências novas. Resolve a dúvida do chunk > 500 kB registrada no plano.
+
+#### Abas carregadas sob demanda (F2.9\*)
+- **Tags:** #navegacao #layout #configuracao
+- **Arquivos:** `src/rotas.tsx`, `src/layout/LayoutPrincipal.tsx`, `src/rotas.sobDemanda.test.ts`, `src/rotas.sobDemanda.integration.test.tsx`, `src/layout/LayoutPrincipal.sobDemanda.test.tsx`, `src/rotas.test.tsx`, `src/test/renderizarApp.tsx`
+- **Descrição:**
+  - As páginas das abas e a 404 são carregadas com `React.lazy` + `import()` dinâmico, e cada uma vira um chunk próprio.
+  - `LoginPage`, `SemAcessoPage` e `ErroPage` continuam com import estático: são a entrada da aplicação e o fallback de erro.
+  - O `LayoutPrincipal` envolve o `Outlet` num `Suspense` com `key={location.pathname}`. Enquanto o chunk baixa, mostra "Carregando..." (`RegiaoStatus`), e o cabeçalho, as abas e o rodapé continuam visíveis.
+  - A `key` é necessária porque o React Router navega dentro de `startTransition`. Sem ela, a aba anterior ficaria na tela durante o download.
+  - Falha ao baixar um chunk cai no `errorElement` (`ErroPage`).
+- **Motivação:** pedido do usuário ("carrega as abas sob demanda"): primeira carga mais leve. A primeira visita passou de `index` 212 kB para 32 kB, mais o `vendor` de 310 kB.
+- **Como usar / observações técnicas:** os testes da F2.3 foram adaptados para `findBy*`, sem mudar o que verificam. Depende da F12.6\*. Requisito `F2.9` `implementado`.
+
+#### Meta por filial (F6.10\*)
+- **Tags:** #indicadores #cadastro #api #validacao
+- **Arquivos:** `src/pages/indicadores/CamposMetaPorFilial.tsx`, `useMetaPorFilial.ts`, `FormularioIndicador.tsx`, `DialogoDefinirMeta.tsx`, `TabelaIndicadores.tsx`, `IndicadoresPage.tsx`, `useIndicadores.ts`; `src/services/indicadoresService.ts`, `src/services/adaptadores.ts`, `src/types/dominio.ts`; testes `*.metasPorFilial.*`, `*.errosPorFilial.*`, `*.metaFilialPendente.*` e `TabelaIndicadores.campoMetaPorFilial.test.tsx`; `src/test/indicadoresFalsos.ts`
+- **Descrição:**
+  - Vale no cadastro do indicador e no "Definir meta".
+  - Na visão "Todas as filiais", o checkbox "Replicar a meta para todas as filiais" vem marcado. Desmarcado, lista as filiais com a meta de cada uma.
+  - Com uma filial selecionada no cabeçalho, a meta vale só para ela.
+  - Os erros 400 por filial (`errosPorFilial`) aparecem no campo de cada filial.
+  - As filiais sem meta geram alerta na listagem ("Meta pendente em N filiais", "Filiais sem meta") e no sinal da aba.
+  - Novo filtro "Meta pendente por filial" (`meta_filial_pendente`).
+  - O campo `meta por filial` é lido da API; quando vem ausente, é derivado de `metas por filial` não vazia. A meta é enviada como número.
+- **Motivação:** pedido do usuário (checkbox para replicar a meta para todas as filiais e alerta das filiais em branco). Decisões do usuário: propor o contrato e implementar, valer nos dois fluxos e mostrar o alerta na listagem e no sinal da aba.
+- **Como usar / observações técnicas:**
+  - O front escreveu `docs/propostas-backend/PROPOSTA-meta-por-filial.md` em paralelo à implementação ("faça o documento de contrato em paralelo").
+  - À tarde o back-end publicou `docs/backend/FRONT-meta-por-filial.md` e `docs/backend/API (26).md`, com diferenças que foram adequadas (ver Modificações).
+  - Impactos anotados no plano em F9.9 e F10.3/F10.4.
+
+#### "Definir metas pendentes" (F6.12\*)
+- **Tags:** #indicadores #cadastro #api
+- **Arquivos:** `src/pages/indicadores/DialogoDefinirMetasPendentes.tsx`, `src/pages/indicadores/useMetasPendentesIndicador.ts`, `src/services/indicadoresService.ts` (`definirMetasPendentes`), testes `DialogoDefinirMetasPendentes.test.tsx`, `*.metasPendentes.*`
+- **Descrição:** ação do menu que abre uma modal com as filiais sem meta e grava por `PUT /api/ped/indicadores-cadastro/{id}/metas-filiais` (`{ "metas por filial": [...] }`). A ação aparece para Admin e Validador, só em indicadores ativos que têm filiais pendentes. Não aparece em indicadores "Meta a definir" nem com meta via API (`terceiro`).
+- **Motivação:** decisão do usuário de incluir a ação, porque sem ela a pendência de meta por filial não tinha como ser resolvida pela tela.
+- **Como usar / observações técnicas:** a rota real é `metas-filiais`. Depende da F6.10\*. Fica oculta em indicador "Meta a definir", comportamento assumido que precisa de confirmação.
+
+#### Meta via API (F6.11\*)
+- **Tags:** #indicadores #dados-externos #integracao #cadastro #api #validacao
+- **Arquivos:** `src/utils/metaViaApi.ts`, `src/pages/indicadores/useIntegracaoIndicador.ts`, `FormularioIndicador.tsx`/`.css`, `DialogoDefinirMeta.tsx`, `TabelaIndicadores.tsx`, `IndicadoresPage.tsx`, `useIndicadores.ts`; `src/pages/dados-externos/DialogoConcluirConstrucao.tsx` (modal da integração generalizada); `src/services/indicadoresService.ts` (`atualizarIntegracaoIndicador`), `src/services/adaptadores.ts`, `src/types/dominio.ts`, `src/sessao/permissoes.ts`; testes `*.metaViaApi.*` e `*.fonteDaMeta.*`
+- **Descrição:** fluxo do contrato final (`RESPOSTA-FINAL-meta-via-api.md`):
+  - O campo `fonte da meta` é um enum: `dado_externo` ou `integracao`.
+  - O checkbox "Meta vinda do dado externo" só aparece quando o dado externo da composição fornece meta (`forneceMeta`). Marcado, a fonte é `dado_externo`: a chamada não é executada de novo, e o cadastro serve de apoio e organização.
+  - Desmarcado, a fonte é `integracao`. Aparece o botão de configuração, só para o Admin, que abre a mesma modal dos dados externos com todos os campos obrigatórios.
+  - A meta automática nunca é editável ("Meta editável" fica oculta e vai `"meta editavel": false`).
+  - O mesmo checkbox existe no cadastro e no "Definir meta".
+  - Etiquetas por situação (`situacao da meta via api`), coluna Meta "Via API", filtro e alerta "Integração pendente (TI)" na fonte `integracao`.
+  - Na fonte `integracao`, aparece o aviso de que a consulta ainda não está disponível.
+  - Agregação: a meta segue a regra do dado.
+- **Motivação:** pedidos do usuário:
+  - checkbox de buscar metas via API, com botão de configuração só para o Admin e modal igual à de dados externos;
+  - o mesmo checkbox na modal "Definir meta";
+  - meta via API não editável manualmente.
+  
+  Depois da contraproposta do back-end, valeu a ideia do usuário: um caminho só, com o flag. A regra de agregação também foi decisão do usuário.
+- **Como usar / observações técnicas:** histórico dos documentos em `docs/propostas-backend/`:
+  1. `PROPOSTA-meta-via-api.md` (pedido "criar um documento de proposta");
+  2. `CONTRAPROPOSTA-meta-via-api.md` do back-end ("API" = web service do ERP, em etapas 1 e 2);
+  3. `RESPOSTA-FRONT-contraproposta-meta-via-api.md`;
+  4. `RESPOSTA-FINAL-meta-via-api.md`: meta do ERP liberada para faturamento e os 6 volumes, os outros 4 indicadores com meta manual, fonte fixa, saída da integração em lista, variáveis `%empresa%`/`%empresas%`, tarefa do Bitrix quando o Validador cadastra na fonte `integracao` e executor só na fase 2;
+  5. `CONFIRMACAO-FRONT-meta-via-api.md`.
+
+  Nada está implementado no back-end: a fase 1 está pendente e a F6.14\* segue bloqueada (A-15).
+
+#### Integração do dado externo em modo leitura (F5.19\*)
+- **Tags:** #dados-externos #integracao #indicadores #componente
+- **Arquivos:** `src/pages/dados-externos/DialogoConcluirConstrucao.tsx`, `src/pages/dados-externos/DialogoConcluirConstrucao.leitura.test.tsx`
+- **Descrição:** modo "leitura" da modal de integração, usado pela ação "Ver integração do dado externo" (Admin) quando a fonte da meta é `dado_externo`.
+- **Motivação:** decisão do negócio e da TI no contrato final do back-end (`RESPOSTA-FINAL-meta-via-api.md`):
+  - seção 1: "Integração na fonte ERP: não se cadastra integração no indicador; mostra-se a integração do dado externo, só para leitura";
+  - seção 4, item 4: "Para o Admin na fonte dado_externo, abrir a integração do dado externo, só para leitura".
+
+  O front confirmou em `CONFIRMACAO-FRONT-meta-via-api.md`, atendendo ao pedido do usuário "leia a proposta final e faça as alterações necessárias".
+- **Como usar / observações técnicas:** requisito `F5.19` novo, `implementado`. A F6.11\* e a F6.14\* dependem dele. Por causa dele, o antigo F5.19\* do plano (Dados Externos sem rolagem) foi renumerado para F5.20\*.
+
+#### Documentos de contrato com o back-end
+- **Tags:** #documentacao #api
+- **Arquivos:**
+  - `docs/propostas-backend/`: `PROPOSTA-meta-por-filial.md`, `PROPOSTA-meta-via-api.md`, `CONTRAPROPOSTA-meta-via-api.md`, `RESPOSTA-FRONT-contraproposta-meta-via-api.md`, `RESPOSTA-FINAL-meta-via-api.md` e `CONFIRMACAO-FRONT-meta-via-api.md`;
+  - `docs/backend/`: `FRONT-meta-por-filial.md` e `API (26).md`.
+- **Descrição:** propostas e respostas do front (escritas pelos agentes a pedido do usuário) e documentos publicados pelo back-end. Todos entraram no commit.
+- **Motivação:** pedidos do usuário ("faça o documento de contrato em paralelo", "criar um documento de proposta", "leia os novos documentos de backend...").
+- **Como usar / observações técnicas:** a negociação também está registrada no histórico do plano (A-14 resolvida; A-15 pendente no back-end).
+
+### Modificações
+
+#### Decisões sobre as dúvidas da integração do dado externo (F5.7, F5.14, F5.16, F5.18)
+- **Tags:** #dados-externos #integracao #validacao
+- **Arquivos:** `src/utils/integracao/` (`saida.ts`, `entrada.ts`, `expressoes.ts` e outros), `src/pages/dados-externos/DialogoConcluirConstrucao.tsx`, `PainelVariaveis.tsx`, testes correspondentes
+- **Antes:** a revisão de 09/11 deixou estes pontos em aberto:
+  - se a entrada deveria aceitar lista;
+  - tipos da saída como "número" no motor local e `numero` no back-end;
+  - variável clicada sem cursor ia para a posição 0 e quebrava o JSON;
+  - sem os limites de 60/500 caracteres;
+  - erros do 400 só sumiam no novo envio.
+- **Depois:**
+  - a entrada continua só em objeto (o risco em Configurações foi aceito);
+  - valem os nomes de tipo do back-end (`numero`);
+  - variável ou operador sem cursor vai para o fim e, depois, para a última posição do usuário; "Inserir modelo" reinicia a posição;
+  - identificador limitado a 60 caracteres e URL a 500;
+  - o erro do 400 some do campo ao editá-lo.
+  - O ponto "`campo` = caminho no JSON" ficou como dúvida rebaixada: não foi possível confirmar sem o back-end, e o código aceita `caminho` ou `campo`.
+- **Motivação:** decisões do usuário sobre os pontos da revisão de qualidade de 09/11.
+- **Impacto:** modal de concluir/configurar a integração. Os requisitos passaram por `em-alteracao` e voltaram a `implementado` (73 na época; unitários 3118, integração 422).
+
+#### Listagem de Dados Externos sem rolagem lateral (F5.20\*)
+- **Tags:** #dados-externos #layout
+- **Arquivos:** `src/pages/dados-externos/TabelaDadosExternos.tsx`, `TabelaDadosExternos.css`, `DadosExternosPage.css`
+- **Antes:** a tabela tinha rolagem lateral, por causa do `nowrap` nas células e do teto de 1240px.
+- **Depois:** identificador com `TextoTruncado`, identificador e URL limitados a `min(14rem, 50vw)`, Nome e Cadastro com quebra de linha e conteúdo até 1600px, só nesta aba.
+- **Motivação:** pedido do usuário ("diminuir o campo de identificador da listagem e aumentar o tamanho da tabela...").
+- **Impacto:** só visual, sem teste novo. Falta a conferência no navegador pelo usuário. Foi numerada F5.19\* no plano e renumerada para F5.20\*.
+
+#### Listagem de Apontamentos sem rolagem lateral (F4.10\*)
+- **Tags:** #apontamentos #layout
+- **Arquivos:** `src/pages/apontamentos/TabelaApontamentos.tsx`, `TabelaApontamentos.css`, `ApontamentosPage.css` e testes de `ApontamentosPage`/`TabelaApontamentos`
+- **Antes:** a listagem tinha rolagem lateral e a coluna Indicadores não tinha limite de largura.
+- **Depois:** área de até 1440px só nesta aba, Nome até 20rem, Indicadores até 16rem com quebra de linha, Tipo e Cadastro até 10rem.
+- **Motivação:** pedido do usuário ("aumentar um pouco o tamanho da listagem da aba de apontamentos para não aparecer a barra de rolagem lateral e limitar o tamanho da coluna de indicadores"). A causa é a mesma da F5.20\*.
+- **Impacto:** só visual. Falta a conferência no navegador.
+
+#### Estilo da modal "Definir meta" (F6.13\*)
+- **Tags:** #indicadores #layout
+- **Arquivos:** `src/pages/indicadores/DialogoDefinirMeta.tsx`, `src/pages/indicadores/FormularioIndicador.css`
+- **Antes:** layout da modal mostrado no print do usuário.
+- **Depois:** origem no bloco "Composição", Meta e Sentido lado a lado, largura máxima de 560px e rodapé com padding e filete.
+- **Motivação:** pedido do usuário com print ("ajustar o estilo").
+- **Impacto:** só visual. Falta a conferência pelo usuário.
+
+#### Adequação ao contrato do back-end da meta por filial (API 26)
+- **Tags:** #indicadores #api #validacao
+- **Arquivos:** `src/services/indicadoresService.ts`, `src/services/adaptadores.ts`, `src/types/dominio.ts`, `src/pages/indicadores/*`, testes `*.errosPorFilial.*` e `*.metaFilialPendente.*`
+- **Antes:** o front seguia a sua proposta (`PROPOSTA-meta-por-filial.md`).
+- **Depois:** as diferenças publicadas pelo back-end foram adequadas: erros 400 por filial (`errosPorFilial`) no campo de cada filial, campo `meta por filial`, filtro `meta_filial_pendente` ("Meta pendente por filial") e meta enviada como número.
+- **Motivação:** pedido do usuário ("leia os novos documentos de backend..."), depois da publicação de `FRONT-meta-por-filial.md` e `API (26).md`.
+- **Impacto:** F1.3, F6.1, F6.2, F6.3, F6.5, F6.6 e F6.7 passaram por `em-alteracao` e voltaram a `implementado` (77 requisitos na época; unitários 3402, integração 462).
+
+#### Meta via API adequada ao contrato final (F1.3, F5.1, F5.7, F5.14–F5.16, F5.18, F6.3, F6.11, F7.6)
+- **Tags:** #indicadores #dados-externos #dashboards #integracao #api
+- **Arquivos:** `src/utils/metaViaApi.ts`, `src/utils/integracao/` (saída em lista), `src/types/dominio.ts`, `src/services/adaptadores.ts`, `src/services/dadosExternosService.ts`, `src/pages/dashboards/regrasDashboard.ts`, `src/pages/dashboards/SecaoIndicadores.tsx`, `src/pages/indicadores/*`, testes `*.fonteDaMeta.*` e `*.metaViaApi.*` (inclusive de dashboards)
+- **Antes:**
+  - checkbox "Buscar metas via API" (`"origem da meta": "terceiro"`) com integração própria;
+  - saída da integração em objeto;
+  - etiqueta única "Integração pendente (TI)".
+- **Depois:**
+  - `fonte da meta`: `dado_externo` (checkbox "Meta vinda do dado externo", só com dado externo `forneceMeta`) ou `integracao` (botão de configuração, modal com todos os campos obrigatórios);
+  - saída em lista (`filial` + `valor`/`meta`);
+  - etiquetas por situação;
+  - os dashboards recusam indicadores da fonte `integracao` sem situação `ok`.
+  - A F6.11\* foi reaberta e concluída no mesmo dia.
+- **Motivação:** contrato decidido pelo negócio e pela TI (`RESPOSTA-FINAL-meta-via-api.md`) e pedido do usuário "leia a proposta final e faça as alterações necessárias".
+- **Impacto:** abas Indicadores, Dados Externos e Dashboards. Impacto anotado na F9.9: `403` para indicador `terceiro`, que não aparece em `GET /api/ped/metas`. São 78 requisitos `implementado`.
+
+#### Commit `a2ab9cc` e testes divididos em baterias paralelas
+- **Tags:** #testes #configuracao #documentacao
+- **Arquivos:** 158 arquivos (trabalho de 06/11 a 10/11, desde `f06e197`), incluindo `CLAUDE.md`, `.claude/agents/plano-implementacao.md`, `.claude/scripts/plano-html.mjs` e `docs/plano-implementacao.html` (mudanças de configuração do próprio usuário), além dos fechamentos de 06/11 e 09/11
+- **Antes:** primeira tentativa de commit reprovada na bateria de integração (98,48%, 455/462). Foram 7 timeouts sob carga, e todos os testes passaram isolados. Não houve commit.
+- **Depois:** a pedido do usuário ("suba mais dois subagentes para realizarem os testes de forma paralela"), as baterias foram divididas em 4 agentes: unitários A/B e integração A/B. Todas deram 100% (unitários 3588/3588, integração 482/482), e o commit `a2ab9cc` foi feito com o hook aprovando.
+- **Motivação:** pedido de commit do usuário e instabilidade dos testes sob carga.
+- **Impacto:** o histórico do Git passa a ter todo o trabalho desde `f06e197`. O push para o GitHub não foi feito, porque não foi pedido.
+
+### Pendências
+- Back-end: fase 1 da meta via API e executor (fase 2). A F6.14\* segue bloqueada (A-15).
+- Comportamentos assumidos que precisam de confirmação:
+  - erro na consulta deixa o indicador indisponível no dashboard;
+  - etiquetas de situação da meta via API para todos os perfis;
+  - sem `meta via api`, não mostra aviso;
+  - falha ao carregar os dados externos no "Definir meta" é silenciosa (o checkbox "Meta vinda do dado externo" não aparece);
+  - "Definir metas pendentes" some em indicador "Meta a definir";
+  - no 400 por filial, erros com `filial: null` diferentes da mensagem principal não aparecem.
+- Confirmar com o back-end que `campo` nos erros de validação é o caminho no JSON.
+- Conferência visual pelo usuário: tabelas de Dados Externos e Apontamentos e modal "Definir meta".
+- Builds: nenhuma build validada inclui as mudanças feitas depois das 13h (meta por filial, meta via API, metas pendentes, tabelas e estilo).
+- Testes instáveis sob carga: avaliar os timeouts ou manter as baterias divididas.
+- Push para o GitHub não foi feito (não foi pedido).
+- Próximas atividades do plano: F5.10, F9.1, F10.1, F11.1 e F1.18.
 
 ---
 

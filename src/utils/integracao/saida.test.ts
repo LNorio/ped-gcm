@@ -2,198 +2,180 @@ import { describe, expect, it } from 'vitest'
 import { validarSaida } from './saida'
 
 /**
- * Parâmetros de saída (F5.14): estrutura que a consulta devolve ao PED. Tipos com os nomes do
- * back-end (decisão de 10/11/2026): texto, numero (sem acento), booleano, nulo, lista, objeto.
+ * Parâmetros de saída (F5.14).
  *
- * Alteração de 10/11/2026 (contrato final da meta via API, seção 2.3 de
- * `docs/propostas-backend/RESPOSTA-FINAL-meta-via-api.md`): a saída **é uma lista** com um item por
- * filial. `validarSaida(texto, campoValor)`, com `campoValor: 'valor' | 'meta'` (`valor` na integração
- * do dado externo, `meta` na do indicador), exige lista não vazia de objetos; cada item precisa de
- * `filial` e do campo de valor; `competencia` é opcional. O resumo lista os campos do primeiro item.
- * Objeto solto (aceito antes) passa a ser inválido. O primeiro item com problema é o informado.
+ * Alteração de 11/11/2026 (saída por "chave: tipo", opção B — `docs/propostas-backend/FRONT-saida-chave-tipo.md`):
+ * a saída **descreve a estrutura de um item** da resposta, como um **objeto** `{ "campo": "tipo" }`, com o
+ * tipo entre aspas: `string`, `number`, `date` ou `boolean` (exatamente assim, em minúsculas). A resposta
+ * real continua sendo uma lista com todas as filiais; o objeto só declara os campos de cada item.
+ *
+ * `validarSaida(texto, campoValor)` (`campoValor`: `'valor'` no dado externo, `'meta'` no indicador; a
+ * regra da saída é a mesma nos dois — quem aponta a filial e o valor/meta é o mapeamento, ver
+ * `mapeamento.test.ts`):
+ * - vazio → `{ estado: 'vazio' }`;
+ * - válido → `campos` (`{ nome, tipo }`, na ordem do objeto) e `resumo` `"N campos: a (string), b (number)"`
+ *   (singular `"1 campo: ..."`), o mesmo texto que o back-end devolve em `resumo`;
+ * - lista (formato antigo, com valores ou marcadores) → inválida: a modal só salva no formato novo
+ *   (decisão do usuário de 11/11/2026), com a mensagem `MENSAGEM_FORMATO_ANTIGO`;
+ * - objeto vazio, tipo desconhecido e JSON que não é objeto → inválidos (mensagens abaixo, alinhadas ao
+ *   back-end); com vários tipos inválidos, o primeiro campo é o informado.
+ *
+ * Os tipos antigos (`texto`, `numero`, `booleano`, `nulo`, `lista`, `objeto`) e os marcadores (`%filial%`,
+ * `%valor%`, ...) deixam de existir na saída.
  */
-describe('F5.14 — validarSaida (JSON de saída em lista, um item por filial)', () => {
+const MENSAGEM_FORMATO_ANTIGO = 'Formato antigo (lista). Reescreva a saída como { "campo": "tipo" }.'
+const MENSAGEM_SAIDA_VAZIA = 'A saída precisa descrever ao menos um campo, ex.: { "codfil": "string", "vlrLiq": "number" }'
+const MENSAGEM_NAO_OBJETO = 'A saída deve ser um objeto { "campo": "tipo" }'
+
+/** Mensagem do tipo inválido: o valor como está no JSON (`"texto"`, `10`, `null`...). */
+function tipoInvalido(campo: string, tipoNoJson: string): string {
+  return `O campo "${campo}" da saída tem tipo ${tipoNoJson}; use string, number, date ou boolean`
+}
+
+describe('F5.14 — validarSaida (saída por "chave: tipo")', () => {
   it.each(['', '   ', '\n\t '])('texto vazio ("%s") → estado vazio (nada aparece)', (texto) => {
     expect(validarSaida(texto, 'valor')).toEqual({ estado: 'vazio' })
     expect(validarSaida(texto, 'meta')).toEqual({ estado: 'vazio' })
   })
 
   describe('válido', () => {
-    it('lista do dado externo (filial, valor, competencia) → campos do primeiro item e o resumo "3 campos: filial (texto), valor (texto), competencia (texto)"', () => {
-      const resultado = validarSaida(
-        '[\n  { "filial": "101", "valor": "1500,00", "competencia": "10/2026" },\n  { "filial": "102", "valor": "980,50", "competencia": "10/2026" }\n]',
-        'valor',
-      )
+    it('exemplo do documento → campos na ordem e o resumo "3 campos: codemp (string), codfil (string), vlrLiq (number)"', () => {
+      const resultado = validarSaida('{\n  "codemp": "string",\n  "codfil": "string",\n  "vlrLiq": "number"\n}', 'valor')
 
       expect(resultado).toEqual({
         estado: 'valido',
         campos: [
-          { nome: 'filial', tipo: 'texto' },
-          { nome: 'valor', tipo: 'texto' },
-          { nome: 'competencia', tipo: 'texto' },
+          { nome: 'codemp', tipo: 'string' },
+          { nome: 'codfil', tipo: 'string' },
+          { nome: 'vlrLiq', tipo: 'number' },
         ],
-        resumo: '3 campos: filial (texto), valor (texto), competencia (texto)',
+        resumo: '3 campos: codemp (string), codfil (string), vlrLiq (number)',
       })
     })
 
-    it('lista do indicador (filial e meta, como no contrato) → "2 campos: filial (texto), meta (texto)"', () => {
-      expect(validarSaida('[ { "filial": "100", "meta": "4600000" } ]', 'meta')).toEqual({
+    it('aceita os quatro tipos (string, number, date, boolean)', () => {
+      expect(validarSaida('{ "codfil": "number", "metVlr": "number", "data": "date", "ativo": "boolean", "obs": "string" }', 'meta')).toEqual({
         estado: 'valido',
         campos: [
-          { nome: 'filial', tipo: 'texto' },
-          { nome: 'meta', tipo: 'texto' },
+          { nome: 'codfil', tipo: 'number' },
+          { nome: 'metVlr', tipo: 'number' },
+          { nome: 'data', tipo: 'date' },
+          { nome: 'ativo', tipo: 'boolean' },
+          { nome: 'obs', tipo: 'string' },
         ],
-        resumo: '2 campos: filial (texto), meta (texto)',
+        resumo: '5 campos: codfil (number), metVlr (number), data (date), ativo (boolean), obs (string)',
       })
     })
 
-    it('competencia é opcional: item só com filial e valor é aceito', () => {
-      expect(validarSaida('[{"filial": "101", "valor": 10}]', 'valor')).toMatchObject({
+    it('um único campo → resumo no singular "1 campo: codfil (string)"', () => {
+      expect(validarSaida('{"codfil": "string"}', 'valor')).toEqual({
         estado: 'valido',
-        resumo: '2 campos: filial (texto), valor (numero)',
+        campos: [{ nome: 'codfil', tipo: 'string' }],
+        resumo: '1 campo: codfil (string)',
       })
     })
 
-    it('competencia presente em um item e ausente em outro continua válido', () => {
-      expect(validarSaida('[{"filial": "101", "valor": 1, "competencia": "10/2026"}, {"filial": "102", "valor": 2}]', 'valor')).toMatchObject({
-        estado: 'valido',
-      })
+    it('a regra da saída é a mesma no dado externo e no indicador', () => {
+      const texto = '{ "codfil": "string", "vlrLiq": "number" }'
+
+      expect(validarSaida(texto, 'meta')).toEqual(validarSaida(texto, 'valor'))
+      expect(validarSaida(texto, 'meta')).toMatchObject({ estado: 'valido', resumo: '2 campos: codfil (string), vlrLiq (number)' })
     })
 
-    it('identifica cada tipo com os nomes do back-end ("numero" sem acento), na ordem dos campos do primeiro item', () => {
-      const resultado = validarSaida('[{"filial": 101, "valor": 1.5, "a": "x", "c": true, "d": null, "e": [1], "f": {"g": 1}}]', 'valor')
-
-      expect(resultado).toEqual({
+    it('nomes literais filial/valor/meta não têm nada de especial: são campos comuns', () => {
+      expect(validarSaida('{"filial": "string", "valor": "number"}', 'valor')).toMatchObject({
         estado: 'valido',
-        campos: [
-          { nome: 'filial', tipo: 'numero' },
-          { nome: 'valor', tipo: 'numero' },
-          { nome: 'a', tipo: 'texto' },
-          { nome: 'c', tipo: 'booleano' },
-          { nome: 'd', tipo: 'nulo' },
-          { nome: 'e', tipo: 'lista' },
-          { nome: 'f', tipo: 'objeto' },
-        ],
-        resumo: '7 campos: filial (numero), valor (numero), a (texto), c (booleano), d (nulo), e (lista), f (objeto)',
-      })
-      expect(JSON.stringify(resultado)).not.toContain('número')
-    })
-
-    it('o resumo usa os campos do primeiro item, mesmo que os demais tenham campos a mais', () => {
-      expect(validarSaida('[{"filial": "101", "valor": 1}, {"filial": "102", "valor": 2, "extra": true}]', 'valor')).toMatchObject({
-        estado: 'valido',
-        resumo: '2 campos: filial (texto), valor (numero)',
+        resumo: '2 campos: filial (string), valor (number)',
       })
     })
+  })
 
-    it('a ordem dos campos no item não importa para a regra (valor antes de filial)', () => {
-      expect(validarSaida('[{"valor": 1, "filial": "101"}]', 'valor')).toEqual({
-        estado: 'valido',
-        campos: [
-          { nome: 'valor', tipo: 'numero' },
-          { nome: 'filial', tipo: 'texto' },
-        ],
-        resumo: '2 campos: valor (numero), filial (texto)',
-      })
+  describe('formato antigo (lista)', () => {
+    it.each([
+      ['lista com valores de exemplo', '[ { "codemp": "1", "codfil": "100", "vlrLiq": "0" } ]'],
+      ['lista com marcadores', '[ { "codfil": "%filial%", "vlrLiq": "%valor%" } ]'],
+      ['lista com nomes literais', '[{"filial": "101", "valor": "1500,00", "competencia": "10/2026"}]'],
+      ['lista com itens já em "chave: tipo"', '[{"codfil": "string", "vlrLiq": "number"}]'],
+      ['lista vazia', '[]'],
+    ])('%s → inválida, pedindo para reescrever no formato novo', (_nome, texto) => {
+      expect(validarSaida(texto, 'valor')).toEqual({ estado: 'invalido', mensagem: MENSAGEM_FORMATO_ANTIGO })
+      expect(validarSaida(texto, 'meta')).toEqual({ estado: 'invalido', mensagem: MENSAGEM_FORMATO_ANTIGO })
     })
   })
 
   describe('inválido', () => {
     it('JSON mal formado → mensagem com linha, coluna e explicação em português', () => {
-      expect(validarSaida('[{"filial": "101", "valor": 1,}]', 'valor')).toEqual({
+      expect(validarSaida('{"codfil": "string",}', 'valor')).toEqual({
         estado: 'invalido',
-        mensagem: 'Linha 1, coluna 30: vírgula sobrando',
+        mensagem: 'Linha 1, coluna 20: vírgula sobrando',
       })
     })
 
     it('aspas faltando em outra linha', () => {
-      expect(validarSaida('[\n  {"valor": "abc\n}]', 'valor')).toEqual({
+      expect(validarSaida('{\n  "codfil": "string\n}', 'valor')).toEqual({
         estado: 'invalido',
         mensagem: 'Linha 2, coluna 13: texto sem aspas de fechamento',
       })
     })
 
+    it('objeto vazio → mensagem do back-end, com o exemplo', () => {
+      expect(validarSaida('{}', 'valor')).toEqual({ estado: 'invalido', mensagem: MENSAGEM_SAIDA_VAZIA })
+      expect(validarSaida('{ }', 'meta')).toEqual({ estado: 'invalido', mensagem: MENSAGEM_SAIDA_VAZIA })
+    })
+
     it.each([
-      ['objeto solto (formato aceito antes de 10/11/2026)', '{"filial": "101", "valor": "1500,00"}'],
-      ['objeto vazio', '{}'],
       ['texto', '"abc"'],
       ['número', '10'],
       ['booleano', 'true'],
       ['nulo', 'null'],
-    ])('%s → "A saída deve ser uma lista com um item por filial"', (_nome, texto) => {
-      expect(validarSaida(texto, 'valor')).toEqual({ estado: 'invalido', mensagem: 'A saída deve ser uma lista com um item por filial' })
-      expect(validarSaida(texto, 'meta')).toEqual({ estado: 'invalido', mensagem: 'A saída deve ser uma lista com um item por filial' })
-    })
-
-    it('lista vazia → "A lista está vazia"', () => {
-      expect(validarSaida('[]', 'valor')).toEqual({ estado: 'invalido', mensagem: 'A lista está vazia' })
+    ])('%s solto → "A saída deve ser um objeto { "campo": "tipo" }"', (_nome, texto) => {
+      expect(validarSaida(texto, 'valor')).toEqual({ estado: 'invalido', mensagem: MENSAGEM_NAO_OBJETO })
     })
 
     it.each([
-      ['número', '[1, 2]', 'Item 1: deve ser um objeto'],
-      ['texto no segundo item', '[{"filial": "101", "valor": 1}, "x"]', 'Item 2: deve ser um objeto'],
-      ['lista dentro da lista', '[[{"filial": "101", "valor": 1}]]', 'Item 1: deve ser um objeto'],
-      ['nulo', '[null]', 'Item 1: deve ser um objeto'],
-    ])('item que não é objeto (%s: %s) → mensagem do item', (_nome, texto, mensagem) => {
-      expect(validarSaida(texto, 'valor')).toEqual({ estado: 'invalido', mensagem })
+      ['tipo em português ("texto")', '{"codfil": "texto"}', 'codfil', '"texto"'],
+      ['tipo antigo "numero"', '{"vlrLiq": "numero"}', 'vlrLiq', '"numero"'],
+      ['"integer" (não existe; o number cobre)', '{"qtd": "integer"}', 'qtd', '"integer"'],
+      ['"datetime"', '{"data": "datetime"}', 'data', '"datetime"'],
+      ['em maiúsculas ("Number")', '{"vlrLiq": "Number"}', 'vlrLiq', '"Number"'],
+      ['com espaço (" number")', '{"vlrLiq": " number"}', 'vlrLiq', '" number"'],
+      ['valor de exemplo ("100")', '{"codfil": "100"}', 'codfil', '"100"'],
+      ['marcador ("%filial%")', '{"codfil": "%filial%"}', 'codfil', '"%filial%"'],
+      ['texto vazio', '{"codfil": ""}', 'codfil', '""'],
+      ['número sem aspas', '{"vlrLiq": 10}', 'vlrLiq', '10'],
+      ['nulo', '{"vlrLiq": null}', 'vlrLiq', 'null'],
+      ['booleano', '{"ativo": true}', 'ativo', 'true'],
+    ])('%s → "O campo ... da saída tem tipo ...; use string, number, date ou boolean"', (_nome, texto, campo, tipoNoJson) => {
+      expect(validarSaida(texto, 'valor')).toEqual({ estado: 'invalido', mensagem: tipoInvalido(campo, tipoNoJson) })
     })
 
-    it('item sem filial → "Item 1: falta o campo filial"', () => {
-      expect(validarSaida('[{"valor": 1}]', 'valor')).toEqual({ estado: 'invalido', mensagem: 'Item 1: falta o campo filial' })
-    })
-
-    it('item sem o campo de valor do dado externo → "Item 2: falta o campo valor"', () => {
-      expect(validarSaida('[{"filial": "101", "valor": 1}, {"filial": "102", "competencia": "10/2026"}]', 'valor')).toEqual({
+    it('tipo em lista ou objeto também é inválido (o valor aparece como JSON compacto)', () => {
+      expect(validarSaida('{"codfil": "string", "lista": ["number"]}', 'valor')).toEqual({
         estado: 'invalido',
-        mensagem: 'Item 2: falta o campo valor',
+        mensagem: tipoInvalido('lista', '["number"]'),
       })
-    })
-
-    it('item sem filial nem o campo de valor → "Item 1: faltam os campos filial e valor"', () => {
-      expect(validarSaida('[{"competencia": "10/2026"}]', 'valor')).toEqual({
+      expect(validarSaida('{"item": {"a": "string"}}', 'valor')).toEqual({
         estado: 'invalido',
-        mensagem: 'Item 1: faltam os campos filial e valor',
+        mensagem: tipoInvalido('item', '{"a":"string"}'),
       })
     })
 
-    it('item vazio ([{}]) → "Item 1: faltam os campos filial e valor" (ou "meta")', () => {
-      expect(validarSaida('[{}]', 'valor')).toEqual({ estado: 'invalido', mensagem: 'Item 1: faltam os campos filial e valor' })
-      expect(validarSaida('[{}]', 'meta')).toEqual({ estado: 'invalido', mensagem: 'Item 1: faltam os campos filial e meta' })
-    })
-
-    it('o primeiro item com problema é o informado', () => {
-      expect(validarSaida('[{"filial": "101", "valor": 1}, {"filial": "102"}, {"valor": 3}]', 'valor')).toEqual({
+    it('com vários tipos inválidos, o primeiro campo (na ordem do objeto) é o informado', () => {
+      expect(validarSaida('{"codfil": "string", "vlrLiq": "numero", "data": "data"}', 'valor')).toEqual({
         estado: 'invalido',
-        mensagem: 'Item 2: falta o campo valor',
+        mensagem: tipoInvalido('vlrLiq', '"numero"'),
       })
     })
 
-    describe('o campo de valor depende do tipo da integração', () => {
-      it('integração do indicador (meta): item com "valor" e sem "meta" → "Item 1: falta o campo meta"', () => {
-        expect(validarSaida('[{"filial": "100", "valor": "4600000"}]', 'meta')).toEqual({
-          estado: 'invalido',
-          mensagem: 'Item 1: falta o campo meta',
-        })
-      })
+    it('nenhuma mensagem do formato em lista continua em uso', () => {
+      const textos = ['{}', '{"a": "x"}', '"x"', '[]', '[{}]', '[{"filial": "1", "valor": 1}]']
 
-      it('integração do dado externo (valor): item com "meta" e sem "valor" → "Item 1: falta o campo valor"', () => {
-        expect(validarSaida('[{"filial": "100", "meta": "4600000"}]', 'valor')).toEqual({
-          estado: 'invalido',
-          mensagem: 'Item 1: falta o campo valor',
-        })
-      })
-
-      it('integração do indicador sem filial → "Item 1: falta o campo filial"', () => {
-        expect(validarSaida('[{"meta": "4600000"}]', 'meta')).toEqual({ estado: 'invalido', mensagem: 'Item 1: falta o campo filial' })
-      })
-    })
-
-    it('nenhuma mensagem antiga de objeto continua em uso', () => {
-      const mensagens = ['{}', '[{}]', '[1]', '{"valor": 1}'].map((texto) => JSON.stringify(validarSaida(texto, 'valor')))
-
-      for (const mensagem of mensagens) {
-        expect(mensagem).not.toContain('O objeto não tem campos')
-        expect(mensagem).not.toContain('O JSON deve ser um objeto ou uma lista de objetos')
+      for (const texto of textos) {
+        const mensagem = JSON.stringify(validarSaida(texto, 'valor'))
+        expect(mensagem).not.toContain('A saída deve ser uma lista com um item por filial')
+        expect(mensagem).not.toContain('A lista está vazia')
+        expect(mensagem).not.toContain('falta o campo')
+        expect(mensagem).not.toContain('Item 1')
       }
     })
   })

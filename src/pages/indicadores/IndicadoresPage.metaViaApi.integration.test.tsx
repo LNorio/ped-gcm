@@ -25,6 +25,7 @@ import {
   URL_META_VIA_API,
   indicadoresComMetaViaApiApi,
   integracaoMetaPendenteApi,
+  mapeamentoDoCorpoApi,
   respostaIndicadorApi,
   rotaListarIndicadoresComIntegracao,
   type CorpoIntegracaoIndicadorApiFalso,
@@ -33,7 +34,7 @@ import {
 import { escolherAcao, itensDoMenuAcoes, rotuloAcoesIndicador } from '../../test/menuAcoes'
 import { renderizarApp } from '../../test/renderizarApp'
 import { type Usuario, colar, usuarioRapido } from '../../test/usuario'
-import { MODELO_JSON_ENTRADA, MODELO_JSON_SAIDA_META } from '../../utils/integracao/modelos'
+import { MODELO_JSON_ENTRADA } from '../../utils/integracao/modelos'
 
 /**
  * F6.11 — Meta buscada via API (integração: /indicadores com a aplicação completa; só a rede é simulada).
@@ -48,7 +49,13 @@ import { MODELO_JSON_ENTRADA, MODELO_JSON_SAIDA_META } from '../../utils/integra
  *
  * Contrato final (RESPOSTA-FINAL-meta-via-api.md, 10/11/2026): aqui a fonte é sempre `integracao`
  * (`"fonte da meta": "integracao"`; nenhum dado externo fornece meta); salvar a integração leva a
- * situação a `aguardando_consulta`; "Inserir modelo" da saída do indicador usa `MODELO_JSON_SAIDA_META`.
+ * situação a `aguardando_consulta`.
+ *
+ * Saída por "chave: tipo" (docs/propostas-backend/FRONT-saida-chave-tipo.md, 11/11/2026): a saída é um objeto
+ * `{ chave: tipo }` (`SAIDA_META_VIA_API` = `{ codfil: string, metVlr: number }`), a modal tem as listas
+ * "Campo da filial", "Campo da meta" e "Campo da competência" (sem "Campo do valor" nem o grupo
+ * "Marcadores da saída") e o PUT leva `campo da filial` / `campo da meta` (ver também
+ * IndicadoresPage.saidaTipos.integration.test.tsx).
  */
 const ROTA = '/api/ped/indicadores-cadastro'
 const ROTA_APONTAMENTOS = '/api/ped/apontamentos'
@@ -58,6 +65,8 @@ const BUSCAR_VIA_API = 'Buscar metas via API'
 const SAIDA_TEXTO = JSON.stringify(SAIDA_META_VIA_API, null, 2)
 const ENTRADA_TEXTO = JSON.stringify(ENTRADA_META_VIA_API, null, 2)
 const URL_NOVA = 'https://ti.exemplo.com.br/api/metas-v2'
+/** Saída digitada no "Preencher integração" (formato novo, "chave: tipo"). */
+const SAIDA_DIGITADA = '{ "codfil": "string", "metVlr": "number" }'
 
 describe('F6.11 — Meta buscada via API (integração: /indicadores)', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
@@ -105,12 +114,13 @@ describe('F6.11 — Meta buscada via API (integração: /indicadores)', () => {
                 url: corpo.url,
                 'parametros de saida': JSON.parse(corpo['parametros de saida']) as unknown,
                 'parametros de entrada': JSON.parse(corpo['parametros de entrada']) as unknown,
+                'mapeamento da saida': mapeamentoDoCorpoApi(corpo),
                 'integracao pendente': false,
                 'situacao da meta via api': 'aguardando_consulta',
               }
             : i,
       )
-      return respostaJson({ mensagem: 'integracao atualizada', 'variaveis usadas': ['competencia', 'filial'] })
+      return respostaJson({ mensagem: 'integracao atualizada', 'variaveis usadas': ['competencia', 'empresas'] })
     }
     return simularApi(fetchFalso, {
       'GET /api/ped/acesso': () => respostaJson(acesso),
@@ -150,6 +160,8 @@ describe('F6.11 — Meta buscada via API (integração: /indicadores)', () => {
   const tabela = () => screen.getByRole('table', { name: 'Indicadores' })
   const linha = (nome: string) => within(tabela()).getByText(nome).closest('tr')!
   const salvarConfiguracoes = (dialogo: HTMLElement) => within(dialogo).getByRole('button', { name: 'Salvar configurações' })
+  const listaDoMapeamento = (dialogo: HTMLElement, nome: 'Campo da filial' | 'Campo da meta' | 'Campo da competência' | 'Campo do valor') =>
+    within(dialogo).queryByRole('combobox', { name: nome })
 
   async function abrirTela() {
     renderizarApp('/indicadores')
@@ -159,7 +171,8 @@ describe('F6.11 — Meta buscada via API (integração: /indicadores)', () => {
   async function abrirConfiguracoes(user: Usuario, nome: string, item: 'Configurações' | 'Preencher integração' = 'Configurações') {
     await escolherAcao(user, rotuloAcoesIndicador(nome), item)
     const dialogo = screen.getByRole('dialog', { name: 'Configurações da integração' })
-    await within(dialogo).findByRole('button', { name: /%filial%/ })
+    // Restrito ao grupo das variáveis da entrada (o botão %filial% é uma variável da entrada).
+    await within(within(dialogo).getByRole('group', { name: 'Variáveis disponíveis' })).findByRole('button', { name: /%filial%/ })
     return dialogo
   }
 
@@ -227,11 +240,17 @@ describe('F6.11 — Meta buscada via API (integração: /indicadores)', () => {
       expect(within(dialogo).getByLabelText('URL')).toHaveValue(URL_META_VIA_API)
       expect(within(dialogo).getByLabelText('Parâmetros de saída')).toHaveValue(SAIDA_TEXTO)
       expect(within(dialogo).getByLabelText('Parâmetros de entrada')).toHaveValue(ENTRADA_TEXTO)
+      // Saída "chave: tipo": listas do mapeamento com os campos salvos; sem "Campo do valor" nem marcadores da saída.
+      expect(listaDoMapeamento(dialogo, 'Campo da filial')).toHaveValue('codfil')
+      expect(listaDoMapeamento(dialogo, 'Campo da meta')).toHaveValue('metVlr')
+      expect(listaDoMapeamento(dialogo, 'Campo da competência')).toHaveValue('')
+      expect(listaDoMapeamento(dialogo, 'Campo do valor')).not.toBeInTheDocument()
+      expect(within(dialogo).queryByRole('group', { name: 'Marcadores da saída' })).not.toBeInTheDocument()
       expect(gets(chamadas, ROTA_VARIAVEIS)).toHaveLength(1)
       expect(salvarConfiguracoes(dialogo)).toBeEnabled()
     })
 
-    it('salvar: PUT .../{id}/integracao com os quatro campos → fecha, "Integração atualizada." e recarrega a lista', async () => {
+    it('salvar: PUT .../{id}/integracao com os quatro campos e o mapeamento da saída → fecha, "Integração atualizada." e recarrega a lista', async () => {
       const user = usuarioRapido()
       const chamadas = simular()
       await abrirTela()
@@ -254,12 +273,14 @@ describe('F6.11 — Meta buscada via API (integração: /indicadores)', () => {
         url: URL_NOVA,
         'parametros de saida': SAIDA_TEXTO,
         'parametros de entrada': ENTRADA_TEXTO,
+        'campo da filial': 'codfil',
+        'campo da meta': 'metVlr',
       })
       expect(chamadas.some((c) => c.caminho === `${ROTA_DADOS_EXTERNOS}/11/integracao`)).toBe(false)
       await waitFor(() => expect(gets(chamadas, ROTA).length).toBeGreaterThan(listasAntes))
     })
 
-    it('"Preencher integração" abre com os campos vazios e, ao salvar, a etiqueta "Integração pendente (TI)" sai da linha', async () => {
+    it('"Preencher integração" abre com os campos vazios; com a saída "chave: tipo" e o mapeamento escolhido, salva e a etiqueta "Integração pendente (TI)" sai da linha', async () => {
       const user = usuarioRapido()
       const chamadas = simular()
       await abrirTela()
@@ -273,16 +294,23 @@ describe('F6.11 — Meta buscada via API (integração: /indicadores)', () => {
 
       await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'META_FATURAMENTO')
       await colar(user, within(dialogo).getByLabelText('URL'), URL_META_VIA_API)
-      await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de saída' }))
+      await colar(user, within(dialogo).getByLabelText('Parâmetros de saída'), SAIDA_DIGITADA)
       await user.click(within(dialogo).getByRole('button', { name: 'Inserir modelo de entrada' }))
+      // Sem o mapeamento (campo da filial e campo da meta obrigatórios) não salva.
+      expect(salvarConfiguracoes(dialogo)).toBeDisabled()
+      await user.selectOptions(listaDoMapeamento(dialogo, 'Campo da filial')!, 'codfil')
+      await user.selectOptions(listaDoMapeamento(dialogo, 'Campo da meta')!, 'metVlr')
+      expect(salvarConfiguracoes(dialogo)).toBeEnabled()
       await user.click(salvarConfiguracoes(dialogo))
 
       await screen.findByText('Integração atualizada.')
       expect(corpoDaChamada(puts(chamadas)[0])).toEqual({
         identificador: 'META_FATURAMENTO',
         url: URL_META_VIA_API,
-        'parametros de saida': MODELO_JSON_SAIDA_META,
+        'parametros de saida': SAIDA_DIGITADA,
         'parametros de entrada': MODELO_JSON_ENTRADA,
+        'campo da filial': 'codfil',
+        'campo da meta': 'metVlr',
       })
       await waitFor(() =>
         expect(within(linha('Faturamento com meta da TI')).queryByText('Integração pendente (TI)')).not.toBeInTheDocument(),
@@ -299,7 +327,7 @@ describe('F6.11 — Meta buscada via API (integração: /indicadores)', () => {
               mensagem: 'integracao invalida: URL ...',
               erros: [
                 { campo: 'url', mensagem: 'a URL precisa comecar com http:// ou https://, sem espacos (ate 500 caracteres)' },
-                { campo: 'parametros de entrada', caminho: 'competencia', expressao: '5 / 0', mensagem: 'divisao por zero' },
+                { campo: 'parametros de entrada', caminho: 'parametros.ECompet', expressao: '5 / 0', mensagem: 'divisao por zero' },
               ],
             },
             400,
@@ -316,7 +344,7 @@ describe('F6.11 — Meta buscada via API (integração: /indicadores)', () => {
         expect.stringContaining('a URL precisa comecar com http:// ou https://, sem espacos (ate 500 caracteres)'),
       )
       expect(within(dialogo).getByLabelText('Parâmetros de entrada')).toHaveAccessibleDescription(
-        expect.stringContaining('Campo "competencia": divisao por zero em "5 / 0"'),
+        expect.stringContaining('Campo "parametros.ECompet": divisao por zero em "5 / 0"'),
       )
       expect(screen.getByRole('dialog', { name: 'Configurações da integração' })).toBeInTheDocument()
       expect(within(dialogo).getByLabelText('URL')).toHaveValue(URL_META_VIA_API)

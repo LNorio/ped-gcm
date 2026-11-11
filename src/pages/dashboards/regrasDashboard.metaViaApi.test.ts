@@ -5,8 +5,10 @@ import {
   INDICADOR_META_AGUARDANDO_API,
   INDICADOR_META_API_CONFIGURADO_API,
   INDICADOR_META_API_PENDENTE_API,
+  INDICADOR_META_CONSULTADO_API,
   INDICADOR_META_DADO_EXTERNO_API,
   INDICADOR_META_ERRO_API,
+  INDICADOR_META_ERRO_CONSULTA_API,
   INDICADOR_META_SEM_META_NO_MES_API,
   type IndicadorApiFalso,
 } from '../../test/indicadoresFalsos'
@@ -24,6 +26,12 @@ import { motivoIndisponibilidade } from './regrasDashboard'
  * - `erro` → "Erro na consulta da meta".
  * A fonte `dado_externo` entra normalmente (`ok` ou `sem_meta_no_mes`: filial sem meta fica sem
  * atingimento).
+ *
+ * Executor das integrações (fase 2 — FRONT-meta-via-api-fase2.md e API (27).md, 11/11/2026): a fonte
+ * `integracao` só entra no dashboard com meta no mês aberto. Decisão: **nenhuma regra local nova** —
+ * situação `ok` continua disponível mesmo com `filiaisSemMeta` (inclusive todas as filiais do vínculo);
+ * quem decide é o back-end, que recusa com 400 ("...ainda nao tem meta no mes aberto (a consulta nao
+ * trouxe meta)..."), exibido no alerta do diálogo. A situação `erro` continua indisponível.
  */
 const DADOS_EXTERNOS = dadosExternosParaDashboardApi().map(paraDadoExterno)
 const motivo = (api: IndicadorApiFalso, tipo: Parameters<typeof motivoIndisponibilidade>[1] = 'cargos') =>
@@ -59,6 +67,22 @@ describe('F7.6 — motivoIndisponibilidade: indicadores com meta via API', () =>
   ])('fonte dado_externo, situação %s → disponível (entra normalmente)', (_situacao, api) => {
     expect(motivo(api)).toBeNull()
     expect(motivo(api, 'filiais')).toBeNull()
+  })
+
+  it('executor: fonte integracao consultada (ok) com filiais sem meta no mês aberto → disponível (sem regra local; o back-end decide)', () => {
+    for (const tipo of ['', 'filiais', 'cargos', 'colaboradores'] as const) {
+      expect(motivo(INDICADOR_META_CONSULTADO_API, tipo)).toBeNull()
+    }
+  })
+
+  it('executor: fonte integracao ok sem meta em nenhuma das filiais (todas em filiais sem meta) → continua disponível', () => {
+    const todasSemMeta: IndicadorApiFalso = { ...INDICADOR_META_CONSULTADO_API, 'filiais sem meta': ['100', '101', '102', '200', '305'] }
+
+    expect(motivo(todasSemMeta, 'filiais')).toBeNull()
+  })
+
+  it('executor: fonte integracao com erro na última consulta (com data do último sucesso) → "Erro na consulta da meta"', () => {
+    expect(motivo(INDICADOR_META_ERRO_CONSULTA_API)).toBe(ERRO)
   })
 
   it('prioridade: inativo e componente desativado vêm antes do motivo da meta via API', () => {

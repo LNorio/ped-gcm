@@ -14,6 +14,7 @@ import {
 import {
   INDICADOR_META_AGUARDANDO_API,
   INDICADOR_META_API_PENDENTE_API,
+  INDICADOR_META_CONSULTADO_API,
   INDICADOR_META_DADO_EXTERNO_API,
   respostaIndicadoresApi,
 } from '../../test/indicadoresFalsos'
@@ -27,6 +28,9 @@ import { type Usuario, colar, usuarioRapido } from '../../test/usuario'
  *   indisponível com o motivo; a fonte `dado_externo` entra normalmente.
  * - Se o back-end recusar (400) com o motivo ("integracao da meta pendente" ou "aguardando a primeira
  *   consulta"), a mensagem aparece no alerta do diálogo, que continua aberto.
+ * - Executor (fase 2, 11/11/2026): a fonte `integracao` já consultada (situação `ok`) fica disponível
+ *   mesmo com filiais sem meta (sem regra local); se o back-end recusar com "...ainda nao tem meta no
+ *   mes aberto (a consulta nao trouxe meta)...", a mensagem aparece no alerta do diálogo.
  */
 const ROTA = '/api/ped/dashboards'
 
@@ -53,6 +57,7 @@ describe('F7.6 — Dashboard com indicadores de meta via API (integração: /das
       { ...INDICADOR_META_API_PENDENTE_API },
       { ...INDICADOR_META_DADO_EXTERNO_API },
       { ...INDICADOR_META_AGUARDANDO_API },
+      { ...INDICADOR_META_CONSULTADO_API },
     ]
     return simularApi(fetchFalso, {
       'GET /api/ped/acesso': () => respostaJson(acesso),
@@ -105,12 +110,8 @@ describe('F7.6 — Dashboard com indicadores de meta via API (integração: /das
     expect(opcaoIndicador(dialogo, 'Faturamento com meta do ERP')).toBeEnabled()
   })
 
-  it('400 do back-end com o motivo ("integracao da meta pendente"): a mensagem aparece no alerta do diálogo, que continua aberto', async () => {
-    const user = usuarioRapido()
-    const chamadas = simular(() => respostaErro(400, 'integracao da meta pendente'))
-    const dialogo = await abrirCadastro(user)
+  async function preencherESalvar(user: Usuario, dialogo: HTMLElement, indicador: string) {
     const d = within(dialogo)
-
     await colar(user, d.getByRole('textbox', { name: 'Nome do dashboard' }), 'PED Supervisores')
     await user.selectOptions(d.getByRole('combobox', { name: 'Periodicidade de lançamento' }), 'Semestral')
     await user.type(d.getByRole('textbox', { name: 'Pontuação base máxima' }), '100')
@@ -122,16 +123,50 @@ describe('F7.6 — Dashboard com indicadores de meta via API (integração: /das
     )
     await abrirEEscolher(user, dialogo, 'Selecionar colaborador', 'Colaboradores vinculados', 'Ana Souza')
     const indicadores = d.getByRole('group', { name: 'Indicadores vinculados' })
-    await abrirEEscolher(user, indicadores, 'Selecionar indicador', 'Indicadores', 'Faturamento com meta do ERP')
-    await user.type(d.getByRole('textbox', { name: 'Pontos base de Faturamento com meta do ERP neste dashboard' }), '100')
-    await user.selectOptions(d.getByRole('combobox', { name: 'Indicador base da faixa' }), 'Faturamento com meta do ERP')
+    await abrirEEscolher(user, indicadores, 'Selecionar indicador', 'Indicadores', indicador)
+    await user.type(d.getByRole('textbox', { name: `Pontos base de ${indicador} neste dashboard` }), '100')
+    await user.selectOptions(d.getByRole('combobox', { name: 'Indicador base da faixa' }), indicador)
     await colar(user, d.getByRole('textbox', { name: 'Fórmula de pontuação' }), 'Pontos base × atingimento.')
 
     await user.click(d.getByRole('button', { name: 'Salvar e criar tarefa no Bitrix' }))
+  }
 
-    expect(await d.findByRole('alert')).toHaveTextContent('integracao da meta pendente')
+  it('400 do back-end com o motivo ("integracao da meta pendente"): a mensagem aparece no alerta do diálogo, que continua aberto', async () => {
+    const user = usuarioRapido()
+    const chamadas = simular(() => respostaErro(400, 'integracao da meta pendente'))
+    const dialogo = await abrirCadastro(user)
+
+    await preencherESalvar(user, dialogo, 'Faturamento com meta do ERP')
+
+    expect(await within(dialogo).findByRole('alert')).toHaveTextContent('integracao da meta pendente')
     expect(posts(chamadas)).toHaveLength(1)
     expect(corpoDaChamada(posts(chamadas)[0])).toMatchObject({ indicadores: [{ 'id indicador': 12, 'pontos base': 100 }] })
+    expect(screen.getByRole('dialog', { name: 'Novo dashboard' })).toBeInTheDocument()
+  })
+
+  it('executor: fonte integracao consultada (ok) com filiais sem meta fica disponível no dropdown', async () => {
+    const user = usuarioRapido()
+    simular()
+    const dialogo = await abrirCadastro(user)
+
+    const indicadores = within(dialogo).getByRole('group', { name: 'Indicadores vinculados' })
+    await user.click(within(indicadores).getByRole('button', { name: 'Selecionar indicador' }))
+
+    expect(opcaoIndicador(dialogo, 'Ticket com meta da TI')).toBeEnabled()
+    expect(opcaoIndicador(dialogo, 'Ticket com meta da TI')).not.toHaveTextContent('Indisponível')
+  })
+
+  it('executor: 400 "ainda nao tem meta no mes aberto (a consulta nao trouxe meta)" aparece no alerta do diálogo, que continua aberto', async () => {
+    const user = usuarioRapido()
+    const mensagem = 'o indicador Ticket com meta da TI ainda nao tem meta no mes aberto (a consulta nao trouxe meta)'
+    const chamadas = simular(() => respostaErro(400, mensagem))
+    const dialogo = await abrirCadastro(user)
+
+    await preencherESalvar(user, dialogo, 'Ticket com meta da TI')
+
+    expect(await within(dialogo).findByRole('alert')).toHaveTextContent(mensagem)
+    expect(posts(chamadas)).toHaveLength(1)
+    expect(corpoDaChamada(posts(chamadas)[0])).toMatchObject({ indicadores: [{ 'id indicador': 16, 'pontos base': 100 }] })
     expect(screen.getByRole('dialog', { name: 'Novo dashboard' })).toBeInTheDocument()
   })
 })

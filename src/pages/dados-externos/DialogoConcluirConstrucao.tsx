@@ -3,40 +3,54 @@
  * - `concluir` (padrão — F5.7, RF-28): "Concluir construção" de um dado em construção, com os campos
  *   vazios e o botão "Concluir e ativar";
  * - `configurar` (F5.16): "Configurações da integração" de um dado ativo/inativo, com os campos
- *   preenchidos pelos valores salvos (identificador, URL e `JSON.stringify(parametros, null, 2)`; `null`
- *   vira vazio) e o botão "Salvar configurações".
+ *   preenchidos pelos valores salvos (identificador, URL, `JSON.stringify(parametros, null, 2)` — `null`
+ *   vira vazio — e o mapeamento salvo nas listas) e o botão "Salvar configurações".
  *
  * - `leitura` (F5.19): "Integração do dado externo", só para consulta (fonte da meta `dado_externo` na
- *   aba Indicadores): os quatro campos com os valores salvos, `readOnly` e sem obrigatoriedade, sem
- *   modelos, variáveis, operadores, sugestões, validação (local ou no servidor) nem "falta: ...", e só o
- *   botão "Fechar" (Fechar e Esc chamam `onCancelar`). As demais props são opcionais e ignoradas.
+ *   aba Indicadores): os quatro campos com os valores salvos (e o mapeamento salvo, quando há), `readOnly`
+ *   e sem obrigatoriedade, sem modelos, variáveis, operadores, sugestões, validação (local ou no servidor)
+ *   nem "falta: ...", e só o botão "Fechar" (Fechar e Esc chamam `onCancelar`). As demais props são
+ *   opcionais e ignoradas.
  *
  * Também serve à integração da meta do indicador (F6.11, `tipoAlvo: 'indicador'`, modo `configurar`):
- * `dado` é um `AlvoIntegracao` (o `DadoExterno` é compatível). `tipoAlvo` muda o texto da modal e o
- * campo de valor da saída (`valor` no dado externo, `meta` no indicador): a validação local, o modelo de
- * "Inserir modelo de saída" e o texto de orientação do formato. Sem janela retroativa nem dia da coleta,
- * os valores de exemplo usam só `hoje`.
+ * `dado` é um `AlvoIntegracao` (o `DadoExterno` é compatível). `tipoAlvo` muda o texto da modal, o papel
+ * do valor no mapeamento (`valor` no dado externo, `meta` no indicador — "Campo do valor"/"Campo da
+ * meta") e o modelo de "Inserir modelo de saída". Sem janela retroativa nem dia da coleta, os valores de
+ * exemplo usam só `hoje`.
  *
- * Saída em lista (contrato final da meta via API, 10/11/2026 — seção 2.3 de
- * `docs/propostas-backend/RESPOSTA-FINAL-meta-via-api.md`): um item por filial, com `filial` e o campo de
- * valor (`competencia` opcional); um texto entre a saída e a entrada orienta o formato.
+ * Saída por "chave: tipo" (11/11/2026, opção B — `docs/propostas-backend/FRONT-saida-chave-tipo.md`): a
+ * saída descreve um item da resposta como `{ "campo": "tipo" }` (`string`, `number`, `date`, `boolean`) e
+ * um texto abaixo dela orienta o formato. Abaixo da saída (e da sua validação) ficam as listas do
+ * mapeamento: "Campo da filial" e "Campo do valor" ("Campo da meta" no indicador), obrigatórias, e
+ * "Campo da competência", opcional ("Nenhum"). As opções são as chaves da saída em vigor (a do back-end
+ * quando vale, senão a local), na ordem do JSON; sem saída válida as listas ficam desabilitadas. A escolha
+ * é mantida enquanto a saída muda e só vale se o campo existir na saída válida atual. Os erros de
+ * `validarMapeamento` aparecem junto a cada lista e o papel com falta ou erro entra no "falta: ...". A
+ * lista (formato antigo) é inválida: uma integração salva em lista abre com um aviso e o salvar
+ * bloqueado até a saída ser reescrita no formato novo (decisão do usuário de 11/11/2026).
  *
  * Com `dado` nulo, nada é renderizado. O Admin informa, todos obrigatórios e nesta ordem:
  * - o identificador da consulta (com sugestões dos existentes): ao digitar, colar ou escolher uma
  *   sugestão, o texto passa por `limparIdentificador` (só A–Z, 0–9, "_", "-" e ".", em maiúsculas);
  * - a URL da integração (`http://` ou `https://`, sem espaços);
- * - os parâmetros de saída (JSON) e os de entrada (JSON com variáveis `%nome%` e contas).
+ * - os parâmetros de saída (JSON) com o mapeamento, e os de entrada (JSON com variáveis `%nome%` e contas).
  *
  * Validação híbrida dos JSONs (F5.14, F5.18): o motor de `src/utils/integracao` mostra o resultado na
  * hora, com os valores de exemplo calculados a partir de `hoje` e do dado (janela retroativa e dia da
  * coleta) — o `exemplo` de cada variável da API prevalece. Com `validarNoServidor`, 400 ms
- * (`ATRASO_VALIDACAO_SERVIDOR_MS`) depois da última mudança nos JSONs o back-end também valida, e o seu
- * resultado vale para o campo enquanto o texto for o enviado (ver `useValidacaoServidor`).
+ * (`ATRASO_VALIDACAO_SERVIDOR_MS`) depois da última mudança nos JSONs (ou no mapeamento) o back-end também
+ * valida, e o seu resultado vale para o campo enquanto o texto (e, na saída, o mapeamento) for o enviado
+ * (ver `useValidacaoServidor`). O mapeamento vai na validação quando há ao menos uma escolha (ou um
+ * mapeamento salvo).
  *
  * Limites do back-end: identificador (limpo) com até 60 caracteres e URL (após `trim`) com até 500
  * (`maxLength` nos campos). Valor acima do limite (ex.: salvo em Configurações) mostra a mensagem no
  * campo ("O identificador aceita até 60 caracteres." / "A URL aceita até 500 caracteres.") e conta como
  * falta ("identificador" / "URL válida").
+ *
+ * Avisos da entrada (executor, fase 2): com a entrada válida, `%filial%`, `%colaborador%` e `%zona%`
+ * geram um aviso (não bloqueia). A validação no servidor leva a `finalidade` do tipo da integração
+ * (`valor` no dado externo, `meta` no indicador).
  *
  * As variáveis disponíveis vêm da API (F5.15); clicar numa variável ou num operador insere o texto na
  * entrada. Enquanto o usuário não posicionar o cursor na entrada desde a abertura (foco, clique,
@@ -48,33 +62,37 @@
  *
  * Erros da API ficam dentro da modal, sem apagar o que foi preenchido: `erro` (mensagem geral) no
  * alerta e `errosCampos` (400 `{ mensagem, erros }`) junto a cada campo, formatados por
- * `formatarErroIntegracao`; erro sem campo ou com campo desconhecido entra na lista do alerta geral.
- * O erro de um campo some quando o usuário altera aquele campo (digitação, sugestão, modelo,
- * variável/operador); os demais e o alerta geral ficam. Uma nova lista `errosCampos` (outra
- * referência, ou seja, um novo 400) volta a mostrar todos.
+ * `formatarErroIntegracao`; `campo da filial`, `campo do valor` (dado externo) / `campo da meta`
+ * (indicador) e `campo da competencia` vão para a lista correspondente; erro sem campo ou com campo
+ * desconhecido entra na lista do alerta geral. O erro de um campo some quando o usuário altera aquele
+ * campo (digitação, sugestão, modelo, variável/operador, escolha na lista); os demais e o alerta geral
+ * ficam. Uma nova lista `errosCampos` (outra referência, ou seja, um novo 400) volta a mostrar todos.
  */
-import { useId, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type SyntheticEvent } from 'react'
+import { type ChangeEvent, type FormEvent, useId, useMemo, useState } from 'react'
 import { AreaTexto } from '../../components/AreaTexto'
 import { Aviso } from '../../components/Aviso'
 import { Botao } from '../../components/Botao'
 import { Campo } from '../../components/Campo'
 import { Dialogo } from '../../components/Dialogo'
-import type { ErroIntegracao, IdentificadorColeta, JanelaRetroativa, VariavelIntegracao } from '../../types/dominio'
+import { type OpcaoSelect, Select } from '../../components/Select'
+import type { ErroIntegracao, IdentificadorColeta, JanelaRetroativa, MapeamentoSaida, VariavelIntegracao } from '../../types/dominio'
 import { limparIdentificador } from '../../utils/identificador'
 import { validarEntrada } from '../../utils/integracao/entrada'
 import { formatarErroIntegracao } from '../../utils/integracao/erros'
 import { valoresDeExemplo } from '../../utils/integracao/exemplos'
 import { type ContextoIntegracao, variaveisDoTexto } from '../../utils/integracao/expressoes'
+import { type PapelMapeamento, ROTULO_PAPEL, validarMapeamento } from '../../utils/integracao/mapeamento'
 import { MODELO_JSON_ENTRADA, MODELO_JSON_SAIDA, MODELO_JSON_SAIDA_META } from '../../utils/integracao/modelos'
 import { type CampoValorSaida, validarSaida } from '../../utils/integracao/saida'
 import { TAMANHO_MAXIMO_URL, urlValida } from '../../utils/integracao/url'
 import { PainelVariaveis } from './PainelVariaveis'
 import { SugestoesIdentificador } from './SugestoesIdentificador'
-import { useValidacaoServidor, type ValidarNoServidor } from './useValidacaoServidor'
+import { useInsercaoNoCursor } from './useInsercaoNoCursor'
+import { type CampoSaidaExibido, useValidacaoServidor, type ValidarNoServidor } from './useValidacaoServidor'
 import { ValidacaoEntrada, ValidacaoSaida } from './ValidacaoIntegracao'
 import './DialogoConcluirConstrucao.css'
 
-/** Espera entre a última mudança nos JSONs e a validação no back-end (F5.18). */
+/** Espera entre a última mudança nos JSONs (ou no mapeamento) e a validação no back-end (F5.18). */
 export const ATRASO_VALIDACAO_SERVIDOR_MS = 400
 
 /** Tamanho máximo do identificador (limpo) aceito pelo back-end. */
@@ -82,6 +100,9 @@ export const TAMANHO_MAXIMO_IDENTIFICADOR = 60
 
 const MENSAGEM_LIMITE_IDENTIFICADOR = `O identificador aceita até ${TAMANHO_MAXIMO_IDENTIFICADOR} caracteres.`
 const MENSAGEM_LIMITE_URL = `A URL aceita até ${TAMANHO_MAXIMO_URL} caracteres.`
+const ORIENTACAO_SAIDA = 'Descreva um item da resposta como { "campo": "tipo" }, com os tipos string, number, date ou boolean.'
+const AVISO_FORMATO_ANTIGO =
+  'Esta integração está no formato antigo (lista). Reescreva a saída no formato "campo": "tipo" para salvar.'
 
 /** Dados informados ao concluir a construção ou salvar as configurações. */
 export interface DadosConclusaoConstrucao {
@@ -93,6 +114,11 @@ export interface DadosConclusaoConstrucao {
   parametrosSaida: string
   /** JSON de entrada, como digitado. */
   parametrosEntrada: string
+  /**
+   * Mapeamento da saída: `{ campoFilial, campoValor, campoCompetencia }` no dado externo e
+   * `{ campoFilial, campoMeta, campoCompetencia }` no indicador (`campoCompetencia` `null` sem competência).
+   */
+  mapeamento: MapeamentoSaida
   /** Variáveis usadas na entrada (nomes sem `%`), pelo resultado em vigor (back-end ou local). */
   variaveisUsadas: string[]
 }
@@ -106,7 +132,7 @@ export type ModoDialogoIntegracao = 'concluir' | 'configurar' | 'leitura'
 /** Modos em que a integração é editada. */
 export type ModoEdicaoIntegracao = Exclude<ModoDialogoIntegracao, 'leitura'>
 
-/** De quem é a integração (F6.11): muda o texto da modal e o campo de valor da saída. */
+/** De quem é a integração (F6.11): muda o texto da modal e o papel do valor no mapeamento. */
 export type TipoAlvoIntegracao = 'dado-externo' | 'indicador'
 
 /**
@@ -124,6 +150,8 @@ export interface AlvoIntegracao {
   janelaRetroativa?: JanelaRetroativa | null
   /** Usado nos valores de exemplo; ausente/`null` = sem dia da coleta. */
   diaDaColeta?: number | null
+  /** Mapeamento salvo da saída (11/11/2026); ausente/`null` = listas vazias (ou formato antigo). */
+  mapeamentoSaida?: MapeamentoSaida | null
 }
 
 export interface DialogoConcluirConstrucaoProps {
@@ -131,7 +159,7 @@ export interface DialogoConcluirConstrucaoProps {
   modo?: ModoEdicaoIntegracao
   /** Dono da integração (dado externo ou indicador — F6.11); `null` mantém a modal fechada. */
   dado: AlvoIntegracao | null
-  /** De quem é a integração; muda o texto e o campo de valor da saída. Padrão `dado-externo`. */
+  /** De quem é a integração; muda o texto e o papel do valor no mapeamento. Padrão `dado-externo`. */
   tipoAlvo?: TipoAlvoIntegracao
   /** Identificadores existentes, oferecidos como sugestão. */
   identificadores: IdentificadorColeta[]
@@ -177,37 +205,48 @@ const TEXTOS_MODO: Readonly<Record<ModoEdicaoIntegracao, { titulo: string; botao
   configurar: { titulo: 'Configurações da integração', botao: 'Salvar configurações' },
 }
 
-/** Campo de valor exigido em cada item da saída, conforme o dono da integração. */
+/** Papel do valor no mapeamento, conforme o dono da integração. */
 const CAMPO_VALOR_POR_ALVO: Readonly<Record<TipoAlvoIntegracao, CampoValorSaida>> = {
   'dado-externo': 'valor',
   indicador: 'meta',
 }
 
-/** Modelo de "Inserir modelo de saída" para cada campo de valor. */
+/** Modelo de "Inserir modelo de saída" para cada papel do valor. */
 const MODELO_SAIDA_POR_CAMPO: Readonly<Record<CampoValorSaida, string>> = {
   valor: MODELO_JSON_SAIDA,
   meta: MODELO_JSON_SAIDA_META,
 }
 
-type CampoModal = 'identificador' | 'url' | 'saida' | 'entrada'
+/** Lista do mapeamento na modal: `valor` é a do valor (dado externo) ou a da meta (indicador). */
+type ListaMapeamento = 'filial' | 'valor' | 'competencia'
 
-/** Nome do campo nos erros da API → campo da modal. */
-const CAMPOS_DA_API: Readonly<Record<string, CampoModal>> = {
-  identificador: 'identificador',
-  url: 'url',
-  'parametros de saida': 'saida',
-  'parametros de entrada': 'entrada',
+const LISTAS_MAPEAMENTO: readonly ListaMapeamento[] = ['filial', 'valor', 'competencia']
+
+type CampoModal = 'identificador' | 'url' | 'saida' | 'entrada' | ListaMapeamento
+
+/** Nome do campo nos erros da API → campo da modal; o papel do valor depende do dono da integração. */
+function camposDaApi(campoValor: CampoValorSaida): ReadonlyMap<string, CampoModal> {
+  return new Map<string, CampoModal>([
+    ['identificador', 'identificador'],
+    ['url', 'url'],
+    ['parametros de saida', 'saida'],
+    ['parametros de entrada', 'entrada'],
+    ['campo da filial', 'filial'],
+    [campoValor === 'meta' ? 'campo da meta' : 'campo do valor', 'valor'],
+    ['campo da competencia', 'competencia'],
+  ])
 }
 
 const SEM_ERROS: ErroIntegracao[] = []
 
 /** Erros da API agrupados pelo campo da modal; os sem campo conhecido vão para `gerais`. */
-function agruparErros(erros: ErroIntegracao[]) {
+function agruparErros(erros: ErroIntegracao[], campoValor: CampoValorSaida) {
+  const mapa = camposDaApi(campoValor)
   const porCampo: Partial<Record<CampoModal, string>> = {}
   const gerais: string[] = []
   for (const erro of erros) {
     const texto = formatarErroIntegracao(erro)
-    const campo = erro.campo === null ? undefined : CAMPOS_DA_API[erro.campo]
+    const campo = erro.campo === null ? undefined : mapa.get(erro.campo)
     if (campo === undefined) gerais.push(texto)
     else porCampo[campo] = porCampo[campo] === undefined ? texto : `${porCampo[campo]}; ${texto}`
   }
@@ -220,16 +259,52 @@ function juntarErros(...mensagens: (string | undefined)[]): string | undefined {
   return presentes.length > 0 ? presentes.join('; ') : undefined
 }
 
-interface Selecao {
-  inicio: number
-  fim: number
-}
-
 /** Parâmetros salvos (objeto ou lista) como texto com 2 espaços; `null`/ausente vira vazio. */
 function textoDosParametros(valor: unknown): string {
   if (valor === null || valor === undefined) return ''
   if (typeof valor === 'string') return valor
   return JSON.stringify(valor, null, 2) ?? ''
+}
+
+/** A saída salva está no formato antigo (lista, já decodificada ou em texto). */
+function saidaSalvaEmLista(valor: unknown): boolean {
+  if (Array.isArray(valor)) return true
+  if (typeof valor !== 'string') return false
+  try {
+    return Array.isArray(JSON.parse(valor))
+  } catch {
+    return false
+  }
+}
+
+/** Escolha das listas do mapeamento (`''` = nada escolhido / "Nenhum"). */
+type EscolhaMapeamento = Record<ListaMapeamento, string>
+
+function escolhaInicial(mapeamento: MapeamentoSaida | null | undefined, campoValor: CampoValorSaida): EscolhaMapeamento {
+  return {
+    filial: mapeamento?.campoFilial ?? '',
+    valor: (campoValor === 'meta' ? mapeamento?.campoMeta : mapeamento?.campoValor) ?? '',
+    competencia: mapeamento?.campoCompetencia ?? '',
+  }
+}
+
+/** Mapeamento no formato do domínio, com a chave do valor conforme o dono da integração. */
+function montarMapeamento(escolha: EscolhaMapeamento, campoValor: CampoValorSaida): MapeamentoSaida {
+  const campoCompetencia = escolha.competencia === '' ? null : escolha.competencia
+  return campoValor === 'meta'
+    ? { campoFilial: escolha.filial, campoMeta: escolha.valor, campoCompetencia }
+    : { campoFilial: escolha.filial, campoValor: escolha.valor, campoCompetencia }
+}
+
+/** Papel do mapeamento de cada lista. */
+function papelDaLista(lista: ListaMapeamento, campoValor: CampoValorSaida): PapelMapeamento {
+  return lista === 'valor' ? campoValor : lista
+}
+
+/** Opções das listas: as chaves da saída, na ordem, sem nomes vazios nem repetidos. */
+function opcoesDosCampos(campos: readonly CampoSaidaExibido[]): OpcaoSelect[] {
+  const nomes = [...new Set(campos.map((campo) => campo.nome))].filter((nome) => nome !== '')
+  return nomes.map((nome) => ({ valor: nome, rotulo: nome }))
 }
 
 export function DialogoConcluirConstrucao(props: DialogoConcluirConstrucaoProps | DialogoIntegracaoLeituraProps) {
@@ -242,6 +317,7 @@ export function DialogoConcluirConstrucao(props: DialogoConcluirConstrucaoProps 
 
 /** Modo leitura (F5.19): os valores salvos da integração do dado externo, sem edição nem validação. */
 function ConteudoLeitura({ dado, onCancelar }: { dado: AlvoIntegracao; onCancelar: () => void }) {
+  const mapeamento = dado.mapeamentoSaida ?? null
   return (
     <Dialogo
       aberto
@@ -270,6 +346,13 @@ function ConteudoLeitura({ dado, onCancelar }: { dado: AlvoIntegracao; onCancela
               spellCheck={false}
               value={textoDosParametros(dado.parametrosSaida)}
             />
+            {mapeamento !== null ? (
+              <div className="dialogo-concluir__mapeamento">
+                <Campo rotulo="Campo da filial" readOnly value={mapeamento.campoFilial} autoComplete="off" />
+                <Campo rotulo="Campo do valor" readOnly value={mapeamento.campoValor ?? mapeamento.campoMeta ?? ''} autoComplete="off" />
+                <Campo rotulo="Campo da competência" readOnly value={mapeamento.campoCompetencia ?? ''} autoComplete="off" />
+              </div>
+            ) : null}
           </section>
           <section className="dialogo-concluir__bloco">
             <AreaTexto
@@ -306,40 +389,19 @@ function ConteudoDialogo({
   const idFormulario = useId()
   const idFalta = useId()
   const configurar = modo === 'configurar'
+  const campoValor = CAMPO_VALOR_POR_ALVO[tipoAlvo]
   const [identificador, setIdentificador] = useState(() => (configurar ? limparIdentificador(dado.identificador ?? '') : ''))
   const [url, setUrl] = useState(() => (configurar ? (dado.url ?? '') : ''))
   const [saida, setSaida] = useState(() => (configurar ? textoDosParametros(dado.parametrosSaida) : ''))
   const [entrada, setEntrada] = useState(() => (configurar ? textoDosParametros(dado.parametrosEntrada) : ''))
+  const [escolha, setEscolha] = useState<EscolhaMapeamento>(() => escolhaInicial(configurar ? dado.mapeamentoSaida : null, campoValor))
+  // O mapeamento vai na validação do back-end depois da primeira escolha (ou desde a abertura, se salvo).
+  const [mapeamentoInformado, setMapeamentoInformado] = useState(() => configurar && dado.mapeamentoSaida != null)
+  // Integração salva em lista (formato antigo): aviso até a saída ser reescrita no formato novo.
+  const [saidaSalvaAntiga] = useState(() => configurar && saidaSalvaEmLista(dado.parametrosSaida))
   // Data fixada na abertura quando não informada, para a prévia não mudar a cada renderização.
   const [hojePadrao] = useState(() => new Date())
   const dataBase = hoje ?? hojePadrao
-
-  const entradaRef = useRef<HTMLTextAreaElement>(null)
-  /**
-   * Última posição/seleção da entrada escolhida pelo usuário (ou logo após o último texto inserido).
-   * `null` enquanto o usuário não posicionou o cursor desde a abertura ou desde "Inserir modelo de
-   * entrada": nesse caso a inserção vai para o fim do texto.
-   */
-  const selecaoRef = useRef<Selecao | null>(null)
-  /** Posição do cursor a aplicar na entrada depois de inserir uma variável ou um operador. */
-  const cursorPendenteRef = useRef<number | null>(null)
-
-  useLayoutEffect(() => {
-    const posicao = cursorPendenteRef.current
-    const campo = entradaRef.current
-    if (posicao === null || campo === null) return
-    cursorPendenteRef.current = null
-    campo.focus()
-    campo.setSelectionRange(posicao, posicao)
-    // Depois do foco programático, que também passa pelos eventos que guardam a seleção.
-    selecaoRef.current = { inicio: posicao, fim: posicao }
-  }, [entrada])
-
-  /** Guarda a posição/seleção atual da entrada (eventos de foco, clique, seleção, teclado e digitação). */
-  function guardarSelecao(evento: SyntheticEvent<HTMLTextAreaElement>) {
-    const { selectionStart, selectionEnd } = evento.currentTarget
-    selecaoRef.current = { inicio: selectionStart, fim: selectionEnd }
-  }
 
   // Erros do 400 por campo: os campos alterados desde a última lista recebida deixam de mostrar o erro.
   const [alteracoes, setAlteracoes] = useState<{ lista: ErroIntegracao[]; campos: ReadonlySet<CampoModal> }>(() => ({
@@ -371,13 +433,25 @@ function ConteudoDialogo({
     [variaveisConhecidas, dataBase, dado.janelaRetroativa, dado.diaDaColeta],
   )
 
-  const campoValor = CAMPO_VALOR_POR_ALVO[tipoAlvo]
   const saidaLocal = useMemo(() => validarSaida(saida, campoValor), [saida, campoValor])
   const entradaLocal = useMemo(() => validarEntrada(entrada, contexto), [entrada, contexto])
-  const servidor = useValidacaoServidor({ saida, entrada, validar: validarNoServidor, atrasoMs: ATRASO_VALIDACAO_SERVIDOR_MS })
-  // Resultado em vigor: o do back-end para o texto atual; senão o local.
+  const mapeamento = montarMapeamento(escolha, campoValor)
+  const servidor = useValidacaoServidor({
+    saida,
+    entrada,
+    finalidade: campoValor,
+    mapeamento: mapeamentoInformado ? mapeamento : undefined,
+    validar: validarNoServidor,
+    atrasoMs: ATRASO_VALIDACAO_SERVIDOR_MS,
+  })
+  // Resultado em vigor: o do back-end para o texto atual (e o mapeamento enviado); senão o local.
   const resultadoSaida = servidor.saida ?? saidaLocal
   const resultadoEntrada = servidor.entrada ?? entradaLocal
+  const saidaValida = resultadoSaida.estado === 'valido'
+  const opcoesMapeamento = opcoesDosCampos(resultadoSaida.estado === 'valido' ? resultadoSaida.campos : [])
+  // Sem saída válida o mapeamento não é conferido: as listas ficam desabilitadas e os obrigatórios faltam.
+  const resultadoMapeamento =
+    resultadoSaida.estado === 'valido' ? validarMapeamento(resultadoSaida.campos, mapeamento, campoValor) : null
 
   const identificadorLimpo = limparIdentificador(identificador)
   const identificadorLongo = identificadorLimpo.length > TAMANHO_MAXIMO_IDENTIFICADOR
@@ -385,13 +459,21 @@ function ConteudoDialogo({
   const falta: string[] = []
   if (identificadorLimpo === '' || identificadorLongo) falta.push('identificador')
   if (!urlValida(url)) falta.push('URL válida')
-  if (resultadoSaida.estado !== 'valido') falta.push('JSON de saída válido')
+  if (!saidaValida) falta.push('JSON de saída válido')
+  for (const lista of LISTAS_MAPEAMENTO) {
+    const papel = papelDaLista(lista, campoValor)
+    const comProblema =
+      resultadoMapeamento === null
+        ? lista !== 'competencia'
+        : resultadoMapeamento.faltando.includes(papel) || resultadoMapeamento.erros[papel] !== undefined
+    if (comProblema) falta.push(`campo ${ROTULO_PAPEL[papel]}`)
+  }
   if (resultadoEntrada.estado !== 'valido') falta.push('JSON de entrada válido')
   const completo = falta.length === 0
   const textoFalta = completo ? 'Todos os campos obrigatórios preenchidos' : `falta: ${falta.join(', ')}`
   // Destaque das variáveis presentes na entrada, mesmo com o JSON ainda inválido.
   const variaveisNaEntrada = useMemo(() => new Set(variaveisDoTexto(entrada)), [entrada])
-  const { porCampo: errosDaApi, gerais: errosGerais } = useMemo(() => agruparErros(errosCampos), [errosCampos])
+  const { porCampo: errosDaApi, gerais: errosGerais } = useMemo(() => agruparErros(errosCampos, campoValor), [errosCampos, campoValor])
   const erroDaApi = (campo: CampoModal) => (camposAlterados.has(campo) ? undefined : errosDaApi[campo])
   const textos = TEXTOS_MODO[modo]
 
@@ -415,21 +497,28 @@ function ConteudoDialogo({
     marcarAlterado('entrada')
   }
 
-  function inserirModeloEntrada() {
-    // Reinicia o cursor: a próxima inserção vai para o fim do modelo.
-    selecaoRef.current = null
-    alterarEntrada(MODELO_JSON_ENTRADA)
+  function escolherCampo(lista: ListaMapeamento, valor: string) {
+    setEscolha((atual) => ({ ...atual, [lista]: valor }))
+    setMapeamentoInformado(true)
+    marcarAlterado(lista)
   }
 
-  /** Insere na última posição/seleção do usuário ou, sem ela, no fim; o cursor fica depois do texto. */
-  function inserirNaEntrada(texto: string) {
-    const selecao = selecaoRef.current
-    const inicio = Math.min(selecao?.inicio ?? entrada.length, entrada.length)
-    const fim = Math.min(Math.max(selecao?.fim ?? inicio, inicio), entrada.length)
-    const posicao = inicio + texto.length
-    cursorPendenteRef.current = posicao
-    selecaoRef.current = { inicio: posicao, fim: posicao }
-    alterarEntrada(entrada.slice(0, inicio) + texto + entrada.slice(fim))
+  // Inserção no cursor da entrada (variáveis e operadores).
+  const {
+    ref: entradaRef,
+    guardarSelecao: guardarSelecaoEntrada,
+    inserir: inserirNaEntrada,
+    reiniciar: reiniciarCursorEntrada,
+  } = useInsercaoNoCursor(entrada, alterarEntrada)
+
+  function inserirModeloSaida() {
+    alterarSaida(MODELO_SAIDA_POR_CAMPO[campoValor])
+  }
+
+  function inserirModeloEntrada() {
+    // Reinicia o cursor: a próxima inserção vai para o fim do modelo.
+    reiniciarCursorEntrada()
+    alterarEntrada(MODELO_JSON_ENTRADA)
   }
 
   function enviar(evento: FormEvent<HTMLFormElement>) {
@@ -440,8 +529,31 @@ function ConteudoDialogo({
       url: url.trim(),
       parametrosSaida: saida,
       parametrosEntrada: entrada,
+      mapeamento,
       variaveisUsadas: resultadoEntrada.variaveisUsadas,
     })
+  }
+
+  /** Lista do mapeamento: mostra a escolha só se o campo existe na saída válida atual. */
+  function listaMapeamento(lista: ListaMapeamento) {
+    const papel = papelDaLista(lista, campoValor)
+    const escolhido = escolha[lista]
+    const erroDaLista = juntarErros(resultadoMapeamento?.erros[papel], erroDaApi(lista))
+    // O erro vai na descrição da lista (não como `role="alert"` do `ErroCampo`): o alerta da modal continua
+    // sendo só o geral, e a lista fica marcada como inválida (`aria-invalid`) com a mensagem na descrição.
+    const comum = {
+      rotulo: `Campo ${ROTULO_PAPEL[papel]}`,
+      value: opcoesMapeamento.some((opcao) => opcao.valor === escolhido) ? escolhido : '',
+      disabled: !saidaValida,
+      'aria-invalid': erroDaLista !== undefined ? true : undefined,
+      descricao: erroDaLista !== undefined ? <span className="dialogo-concluir__erro-mapeamento">{erroDaLista}</span> : undefined,
+      onChange: (evento: ChangeEvent<HTMLSelectElement>) => escolherCampo(lista, evento.target.value),
+    }
+    if (lista === 'competencia') {
+      // "Nenhum" é uma escolha válida (sem competência): opção comum, habilitada.
+      return <Select {...comum} opcoes={[{ valor: '', rotulo: 'Nenhum' }, ...opcoesMapeamento]} />
+    }
+    return <Select {...comum} obrigatorio placeholder="Selecione o campo" opcoes={opcoesMapeamento} />
   }
 
   return (
@@ -482,6 +594,11 @@ function ConteudoDialogo({
                 ))}
               </ul>
             ) : null}
+          </Aviso>
+        ) : null}
+        {saidaSalvaAntiga && !saidaValida ? (
+          <Aviso tipo="alerta">
+            <p>{AVISO_FORMATO_ANTIGO}</p>
           </Aviso>
         ) : null}
 
@@ -528,11 +645,16 @@ function ConteudoDialogo({
               erro={erroDaApi('saida')}
               onChange={(evento) => alterarSaida(evento.target.value)}
             />
-            <p className="dialogo-concluir__orientacao">{`Lista com um item por filial: filial e ${campoValor} (competencia opcional).`}</p>
-            <Botao variante="contorno" tamanho="pequeno" className="dialogo-concluir__modelo" onClick={() => alterarSaida(MODELO_SAIDA_POR_CAMPO[campoValor])}>
+            <p className="dialogo-concluir__orientacao">{ORIENTACAO_SAIDA}</p>
+            <Botao variante="contorno" tamanho="pequeno" className="dialogo-concluir__modelo" onClick={inserirModeloSaida}>
               Inserir modelo de saída
             </Botao>
             <ValidacaoSaida resultado={resultadoSaida} />
+            <div className="dialogo-concluir__mapeamento">
+              {listaMapeamento('filial')}
+              {listaMapeamento('valor')}
+              {listaMapeamento('competencia')}
+            </div>
           </section>
 
           <section className="dialogo-concluir__bloco">
@@ -546,13 +668,13 @@ function ConteudoDialogo({
               value={entrada}
               erro={erroDaApi('entrada')}
               onChange={(evento) => {
-                guardarSelecao(evento)
+                guardarSelecaoEntrada(evento)
                 alterarEntrada(evento.target.value)
               }}
-              onFocus={guardarSelecao}
-              onSelect={guardarSelecao}
-              onKeyUp={guardarSelecao}
-              onMouseUp={guardarSelecao}
+              onFocus={guardarSelecaoEntrada}
+              onSelect={guardarSelecaoEntrada}
+              onKeyUp={guardarSelecaoEntrada}
+              onMouseUp={guardarSelecaoEntrada}
             />
             <Botao variante="contorno" tamanho="pequeno" className="dialogo-concluir__modelo" onClick={inserirModeloEntrada}>
               Inserir modelo de entrada

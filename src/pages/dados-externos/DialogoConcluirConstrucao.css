@@ -37,7 +37,7 @@
   min-height: 11rem;
 }
 
-/* Orientação do formato da saída (lista com um item por filial). */
+/* Orientação do formato da saída ({ "campo": "tipo" }). */
 .dialogo-concluir__orientacao {
   margin: 0;
   font-size: 0.875rem;
@@ -46,6 +46,19 @@
 
 .dialogo-concluir__modelo {
   align-self: flex-start;
+}
+
+/* Mapeamento da saída: campo da filial, do valor (ou da meta) e da competência. */
+.dialogo-concluir__mapeamento {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  align-items: start;
+}
+
+/* Erro da lista do mapeamento, exibido na descrição da lista (mesma cor do erro de campo). */
+.dialogo-concluir__erro-mapeamento {
+  color: var(--cor-perigo);
 }
 
 /* Validação em tempo real: faixa verde (válido) ou vermelha (inválido); vazia não aparece. */
@@ -92,6 +105,15 @@
 
 .dialogo-concluir__validacao--valida .dialogo-concluir__validacao-titulo {
   color: var(--cor-sucesso);
+}
+
+/* Aviso não bloqueante da entrada válida (ex.: %filial% numa consulta que traz todas as filiais). */
+.dialogo-concluir__validacao .dialogo-concluir__aviso {
+  margin-top: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  border-left: 3px solid var(--cor-alerta);
+  background-color: color-mix(in srgb, var(--cor-alerta) 10%, var(--cor-superficie));
+  color: var(--cor-texto);
 }
 
 .dialogo-concluir__calculos,

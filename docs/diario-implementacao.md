@@ -1,5 +1,47 @@
 # Diário de Implementação — PED
 
+## 10/11/2026
+
+**Resumo:** Duas builds validadas, decisões sobre as dúvidas da integração, ajustes de tabelas e da modal "Definir meta", build dividida (`vendor`/`index`) e abas sob demanda. Também entraram a meta por filial com "Definir metas pendentes" e a meta via API, adequada ao contrato final negociado com o back-end. Commit `a2ab9cc` feito na segunda tentativa. Ao fim do dia, 78 requisitos implementados e plano em 73% (93/127).
+
+### Implementações
+- Build validada ("gere uma build"): 72/72 requisitos, unitários 3069/3069 e integração 420/420 em baterias separadas, carga 100% 2xx. `index` único de 521 kB, com aviso do Vite.
+- `TextoTruncado` (F1.19\*): texto em uma linha com reticências, esmaecer e `title`. Aplicado na URL da listagem de Dados Externos. Feito antes dos testes (desvio do TDD registrado).
+- Build dividida (F12.6\*): `vite.config.ts` separa `vendor` (310 kB) e `index` (212 kB).
+- Abas sob demanda (F2.9\*): `React.lazy` em `rotas.tsx` e `Suspense` com `key` no `LayoutPrincipal`. A primeira visita baixa `vendor` 310 kB + `index` 32 kB.
+- Segunda build validada (~13h): 74/74, unitários 3145, integração 424, carga 100% 2xx (média 97 ms com a máquina carregada).
+- Meta por filial (F6.10\*): "Replicar a meta para todas as filiais" no cadastro e no "Definir meta", erros 400 por filial e alerta das filiais sem meta na listagem e no sinal da aba.
+- "Definir metas pendentes" (F6.12\*): `PUT .../{id}/metas-filiais`, para Admin e Validador.
+- Meta via API (F6.11\*): fonte `dado_externo` (flag "Meta vinda do dado externo") ou `integracao` (configuração só do Admin, modal com todos os campos obrigatórios). A meta automática nunca é editável. Há etiquetas por situação.
+- Modo leitura da modal de integração (F5.19\*): "Ver integração do dado externo" para o Admin na fonte `dado_externo`. Atende à decisão do negócio e da TI na `RESPOSTA-FINAL-meta-via-api.md`: na fonte ERP, mostra-se a integração do dado externo, só para leitura.
+- Documentos de contrato em `docs/propostas-backend/`: propostas de meta por filial e de meta via API, contraproposta e resposta final do back-end, resposta e confirmação do front.
+
+### Modificações
+- Integração do dado externo (F5.7, F5.14, F5.16, F5.18), com as decisões do usuário sobre as dúvidas de 09/11:
+  - a entrada continua só em objeto;
+  - os tipos usam `numero`;
+  - variável sem cursor vai para o fim;
+  - limites de 60/500 caracteres;
+  - erros 400 somem ao editar o campo.
+- Saída da integração passou de objeto para lista (`filial` + `valor`/`meta`). Também entraram `forneceMeta` no dado externo e os dashboards recusando indicadores da fonte `integracao` sem situação `ok` (F1.3, F5.1, F6.3, F7.6).
+- Dados Externos sem rolagem lateral (F5.20\*, antes numerada F5.19\*): identificador e URL limitados, Nome e Cadastro com quebra de linha e conteúdo até 1600px.
+- Apontamentos sem rolagem lateral (F4.10\*): área até 1440px e coluna Indicadores limitada a 16rem.
+- Estilo da modal "Definir meta" (F6.13\*): bloco "Composição", Meta e Sentido lado a lado, rodapé com filete.
+- Adequação à API (26) e ao `FRONT-meta-por-filial.md`: erros por filial, campo `meta por filial`, filtro `meta_filial_pendente` e meta enviada como número.
+- Testes da F2.3 passaram a usar `findBy*` (abas sob demanda). Requisitos F1.3, F6.1–F6.3 e F6.5–F6.7 passaram por `em-alteracao` e voltaram a `implementado`.
+- Commit: a primeira tentativa foi reprovada (integração 98,48%, 7 timeouts sob carga). Com as baterias divididas em 4 agentes, tudo passou a 100% (unitários 3588, integração 482) e o commit `a2ab9cc` foi feito. Ele inclui o trabalho de 06/11 a 10/11 e as mudanças de configuração do usuário.
+
+### Pendências
+- Back-end: fase 1 da meta via API e executor (fase 2). A F6.14\* segue bloqueada.
+- Comportamentos assumidos que precisam de confirmação: indicador indisponível no dashboard quando a consulta dá erro; etiquetas de situação para todos os perfis; sem aviso quando não há `meta via api`; falha silenciosa ao carregar dados externos no "Definir meta"; "Definir metas pendentes" oculto em "Meta a definir"; erros `filial: null` não exibidos.
+- O "`campo` = caminho" nos erros de validação continua sem confirmação do back-end.
+- Conferência visual: tabelas de Dados Externos e Apontamentos e modal "Definir meta".
+- Nenhuma build validada inclui as mudanças feitas depois das 13h.
+- Testes instáveis sob carga (avaliar timeouts ou baterias divididas). Push não feito.
+- Próximas atividades: F5.10, F9.1, F10.1, F11.1 e F1.18.
+
+---
+
 ## 09/11/2026
 
 **Resumo:** A build foi gerada com a máquina aliviada, os indicadores vinculados voltaram a aparecer na aba Apontamentos (F4.9\*) e a mudança de requisito "integração de dados externos" foi implementada em TDD. De manhã foi feita só a tela; à tarde o front foi adequado ao contrato publicado pelo back-end. Ao fim do dia, 72 requisitos implementados e plano em 72% (83/116). Nada foi commitado.

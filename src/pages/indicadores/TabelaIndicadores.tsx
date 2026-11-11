@@ -30,6 +30,10 @@
  * (`textoTarefaBitrix`). No menu, com `podeConfigurarIntegracao`: fonte `integracao` → "Preencher
  * integração"/"Configurações"; fonte `dado_externo` → "Ver integração do dado externo"
  * (`onVerIntegracaoDadoExterno`), sem as ações de configurar.
+ *
+ * Executor das integrações (F6.11, fase 2): nos detalhes, com `podeConfigurarIntegracao` e fonte
+ * `integracao`, "Última consulta" (`formatarDataHora` ou "Nenhuma consulta ainda") e, com erro, "Erro da
+ * última consulta", entre "Filiais sem meta" e "Cadastro".
  */
 import { useState, type ReactNode } from 'react'
 import { Etiqueta, type TomEtiqueta } from '../../components/Etiqueta'
@@ -140,7 +144,21 @@ function temMetasPendentes(indicador: Indicador, filialSelecionada: FilialSeleci
   return filial === null || indicador.filiaisSemMeta.includes(filial.codigo)
 }
 
-function detalhes(indicador: Indicador) {
+/**
+ * Executor das integrações (F6.11, fase 2): "Última consulta" e, com erro, "Erro da última consulta".
+ * Só com `podeConfigurarIntegracao` (Admin, único que recebe os dados) e na fonte `integracao`.
+ */
+function paresDaConsultaDaMeta(indicador: Indicador, podeConfigurarIntegracao: boolean): [string, string][] {
+  if (!podeConfigurarIntegracao || !usaIntegracaoDoIndicador(indicador) || !indicador.integracao) return []
+  const { ultimaConsultaEm, erroUltimaConsulta } = indicador.integracao
+  const pares: [string, string][] = [
+    ['Última consulta', ultimaConsultaEm ? formatarDataHora(ultimaConsultaEm) : 'Nenhuma consulta ainda'],
+  ]
+  if (erroUltimaConsulta !== null) pares.push(['Erro da última consulta', erroUltimaConsulta])
+  return pares
+}
+
+function detalhes(indicador: Indicador, podeConfigurarIntegracao: boolean) {
   const cadastro = indicador.cadastradoEm
     ? `${formatarDataHora(indicador.cadastradoEm)}${indicador.cadastradoPor ? ` por ${indicador.cadastradoPor}` : ''}`
     : '—'
@@ -152,6 +170,7 @@ function detalhes(indicador: Indicador) {
     ['Tipos', indicador.tipos.length > 0 ? indicador.tipos.join(', ') : '—'],
   ]
   if (indicador.filiaisSemMeta.length > 0) pares.push(['Filiais sem meta', textoFiliaisSemMeta(indicador)])
+  pares.push(...paresDaConsultaDaMeta(indicador, podeConfigurarIntegracao))
   pares.push(['Cadastro', cadastro])
 
   return (
@@ -333,7 +352,7 @@ export function TabelaIndicadores({
       obterChave={(indicador) => indicador.id}
       legenda="Indicadores"
       textoVazio={textoVazio}
-      expandir={detalhes}
+      expandir={(indicador) => detalhes(indicador, podeConfigurarIntegracao)}
       expandidas={expandidas}
     />
   )

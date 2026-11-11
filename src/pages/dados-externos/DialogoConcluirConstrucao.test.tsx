@@ -23,8 +23,24 @@ const DEVOLUCOES_3_MESES = paraDadoExterno({ ...DADO_DEVOLUCOES_API, 'janela ret
 /** Data fixa da prévia: período 10/2026. */
 const HOJE = new Date(2026, 9, 15)
 const URL_VALIDA = 'https://api.exemplo.com/devolucoes'
-const FALTA_TUDO = 'falta: identificador, URL válida, JSON de saída válido, JSON de entrada válido'
+const FALTA_TUDO = 'falta: identificador, URL válida, JSON de saída válido, campo da filial, campo do valor, JSON de entrada válido'
+/** Mapeamento do modelo de saída do dado externo (`{ "codfil": "string", "vlrLiq": "number" }`). */
+const MAPEAMENTO_DO_MODELO = { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: null }
+/** Saída com competência e campos de vários tipos (saída por "chave: tipo", 11/11/2026). */
+const SAIDA_COMPLETA = '{ "codemp": "string", "codfil": "string", "vlrLiq": "number", "datCpt": "date", "ativo": "boolean" }'
+const FORMATO_ANTIGO = 'Formato antigo (lista). Reescreva a saída como { "campo": "tipo" }.'
 const TUDO_PREENCHIDO = 'Todos os campos obrigatórios preenchidos'
+const AVISO_FILIAL = '%filial% não tem valor numa consulta que traz todas as filiais; use %empresas%.'
+const SEM_FORMATO_SOAP = 'A entrada deve ter "operacao" e "parametros" (ou "chamadas")'
+
+/**
+ * Entrada SOAP `{ operacao, parametros }` (alteração de 11/11/2026 — executor das integrações,
+ * `FRONT-meta-via-api-fase2.md`, seção 2.1): os caminhos dos cálculos e dos erros passam a ser
+ * `parametros.<campo>`.
+ */
+function soap(parametros: Record<string, unknown>): string {
+  return JSON.stringify({ operacao: 'Consulta', parametros })
+}
 
 /**
  * Os testes usam por padrão as variáveis **sem exemplo** (`variaveisIntegracaoSemExemplo`): a prévia local
@@ -67,6 +83,16 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
   const variaveisDisponiveis = () => within(dialogo()).getByRole('group', { name: 'Variáveis disponíveis' })
   const botaoVariavel = (nome: string) => within(variaveisDisponiveis()).getByRole('button', { name: new RegExp(`%${nome}%`) })
   const operadores = () => within(dialogo()).getByRole('group', { name: 'Operadores' })
+  const campoFilial = () => within(dialogo()).getByLabelText('Campo da filial') as HTMLSelectElement
+  const campoValor = () => within(dialogo()).getByLabelText('Campo do valor') as HTMLSelectElement
+  const campoCompetencia = () => within(dialogo()).getByLabelText('Campo da competência') as HTMLSelectElement
+  const opcoesDe = (select: HTMLSelectElement) => within(select).getAllByRole('option').map((opcao) => opcao.textContent)
+
+  /** Escolhe o campo da filial e o do valor (padrão: os do modelo de saída, codfil e vlrLiq). */
+  async function escolherMapeamento(user: Usuario, filial = 'codfil', valor = 'vlrLiq') {
+    await user.selectOptions(campoFilial(), filial)
+    await user.selectOptions(campoValor(), valor)
+  }
 
   /**
    * Posiciona o cursor (ou seleciona um trecho) na caixa como o usuário faz: clique no ponto `inicio`
@@ -85,10 +111,14 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
     if (texto !== '') await colar(user, campo, texto)
   }
 
-  /** Preenche URL, saída e entrada válidas (o identificador fica a cargo de cada teste). */
+  /**
+   * Preenche URL, saída (modelo), o mapeamento do modelo (codfil e vlrLiq) e a entrada válidas (o
+   * identificador fica a cargo de cada teste).
+   */
   async function preencherIntegracao(user: Usuario) {
     await colar(user, url(), URL_VALIDA)
     await user.click(within(dialogo()).getByRole('button', { name: 'Inserir modelo de saída' }))
+    await escolherMapeamento(user)
     await user.click(within(dialogo()).getByRole('button', { name: 'Inserir modelo de entrada' }))
   }
 
@@ -137,7 +167,7 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
   })
 
   describe('botão "Concluir e ativar" e o que falta', () => {
-    it('começa desabilitado com "falta: identificador, URL válida, JSON de saída válido, JSON de entrada válido"', () => {
+    it('começa desabilitado com "falta: identificador, URL válida, JSON de saída válido, campo da filial, campo do valor, JSON de entrada válido"', () => {
       renderizar()
 
       expect(concluir()).toBeDisabled()
@@ -150,12 +180,20 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
       renderizar()
 
       await user.type(identificador(), 'devolucoes')
-      expect(within(dialogo()).getByText('falta: URL válida, JSON de saída válido, JSON de entrada válido')).toBeInTheDocument()
+      expect(
+        within(dialogo()).getByText('falta: URL válida, JSON de saída válido, campo da filial, campo do valor, JSON de entrada válido'),
+      ).toBeInTheDocument()
 
       await colar(user, url(), URL_VALIDA)
-      expect(within(dialogo()).getByText('falta: JSON de saída válido, JSON de entrada válido')).toBeInTheDocument()
+      expect(within(dialogo()).getByText('falta: JSON de saída válido, campo da filial, campo do valor, JSON de entrada válido')).toBeInTheDocument()
 
       await user.click(within(dialogo()).getByRole('button', { name: 'Inserir modelo de saída' }))
+      expect(within(dialogo()).getByText('falta: campo da filial, campo do valor, JSON de entrada válido')).toBeInTheDocument()
+
+      await user.selectOptions(campoFilial(), 'codfil')
+      expect(within(dialogo()).getByText('falta: campo do valor, JSON de entrada válido')).toBeInTheDocument()
+
+      await user.selectOptions(campoValor(), 'vlrLiq')
       expect(within(dialogo()).getByText('falta: JSON de entrada válido')).toBeInTheDocument()
       expect(concluir()).toBeDisabled()
 
@@ -188,10 +226,13 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
       await preencherIntegracao(user)
 
       await substituir(user, saida(), '{"valor": 1,}')
-      expect(within(dialogo()).getByText('falta: JSON de saída válido')).toBeInTheDocument()
+      // Sem saída válida não há campos para o mapeamento: a filial e o valor voltam a faltar.
+      expect(within(dialogo()).getByText('falta: JSON de saída válido, campo da filial, campo do valor')).toBeInTheDocument()
       expect(concluir()).toBeDisabled()
 
+      // A escolha é mantida: com a saída de novo válida (e os campos presentes), o mapeamento volta a valer.
       await substituir(user, saida(), MODELO_JSON_SAIDA)
+      expect(within(dialogo()).getByText(TUDO_PREENCHIDO)).toBeInTheDocument()
       await substituir(user, entrada(), '{"a": "%foo%"}')
       expect(within(dialogo()).getByText('falta: JSON de entrada válido')).toBeInTheDocument()
       expect(concluir()).toBeDisabled()
@@ -237,7 +278,7 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
   })
 
   describe('confirmação', () => {
-    it('confirma com o identificador limpo, a URL sem espaços nas pontas, os dois JSONs e as variáveis usadas', async () => {
+    it('confirma com o identificador limpo, a URL sem espaços nas pontas, os dois JSONs, o mapeamento e as variáveis usadas', async () => {
       const user = usuarioRapido()
       const { onConfirmar } = renderizar()
 
@@ -245,6 +286,7 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
       expect(identificador()).toHaveValue('DEVOLUCOES_VENDA')
       await colar(user, url(), `  ${URL_VALIDA}  `)
       await user.click(within(dialogo()).getByRole('button', { name: 'Inserir modelo de saída' }))
+      await escolherMapeamento(user)
       await user.click(within(dialogo()).getByRole('button', { name: 'Inserir modelo de entrada' }))
       await user.click(concluir())
 
@@ -254,8 +296,27 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
         url: URL_VALIDA,
         parametrosSaida: MODELO_JSON_SAIDA,
         parametrosEntrada: MODELO_JSON_ENTRADA,
-        variaveisUsadas: ['filial', 'competencia', 'dataInicial', 'dataFinal'],
+        mapeamento: MAPEAMENTO_DO_MODELO,
+        variaveisUsadas: ['dataInicial', 'dataFinal', 'empresas'],
       })
+    })
+
+    it('com a competência escolhida, ela vai no mapeamento', async () => {
+      const user = usuarioRapido()
+      const { onConfirmar } = renderizar()
+      await user.type(identificador(), 'devolucoes')
+      await preencherIntegracao(user)
+
+      await substituir(user, saida(), SAIDA_COMPLETA)
+      await user.selectOptions(campoCompetencia(), 'datCpt')
+      await user.click(concluir())
+
+      expect(onConfirmar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          parametrosSaida: SAIDA_COMPLETA,
+          mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: 'datCpt' },
+        }),
+      )
     })
   })
 
@@ -340,15 +401,15 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
       expect(textoDe(validacaoSaida())).toBe('')
     })
 
-    it('saída válida (lista com um item por filial): "JSON válido" com os campos e tipos do primeiro item', async () => {
+    it('saída válida ("chave: tipo"): "JSON válido" com o resumo "N campos: campo (tipo), ..."', async () => {
       const user = usuarioRapido()
       renderizar()
 
-      await colar(user, saida(), '[{"filial": "101", "valor": "1500,00", "competencia": "10/2026"}, {"filial": "102", "valor": "980,50"}]')
+      await colar(user, saida(), '{ "codemp": "string", "codfil": "string", "vlrLiq": "number" }')
 
       const validacao = validacaoSaida()!
       expect(validacao).toHaveTextContent('JSON válido')
-      expect(validacao).toHaveTextContent('3 campos: filial (texto), valor (texto), competencia (texto)')
+      expect(validacao).toHaveTextContent('3 campos: codemp (string), codfil (string), vlrLiq (number)')
       expect(validacao).not.toHaveTextContent('inválido')
     })
 
@@ -363,14 +424,14 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
       expect(validacao).toHaveTextContent('Linha 1, coluna 12: vírgula sobrando')
     })
 
-    it('saída que não é lista é inválida com a explicação', async () => {
+    it('tipo desconhecido é inválido com a explicação', async () => {
       const user = usuarioRapido()
       renderizar()
 
-      await colar(user, saida(), '{}')
+      await colar(user, saida(), '{"codfil": "texto"}')
 
       expect(validacaoSaida()).toHaveTextContent('JSON de saída inválido')
-      expect(validacaoSaida()).toHaveTextContent('A saída deve ser uma lista com um item por filial')
+      expect(validacaoSaida()).toHaveTextContent('O campo "codfil" da saída tem tipo "texto"; use string, number, date ou boolean')
     })
 
     it('apagar o conteúdo volta ao estado vazio', async () => {
@@ -385,83 +446,254 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
   })
 
   /**
-   * Alteração de 10/11/2026 (seção 2.3 de `RESPOSTA-FINAL-meta-via-api.md`): a saída é uma lista com um
-   * item por filial; na integração do dado externo (padrão `tipoAlvo="dado-externo"`) cada item precisa
-   * de `filial` e `valor` (`competencia` opcional). Um texto abaixo do campo orienta o formato e
-   * "Inserir modelo de saída" gera a lista de exemplo (`MODELO_JSON_SAIDA`).
+   * Alteração de 11/11/2026 (saída por "chave: tipo", opção B — `docs/propostas-backend/FRONT-saida-chave-tipo.md`):
+   * a saída descreve **um item** da resposta como objeto `{ "campo": "tipo" }` (`string`, `number`, `date`,
+   * `boolean`). Um texto abaixo do campo orienta o formato; "Inserir modelo de saída" gera
+   * `{ "codfil": "string", "vlrLiq": "number" }`. A lista (formato antigo) é inválida: a modal só salva no
+   * formato novo (decisão do usuário). O grupo "Marcadores da saída" (F5.21) foi retirado.
    */
-  describe('saída em lista (um item por filial: filial e valor)', () => {
-    const ORIENTACAO = 'Lista com um item por filial: filial e valor (competencia opcional).'
+  describe('saída por "chave: tipo"', () => {
+    const ORIENTACAO = 'Descreva um item da resposta como { "campo": "tipo" }, com os tipos string, number, date ou boolean.'
 
-    it('mostra o texto de orientação do formato, sem mencionar meta', () => {
-      renderizar()
-
-      expect(within(dialogo()).getByText(ORIENTACAO)).toBeInTheDocument()
-      expect(within(dialogo()).queryByText(/filial e meta/)).not.toBeInTheDocument()
-    })
-
-    it('a orientação fica depois do campo de saída e antes do campo de entrada', () => {
+    it('mostra o texto de orientação do formato, depois do campo de saída e antes do campo de entrada', () => {
       renderizar()
 
       const orientacao = within(dialogo()).getByText(ORIENTACAO)
       expect(saida().compareDocumentPosition(orientacao) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(orientacao.compareDocumentPosition(entrada()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(within(dialogo()).queryByText(/Lista com um item por filial/)).not.toBeInTheDocument()
     })
 
-    it('"Inserir modelo de saída" gera a lista de exemplo, válida, com filial, valor e competencia', async () => {
+    it('"Inserir modelo de saída" gera { "codfil": "string", "vlrLiq": "number" }, válido', async () => {
       const user = usuarioRapido()
       renderizar()
 
       await user.click(within(dialogo()).getByRole('button', { name: 'Inserir modelo de saída' }))
 
       expect(saida()).toHaveValue(MODELO_JSON_SAIDA)
-      expect(Array.isArray(JSON.parse(saida().value))).toBe(true)
+      expect(JSON.parse(saida().value)).toEqual({ codfil: 'string', vlrLiq: 'number' })
       expect(validacaoSaida()).toHaveTextContent('JSON válido')
-      expect(validacaoSaida()).toHaveTextContent('3 campos: filial (texto), valor (texto), competencia (texto)')
+      expect(validacaoSaida()).toHaveTextContent('2 campos: codfil (string), vlrLiq (number)')
     })
 
-    it('objeto solto (formato aceito antes) é inválido e bloqueia o botão', async () => {
+    it.each([
+      ['lista com valores', '[{"codfil": "101", "vlrLiq": "1500,00"}]'],
+      ['lista com marcadores', '[{"codfil": "%filial%", "vlrLiq": "%valor%"}]'],
+    ])('%s (formato antigo) é inválida e bloqueia o botão', async (_nome, texto) => {
       const user = usuarioRapido()
       renderizar()
       await user.type(identificador(), 'devolucoes')
       await preencherIntegracao(user)
       expect(concluir()).toBeEnabled()
 
-      await substituir(user, saida(), '{"filial": "101", "valor": "1500,00"}')
+      await substituir(user, saida(), texto)
 
       expect(validacaoSaida()).toHaveTextContent('JSON de saída inválido')
-      expect(validacaoSaida()).toHaveTextContent('A saída deve ser uma lista com um item por filial')
-      expect(within(dialogo()).getByText('falta: JSON de saída válido')).toBeInTheDocument()
+      expect(validacaoSaida()).toHaveTextContent(FORMATO_ANTIGO)
       expect(concluir()).toBeDisabled()
     })
 
-    it.each([
-      ['item sem filial', '[{"valor": "1"}]', 'Item 1: falta o campo filial'],
-      ['segundo item sem valor', '[{"filial": "101", "valor": "1"}, {"filial": "102"}]', 'Item 2: falta o campo valor'],
-      ['item com meta no lugar de valor', '[{"filial": "101", "meta": "1"}]', 'Item 1: falta o campo valor'],
-      ['item vazio', '[{}]', 'Item 1: faltam os campos filial e valor'],
-      ['lista vazia', '[]', 'A lista está vazia'],
-    ])('%s (%s) → "JSON de saída inválido" e a explicação do item', async (_nome, texto, mensagem) => {
+    it('objeto vazio → "JSON de saída inválido" com a mensagem e o exemplo', async () => {
       const user = usuarioRapido()
       renderizar()
 
-      await colar(user, saida(), texto)
+      await colar(user, saida(), '{}')
 
-      expect(validacaoSaida()).toHaveTextContent('JSON de saída inválido')
-      expect(validacaoSaida()).toHaveTextContent(mensagem)
+      expect(validacaoSaida()).toHaveTextContent('A saída precisa descrever ao menos um campo, ex.: { "codfil": "string", "vlrLiq": "number" }')
     })
 
-    it('competencia é opcional: lista só com filial e valor libera o botão', async () => {
+    it('não há mais o grupo "Marcadores da saída" nem botões de marcador fora das "Variáveis disponíveis"', () => {
+      renderizar()
+
+      expect(within(dialogo()).queryByRole('group', { name: 'Marcadores da saída' })).not.toBeInTheDocument()
+      expect(within(dialogo()).queryByRole('button', { name: /%valor%/ })).not.toBeInTheDocument()
+      expect(within(dialogo()).queryByRole('button', { name: /%meta%/ })).not.toBeInTheDocument()
+      // %competencia% é variável da entrada (F5.15): continua só no grupo "Variáveis disponíveis".
+      expect(within(variaveisDisponiveis()).getByRole('button', { name: /%competencia%/ })).toBeInTheDocument()
+      const marcadoresForaDasVariaveis = within(dialogo())
+        .queryAllByRole('button', { name: /%[^%\s]+%/ })
+        .filter((botao) => !variaveisDisponiveis().contains(botao))
+      expect(marcadoresForaDasVariaveis).toHaveLength(0)
+    })
+  })
+
+  /**
+   * Mapeamento da saída (11/11/2026, opção B): abaixo da saída (e da sua validação), antes da entrada, três
+   * listas de seleção — "Campo da filial" (obrigatório), "Campo do valor" (obrigatório; no indicador é
+   * "Campo da meta", ver `DialogoConcluirConstrucao.metaViaApi.test.tsx`) e "Campo da competência"
+   * (opcional). As opções são as chaves da saída digitada, na ordem do JSON, quando a saída é válida; sem
+   * saída válida as listas ficam desabilitadas e só com a primeira opção. Primeira opção: "Selecione o
+   * campo" (valor vazio) nas obrigatórias e "Nenhum" (valor vazio) na competência.
+   *
+   * A escolha é mantida enquanto a saída muda e só vale se o campo existir na saída válida atual. Erros do
+   * mapeamento (`validarMapeamento`: campo inexistente, tipo incompatível, campo repetido) aparecem junto à
+   * lista correspondente quando a saída é válida. Papel obrigatório não escolhido (ou com erro) entra no
+   * "falta: ..." como "campo da filial" / "campo do valor" (e "campo da competência" quando ela tem erro),
+   * depois de "JSON de saída válido" e antes de "JSON de entrada válido".
+   */
+  describe('mapeamento da saída (campo da filial, do valor e da competência)', () => {
+    it('as três listas ficam entre a saída e a entrada, nesta ordem; filial e valor obrigatórios (asterisco), competência opcional', () => {
+      renderizar()
+
+      const listas = [campoFilial(), campoValor(), campoCompetencia()]
+      expect(listas.map((lista) => lista.tagName)).toEqual(['SELECT', 'SELECT', 'SELECT'])
+      expect(campoFilial()).toHaveAttribute('aria-required', 'true')
+      expect(campoValor()).toHaveAttribute('aria-required', 'true')
+      expect(campoCompetencia()).not.toHaveAttribute('aria-required', 'true')
+      expect(campoFilial().labels?.[0]?.textContent).toBe('Campo da filial *')
+      expect(campoValor().labels?.[0]?.textContent).toBe('Campo do valor *')
+      expect(campoCompetencia().labels?.[0]?.textContent).toBe('Campo da competência')
+      const ordem = [saida(), ...listas, entrada()]
+      ordem.slice(1).forEach((elemento, i) => {
+        expect(ordem[i].compareDocumentPosition(elemento) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      })
+      expect(within(dialogo()).queryByLabelText('Campo da meta')).not.toBeInTheDocument()
+    })
+
+    it('sem saída válida, as listas ficam desabilitadas e sem campos', async () => {
+      const user = usuarioRapido()
+      renderizar()
+
+      for (const lista of [campoFilial(), campoValor(), campoCompetencia()]) expect(lista).toBeDisabled()
+      expect(opcoesDe(campoFilial())).toEqual(['Selecione o campo'])
+      expect(opcoesDe(campoCompetencia())).toEqual(['Nenhum'])
+
+      await colar(user, saida(), '[{"codfil": "101"}]')
+
+      expect(campoFilial()).toBeDisabled()
+      expect(opcoesDe(campoValor())).toEqual(['Selecione o campo'])
+    })
+
+    it('com a saída válida, as opções são as chaves da saída, na ordem do JSON', async () => {
+      const user = usuarioRapido()
+      renderizar()
+
+      await colar(user, saida(), SAIDA_COMPLETA)
+
+      for (const lista of [campoFilial(), campoValor(), campoCompetencia()]) expect(lista).toBeEnabled()
+      expect(opcoesDe(campoFilial())).toEqual(['Selecione o campo', 'codemp', 'codfil', 'vlrLiq', 'datCpt', 'ativo'])
+      expect(opcoesDe(campoValor())).toEqual(['Selecione o campo', 'codemp', 'codfil', 'vlrLiq', 'datCpt', 'ativo'])
+      expect(opcoesDe(campoCompetencia())).toEqual(['Nenhum', 'codemp', 'codfil', 'vlrLiq', 'datCpt', 'ativo'])
+      expect(campoFilial()).toHaveValue('')
+      expect(campoCompetencia()).toHaveValue('')
+    })
+
+    it('as opções acompanham a saída digitada', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await colar(user, saida(), MODELO_JSON_SAIDA)
+
+      await substituir(user, saida(), '{ "filial": "number", "total": "number" }')
+
+      expect(opcoesDe(campoFilial())).toEqual(['Selecione o campo', 'filial', 'total'])
+    })
+
+    it('a competência é opcional: sem ela o botão é liberado; escolhida e depois "Nenhum" volta a null', async () => {
       const user = usuarioRapido()
       const { onConfirmar } = renderizar()
       await user.type(identificador(), 'devolucoes')
       await preencherIntegracao(user)
+      await substituir(user, saida(), SAIDA_COMPLETA)
+      expect(within(dialogo()).getByText(TUDO_PREENCHIDO)).toBeInTheDocument()
 
-      await substituir(user, saida(), '[{"filial": "101", "valor": "0"}]')
-      expect(validacaoSaida()).toHaveTextContent('2 campos: filial (texto), valor (texto)')
+      await user.selectOptions(campoCompetencia(), 'datCpt')
+      await user.selectOptions(campoCompetencia(), 'Nenhum')
       await user.click(concluir())
 
-      expect(onConfirmar).toHaveBeenCalledWith(expect.objectContaining({ parametrosSaida: '[{"filial": "101", "valor": "0"}]' }))
+      expect(onConfirmar).toHaveBeenCalledWith(expect.objectContaining({ mapeamento: MAPEAMENTO_DO_MODELO }))
+    })
+
+    it('valor que não é number → erro junto ao "Campo do valor", "falta: campo do valor" e botão bloqueado', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await user.type(identificador(), 'devolucoes')
+      await preencherIntegracao(user)
+      await substituir(user, saida(), SAIDA_COMPLETA)
+
+      await user.selectOptions(campoValor(), 'codemp')
+
+      expect(campoValor()).toHaveAttribute('aria-invalid', 'true')
+      expect(campoValor()).toHaveAccessibleDescription(expect.stringContaining('O campo do valor ("codemp") é do tipo string; precisa ser number'))
+      expect(within(dialogo()).getByText('falta: campo do valor')).toBeInTheDocument()
+      expect(concluir()).toBeDisabled()
+    })
+
+    it('filial do tipo boolean → erro junto ao "Campo da filial"', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await colar(user, saida(), SAIDA_COMPLETA)
+
+      await user.selectOptions(campoFilial(), 'ativo')
+
+      expect(campoFilial()).toHaveAccessibleDescription(
+        expect.stringContaining('O campo da filial ("ativo") é do tipo boolean; precisa ser string ou number'),
+      )
+    })
+
+    it('competência do tipo number → erro junto à competência e "campo da competência" no que falta', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await user.type(identificador(), 'devolucoes')
+      await preencherIntegracao(user)
+      await substituir(user, saida(), SAIDA_COMPLETA)
+
+      await user.selectOptions(campoCompetencia(), 'vlrLiq')
+
+      expect(campoCompetencia()).toHaveAttribute('aria-invalid', 'true')
+      expect(campoCompetencia()).toHaveAccessibleDescription(
+        expect.stringContaining('O campo da competência ("vlrLiq") é do tipo number; precisa ser date ou string'),
+      )
+      expect(within(dialogo()).getByText('falta: campo da competência')).toBeInTheDocument()
+      expect(concluir()).toBeDisabled()
+    })
+
+    it('o mesmo campo em dois papéis → erro no papel que repete', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await colar(user, saida(), '{ "codfil": "string", "numfil": "number", "vlrLiq": "number" }')
+
+      await escolherMapeamento(user, 'numfil', 'numfil')
+
+      expect(campoValor()).toHaveAccessibleDescription(
+        expect.stringContaining('Cada papel (filial, valor, competência) precisa de um campo diferente da saída'),
+      )
+      expect(campoFilial()).not.toHaveAttribute('aria-invalid', 'true')
+    })
+
+    it('campo escolhido que some da saída (ainda válida) → erro "não existe na saída" e volta a faltar', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await user.type(identificador(), 'devolucoes')
+      await preencherIntegracao(user)
+
+      await substituir(user, saida(), '{ "codfil": "string", "valor": "number" }')
+
+      expect(campoValor()).toHaveValue('')
+      expect(campoValor()).toHaveAccessibleDescription(expect.stringContaining('O campo do valor aponta para "vlrLiq", que não existe na saída'))
+      expect(within(dialogo()).getByText('falta: campo do valor')).toBeInTheDocument()
+      expect(concluir()).toBeDisabled()
+    })
+
+    it('sem escolher nada, as listas não mostram erro (só o "falta: ...")', async () => {
+      const user = usuarioRapido()
+      renderizar()
+
+      await colar(user, saida(), MODELO_JSON_SAIDA)
+
+      expect(campoFilial()).not.toHaveAttribute('aria-invalid', 'true')
+      expect(campoValor()).not.toHaveAttribute('aria-invalid', 'true')
+    })
+
+    it('com a saída inválida, a escolha feita não gera erro nas listas', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await colar(user, saida(), MODELO_JSON_SAIDA)
+      await escolherMapeamento(user)
+
+      await substituir(user, saida(), '{"codfil": "string",')
+
+      expect(campoFilial()).not.toHaveAttribute('aria-invalid', 'true')
+      expect(campoValor()).not.toHaveAttribute('aria-invalid', 'true')
     })
   })
 
@@ -472,7 +704,7 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
       expect(textoDe(validacaoEntrada())).toBe('')
     })
 
-    it('entrada válida (modelo do documento): variáveis usadas, cálculos e prévia com valores de exemplo', async () => {
+    it('entrada válida (modelo SOAP do documento): variáveis usadas e prévia com valores de exemplo', async () => {
       const user = usuarioRapido()
       renderizar()
 
@@ -480,61 +712,175 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
 
       const validacao = validacaoEntrada()!
       expect(validacao).toHaveTextContent('JSON válido')
-      expect(within(validacao).getByText('Variáveis usadas: %filial%, %competencia%, %dataInicial%, %dataFinal%')).toBeInTheDocument()
-      expect(within(validacao).getByText('inicio: %dataInicial% - 3m = 01/07/2026')).toBeInTheDocument()
-      expect(within(validacao).getByText('dias: %dataFinal% - %dataInicial% + 1 = 31')).toBeInTheDocument()
-      expect(validacao.textContent).toContain('"filial": "101"')
-      expect(validacao.textContent).toContain('"competencia": "10/2026"')
-      expect(validacao.textContent).toContain('"inicio": "01/07/2026"')
-      expect(validacao.textContent).toContain('"fim": "31/10/2026"')
-      expect(validacao.textContent).toContain('"dias": "31"')
+      expect(within(validacao).getByText('Variáveis usadas: %dataInicial%, %dataFinal%, %empresas%')).toBeInTheDocument()
+      expect(validacao.textContent).toContain('"operacao": "NomeDaOperacao"')
+      expect(validacao.textContent).toContain('"EDatIni": "01/10/2026"')
+      expect(validacao.textContent).toContain('"EDatFim": "31/10/2026"')
+      expect(validacao.textContent).toContain('"ECodEmp": "1,6,7,8,9"')
+      expect(validacao).not.toHaveTextContent('%filial% não tem valor')
+    })
+
+    it('com cálculos: cada um como "<caminho>: <expressão> = <resultado>", com o caminho completo', async () => {
+      const user = usuarioRapido()
+      renderizar()
+
+      await colar(user, entrada(), soap({ EDatIni: '%dataInicial% - 3m', EDias: '%dataFinal% - %dataInicial% + 1' }))
+
+      const validacao = validacaoEntrada()!
+      expect(within(validacao).getByText('parametros.EDatIni: %dataInicial% - 3m = 01/07/2026')).toBeInTheDocument()
+      expect(within(validacao).getByText('parametros.EDias: %dataFinal% - %dataInicial% + 1 = 31')).toBeInTheDocument()
+      expect(validacao.textContent).toContain('"EDatIni": "01/07/2026"')
+      expect(validacao.textContent).toContain('"EDias": "31"')
     })
 
     it('valores de exemplo vêm do dado: 3 meses retroativos → "(%mesesRetro% * 30) - 1" = 89; "31/01/2026 + 1m" = 28/02/2026', async () => {
       const user = usuarioRapido()
       renderizar({ dado: DEVOLUCOES_3_MESES })
 
-      await colar(user, entrada(), '{"dias": "(%mesesRetro% * 30) - 1", "data": "31/01/2026 + 1m", "inicio": "%dataInicial% - 30"}')
+      await colar(user, entrada(), soap({ dias: '(%mesesRetro% * 30) - 1', data: '31/01/2026 + 1m', inicio: '%dataInicial% - 30' }))
 
       const validacao = validacaoEntrada()!
-      expect(within(validacao).getByText('dias: (%mesesRetro% * 30) - 1 = 89')).toBeInTheDocument()
-      expect(within(validacao).getByText('data: 31/01/2026 + 1m = 28/02/2026')).toBeInTheDocument()
-      expect(within(validacao).getByText('inicio: %dataInicial% - 30 = 01/09/2026')).toBeInTheDocument()
+      expect(within(validacao).getByText('parametros.dias: (%mesesRetro% * 30) - 1 = 89')).toBeInTheDocument()
+      expect(within(validacao).getByText('parametros.data: 31/01/2026 + 1m = 28/02/2026')).toBeInTheDocument()
+      expect(within(validacao).getByText('parametros.inicio: %dataInicial% - 30 = 01/09/2026')).toBeInTheDocument()
     })
 
     it('com janela retroativa 1 e coleta sem dia: mesesRetro 1 e diaColeta 1', async () => {
       const user = usuarioRapido()
       renderizar({ dado: DEVOLUCOES })
 
-      await colar(user, entrada(), '{"dias": "(%mesesRetro% * 30) - 1", "dia": "%diaColeta% + 0"}')
+      await colar(user, entrada(), soap({ dias: '(%mesesRetro% * 30) - 1', dia: '%diaColeta% + 0' }))
 
-      expect(within(validacaoEntrada()!).getByText('dias: (%mesesRetro% * 30) - 1 = 29')).toBeInTheDocument()
-      expect(within(validacaoEntrada()!).getByText('dia: %diaColeta% + 0 = 1')).toBeInTheDocument()
+      expect(within(validacaoEntrada()!).getByText('parametros.dias: (%mesesRetro% * 30) - 1 = 29')).toBeInTheDocument()
+      expect(within(validacaoEntrada()!).getByText('parametros.dia: %diaColeta% + 0 = 1')).toBeInTheDocument()
     })
 
     it('a data atual (hoje) define o período: hoje = 05/03/2026 → competência 03/2026', async () => {
       const user = usuarioRapido()
       renderizar({ hoje: new Date(2026, 2, 5) })
 
-      await colar(user, entrada(), '{"c": "%competencia%", "fim": "%dataFinal% + 0"}')
+      await colar(user, entrada(), soap({ c: '%competencia%', fim: '%dataFinal% + 0' }))
 
       expect(validacaoEntrada()!.textContent).toContain('"c": "03/2026"')
-      expect(within(validacaoEntrada()!).getByText('fim: %dataFinal% + 0 = 31/03/2026')).toBeInTheDocument()
+      expect(within(validacaoEntrada()!).getByText('parametros.fim: %dataFinal% + 0 = 31/03/2026')).toBeInTheDocument()
     })
 
     it('entrada inválida: "JSON de entrada inválido" com a lista de todos os erros', async () => {
       const user = usuarioRapido()
       renderizar()
 
-      await colar(user, entrada(), '{"a": "%foo%", "b": "5 / 0", "c": "%zona% + 1"}')
+      await colar(user, entrada(), soap({ a: '%foo%', b: '5 / 0', c: '%zona% + 1' }))
 
       const validacao = validacaoEntrada()!
       expect(validacao).toHaveTextContent('JSON de entrada inválido')
       expect(within(validacao).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
-        'Campo "a": variável desconhecida %foo% em "%foo%"',
-        'Campo "b": divisão por zero em "5 / 0"',
-        'Campo "c": variável de texto %zona% em conta em "%zona% + 1"',
+        'Campo "parametros.a": variável desconhecida %foo% em "%foo%"',
+        'Campo "parametros.b": divisão por zero em "5 / 0"',
+        'Campo "parametros.c": variável de texto %zona% em conta em "%zona% + 1"',
       ])
+    })
+
+    /**
+     * Alteração de 11/11/2026 (executor — `FRONT-meta-via-api-fase2.md`, seção 2.1): a entrada precisa do
+     * formato SOAP `{ operacao, parametros }` (ou `chamadas`); o formato antigo bloqueia o botão.
+     */
+    it('formato antigo (sem operacao nem parametros): "JSON de entrada inválido" com a explicação e botão bloqueado', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await user.type(identificador(), 'devolucoes')
+      await preencherIntegracao(user)
+      expect(concluir()).toBeEnabled()
+
+      await substituir(user, entrada(), '{"filial": "%filial%", "competencia": "%competencia%"}')
+
+      const validacao = validacaoEntrada()!
+      expect(validacao).toHaveTextContent('JSON de entrada inválido')
+      expect(within(validacao).getAllByRole('listitem').map((item) => item.textContent)).toEqual([SEM_FORMATO_SOAP])
+      expect(within(dialogo()).getByText('falta: JSON de entrada válido')).toBeInTheDocument()
+      expect(concluir()).toBeDisabled()
+    })
+
+    it.each([
+      ['operacao com espaço', '{"operacao": "Vol Ven", "parametros": {}}', '"operacao" só aceita letras, números e _'],
+      ['operacao vazia', '{"operacao": "", "parametros": {}}', '"operacao" não pode ficar vazia'],
+      ['parametros em lista', '{"operacao": "Consulta", "parametros": []}', '"parametros" deve ser um objeto'],
+      ['chamada sem parametros', '{"operacao": "Consulta", "chamadas": [{}]}', 'Chamada 1: falta "parametros"'],
+    ])('%s → "JSON de entrada inválido" com "%s"', async (_nome, texto, mensagem) => {
+      const user = usuarioRapido()
+      renderizar()
+
+      await colar(user, entrada(), texto)
+
+      expect(validacaoEntrada()).toHaveTextContent('JSON de entrada inválido')
+      expect(within(validacaoEntrada()!).getAllByRole('listitem').map((item) => item.textContent)).toEqual([mensagem])
+    })
+
+    it('várias chamadas ("chamadas") são aceitas e os cálculos mostram o caminho da chamada', async () => {
+      const user = usuarioRapido()
+      renderizar()
+
+      await colar(
+        user,
+        entrada(),
+        JSON.stringify({ operacao: 'Consulta', chamadas: [{ parametros: { EDatIni: '%dataInicial%' } }, { parametros: { EDatIni: '%dataInicial% - 1m' } }] }),
+      )
+
+      expect(validacaoEntrada()).toHaveTextContent('JSON válido')
+      expect(within(validacaoEntrada()!).getByText('chamadas[1].parametros.EDatIni: %dataInicial% - 1m = 01/09/2026')).toBeInTheDocument()
+    })
+
+    /**
+     * Aviso não bloqueante (fase 2, seção 2.3): numa chamada que traz todas as filiais, %filial%,
+     * %colaborador% e %zona% não têm valor. Aparece dentro da região "Validação dos parâmetros de entrada",
+     * com a entrada válida, e não impede concluir.
+     */
+    describe('aviso de %filial% (consulta que traz todas as filiais)', () => {
+      it('entrada válida com %filial%: "JSON válido", o aviso e o botão continua habilitado', async () => {
+        const user = usuarioRapido()
+        const { onConfirmar } = renderizar()
+        await user.type(identificador(), 'devolucoes')
+        await preencherIntegracao(user)
+
+        await substituir(user, entrada(), soap({ ECodFil: '%filial%', EDatIni: '%dataInicial%' }))
+
+        const validacao = validacaoEntrada()!
+        expect(validacao).toHaveTextContent('JSON válido')
+        expect(within(validacao).getByText(AVISO_FILIAL)).toBeInTheDocument()
+        expect(within(dialogo()).getByText(TUDO_PREENCHIDO)).toBeInTheDocument()
+        expect(concluir()).toBeEnabled()
+        await user.click(concluir())
+        expect(onConfirmar).toHaveBeenCalledWith(expect.objectContaining({ variaveisUsadas: ['filial', 'dataInicial'] }))
+      })
+
+      it('%colaborador% e %zona% também avisam, um aviso por variável', async () => {
+        const user = usuarioRapido()
+        renderizar()
+
+        await colar(user, entrada(), soap({ c: '%colaborador%', z: '%zona%' }))
+
+        expect(within(validacaoEntrada()!).getByText('%colaborador% não tem valor numa consulta que traz todas as filiais; use %empresas%.')).toBeInTheDocument()
+        expect(within(validacaoEntrada()!).getByText('%zona% não tem valor numa consulta que traz todas as filiais; use %empresas%.')).toBeInTheDocument()
+      })
+
+      it('sem %filial% (com %empresas%) não há aviso', async () => {
+        const user = usuarioRapido()
+        renderizar()
+
+        await colar(user, entrada(), soap({ ECodEmp: '%empresas%' }))
+
+        expect(validacaoEntrada()).toHaveTextContent('JSON válido')
+        expect(within(dialogo()).queryByText(/não tem valor numa consulta/)).not.toBeInTheDocument()
+      })
+
+      it('entrada inválida não mostra o aviso', async () => {
+        const user = usuarioRapido()
+        renderizar()
+
+        await colar(user, entrada(), soap({ f: '%filial%', x: '%foo%' }))
+
+        expect(validacaoEntrada()).toHaveTextContent('JSON de entrada inválido')
+        expect(within(dialogo()).queryByText(AVISO_FILIAL)).not.toBeInTheDocument()
+      })
     })
 
     it('entrada mal formada: erro com linha e coluna', async () => {
@@ -679,10 +1025,10 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
       expect(botaoVariavel('filial')).toHaveAttribute('aria-pressed', 'false')
       await user.click(within(dialogo()).getByRole('button', { name: 'Inserir modelo de entrada' }))
 
-      for (const nome of ['filial', 'competencia', 'dataInicial', 'dataFinal']) {
+      for (const nome of ['dataInicial', 'dataFinal', 'empresas']) {
         expect(botaoVariavel(nome)).toHaveAttribute('aria-pressed', 'true')
       }
-      for (const nome of ['colaborador', 'zona', 'mes', 'ano', 'hoje', 'diaColeta', 'mesesRetro']) {
+      for (const nome of ['filial', 'empresa', 'colaborador', 'zona', 'mes', 'ano', 'competencia', 'hoje', 'diaColeta', 'mesesRetro']) {
         expect(botaoVariavel(nome)).toHaveAttribute('aria-pressed', 'false')
       }
     })
@@ -691,7 +1037,7 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
       renderizar({ variaveis: [], carregandoVariaveis: true })
 
       expect(within(dialogo()).getByText('Carregando variáveis...')).toBeInTheDocument()
-      expect(within(dialogo()).queryAllByRole('button', { name: /^%/ })).toHaveLength(0)
+      expect(within(variaveisDisponiveis()).queryAllByRole('button', { name: /^%/ })).toHaveLength(0)
     })
 
     it('erro ao carregar as variáveis: mostra o erro, a lista fica vazia e toda variável é desconhecida', async () => {
@@ -699,11 +1045,11 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
       renderizar({ variaveis: [], erroVariaveis: 'Não foi possível carregar as variáveis.' })
 
       expect(within(dialogo()).getByText('Não foi possível carregar as variáveis.')).toBeInTheDocument()
-      expect(within(dialogo()).queryAllByRole('button', { name: /^%/ })).toHaveLength(0)
+      expect(within(variaveisDisponiveis()).queryAllByRole('button', { name: /^%/ })).toHaveLength(0)
 
-      await colar(user, entrada(), '{"filial": "%filial%"}')
+      await colar(user, entrada(), soap({ ECodEmp: '%empresas%' }))
       expect(within(validacaoEntrada()!).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
-        'Campo "filial": variável desconhecida %filial% em "%filial%"',
+        'Campo "parametros.ECodEmp": variável desconhecida %empresas% em "%empresas%"',
       ])
     })
   })
@@ -721,6 +1067,8 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
       expect(identificador()).toHaveValue('XPTO')
       expect(url()).toHaveValue(URL_VALIDA)
       expect(saida()).toHaveValue(MODELO_JSON_SAIDA)
+      expect(campoFilial()).toHaveValue('codfil')
+      expect(campoValor()).toHaveValue('vlrLiq')
       expect(entrada()).toHaveValue(MODELO_JSON_ENTRADA)
     })
 
@@ -748,51 +1096,51 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
       await colar(
         user,
         entrada(),
-        '{"filial": "%filial%", "c": "%competencia%", "dias": "(%mesesRetro% * 30) - 1", "inicio": "%dataInicial% - 30", "h": "%hoje% + 0"}',
+        soap({ filial: '%filial%', c: '%competencia%', dias: '(%mesesRetro% * 30) - 1', inicio: '%dataInicial% - 30', h: '%hoje% + 0' }),
       )
 
       const validacao = validacaoEntrada()!
       expect(validacao.textContent).toContain('"filial": "100"')
       expect(validacao.textContent).toContain('"c": "10/2026"')
-      expect(within(validacao).getByText('dias: (%mesesRetro% * 30) - 1 = 89')).toBeInTheDocument()
-      expect(within(validacao).getByText('inicio: %dataInicial% - 30 = 01/09/2026')).toBeInTheDocument()
-      expect(within(validacao).getByText('h: %hoje% + 0 = 09/11/2026')).toBeInTheDocument()
+      expect(within(validacao).getByText('parametros.dias: (%mesesRetro% * 30) - 1 = 89')).toBeInTheDocument()
+      expect(within(validacao).getByText('parametros.inicio: %dataInicial% - 30 = 01/09/2026')).toBeInTheDocument()
+      expect(within(validacao).getByText('parametros.h: %hoje% + 0 = 09/11/2026')).toBeInTheDocument()
     })
 
     it('número com vírgula no exemplo ("2,5") entra na conta', async () => {
       const user = usuarioRapido()
       renderizar({ variaveis: variavel('mesesRetro', '2,5') })
 
-      await colar(user, entrada(), '{"x": "%mesesRetro% * 2"}')
+      await colar(user, entrada(), soap({ x: '%mesesRetro% * 2' }))
 
-      expect(within(validacaoEntrada()!).getByText('x: %mesesRetro% * 2 = 5')).toBeInTheDocument()
+      expect(within(validacaoEntrada()!).getByText('parametros.x: %mesesRetro% * 2 = 5')).toBeInTheDocument()
     })
 
     it('exemplo ausente (null) usa o valor do dado: Devoluções com 3 meses retroativos → 89', async () => {
       const user = usuarioRapido()
       renderizar({ dado: DEVOLUCOES_3_MESES, variaveis: variavel('mesesRetro', null) })
 
-      await colar(user, entrada(), '{"dias": "(%mesesRetro% * 30) - 1"}')
+      await colar(user, entrada(), soap({ dias: '(%mesesRetro% * 30) - 1' }))
 
-      expect(within(validacaoEntrada()!).getByText('dias: (%mesesRetro% * 30) - 1 = 89')).toBeInTheDocument()
+      expect(within(validacaoEntrada()!).getByText('parametros.dias: (%mesesRetro% * 30) - 1 = 89')).toBeInTheDocument()
     })
 
     it('exemplo que não se converte no tipo ("abc" para número) usa o valor do dado: janela 1 → 29', async () => {
       const user = usuarioRapido()
       renderizar({ dado: DEVOLUCOES, variaveis: variavel('mesesRetro', 'abc') })
 
-      await colar(user, entrada(), '{"dias": "(%mesesRetro% * 30) - 1"}')
+      await colar(user, entrada(), soap({ dias: '(%mesesRetro% * 30) - 1' }))
 
-      expect(within(validacaoEntrada()!).getByText('dias: (%mesesRetro% * 30) - 1 = 29')).toBeInTheDocument()
+      expect(within(validacaoEntrada()!).getByText('parametros.dias: (%mesesRetro% * 30) - 1 = 29')).toBeInTheDocument()
     })
 
     it('exemplo de data fora de dd/mm/aaaa usa o valor calculado de hoje', async () => {
       const user = usuarioRapido()
       renderizar({ hoje: new Date(2026, 9, 15), variaveis: variavel('hoje', '2026-11-09') })
 
-      await colar(user, entrada(), '{"h": "%hoje% + 0"}')
+      await colar(user, entrada(), soap({ h: '%hoje% + 0' }))
 
-      expect(within(validacaoEntrada()!).getByText('h: %hoje% + 0 = 15/10/2026')).toBeInTheDocument()
+      expect(within(validacaoEntrada()!).getByText('parametros.h: %hoje% + 0 = 15/10/2026')).toBeInTheDocument()
     })
   })
 
@@ -999,6 +1347,86 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
         expect(url()).toHaveAttribute('aria-invalid', 'true')
         expect(url()).toHaveAccessibleDescription(expect.stringContaining(MENSAGEM_URL))
         expect(identificador()).toHaveAttribute('aria-invalid', 'true')
+      })
+    })
+
+    /**
+     * Saída por "chave: tipo" (11/11/2026, `FRONT-saida-chave-tipo.md`, seção 3): erros do 400 com `campo`
+     * `"campo da filial"`, `"campo do valor"` (ou `"campo da meta"`, no indicador) e `"campo da competencia"`
+     * aparecem junto à lista correspondente (não no alerta geral) e somem quando o usuário muda aquela
+     * lista, como nos demais campos.
+     */
+    describe('erros do 400 no mapeamento da saída', () => {
+      const ERROS_MAPEAMENTO: ErroIntegracao[] = [
+        {
+          campo: 'campo da filial',
+          mensagem: 'o "campo da filial" aponta para "x", que nao existe na saida',
+          linha: null,
+          coluna: null,
+          caminho: null,
+          expressao: null,
+        },
+        {
+          campo: 'campo do valor',
+          mensagem: 'o "campo do valor" ("codemp") e do tipo string; precisa ser number',
+          linha: null,
+          coluna: null,
+          caminho: null,
+          expressao: null,
+        },
+        {
+          campo: 'campo da competencia',
+          mensagem: 'cada papel (filial, valor, meta, competencia) precisa de um campo diferente da saida',
+          linha: null,
+          coluna: null,
+          caminho: null,
+          expressao: null,
+        },
+      ]
+
+      async function comErrosDoMapeamento(user: Usuario) {
+        const utils = renderizar()
+        await user.type(identificador(), 'xpto')
+        await preencherIntegracao(user)
+        await substituir(user, saida(), SAIDA_COMPLETA)
+        utils.rerenderizar({ erro: 'integracao invalida: ...', errosCampos: ERROS_MAPEAMENTO })
+        return utils
+      }
+
+      it('cada erro aparece junto à sua lista, fora do alerta geral', async () => {
+        const user = usuarioRapido()
+        await comErrosDoMapeamento(user)
+
+        expect(campoFilial()).toHaveAttribute('aria-invalid', 'true')
+        expect(campoFilial()).toHaveAccessibleDescription(expect.stringContaining('o "campo da filial" aponta para "x", que nao existe na saida'))
+        expect(campoValor()).toHaveAccessibleDescription(expect.stringContaining('o "campo do valor" ("codemp") e do tipo string; precisa ser number'))
+        expect(campoCompetencia()).toHaveAccessibleDescription(
+          expect.stringContaining('cada papel (filial, valor, meta, competencia) precisa de um campo diferente da saida'),
+        )
+        const alerta = within(dialogo()).getByRole('alert')
+        expect(alerta).toHaveTextContent('integracao invalida: ...')
+        expect(alerta).not.toHaveTextContent('aponta para')
+        expect(saida()).not.toHaveAttribute('aria-invalid', 'true')
+      })
+
+      it('mudar uma lista tira só o erro dela', async () => {
+        const user = usuarioRapido()
+        await comErrosDoMapeamento(user)
+
+        await user.selectOptions(campoFilial(), 'codemp')
+
+        expect(campoFilial()).not.toHaveAccessibleDescription(expect.stringContaining('nao existe na saida'))
+        expect(campoValor()).toHaveAttribute('aria-invalid', 'true')
+        expect(campoCompetencia()).toHaveAttribute('aria-invalid', 'true')
+      })
+
+      it('"campo da meta" na modal do dado externo não tem lista: vai para o alerta geral', () => {
+        renderizar({
+          erro: 'integracao invalida',
+          errosCampos: [{ campo: 'campo da meta', mensagem: 'informe o "campo da meta"', linha: null, coluna: null, caminho: null, expressao: null }],
+        })
+
+        expect(within(dialogo()).getByRole('alert')).toHaveTextContent('informe o "campo da meta"')
       })
     })
 

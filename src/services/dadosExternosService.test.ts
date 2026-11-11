@@ -192,6 +192,11 @@ describe('F5.1 — Serviço de dados externos', () => {
         integracaoAlteradaPor: null,
         // Alteração de 10/11/2026: "fornece meta": true na listagem.
         forneceMeta: true,
+        // Executor (11/11/2026, só Admin): ausentes → null.
+        ultimaConsultaEm: null,
+        erroUltimaConsulta: null,
+        // Saída por "chave: tipo" (11/11/2026, só Admin): "mapeamento da saida" ausente → null.
+        mapeamentoSaida: null,
       })
       expect(dados[1].situacao).toBe('em_construcao')
       expect(dados[1].identificador).toBeNull()
@@ -267,6 +272,11 @@ describe('F5.1 — Serviço de dados externos', () => {
         integracaoAlteradaPor: null,
         // "fornece meta" ausente → false.
         forneceMeta: false,
+        // Executor (11/11/2026, só Admin): ausentes → null.
+        ultimaConsultaEm: null,
+        erroUltimaConsulta: null,
+        // Saída por "chave: tipo" (11/11/2026, só Admin): "mapeamento da saida" ausente → null.
+        mapeamentoSaida: null,
       })
     })
 

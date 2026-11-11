@@ -26,7 +26,8 @@ import { definirToken, limparToken } from './sessao'
  *   nem `metas por filial`, `"meta editavel": false` e, no contrato final (10/11/2026), `"fonte da meta"`
  *   (sem `fonteDaMeta` → `integracao`; ver `indicadoresService.fonteDaMeta.test.ts`);
  * - `atualizarIntegracaoIndicador(id, integracao)` → `PUT /api/ped/indicadores-cadastro/{id}/integracao`,
- *   mesmo corpo da integração do dado externo; 2xx = gravado (resolve sem valor);
+ *   mesmo corpo da integração do dado externo mais o mapeamento da saída (`campo da filial`, `campo da meta`,
+ *   `campo da competencia` — 11/11/2026, ver `indicadoresService.saidaTipos.test.ts`); 2xx = gravado (resolve sem valor);
  * - listagem: campos da integração em `Indicador.integracao` (só com origem `terceiro`) e o alerta
  *   opcional `alertas["integracao pendente"]` → `alertas.integracaoPendente` (ausente → `undefined`,
  *   tratado como 0 pela tela).
@@ -36,7 +37,15 @@ const SAIDA = JSON.stringify(SAIDA_META_VIA_API, null, 2)
 const ENTRADA = JSON.stringify(ENTRADA_META_VIA_API, null, 2)
 
 function integracao(sobrescrever: Partial<IntegracaoDadoExterno> = {}): IntegracaoDadoExterno {
-  return { identificador: 'META_MARGEM', url: URL_META_VIA_API, parametrosSaida: SAIDA, parametrosEntrada: ENTRADA, ...sobrescrever }
+  return {
+    identificador: 'META_MARGEM',
+    url: URL_META_VIA_API,
+    parametrosSaida: SAIDA,
+    parametrosEntrada: ENTRADA,
+    // Saída por "chave: tipo" (11/11/2026): mapeamento da saída escolhido na modal.
+    mapeamento: { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: null },
+    ...sobrescrever,
+  }
 }
 
 describe('F6.11 — Meta via API: serviço de indicadores', () => {
@@ -74,7 +83,7 @@ describe('F6.11 — Meta via API: serviço de indicadores', () => {
           url: URL_META_VIA_API,
           parametrosSaida: SAIDA_META_VIA_API,
           parametrosEntrada: ENTRADA_META_VIA_API,
-          variaveisUsadas: ['competencia', 'filial'],
+          variaveisUsadas: ['competencia', 'empresas'],
           pendente: false,
           alteradaEm: '2026-11-10 09:00:00',
           alteradaPor: 'Equipe TI',
@@ -192,9 +201,9 @@ describe('F6.11 — Meta via API: serviço de indicadores', () => {
   })
 
   describe('atualizarIntegracaoIndicador(id, integracao)', () => {
-    const RESPOSTA_OK = { mensagem: 'integracao atualizada', 'variaveis usadas': ['competencia', 'filial'] }
+    const RESPOSTA_OK = { mensagem: 'integracao atualizada', 'variaveis usadas': ['competencia', 'empresas'] }
 
-    it('PUT /api/ped/indicadores-cadastro/{id}/integracao com o token e os quatro campos (identificador em maiúsculas e sem espaços nas pontas, url sem espaços nas pontas, JSONs como digitados)', async () => {
+    it('PUT /api/ped/indicadores-cadastro/{id}/integracao com o token, os quatro campos (identificador em maiúsculas e sem espaços nas pontas, url sem espaços nas pontas, JSONs como digitados) e o mapeamento da saída', async () => {
       const chamadas = simularApi(fetchFalso, { [`PUT ${ROTA}/11/integracao`]: () => respostaJson(RESPOSTA_OK) })
 
       await atualizarIntegracaoIndicador(11, integracao({ identificador: ' meta_margem ', url: `  ${URL_META_VIA_API} ` }))
@@ -208,6 +217,8 @@ describe('F6.11 — Meta via API: serviço de indicadores', () => {
         url: URL_META_VIA_API,
         'parametros de saida': SAIDA,
         'parametros de entrada': ENTRADA,
+        'campo da filial': 'codfil',
+        'campo da meta': 'metVlr',
       })
     })
 

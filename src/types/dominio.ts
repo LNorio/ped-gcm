@@ -276,6 +276,30 @@ export interface DadoExterno extends Auditoria {
    * todos os perfis recebem; ausente ou `null` → `false`.
    */
   forneceMeta: boolean
+  /**
+   * Executor das integrações (F5.22, 11/11/2026): data da última consulta **bem-sucedida**; `null`
+   * antes da primeira consulta ou para quem não é Admin.
+   */
+  ultimaConsultaEm: DataApi | null
+  /** Executor (F5.22): erro da última consulta; `null` quando não houve erro (ou não é Admin). */
+  erroUltimaConsulta: string | null
+  /**
+   * Saída por "chave: tipo" (11/11/2026, só Admin): campos da saída escolhidos para cada papel, de
+   * `"mapeamento da saida"`; `null` no formato antigo (lista), sem integração ou para quem não é Admin.
+   */
+  mapeamentoSaida: MapeamentoSaida | null
+}
+
+/**
+ * Mapeamento da saída da integração (11/11/2026, `FRONT-saida-chave-tipo.md`): o nome do campo da saída
+ * que traz cada informação. `campoValor` no dado externo, `campoMeta` no indicador; `campoCompetencia`
+ * é opcional (`null` sem competência).
+ */
+export interface MapeamentoSaida {
+  campoFilial: string
+  campoValor?: string
+  campoMeta?: string
+  campoCompetencia?: string | null
 }
 
 /**
@@ -289,6 +313,8 @@ export interface IntegracaoDadoExterno {
   parametrosSaida: string
   /** Texto do JSON de entrada, como digitado. */
   parametrosEntrada: string
+  /** Campos da saída para cada papel (saída por "chave: tipo", 11/11/2026). */
+  mapeamento: MapeamentoSaida
 }
 
 /**
@@ -325,9 +351,18 @@ export interface IntegracoesPendentes {
 export interface ParametrosValidacaoIntegracao {
   parametrosSaida?: string
   parametrosEntrada?: string
+  /**
+   * Campo de valor exigido na saída (11/11/2026, `FRONT-meta-via-api-fase1.md`, item 2.2): `valor` na
+   * modal do dado externo, `meta` na do indicador. Enviado só quando informado.
+   */
+  finalidade?: 'valor' | 'meta'
+  /**
+   * Mapeamento da saída (11/11/2026): enviado só junto com a saída e só com os campos preenchidos.
+   */
+  mapeamento?: MapeamentoSaida
 }
 
-/** Campo do JSON de saída validado pelo back-end. `tipo`: `texto`, `numero`, `booleano`, `lista`, `objeto` ou `nulo`. */
+/** Campo do JSON de saída validado pelo back-end (na saída por tipos: `string`, `number`, `date` ou `boolean`). */
 export interface CampoSaidaServidor {
   nome: string
   tipo: string
@@ -340,10 +375,22 @@ export interface ErroJsonServidor {
   coluna: number | null
 }
 
-/** Resultado da validação do JSON de saída pelo back-end. */
+/**
+ * Resultado da validação do JSON de saída pelo back-end. No inválido, `erros` traz os erros da estrutura
+ * (saída que não é lista, item sem `filial`/valor — 11/11/2026); `[]` quando o back-end não manda.
+ */
 export type ResultadoValidacaoSaidaServidor =
-  | { valido: true; campos: CampoSaidaServidor[] }
-  | { valido: false; erro: ErroJsonServidor }
+  | {
+      valido: true
+      campos: CampoSaidaServidor[]
+      /** `tipos` na saída por "chave: tipo"; `null` no formato antigo (lista) ou ausente. */
+      formato: string | null
+      /** Resumo do back-end (ex.: `3 campos: codemp (string), ...`); `null` se ausente. */
+      resumo: string | null
+      /** Mapeamento conferido pelo back-end; `null` se ausente ou fora do formato. */
+      mapeamento: MapeamentoSaida | null
+    }
+  | { valido: false; erro: ErroJsonServidor; erros: ErroIntegracao[] }
 
 /** Conta resolvida na prévia do JSON de entrada (back-end). */
 export interface CalculoEntradaServidor {
@@ -534,6 +581,19 @@ export interface IntegracaoDoIndicador {
   pendente: boolean
   alteradaEm: DataApi | null
   alteradaPor: string | null
+  /**
+   * Executor das integrações (F6.11, fase 2): data da última consulta **bem-sucedida** da meta;
+   * `null` antes da primeira consulta, fora da fonte `integracao` ou para quem não é Admin.
+   */
+  ultimaConsultaEm: DataApi | null
+  /** Executor (F6.11, fase 2): erro da última consulta da meta; `null` quando não houve erro. */
+  erroUltimaConsulta: string | null
+  /**
+   * Saída por "chave: tipo" (F6.11, 11/11/2026): `campoFilial`, `campoMeta` e `campoCompetencia` de
+   * `"mapeamento da saida"`; `null` no formato antigo (saída em lista), sem integração salva, fora do
+   * formato ou para quem não é Admin.
+   */
+  mapeamentoSaida: MapeamentoSaida | null
 }
 
 export interface PontosDashboard {

@@ -88,6 +88,21 @@ export interface DadoExternoApiFalso {
    * `true`, Cobertura de clientes `false`, demais ausentes.
    */
   'fornece meta'?: boolean
+  /**
+   * Executor das integrações (fase 2, 11/11/2026 — `FRONT-meta-via-api-fase2.md`, seção 1; só Admin):
+   * último sucesso da consulta (`"aaaa-mm-dd hh:mm:ss"`) e o erro da última consulta (texto). Ausentes
+   * nas constantes padrão.
+   */
+  'ultima consulta em'?: unknown
+  'erro da ultima consulta'?: unknown
+  /** `"soap"` (padrão) ou `"rest"`; a listagem do Admin devolve o campo (fase 1, item 2.4). */
+  'tipo de servico'?: unknown
+  /**
+   * Saída por "chave: tipo" (11/11/2026 — `FRONT-saida-chave-tipo.md`, seção 5; só Admin):
+   * `{ "campo da filial", "campo do valor", "campo da competencia"? }`, ou `null` quando a integração está no
+   * formato antigo (saída em lista). Ausente nas constantes padrão.
+   */
+  'mapeamento da saida'?: unknown
 }
 
 export interface IdentificadorApiFalso {
@@ -524,17 +539,29 @@ export function rotaListarDadosExternos(obterLista: () => DadoExternoApiFalso[])
 // ---------------------------------------------------------------------------
 
 /**
- * URL e parâmetros gravados da integração de "Faturamento líquido" (lista do Admin). Desde 10/11/2026 a
- * saída é uma lista com um item por filial (`filial` e `valor`; `competencia` opcional).
+ * URL e parâmetros gravados da integração de "Faturamento líquido" (lista do Admin). Desde 11/11/2026
+ * (saída por "chave: tipo", `FRONT-saida-chave-tipo.md`) a saída é o **objeto** `{ "campo": "tipo" }`
+ * e o mapeamento aponta a filial e o valor (`MAPEAMENTO_FATURAMENTO_API`). Desde 11/11/2026 (executor,
+ * `FRONT-meta-via-api-fase2.md` seção 2.1) a entrada SOAP é `{ operacao, parametros }`, com `%empresas%`
+ * (a consulta traz todas as filiais).
  */
 export const URL_FATURAMENTO = 'https://ti.exemplo.com.br/api/faturamento'
-export const SAIDA_FATURAMENTO_API = [{ filial: '101', valor: '0' }]
-export const ENTRADA_FATURAMENTO_API = { filial: '%filial%', inicio: '%dataInicial% - 3m', fim: '%dataFinal%' }
+export const SAIDA_FATURAMENTO_API = { codemp: 'string', codfil: 'string', vlrLiq: 'number', datCpt: 'date' }
+/** `"mapeamento da saida"` de "Faturamento líquido" na listagem do Admin (com competência). */
+export const MAPEAMENTO_FATURAMENTO_API = { 'campo da filial': 'codfil', 'campo do valor': 'vlrLiq', 'campo da competencia': 'datCpt' }
+export const ENTRADA_FATURAMENTO_API = {
+  operacao: 'FaturamentoLiquido',
+  parametros: { ECodEmp: '%empresas%', EDatIni: '%dataInicial% - 3m', EDatFim: '%dataFinal%' },
+}
 
-/** URL e parâmetros gravados da integração de "Volume de vendas" (lista do Admin). */
+/**
+ * URL e parâmetros gravados da integração de "Volume de vendas" (lista do Admin). A saída continua no
+ * **formato antigo** (lista com valores), com `"mapeamento da saida": null`: é a integração salva antes da
+ * saída por "chave: tipo" (11/11/2026), que a modal abre com o aviso para reescrever.
+ */
 export const URL_VOLUME = 'https://ti.exemplo.com.br/api/volume'
 export const SAIDA_VOLUME_API = [{ filial: '101', valor: '0', competencia: '10/2026' }]
-export const ENTRADA_VOLUME_API = { filial: '%filial%', competencia: '%competencia%' }
+export const ENTRADA_VOLUME_API = { operacao: 'VolVenConsolidado', parametros: { ECodEmp: '%empresas%', ECompet: '%competencia%' } }
 
 /** Campos da integração como o Admin recebe na listagem. */
 export interface IntegracaoApiFalsa {
@@ -545,6 +572,12 @@ export interface IntegracaoApiFalsa {
   'integracao pendente': boolean
   'integracao alterada em': string | null
   'integracao alterada por': string | null
+  /** Executor (11/11/2026): ausentes por padrão. */
+  'ultima consulta em'?: unknown
+  'erro da ultima consulta'?: unknown
+  'tipo de servico'?: unknown
+  /** Saída por "chave: tipo" (11/11/2026): `null` sem integração ou no formato antigo. */
+  'mapeamento da saida'?: unknown
 }
 
 /** Integração ainda não gravada; `pendente` = dado ativo/inativo sem integração. */
@@ -557,6 +590,7 @@ export function semIntegracaoApi(pendente: boolean): IntegracaoApiFalsa {
     'integracao pendente': pendente,
     'integracao alterada em': null,
     'integracao alterada por': null,
+    'mapeamento da saida': null,
   }
 }
 
@@ -571,19 +605,22 @@ export function comIntegracaoApi(
 /**
  * Lista padrão como o **Admin** a recebe (mesma ordem de `dadosExternosApi`), com os campos da
  * integração:
- * - Faturamento líquido — ativo, integração gravada (URL_FATURAMENTO, saída e entrada);
+ * - Faturamento líquido — ativo, integração gravada (URL_FATURAMENTO, saída em "chave: tipo", mapeamento
+ *   `MAPEAMENTO_FATURAMENTO_API` e entrada);
  * - Cobertura de clientes — inativo, **integração pendente** (sem URL);
  * - Devoluções de venda e Prazo médio — em construção (sem integração, não pendentes);
  * - Chamados atendidos no prazo — ativo, **integração pendente** (sem URL);
- * - Volume de vendas — ativo, integração gravada (URL_VOLUME, saída em lista).
+ * - Volume de vendas — ativo, integração gravada no **formato antigo** (URL_VOLUME, saída em lista,
+ *   `"mapeamento da saida": null`).
  */
 export function dadosExternosAdminApi(): DadoExternoApiFalso[] {
   return [
     comIntegracaoApi(DADO_FATURAMENTO_API, {
       url: URL_FATURAMENTO,
-      'parametros de saida': SAIDA_FATURAMENTO_API.map((item) => ({ ...item })),
+      'parametros de saida': { ...SAIDA_FATURAMENTO_API },
       'parametros de entrada': { ...ENTRADA_FATURAMENTO_API },
-      'variaveis usadas': ['dataFinal', 'dataInicial', 'filial'],
+      'mapeamento da saida': { ...MAPEAMENTO_FATURAMENTO_API },
+      'variaveis usadas': ['dataFinal', 'dataInicial', 'empresas'],
       'integracao alterada em': '2026-11-09 10:00:00',
       'integracao alterada por': 'Equipe TI',
     }),
@@ -595,7 +632,7 @@ export function dadosExternosAdminApi(): DadoExternoApiFalso[] {
       url: URL_VOLUME,
       'parametros de saida': SAIDA_VOLUME_API.map((item) => ({ ...item })),
       'parametros de entrada': { ...ENTRADA_VOLUME_API },
-      'variaveis usadas': ['competencia', 'filial'],
+      'variaveis usadas': ['competencia', 'empresas'],
       'integracao alterada em': '2026-11-08 17:30:00',
       'integracao alterada por': 'Equipe TI',
     }),
@@ -623,12 +660,20 @@ export function rotaIntegracoesPendentes(obterLista: () => DadoExternoApiFalso[]
   return () => respostaJson(integracoesPendentesApi(obterLista()))
 }
 
-/** Corpo enviado em `PUT .../concluir` e `PUT .../integracao` (os quatro campos são obrigatórios). */
+/**
+ * Corpo enviado em `PUT .../concluir` e `PUT .../integracao`: os quatro campos e, desde 11/11/2026
+ * (saída por "chave: tipo"), o mapeamento — `"campo da filial"`, `"campo do valor"` (dado externo) ou
+ * `"campo da meta"` (indicador) e `"campo da competencia"` (omitido quando não informado).
+ */
 export interface CorpoIntegracaoApiFalso {
   identificador: string
   url: string
   'parametros de saida': string
   'parametros de entrada': string
+  'campo da filial': string
+  'campo do valor'?: string
+  'campo da meta'?: string
+  'campo da competencia'?: string
 }
 
 // ---------------------------------------------------------------------------

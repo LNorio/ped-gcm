@@ -8,91 +8,76 @@ import { validarSaida } from './saida'
 /**
  * Modelos do atalho "Inserir modelo" (F5.14): precisam ser válidos pelo próprio motor.
  *
- * Alteração de 10/11/2026 (seção 2.3 de `RESPOSTA-FINAL-meta-via-api.md`): "Inserir modelo" da saída
- * gera uma **lista de exemplo** com um item por filial — `MODELO_JSON_SAIDA` (dado externo: `filial`,
- * `valor`, `competencia`) e `MODELO_JSON_SAIDA_META` (indicador: `filial`, `meta`, `competencia`),
- * nessa ordem de campos, com 2 espaços de indentação.
+ * Alteração de 11/11/2026 (saída por "chave: tipo" — `docs/propostas-backend/FRONT-saida-chave-tipo.md`,
+ * seção 6): "Inserir modelo" da saída gera o **objeto** `{ "campo": "tipo" }` do documento, com 2 espaços:
+ * `MODELO_JSON_SAIDA` (dado externo) = `{ "codfil": "string", "vlrLiq": "number" }` e
+ * `MODELO_JSON_SAIDA_META` (indicador) = `{ "codfil": "string", "metVlr": "number" }`. A lista de exemplo
+ * com um item por filial (10/11/2026) deixa de valer.
  */
 describe('F5.14 — Modelos de JSON da integração (Inserir modelo)', () => {
-  /** Itens do modelo, verificando que é uma lista JSON de objetos. */
-  function itensDe(modelo: string): Record<string, unknown>[] {
-    const valor: unknown = JSON.parse(modelo)
-    expect(Array.isArray(valor)).toBe(true)
-    return valor as Record<string, unknown>[]
-  }
-
   describe('MODELO_JSON_SAIDA (dado externo)', () => {
-    it('é uma lista de exemplo, com ao menos um item, formatada com 2 espaços', () => {
-      const itens = itensDe(MODELO_JSON_SAIDA)
-
-      expect(itens.length).toBeGreaterThanOrEqual(1)
-      expect(MODELO_JSON_SAIDA).toBe(JSON.stringify(itens, null, 2))
+    it('é { "codfil": "string", "vlrLiq": "number" }, formatado com 2 espaços', () => {
+      expect(MODELO_JSON_SAIDA).toBe(JSON.stringify({ codfil: 'string', vlrLiq: 'number' }, null, 2))
     })
 
-    it('cada item tem filial, valor e competencia (MM/AAAA), nessa ordem', () => {
-      for (const item of itensDe(MODELO_JSON_SAIDA)) {
-        expect(Object.keys(item)).toEqual(['filial', 'valor', 'competencia'])
-        expect(item.competencia).toMatch(/^\d{2}\/\d{4}$/)
-      }
-    })
-
-    it('é válido para a integração do dado externo, com "3 campos: filial (texto), valor (texto), competencia (texto)"', () => {
-      expect(validarSaida(MODELO_JSON_SAIDA, 'valor')).toMatchObject({
+    it('é válido, com "2 campos: codfil (string), vlrLiq (number)"', () => {
+      expect(validarSaida(MODELO_JSON_SAIDA, 'valor')).toEqual({
         estado: 'valido',
-        resumo: '3 campos: filial (texto), valor (texto), competencia (texto)',
+        campos: [
+          { nome: 'codfil', tipo: 'string' },
+          { nome: 'vlrLiq', tipo: 'number' },
+        ],
+        resumo: '2 campos: codfil (string), vlrLiq (number)',
       })
     })
 
-    it('não serve para o indicador (falta o campo meta)', () => {
-      expect(validarSaida(MODELO_JSON_SAIDA, 'meta')).toEqual({ estado: 'invalido', mensagem: 'Item 1: falta o campo meta' })
+    it('não é mais uma lista', () => {
+      expect(Array.isArray(JSON.parse(MODELO_JSON_SAIDA))).toBe(false)
     })
   })
 
   describe('MODELO_JSON_SAIDA_META (indicador)', () => {
-    it('é uma lista de exemplo, com ao menos um item, formatada com 2 espaços', () => {
-      const itens = itensDe(MODELO_JSON_SAIDA_META)
-
-      expect(itens.length).toBeGreaterThanOrEqual(1)
-      expect(MODELO_JSON_SAIDA_META).toBe(JSON.stringify(itens, null, 2))
+    it('é { "codfil": "string", "metVlr": "number" }, formatado com 2 espaços', () => {
+      expect(MODELO_JSON_SAIDA_META).toBe(JSON.stringify({ codfil: 'string', metVlr: 'number' }, null, 2))
     })
 
-    it('cada item tem filial, meta e competencia (MM/AAAA), nessa ordem', () => {
-      for (const item of itensDe(MODELO_JSON_SAIDA_META)) {
-        expect(Object.keys(item)).toEqual(['filial', 'meta', 'competencia'])
-        expect(item.competencia).toMatch(/^\d{2}\/\d{4}$/)
-      }
-    })
-
-    it('é válido para a integração do indicador, com "3 campos: filial (texto), meta (texto), competencia (texto)"', () => {
+    it('é válido, com "2 campos: codfil (string), metVlr (number)"', () => {
       expect(validarSaida(MODELO_JSON_SAIDA_META, 'meta')).toMatchObject({
         estado: 'valido',
-        resumo: '3 campos: filial (texto), meta (texto), competencia (texto)',
+        resumo: '2 campos: codfil (string), metVlr (number)',
       })
-    })
-
-    it('não serve para o dado externo (falta o campo valor)', () => {
-      expect(validarSaida(MODELO_JSON_SAIDA_META, 'valor')).toEqual({ estado: 'invalido', mensagem: 'Item 1: falta o campo valor' })
     })
   })
 
-  it('MODELO_JSON_ENTRADA é o exemplo do documento, com 2 espaços de indentação', () => {
+  /**
+   * Alteração de 11/11/2026 (executor — `FRONT-meta-via-api-fase2.md`, seção 2.1): "Inserir modelo" da
+   * entrada gera o formato SOAP `{ operacao, parametros }` do documento, com 2 espaços.
+   */
+  it('MODELO_JSON_ENTRADA é o modelo SOAP do documento ({ operacao, parametros }), com 2 espaços de indentação', () => {
     const exemplo = {
-      filial: '%filial%',
-      competencia: '%competencia%',
-      inicio: '%dataInicial% - 3m',
-      fim: '%dataFinal%',
-      dias: '%dataFinal% - %dataInicial% + 1',
+      operacao: 'NomeDaOperacao',
+      parametros: { EDatIni: '%dataInicial%', EDatFim: '%dataFinal%', ECodEmp: '%empresas%' },
     }
 
     expect(MODELO_JSON_ENTRADA).toBe(JSON.stringify(exemplo, null, 2))
   })
 
-  it('MODELO_JSON_ENTRADA é válido com as variáveis da API', () => {
+  it('MODELO_JSON_ENTRADA é válido com as variáveis da API, sem avisos (não usa %filial%)', () => {
     const contexto = {
       variaveis: variaveisIntegracao(),
       valores: valoresDeExemplo({ hoje: new Date(2026, 9, 15), mesesRetro: 3, diaColeta: null }),
     }
 
-    expect(validarEntrada(MODELO_JSON_ENTRADA, contexto)).toMatchObject({ estado: 'valido' })
+    expect(validarEntrada(MODELO_JSON_ENTRADA, contexto)).toEqual({
+      estado: 'valido',
+      variaveisUsadas: ['dataInicial', 'dataFinal', 'empresas'],
+      calculos: [],
+      previa: JSON.stringify(
+        { operacao: 'NomeDaOperacao', parametros: { EDatIni: '01/10/2026', EDatFim: '31/10/2026', ECodEmp: '1,6,7,8,9' } },
+        null,
+        2,
+      ),
+      avisos: [],
+    })
   })
 })

@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { ENTRADA_META_VIA_API, URL_META_VIA_API } from '../../test/indicadoresFalsos'
+import { URL_META_VIA_API } from '../../test/indicadoresFalsos'
 import { identificadoresApi, variaveisIntegracaoSemExemplo } from '../../test/dadosExternosFalsos'
 import { colar, usuarioRapido } from '../../test/usuario'
 import type { ErroIntegracao } from '../../types/dominio'
@@ -24,17 +24,24 @@ import {
  * - nova prop opcional `tipoAlvo?: 'dado-externo' | 'indicador'` (padrão `'dado-externo'`), que só muda
  *   o texto da modal: "Revise a integração do indicador {nome} e salve as configurações.".
  * Sem `janelaRetroativa`/`diaDaColeta`, os exemplos locais usam só `hoje` (sem erro).
+ *
+ * Alteração de 11/11/2026 (saída por "chave: tipo"): `AlvoIntegracao` ganha `mapeamentoSaida?:
+ * MapeamentoSaida | null` e `DadosConclusaoConstrucao` ganha `mapeamento: MapeamentoSaida` (no indicador,
+ * com `campoMeta`).
  */
 /**
- * Saída da integração da meta em lista, um item por filial (`filial` e `meta`; `competencia` opcional) —
- * contrato final de 10/11/2026 (seção 2.3 de `RESPOSTA-FINAL-meta-via-api.md`). Constante local para
- * não depender do formato de `SAIDA_META_VIA_API` (`indicadoresFalsos.ts`).
+ * Saída da integração da meta por "chave: tipo" (11/11/2026 — `FRONT-saida-chave-tipo.md`, opção B), com o
+ * mapeamento salvo em `mapeamentoSaida` (`campoMeta` no indicador). Constantes locais para não depender do
+ * formato de `SAIDA_META_VIA_API` (`indicadoresFalsos.ts`, de outro requisito).
  */
-const SAIDA_META_LISTA = [
-  { filial: '100', meta: '4600000' },
-  { filial: '101', meta: '3200000' },
-]
-const SAIDA_TEXTO = JSON.stringify(SAIDA_META_LISTA, null, 2)
+const SAIDA_META_TIPOS = { codemp: 'string', codfil: 'string', metVlr: 'number', datCpt: 'date' }
+const MAPEAMENTO_META = { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: null }
+/**
+ * Entrada SOAP { operacao, parametros } (exigida desde 11/11/2026 — executor, FRONT-meta-via-api-fase2.md,
+ * seção 2.1). Constante local para não depender do formato de ENTRADA_META_VIA_API (indicadoresFalsos.ts).
+ */
+const ENTRADA_META_VIA_API = { operacao: 'MetasFiliais', parametros: { ECodEmp: '%empresas%', ECompet: '%competencia%' } }
+const SAIDA_TEXTO = JSON.stringify(SAIDA_META_TIPOS, null, 2)
 const ENTRADA_TEXTO = JSON.stringify(ENTRADA_META_VIA_API, null, 2)
 const HOJE = new Date(2026, 10, 10)
 
@@ -43,8 +50,9 @@ const CONFIGURADO: AlvoIntegracao = {
   nome: 'Margem com meta da TI',
   identificador: 'META_MARGEM',
   url: URL_META_VIA_API,
-  parametrosSaida: SAIDA_META_LISTA,
+  parametrosSaida: SAIDA_META_TIPOS,
   parametrosEntrada: ENTRADA_META_VIA_API,
+  mapeamentoSaida: MAPEAMENTO_META,
 }
 
 const PENDENTE: AlvoIntegracao = {
@@ -54,6 +62,7 @@ const PENDENTE: AlvoIntegracao = {
   url: null,
   parametrosSaida: null,
   parametrosEntrada: null,
+  mapeamentoSaida: null,
 }
 
 describe('F6.11 — DialogoConcluirConstrucao para a integração da meta do indicador (tipoAlvo "indicador")', () => {
@@ -122,13 +131,16 @@ describe('F6.11 — DialogoConcluirConstrucao para a integração da meta do ind
     expect(within(variaveis).getByRole('button', { name: /%competencia%/ })).toBeInTheDocument()
   })
 
-  it('preencher a integração pendente e salvar chama onConfirmar com os quatro campos e as variáveis usadas', async () => {
+  it('preencher a integração pendente e salvar chama onConfirmar com os quatro campos, o mapeamento (campoMeta) e as variáveis usadas', async () => {
     const user = usuarioRapido()
     const { onConfirmar } = renderizar({ dado: PENDENTE })
 
     await user.type(campo('Identificador da consulta'), 'meta_faturamento')
     await colar(user, campo('URL'), URL_META_VIA_API)
     await colar(user, campo('Parâmetros de saída'), SAIDA_TEXTO)
+    await user.selectOptions(campo('Campo da filial'), 'codfil')
+    await user.selectOptions(campo('Campo da meta'), 'metVlr')
+    await user.selectOptions(campo('Campo da competência'), 'datCpt')
     await colar(user, campo('Parâmetros de entrada'), ENTRADA_TEXTO)
     await user.click(salvar())
 
@@ -138,8 +150,10 @@ describe('F6.11 — DialogoConcluirConstrucao para a integração da meta do ind
       url: URL_META_VIA_API,
       parametrosSaida: SAIDA_TEXTO,
       parametrosEntrada: ENTRADA_TEXTO,
-      variaveisUsadas: expect.arrayContaining(['filial', 'competencia']) as unknown as string[],
+      mapeamento: { campoFilial: 'codfil', campoMeta: 'metVlr', campoCompetencia: 'datCpt' },
+      variaveisUsadas: expect.arrayContaining(['empresas', 'competencia']) as unknown as string[],
     })
+    expect(onConfirmar.mock.calls[0][0].mapeamento).not.toHaveProperty('campoValor')
   })
 
   it('erros do 400 aparecem junto aos campos e a mensagem geral no alerta', () => {
@@ -153,24 +167,36 @@ describe('F6.11 — DialogoConcluirConstrucao para a integração da meta do ind
   })
 
   /**
-   * Alteração de 10/11/2026: na integração do indicador o campo de valor de cada item é `meta`
-   * (`validarSaida(texto, 'meta')`), "Inserir modelo de saída" usa `MODELO_JSON_SAIDA_META` e a orientação
-   * do formato fala em meta.
+   * Alteração de 11/11/2026 (saída por "chave: tipo", opção B — `FRONT-saida-chave-tipo.md`): na
+   * integração do indicador o papel do valor é a **meta**: a lista se chama "Campo da meta" (obrigatória,
+   * com asterisco; não há "Campo do valor"), o "falta: ..." diz "campo da meta", a meta precisa ser
+   * `number`, os erros do 400 com campo `"campo da meta"` vão para essa lista e "Inserir modelo de saída"
+   * usa `MODELO_JSON_SAIDA_META` (`{ "codfil": "string", "metVlr": "number" }`). As listas abrem com o
+   * `mapeamentoSaida` salvo. Uma integração salva em lista (formato antigo) abre com o aviso para
+   * reescrever e o salvar bloqueado, como no dado externo.
    */
-  describe('saída em lista com filial e meta', () => {
-    it('mostra a orientação "Lista com um item por filial: filial e meta (competencia opcional)."', () => {
+  describe('saída por "chave: tipo" e mapeamento com "Campo da meta"', () => {
+    const AVISO_FORMATO_ANTIGO = 'Esta integração está no formato antigo (lista). Reescreva a saída no formato "campo": "tipo" para salvar.'
+
+    it('mostra "Campo da filial", "Campo da meta" e "Campo da competência", sem "Campo do valor"', () => {
       renderizar()
 
-      expect(within(dialogo()).getByText('Lista com um item por filial: filial e meta (competencia opcional).')).toBeInTheDocument()
-      expect(within(dialogo()).queryByText(/filial e valor/)).not.toBeInTheDocument()
+      expect(campo('Campo da filial').tagName).toBe('SELECT')
+      expect(campo('Campo da meta').tagName).toBe('SELECT')
+      expect((campo('Campo da meta') as HTMLSelectElement).labels?.[0]?.textContent).toBe('Campo da meta *')
+      expect(campo('Campo da competência').tagName).toBe('SELECT')
+      expect(within(dialogo()).queryByLabelText('Campo do valor')).not.toBeInTheDocument()
     })
 
-    it('a saída salva (lista com filial e meta) é válida: "2 campos: filial (texto), meta (texto)"', () => {
+    it('a saída salva é válida ("4 campos: ...") e as listas abrem com o mapeamento salvo', () => {
       renderizar()
 
       expect(within(dialogo()).getByRole('status', { name: 'Validação dos parâmetros de saída' })).toHaveTextContent(
-        '2 campos: filial (texto), meta (texto)',
+        '4 campos: codemp (string), codfil (string), metVlr (number), datCpt (date)',
       )
+      expect(campo('Campo da filial')).toHaveValue('codfil')
+      expect(campo('Campo da meta')).toHaveValue('metVlr')
+      expect(campo('Campo da competência')).toHaveValue('')
     })
 
     it('"Inserir modelo de saída" usa o modelo do indicador (MODELO_JSON_SAIDA_META), válido', async () => {
@@ -182,27 +208,64 @@ describe('F6.11 — DialogoConcluirConstrucao para a integração da meta do ind
       expect(campo('Parâmetros de saída')).toHaveValue(MODELO_JSON_SAIDA_META)
       expect(campo('Parâmetros de saída')).not.toHaveValue(MODELO_JSON_SAIDA)
       expect(within(dialogo()).getByRole('status', { name: 'Validação dos parâmetros de saída' })).toHaveTextContent(
-        '3 campos: filial (texto), meta (texto), competencia (texto)',
+        '2 campos: codfil (string), metVlr (number)',
       )
     })
 
-    it('lista com valor no lugar de meta é inválida ("Item 1: falta o campo meta") e bloqueia o salvar', () => {
-      renderizar({ dado: { ...CONFIGURADO, parametrosSaida: [{ filial: '100', valor: '4600000' }] } })
+    it('sem a meta escolhida: "falta: campo da meta" e salvar bloqueado', () => {
+      renderizar({ dado: { ...CONFIGURADO, mapeamentoSaida: { campoFilial: 'codfil', campoCompetencia: null } } })
 
-      const validacao = within(dialogo()).getByRole('status', { name: 'Validação dos parâmetros de saída' })
-      expect(validacao).toHaveTextContent('JSON de saída inválido')
-      expect(validacao).toHaveTextContent('Item 1: falta o campo meta')
-      expect(within(dialogo()).getByText('falta: JSON de saída válido')).toBeInTheDocument()
+      expect(campo('Campo da meta')).toHaveValue('')
+      expect(within(dialogo()).getByText('falta: campo da meta')).toBeInTheDocument()
       expect(salvar()).toBeDisabled()
     })
 
-    it('saída salva como objeto solto (formato anterior) é inválida: "A saída deve ser uma lista com um item por filial"', () => {
-      renderizar({ dado: { ...CONFIGURADO, parametrosSaida: { filial: '100', meta: '4600000' } } })
+    it('meta que não é number → "O campo da meta ("codemp") é do tipo string; precisa ser number"', async () => {
+      const user = usuarioRapido()
+      renderizar()
 
+      await user.selectOptions(campo('Campo da meta'), 'codemp')
+
+      expect(campo('Campo da meta')).toHaveAccessibleDescription(
+        expect.stringContaining('O campo da meta ("codemp") é do tipo string; precisa ser number'),
+      )
+      expect(salvar()).toBeDisabled()
+    })
+
+    it('mapeamento salvo sem meta (null): "falta: campo da filial, campo da meta"', () => {
+      renderizar({ dado: { ...CONFIGURADO, mapeamentoSaida: null } })
+
+      expect(within(dialogo()).getByText('falta: campo da filial, campo da meta')).toBeInTheDocument()
+    })
+
+    it('erro do 400 com campo "campo da meta" aparece junto ao "Campo da meta"', () => {
+      const errosCampos: ErroIntegracao[] = [
+        { campo: 'campo da meta', mensagem: 'informe o "campo da meta"', linha: null, coluna: null, caminho: null, expressao: null },
+      ]
+      renderizar({ erro: 'integracao invalida', errosCampos })
+
+      expect(campo('Campo da meta')).toHaveAttribute('aria-invalid', 'true')
+      expect(campo('Campo da meta')).toHaveAccessibleDescription(expect.stringContaining('informe o "campo da meta"'))
+      expect(within(dialogo()).getByRole('alert')).not.toHaveTextContent('informe o "campo da meta"')
+    })
+
+    it('saída salva em lista (formato antigo): aviso para reescrever, "Formato antigo (lista)..." e salvar bloqueado', () => {
+      renderizar({ dado: { ...CONFIGURADO, parametrosSaida: [{ filial: '100', meta: '4600000' }], mapeamentoSaida: null } })
+
+      expect(within(dialogo()).getByText(AVISO_FORMATO_ANTIGO)).toBeInTheDocument()
       expect(within(dialogo()).getByRole('status', { name: 'Validação dos parâmetros de saída' })).toHaveTextContent(
-        'A saída deve ser uma lista com um item por filial',
+        'Formato antigo (lista). Reescreva a saída como { "campo": "tipo" }.',
       )
       expect(salvar()).toBeDisabled()
+    })
+
+    it('mostra a mesma orientação do formato novo, sem a lista por filial', () => {
+      renderizar()
+
+      expect(
+        within(dialogo()).getByText('Descreva um item da resposta como { "campo": "tipo" }, com os tipos string, number, date ou boolean.'),
+      ).toBeInTheDocument()
+      expect(within(dialogo()).queryByText(/Lista com um item por filial/)).not.toBeInTheDocument()
     })
   })
 

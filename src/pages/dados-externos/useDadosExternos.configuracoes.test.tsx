@@ -9,7 +9,8 @@ import { useDadosExternos } from './useDadosExternos'
 
 const ROTA = '/api/ped/dados-externos-cadastro'
 const URL_NOVA = 'https://ti.exemplo.com.br/api/cobertura'
-const SAIDA = '{ "valor": "0" }'
+/** Saída por "chave: tipo" (11/11/2026). */
+const SAIDA = '{ "codfil": "string", "vlrLiq": "number" }'
 const ENTRADA = '{ "filial": "%filial%" }'
 
 const INTEGRACAO: IntegracaoDadoExterno = {
@@ -17,6 +18,7 @@ const INTEGRACAO: IntegracaoDadoExterno = {
   url: URL_NOVA,
   parametrosSaida: SAIDA,
   parametrosEntrada: ENTRADA,
+  mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: null },
 }
 
 /**
@@ -82,6 +84,8 @@ describe('F5.16 — useDadosExternos.atualizarIntegracao (Configurações da int
       url: URL_NOVA,
       'parametros de saida': SAIDA,
       'parametros de entrada': ENTRADA,
+      'campo da filial': 'codfil',
+      'campo do valor': 'vlrLiq',
     })
     expect(valor).toBeUndefined()
     expect(gets(chamadas)).toHaveLength(2)

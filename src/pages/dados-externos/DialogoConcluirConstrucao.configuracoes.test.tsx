@@ -15,6 +15,7 @@ import { type Usuario, colar, usuarioRapido } from '../../test/usuario'
 import type { DadoExterno, ErroIntegracao } from '../../types/dominio'
 import { MODELO_JSON_SAIDA } from '../../utils/integracao/modelos'
 import {
+  type AlvoIntegracao,
   type DadosConclusaoConstrucao,
   DialogoConcluirConstrucao,
   type DialogoConcluirConstrucaoProps,
@@ -30,6 +31,7 @@ function comIntegracao(dado: DadoExterno, integracao: Partial<DadoExterno> = {})
     integracaoPendente: false,
     integracaoAlteradaEm: null,
     integracaoAlteradaPor: null,
+    mapeamentoSaida: null,
     ...integracao,
   }
 }
@@ -39,6 +41,7 @@ const FATURAMENTO = comIntegracao(paraDadoExterno(DADO_FATURAMENTO_API), {
   url: URL_FATURAMENTO,
   parametrosSaida: SAIDA_FATURAMENTO_API,
   parametrosEntrada: ENTRADA_FATURAMENTO_API,
+  mapeamentoSaida: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: 'datCpt' },
   variaveisUsadas: ['dataFinal', 'dataInicial', 'filial'],
 })
 /** Inativo com a integração pendente: sem URL nem parâmetros. */
@@ -47,6 +50,8 @@ const COBERTURA_PENDENTE = comIntegracao(paraDadoExterno(DADO_COBERTURA_API), { 
 const SAIDA_TEXTO = JSON.stringify(SAIDA_FATURAMENTO_API, null, 2)
 const ENTRADA_TEXTO = JSON.stringify(ENTRADA_FATURAMENTO_API, null, 2)
 const HOJE = new Date(2026, 9, 15)
+const AVISO_FORMATO_ANTIGO = 'Esta integração está no formato antigo (lista). Reescreva a saída no formato "campo": "tipo" para salvar.'
+const FORMATO_ANTIGO = 'Formato antigo (lista). Reescreva a saída como { "campo": "tipo" }.'
 
 /**
  * Mesma modal em modo configuração (F5.16, botão "Configurações"/"Preencher integração"):
@@ -85,6 +90,9 @@ describe('F5.16 — DialogoConcluirConstrucao em modo "configurar" (Configuraç�
   const saida = () => within(dialogo()).getByLabelText('Parâmetros de saída') as HTMLTextAreaElement
   const entrada = () => within(dialogo()).getByLabelText('Parâmetros de entrada') as HTMLTextAreaElement
   const salvar = () => within(dialogo()).getByRole('button', { name: 'Salvar configurações' })
+  const campoFilial = () => within(dialogo()).getByLabelText('Campo da filial') as HTMLSelectElement
+  const campoValor = () => within(dialogo()).getByLabelText('Campo do valor') as HTMLSelectElement
+  const campoCompetencia = () => within(dialogo()).getByLabelText('Campo da competência') as HTMLSelectElement
   const botaoVariavel = (nome: string) =>
     within(within(dialogo()).getByRole('group', { name: 'Variáveis disponíveis' })).getByRole('button', { name: new RegExp(`%${nome}%`) })
   const operador = (simbolo: string) => within(within(dialogo()).getByRole('group', { name: 'Operadores' })).getByRole('button', { name: simbolo })
@@ -113,7 +121,7 @@ describe('F5.16 — DialogoConcluirConstrucao em modo "configurar" (Configuraç�
     expect(entrada()).toHaveValue(ENTRADA_TEXTO)
   })
 
-  it('parâmetros de saída em lista também são formatados com 2 espaços', () => {
+  it('parâmetros de saída em lista (formato antigo) também são mostrados, formatados com 2 espaços', () => {
     renderizar({ dado: { ...FATURAMENTO, parametrosSaida: SAIDA_VOLUME_API } })
 
     expect(saida()).toHaveValue(JSON.stringify(SAIDA_VOLUME_API, null, 2))
@@ -123,14 +131,14 @@ describe('F5.16 — DialogoConcluirConstrucao em modo "configurar" (Configuraç�
     renderizar()
 
     expect(within(dialogo()).getByRole('status', { name: 'Validação dos parâmetros de saída' })).toHaveTextContent(
-      '2 campos: filial (texto), valor (texto)',
+      '4 campos: codemp (string), codfil (string), vlrLiq (number), datCpt (date)',
     )
     expect(within(dialogo()).getByRole('status', { name: 'Validação dos parâmetros de entrada' })).toHaveTextContent('JSON válido')
     expect(within(dialogo()).getByText('Todos os campos obrigatórios preenchidos')).toBeInTheDocument()
     expect(salvar()).toBeEnabled()
   })
 
-  it('Salvar configurações chama onConfirmar com o identificador, a URL e os textos das caixas', async () => {
+  it('Salvar configurações chama onConfirmar com o identificador, a URL, os textos das caixas e o mapeamento salvo', async () => {
     const user = usuarioRapido()
     const { onConfirmar } = renderizar()
 
@@ -143,8 +151,70 @@ describe('F5.16 — DialogoConcluirConstrucao em modo "configurar" (Configuraç�
         url: URL_FATURAMENTO,
         parametrosSaida: SAIDA_TEXTO,
         parametrosEntrada: ENTRADA_TEXTO,
+        mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: 'datCpt' },
       }),
     )
+  })
+
+  /**
+   * Saída por "chave: tipo" (11/11/2026, opção B): as listas do mapeamento abrem com o `mapeamentoSaida`
+   * salvo do dado (`null` ou ausente → listas vazias).
+   */
+  describe('mapeamento salvo (mapeamentoSaida)', () => {
+    it('abre com o campo da filial, do valor e da competência salvos', () => {
+      renderizar()
+
+      expect(campoFilial()).toHaveValue('codfil')
+      expect(campoValor()).toHaveValue('vlrLiq')
+      expect(campoCompetencia()).toHaveValue('datCpt')
+    })
+
+    it('sem competência salva, a lista da competência abre em "Nenhum"', () => {
+      renderizar({ dado: { ...FATURAMENTO, mapeamentoSaida: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: null } } })
+
+      expect(campoCompetencia()).toHaveValue('')
+      expect(within(dialogo()).getByText('Todos os campos obrigatórios preenchidos')).toBeInTheDocument()
+    })
+
+    it('alterar o campo do valor e salvar envia o mapeamento novo', async () => {
+      const user = usuarioRapido()
+      const { onConfirmar } = renderizar({
+        dado: { ...FATURAMENTO, parametrosSaida: { ...SAIDA_FATURAMENTO_API, vlrBru: 'number' } },
+      })
+
+      await user.selectOptions(campoValor(), 'vlrBru')
+      await user.selectOptions(campoCompetencia(), 'Nenhum')
+      await user.click(salvar())
+
+      expect(onConfirmar).toHaveBeenCalledWith(
+        expect.objectContaining({ mapeamento: { campoFilial: 'codfil', campoValor: 'vlrBru', campoCompetencia: null } }),
+      )
+    })
+
+    it('saída em "chave: tipo" sem mapeamento salvo (null): listas vazias, "falta: campo da filial, campo do valor" e salvar bloqueado', () => {
+      renderizar({ dado: { ...FATURAMENTO, mapeamentoSaida: null } })
+
+      expect(campoFilial()).toHaveValue('')
+      expect(campoValor()).toHaveValue('')
+      expect(within(dialogo()).getByText('falta: campo da filial, campo do valor')).toBeInTheDocument()
+      expect(salvar()).toBeDisabled()
+    })
+
+    it('mapeamento salvo apontando para um campo que não está na saída: erro na lista e salvar bloqueado', () => {
+      renderizar({ dado: { ...FATURAMENTO, mapeamentoSaida: { campoFilial: 'filial', campoValor: 'vlrLiq', campoCompetencia: null } } })
+
+      expect(campoFilial()).toHaveAttribute('aria-invalid', 'true')
+      expect(campoFilial()).toHaveAccessibleDescription(expect.stringContaining('O campo da filial aponta para "filial", que não existe na saída'))
+      expect(within(dialogo()).getByText('falta: campo da filial')).toBeInTheDocument()
+      expect(salvar()).toBeDisabled()
+    })
+
+    it('dado sem a propriedade mapeamentoSaida (ex.: AlvoIntegracao sem o campo) abre com as listas vazias', () => {
+      const semMapeamento: AlvoIntegracao = { ...FATURAMENTO, mapeamentoSaida: undefined }
+      renderizar({ dado: semMapeamento })
+
+      expect(campoFilial()).toHaveValue('')
+    })
   })
 
   it('alterar a URL e salvar envia a URL nova', async () => {
@@ -159,39 +229,137 @@ describe('F5.16 — DialogoConcluirConstrucao em modo "configurar" (Configuraç�
   })
 
   /**
-   * Alteração de 10/11/2026 (seção 2.3 de `RESPOSTA-FINAL-meta-via-api.md`): a saída é uma lista com um
-   * item por filial (`filial` e `valor`). Uma integração gravada antes, com a saída como objeto solto,
-   * abre com a saída inválida e o salvar bloqueado até a saída ser corrigida.
+   * Transição para a saída por "chave: tipo" (11/11/2026 — `FRONT-saida-chave-tipo.md`, seções 1.3 e 6;
+   * decisão do usuário: a modal só salva no formato novo). Uma integração salva em lista (formato antigo,
+   * com valores ou marcadores; `mapeamentoSaida` `null`) abre com o texto antigo na caixa, a saída
+   * inválida ("Formato antigo (lista)...") e um aviso acima dos campos pedindo para reescrever. O salvar
+   * fica bloqueado enquanto a saída não for um objeto válido; com a saída válida o aviso some.
    */
-  describe('saída em lista', () => {
-    const OBJETO_ANTIGO = { valor: '0', referencia: 'x' }
+  describe('integração salva no formato antigo (saída em lista)', () => {
+    const SAIDA_ANTIGA = [{ codemp: '1', codfil: '100', vlrLiq: '0' }]
+    const ANTIGO = { ...FATURAMENTO, parametrosSaida: SAIDA_ANTIGA, mapeamentoSaida: null }
 
-    it('saída salva como objeto solto (formato antigo): "JSON de saída inválido", "falta: JSON de saída válido" e salvar bloqueado', () => {
-      renderizar({ dado: { ...FATURAMENTO, parametrosSaida: OBJETO_ANTIGO } })
+    it('abre com o texto antigo, a saída inválida, o aviso para reescrever e o salvar bloqueado', () => {
+      renderizar({ dado: ANTIGO })
 
-      expect(saida()).toHaveValue(JSON.stringify(OBJETO_ANTIGO, null, 2))
+      expect(saida()).toHaveValue(JSON.stringify(SAIDA_ANTIGA, null, 2))
       const validacao = within(dialogo()).getByRole('status', { name: 'Validação dos parâmetros de saída' })
       expect(validacao).toHaveTextContent('JSON de saída inválido')
-      expect(validacao).toHaveTextContent('A saída deve ser uma lista com um item por filial')
-      expect(within(dialogo()).getByText('falta: JSON de saída válido')).toBeInTheDocument()
+      expect(validacao).toHaveTextContent(FORMATO_ANTIGO)
+      expect(within(dialogo()).getByText(AVISO_FORMATO_ANTIGO)).toBeInTheDocument()
+      expect(within(dialogo()).getByText('falta: JSON de saída válido, campo da filial, campo do valor')).toBeInTheDocument()
       expect(salvar()).toBeDisabled()
     })
 
-    it('corrigir a saída antiga com "Inserir modelo de saída" libera o salvar e envia a lista', async () => {
+    it('a saída com marcadores (formato de 11/11/2026) também é formato antigo', () => {
+      renderizar({ dado: { ...ANTIGO, parametrosSaida: [{ codfil: '%filial%', vlrLiq: '%valor%' }] } })
+
+      expect(within(dialogo()).getByText(AVISO_FORMATO_ANTIGO)).toBeInTheDocument()
+      expect(salvar()).toBeDisabled()
+    })
+
+    it('o aviso fica acima dos campos, depois do texto de abertura', () => {
+      renderizar({ dado: ANTIGO })
+
+      const aviso = within(dialogo()).getByText(AVISO_FORMATO_ANTIGO)
+      expect(aviso.compareDocumentPosition(identificador()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('Salvar bloqueado: clicar não chama onConfirmar', async () => {
       const user = usuarioRapido()
-      const { onConfirmar } = renderizar({ dado: { ...FATURAMENTO, parametrosSaida: OBJETO_ANTIGO } })
+      const { onConfirmar } = renderizar({ dado: ANTIGO })
+
+      await user.click(salvar())
+
+      expect(onConfirmar).not.toHaveBeenCalled()
+    })
+
+    it('reescrever no formato novo (modelo) e escolher o mapeamento tira o aviso e libera o salvar', async () => {
+      const user = usuarioRapido()
+      const { onConfirmar } = renderizar({ dado: ANTIGO })
 
       await user.click(within(dialogo()).getByRole('button', { name: 'Inserir modelo de saída' }))
+      expect(within(dialogo()).queryByText(AVISO_FORMATO_ANTIGO)).not.toBeInTheDocument()
+      expect(salvar()).toBeDisabled()
+      await user.selectOptions(campoFilial(), 'codfil')
+      await user.selectOptions(campoValor(), 'vlrLiq')
       expect(salvar()).toBeEnabled()
       await user.click(salvar())
 
-      expect(onConfirmar).toHaveBeenCalledWith(expect.objectContaining({ parametrosSaida: MODELO_JSON_SAIDA }))
+      expect(onConfirmar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          parametrosSaida: MODELO_JSON_SAIDA,
+          mapeamento: { campoFilial: 'codfil', campoValor: 'vlrLiq', campoCompetencia: null },
+        }),
+      )
     })
 
-    it('mostra a orientação do formato do dado externo', () => {
+    it('reescrever à mão como objeto também tira o aviso', async () => {
+      const user = usuarioRapido()
+      renderizar({ dado: ANTIGO })
+
+      await user.clear(saida())
+      await colar(user, saida(), '{ "codemp": "string", "codfil": "string", "vlrLiq": "number" }')
+
+      expect(within(dialogo()).queryByText(AVISO_FORMATO_ANTIGO)).not.toBeInTheDocument()
+    })
+
+    it('integração salva no formato novo não mostra o aviso', () => {
       renderizar()
 
-      expect(within(dialogo()).getByText('Lista com um item por filial: filial e valor (competencia opcional).')).toBeInTheDocument()
+      expect(within(dialogo()).queryByText(AVISO_FORMATO_ANTIGO)).not.toBeInTheDocument()
+    })
+
+    it('integração pendente (sem saída salva) não mostra o aviso', () => {
+      renderizar({ dado: COBERTURA_PENDENTE })
+
+      expect(within(dialogo()).queryByText(AVISO_FORMATO_ANTIGO)).not.toBeInTheDocument()
+    })
+
+    it('mostra a orientação do formato novo', () => {
+      renderizar()
+
+      expect(
+        within(dialogo()).getByText('Descreva um item da resposta como { "campo": "tipo" }, com os tipos string, number, date ou boolean.'),
+      ).toBeInTheDocument()
+    })
+  })
+
+  /**
+   * Alteração de 11/11/2026 (executor — `FRONT-meta-via-api-fase2.md`, seção 2.1): a entrada SOAP precisa
+   * de `operacao` e `parametros` (ou `chamadas`). Uma integração gravada antes, no formato antigo, abre
+   * inválida e bloqueia o salvar até ser corrigida (o back-end também a recusa ao salvar).
+   */
+  describe('entrada SOAP ({ operacao, parametros })', () => {
+    const ENTRADA_ANTIGA = { filial: '%filial%', inicio: '%dataInicial% - 3m', fim: '%dataFinal%' }
+
+    it('entrada salva no formato antigo abre com "JSON de entrada inválido", a explicação e o salvar bloqueado', () => {
+      renderizar({ dado: { ...FATURAMENTO, parametrosEntrada: ENTRADA_ANTIGA } })
+
+      const validacao = within(dialogo()).getByRole('status', { name: 'Validação dos parâmetros de entrada' })
+      expect(validacao).toHaveTextContent('JSON de entrada inválido')
+      expect(within(validacao).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+        'A entrada deve ter "operacao" e "parametros" (ou "chamadas")',
+      ])
+      expect(within(dialogo()).getByText('falta: JSON de entrada válido')).toBeInTheDocument()
+      expect(salvar()).toBeDisabled()
+    })
+
+    it('"Inserir modelo de entrada" corrige a entrada antiga e libera o salvar', async () => {
+      const user = usuarioRapido()
+      renderizar({ dado: { ...FATURAMENTO, parametrosEntrada: ENTRADA_ANTIGA } })
+
+      await user.click(within(dialogo()).getByRole('button', { name: 'Inserir modelo de entrada' }))
+
+      expect(within(dialogo()).getByRole('status', { name: 'Validação dos parâmetros de entrada' })).toHaveTextContent('JSON válido')
+      expect(salvar()).toBeEnabled()
+    })
+
+    it('a entrada salva do fixture (SOAP com %empresas%) é válida e sem aviso de %filial%', () => {
+      renderizar()
+
+      expect(entrada()).toHaveValue(ENTRADA_TEXTO)
+      expect(within(dialogo()).queryByText(/não tem valor numa consulta/)).not.toBeInTheDocument()
     })
   })
 
@@ -202,7 +370,9 @@ describe('F5.16 — DialogoConcluirConstrucao em modo "configurar" (Configuraç�
     expect(url()).toHaveValue('')
     expect(saida()).toHaveValue('')
     expect(entrada()).toHaveValue('')
-    expect(within(dialogo()).getByText('falta: URL válida, JSON de saída válido, JSON de entrada válido')).toBeInTheDocument()
+    expect(
+      within(dialogo()).getByText('falta: URL válida, JSON de saída válido, campo da filial, campo do valor, JSON de entrada válido'),
+    ).toBeInTheDocument()
     expect(salvar()).toBeDisabled()
   })
 
@@ -210,7 +380,11 @@ describe('F5.16 — DialogoConcluirConstrucao em modo "configurar" (Configuraç�
     renderizar({ dado: { ...COBERTURA_PENDENTE, identificador: null } })
 
     expect(identificador()).toHaveValue('')
-    expect(within(dialogo()).getByText('falta: identificador, URL válida, JSON de saída válido, JSON de entrada válido')).toBeInTheDocument()
+    expect(
+      within(dialogo()).getByText(
+        'falta: identificador, URL válida, JSON de saída válido, campo da filial, campo do valor, JSON de entrada válido',
+      ),
+    ).toBeInTheDocument()
   })
 
   it('URL inválida bloqueia o salvar ("falta: URL válida")', async () => {
