@@ -34,6 +34,7 @@ const MENSAGENS_POR_STATUS: Readonly<Record<number, string>> = {
   401: 'Sua sessão expirou. Entre novamente.',
   403: 'Você não tem permissão para esta ação.',
   404: 'Registro não encontrado.',
+  429: 'Muitas tentativas. Aguarde alguns instantes e tente novamente.',
   500: 'Erro interno do servidor. Tente novamente mais tarde.',
 }
 
@@ -50,18 +51,22 @@ export function mensagemPadraoPorStatus(status: number): string {
 /**
  * Erro lançado por `apiFetch` para respostas HTTP de erro ou falhas de rede.
  * `status === 0` indica falha de conexão. `mensagem` é exibível ao usuário.
+ * `tentarNovamenteEm`: segundos de espera informados pela API (ex.: 429 do limite de tentativas de
+ * login), quando houver; `undefined` caso contrário.
  */
 export class ApiError extends Error {
   readonly status: number
   readonly mensagem: string
   readonly dados?: unknown
+  readonly tentarNovamenteEm?: number
 
-  constructor(status: number, mensagem: string, dados?: unknown) {
+  constructor(status: number, mensagem: string, dados?: unknown, tentarNovamenteEm?: number) {
     super(mensagem)
     this.name = 'ApiError'
     this.status = status
     this.mensagem = mensagem
     this.dados = dados
+    this.tentarNovamenteEm = tentarNovamenteEm
   }
 }
 
@@ -139,6 +144,27 @@ function extrairMensagem(dados: unknown, status: number): string {
   return mensagemPadraoPorStatus(status)
 }
 
+/** Campo do corpo de erro com o tempo de espera, em segundos (ex.: 429 do login). */
+const CAMPO_SEGUNDOS_ESPERA = 'segundos para tentar novamente'
+
+/**
+ * Tempo de espera, em segundos inteiros, informado por uma resposta de erro: primeiro o campo
+ * `"segundos para tentar novamente"` do corpo (número > 0, fracionário arredonda para cima), senão o
+ * cabeçalho `Retry-After` (inteiro > 0). Valores ausentes ou inválidos → `undefined`.
+ */
+function extrairTentarNovamenteEm(dados: unknown, response: Response): number | undefined {
+  if (dados && typeof dados === 'object') {
+    const valor = (dados as Record<string, unknown>)[CAMPO_SEGUNDOS_ESPERA]
+    if (typeof valor === 'number' && Number.isFinite(valor) && valor > 0) return Math.ceil(valor)
+  }
+  const cabecalho = response.headers.get('Retry-After')?.trim()
+  if (cabecalho && /^\d+$/.test(cabecalho)) {
+    const segundos = Number(cabecalho)
+    if (segundos > 0) return segundos
+  }
+  return undefined
+}
+
 function notificarSessaoExpirada(): void {
   if (typeof window === 'undefined') return
   window.dispatchEvent(new Event(EVENTO_SESSAO_EXPIRADA))
@@ -172,7 +198,8 @@ export async function apiFetch<T = unknown>(caminho: string, opcoes: ApiOpcoes =
     const dados = await lerCorpoErro(response)
     const mensagem = extrairMensagem(dados, response.status)
     if (response.status === 401 && token) notificarSessaoExpirada()
-    throw new ApiError(response.status, mensagem, dados)
+    // Nunca repete a requisição (ex.: 429): cada reenvio conta como nova tentativa no back-end.
+    throw new ApiError(response.status, mensagem, dados, extrairTentarNovamenteEm(dados, response))
   }
 
   return (await lerCorpoSucesso(response)) as T

@@ -279,7 +279,7 @@ describe('F5.16 — DialogoConcluirConstrucao em modo "configurar" (Configuraç�
       renderizar()
 
       expect(
-        within(dialogo()).getByText('Descreva um item da resposta como { "campo": "tipo" }, com os tipos string, number, date ou boolean.'),
+        within(dialogo()).getByText('Descreva um item da resposta do web service com o tipo de cada campo. É só referência para a equipe de desenvolvimento; os nomes são livres.'),
       ).toBeInTheDocument()
     })
   })
@@ -371,6 +371,37 @@ describe('F5.16 — DialogoConcluirConstrucao em modo "configurar" (Configuraç�
     expect(url()).toHaveAttribute('aria-invalid', 'true')
     expect(url()).toHaveAccessibleDescription(expect.stringContaining('URL invalida'))
     expect(url()).toHaveValue(URL_FATURAMENTO)
+    expect(saida()).toHaveValue(SAIDA_TEXTO)
+  })
+
+  /**
+   * Contrato final da saída (11/11/2026 — `docs/backend/FRONT-saida-chave-tipo (1).md`, seção 3): no modo
+   * "configurar" os erros da saída do 400 também ficam junto ao campo, formatados (linha/coluna) e juntos.
+   */
+  it('erros da saída no 400: vários juntos no campo "Parâmetros de saída", com linha e coluna quando vierem', () => {
+    const erros: ErroIntegracao[] = [
+      { campo: 'parametros de saida', mensagem: "virgula sobrando antes de '}'", linha: 4, coluna: 2, caminho: null, expressao: null },
+      {
+        campo: 'parametros de saida',
+        mensagem: 'o campo "x" da saida tem tipo "texto"; use string, number, date ou boolean',
+        linha: null,
+        coluna: null,
+        caminho: null,
+        expressao: null,
+      },
+    ]
+    const { rerenderizar } = renderizar()
+
+    rerenderizar({ erro: 'integracao invalida: parametros de saida', errosCampos: erros })
+
+    expect(within(dialogo()).getByText('integracao invalida: parametros de saida').closest('[role="alert"]')).not.toBeNull()
+    expect(saida()).toHaveAttribute('aria-invalid', 'true')
+    expect(saida()).toHaveAccessibleDescription(expect.stringContaining("Linha 4, coluna 2: virgula sobrando antes de '}'"))
+    expect(saida()).toHaveAccessibleDescription(
+      expect.stringContaining('o campo "x" da saida tem tipo "texto"; use string, number, date ou boolean'),
+    )
+    expect(url()).not.toHaveAttribute('aria-invalid', 'true')
+    expect(entrada()).not.toHaveAttribute('aria-invalid', 'true')
     expect(saida()).toHaveValue(SAIDA_TEXTO)
   })
 

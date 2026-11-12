@@ -422,12 +422,17 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
   /**
    * Alteração de 11/11/2026 (saída por "chave: tipo", opção B — `docs/propostas-backend/FRONT-saida-chave-tipo.md`):
    * a saída descreve **um item** da resposta como objeto `{ "campo": "tipo" }` (`string`, `number`, `date`,
-   * `boolean`). Um texto abaixo do campo orienta o formato; "Inserir modelo de saída" gera
-   * `{ "codfil": "string", "vlrLiq": "number" }`. A lista (formato antigo) é inválida: a modal só salva no
-   * formato novo (decisão do usuário). O grupo "Marcadores da saída" (F5.21) foi retirado.
+   * `boolean`). Um texto abaixo do campo orienta o formato; "Inserir modelo de saída" gera o modelo. A lista
+   * (formato antigo) é inválida: a modal só salva no formato novo (decisão do usuário). O grupo "Marcadores da
+   * saída" (F5.21) foi retirado.
+   *
+   * Alteração de 11/11/2026 (contrato final — `docs/backend/RESPOSTA-saida-sem-mapeamento (1).md`, seção 4): a
+   * saída é só documentação e os nomes são livres. O modelo passa a ser o genérico
+   * `{ "codigo_filial": "string", "quantidade": "number", "data": "date" }` (o mesmo do indicador) e o texto de
+   * ajuda passa a ser o sugerido pelo back-end.
    */
   describe('saída por "chave: tipo"', () => {
-    const ORIENTACAO = 'Descreva um item da resposta como { "campo": "tipo" }, com os tipos string, number, date ou boolean.'
+    const ORIENTACAO = 'Descreva um item da resposta do web service com o tipo de cada campo. É só referência para a equipe de desenvolvimento; os nomes são livres.'
 
     it('mostra o texto de orientação do formato, depois do campo de saída e antes do campo de entrada', () => {
       renderizar()
@@ -438,16 +443,17 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
       expect(within(dialogo()).queryByText(/Lista com um item por filial/)).not.toBeInTheDocument()
     })
 
-    it('"Inserir modelo de saída" gera { "codfil": "string", "vlrLiq": "number" }, válido', async () => {
+    it('"Inserir modelo de saída" gera { "codigo_filial": "string", "quantidade": "number", "data": "date" }, válido', async () => {
       const user = usuarioRapido()
       renderizar()
 
       await user.click(within(dialogo()).getByRole('button', { name: 'Inserir modelo de saída' }))
 
       expect(saida()).toHaveValue(MODELO_JSON_SAIDA)
-      expect(JSON.parse(saida().value)).toEqual({ codfil: 'string', vlrLiq: 'number' })
+      expect(JSON.parse(saida().value)).toEqual({ codigo_filial: 'string', quantidade: 'number', data: 'date' })
+      expect(saida().value).toBe('{\n  "codigo_filial": "string",\n  "quantidade": "number",\n  "data": "date"\n}')
       expect(validacaoSaida()).toHaveTextContent('JSON válido')
-      expect(validacaoSaida()).toHaveTextContent('2 campos: codfil (string), vlrLiq (number)')
+      expect(validacaoSaida()).toHaveTextContent('3 campos: codigo_filial (string), quantidade (number), data (date)')
     })
 
     it.each([
@@ -1034,6 +1040,50 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
       expect(url()).toHaveValue(URL_VALIDA)
       expect(saida()).toHaveValue(MODELO_JSON_SAIDA)
       expect(entrada()).toHaveValue(MODELO_JSON_ENTRADA)
+    })
+
+    /**
+     * Contrato final da saída (11/11/2026 — `docs/backend/FRONT-saida-chave-tipo (1).md`, seção 3): o 400 traz
+     * todos os erros de uma vez; cada `erros[]` com `campo: "parametros de saida"` aparece junto ao campo
+     * "Parâmetros de saída", formatado por `formatarErroIntegracao` e sem interpretar o texto.
+     */
+    it('vários erros da saída no 400 aparecem juntos no campo "Parâmetros de saída", sem interpretar o texto', async () => {
+      const user = usuarioRapido()
+      const { rerenderizar } = renderizar()
+      await user.type(identificador(), 'xpto')
+      await preencherIntegracao(user)
+      const errosSaida: ErroIntegracao[] = [
+        {
+          campo: 'parametros de saida',
+          mensagem: 'o campo "x" da saida tem tipo "texto"; use string, number, date ou boolean',
+          linha: null,
+          coluna: null,
+          caminho: null,
+          expressao: null,
+        },
+        {
+          campo: 'parametros de saida',
+          mensagem: 'o campo "y" da saida tem tipo "inteiro"; use string, number, date ou boolean',
+          linha: null,
+          coluna: null,
+          caminho: null,
+          expressao: null,
+        },
+      ]
+
+      rerenderizar({ erro: 'integracao invalida: parametros de saida', errosCampos: errosSaida })
+
+      expect(saida()).toHaveAttribute('aria-invalid', 'true')
+      expect(saida()).toHaveAccessibleDescription(
+        expect.stringContaining('o campo "x" da saida tem tipo "texto"; use string, number, date ou boolean'),
+      )
+      expect(saida()).toHaveAccessibleDescription(
+        expect.stringContaining('o campo "y" da saida tem tipo "inteiro"; use string, number, date ou boolean'),
+      )
+      expect(identificador()).not.toHaveAttribute('aria-invalid', 'true')
+      expect(url()).not.toHaveAttribute('aria-invalid', 'true')
+      expect(entrada()).not.toHaveAttribute('aria-invalid', 'true')
+      expect(saida()).toHaveValue(MODELO_JSON_SAIDA)
     })
 
     describe('o erro do 400 some do campo quando o usuário o altera (decisão de 10/11/2026)', () => {

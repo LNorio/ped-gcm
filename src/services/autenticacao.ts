@@ -20,6 +20,9 @@ interface RespostaLogin {
  * Autentica o usuário e guarda o token devolvido na sessão (memória e `sessionStorage`).
  * Rejeita com `ApiError` em credenciais inválidas (401), falha de rede (status 0) ou resposta sem
  * o campo `token`; nesses casos nenhum token é guardado.
+ * Limite de tentativas excedido (429): rejeita com o `ApiError` 429, cujo `tentarNovamenteEm` traz os
+ * segundos de espera informados pela API. A chamada nunca é repetida sozinha (cada reenvio conta como
+ * tentativa no back-end).
  */
 export async function entrar(usuario: string, senha: string): Promise<string> {
   const resposta = await apiFetch<RespostaLogin | undefined>('/valida-usuario', {

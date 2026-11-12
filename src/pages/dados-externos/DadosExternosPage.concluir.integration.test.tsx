@@ -270,6 +270,46 @@ describe('F5.7 — Concluir construção de dado externo (Admin registra a integ
     expect(within(linha('Devoluções de venda')).getByText('Em construção (TI)')).toBeInTheDocument()
   })
 
+  /**
+   * Contrato final da saída (11/11/2026 — `docs/backend/FRONT-saida-chave-tipo (1).md`, seção 3): o 400 traz todos
+   * os erros da saída de uma vez; cada um aparece junto ao campo "Parâmetros de saída" (com "Linha L, coluna C: "
+   * quando vierem), sem interpretar o texto, e nada é apagado.
+   */
+  it('400 com dois erros da saída (um com linha/coluna): os dois aparecem juntos no campo "Parâmetros de saída"', async () => {
+    const user = usuarioRapido()
+    simularAdmin({
+      aoConcluir: () =>
+        respostaJson(
+          {
+            mensagem: 'integracao invalida: parametros de saida',
+            erros: [
+              { campo: 'parametros de saida', mensagem: 'o campo "x" da saida tem tipo "texto"; use string, number, date ou boolean' },
+              { campo: 'parametros de saida', mensagem: 'JSON invalido', linha: 2, coluna: 7 },
+            ],
+          },
+          400,
+        ),
+    })
+    const dialogo = await abrirConclusao(user)
+
+    await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'devolucoes')
+    await preencherIntegracao(user, dialogo)
+    await user.click(botaoConcluir(dialogo))
+
+    const geral = await within(dialogo).findByText('integracao invalida: parametros de saida')
+    expect(geral.closest('[role="alert"]')).not.toBeNull()
+    const campoSaida = within(dialogo).getByLabelText('Parâmetros de saída')
+    expect(campoSaida).toHaveAttribute('aria-invalid', 'true')
+    expect(campoSaida).toHaveAccessibleDescription(
+      expect.stringContaining('o campo "x" da saida tem tipo "texto"; use string, number, date ou boolean'),
+    )
+    expect(campoSaida).toHaveAccessibleDescription(expect.stringContaining('Linha 2, coluna 7: JSON invalido'))
+    expect(within(dialogo).getByLabelText('URL')).not.toHaveAttribute('aria-invalid', 'true')
+    expect(within(dialogo).getByLabelText('Parâmetros de entrada')).not.toHaveAttribute('aria-invalid', 'true')
+    expect(campoSaida).toHaveValue(MODELO_JSON_SAIDA)
+    expect(within(linha('Devoluções de venda')).getByText('Em construção (TI)')).toBeInTheDocument()
+  })
+
   it('depois do 400 com erros por campo, corrigir a URL tira só o erro dela (o alerta geral e os outros erros ficam); reenviar com novo 400 volta a marcar', async () => {
     const user = usuarioRapido()
     const MENSAGEM_URL = 'a URL precisa comecar com http:// ou https://, sem espacos (ate 500 caracteres)'
@@ -443,7 +483,7 @@ describe('F5.7 — Concluir construção de dado externo (Admin registra a integ
 
       expect(within(dialogo).getByText('Todos os campos obrigatórios preenchidos')).toBeInTheDocument()
       expect(within(dialogo).getByRole('status', { name: 'Validação dos parâmetros de saída' })).toHaveTextContent(
-        '2 campos: codfil (string), vlrLiq (number)',
+        '3 campos: codigo_filial (string), quantidade (number), data (date)',
       )
       expect(within(dialogo).getByRole('status', { name: 'Validação dos parâmetros de entrada' })).toHaveTextContent('JSON válido')
       await user.click(botaoConcluir(dialogo))
@@ -530,7 +570,7 @@ describe('F5.7 — Concluir construção de dado externo (Admin registra a integ
       await user.type(within(dialogo).getByLabelText('Identificador da consulta'), 'devolucoes')
       await preencherIntegracao(user, dialogo)
       expect(
-        within(dialogo).getByText('Descreva um item da resposta como { "campo": "tipo" }, com os tipos string, number, date ou boolean.'),
+        within(dialogo).getByText('Descreva um item da resposta do web service com o tipo de cada campo. É só referência para a equipe de desenvolvimento; os nomes são livres.'),
       ).toBeInTheDocument()
 
       const campoSaida = within(dialogo).getByLabelText('Parâmetros de saída')

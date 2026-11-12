@@ -51,6 +51,14 @@
   font-weight: 700;
 }
 
+/* Contagem do bloqueio por limite de tentativas (429), abaixo do botão. */
+.login__espera {
+  margin-top: -0.5rem;
+  font-size: 0.875rem;
+  color: var(--cor-texto-suave);
+  text-align: center;
+}
+
 /* ---------- Responsivo ---------- */
 
 @media (max-width: 480px) {

@@ -4,13 +4,12 @@
  */
 
 /**
- * Exemplo de JSON de saída da integração do dado externo: objeto `{ "campo": "tipo" }` que descreve um
- * item da resposta (saída por "chave: tipo", 11/11/2026 — `docs/propostas-backend/FRONT-saida-chave-tipo.md`).
+ * Exemplo genérico de JSON de saída da integração, para dado externo e indicador: objeto
+ * `{ "campo": "tipo" }` que descreve um item da resposta. A saída é só referência para a equipe de
+ * desenvolvimento e os nomes são livres (contrato final, 11/11/2026 — `docs/backend/FRONT-saida-chave-tipo (1).md`,
+ * seção 5).
  */
-export const MODELO_JSON_SAIDA = JSON.stringify({ codfil: 'string', vlrLiq: 'number' }, null, 2)
-
-/** Exemplo de JSON de saída da integração da meta do indicador (`{ "campo": "tipo" }`). */
-export const MODELO_JSON_SAIDA_META = JSON.stringify({ codfil: 'string', metVlr: 'number' }, null, 2)
+export const MODELO_JSON_SAIDA = JSON.stringify({ codigo_filial: 'string', quantidade: 'number', data: 'date' }, null, 2)
 
 /**
  * Exemplo de JSON de entrada no formato SOAP `{ operacao, parametros }` (executor, 11/11/2026 —

@@ -4,11 +4,225 @@
 
 | Data | Tags | Resumo |
 | --- | --- | --- |
+| [11/11/2026](#2026-11-11) | #dados-externos #integracao #indicadores #dashboards #api #validacao #componente #correcao #refatoracao #testes #configuracao #agentes #documentacao | Meta via API fases 1 e 2 (entrada SOAP, avisos, finalidade, última consulta), testes em lotes de até 150, saída da integração por "chave: tipo" (com e depois sem mapeamento, contrato final do back-end), commits `6500740` e `288d6c5` e build validada |
 | [10/11/2026](#2026-11-10) | #dados-externos #integracao #indicadores #dashboards #apontamentos #cadastro #api #validacao #componente #layout #navegacao #configuracao #testes #documentacao | Duas builds validadas, decisões da integração, `TextoTruncado`, tabelas sem rolagem, build dividida e abas sob demanda, meta por filial com metas pendentes, meta via API pelo contrato final e commit `a2ab9cc` |
 | [09/11/2026](#2026-11-09) | #apontamentos #dados-externos #integracao #cadastro #api #validacao #componente #correcao #testes #documentacao | Build validada, indicadores do apontamento como lista de nomes (F4.9\*) e mudança de requisito "integração de dados externos" (F5.7 e F5.14–F5.18), da tela sem API ao contrato do back-end com validação híbrida |
 | [06/11/2026](#2026-11-06) | #tipos #indicadores #dashboards #dados-externos #cadastro #api #validacao #componente #correcao #testes #configuracao #documentacao | Build validada, id da tarefa Bitrix em texto, adequação aos documentos novos do back-end (grupos nos tipos, exclusão de indicador só pelo Admin, tarefas Bitrix, identificador com - e .) e 67/67 requisitos implementados |
 | [05/11/2026](#2026-11-05) | #indicadores #dashboards #faixas #apontamentos #dados-externos #cadastro #api #validacao #componente #layout #correcao #testes #documentacao | Abas Indicadores (F6), Dashboards (F7) e Faixas (F8) em TDD, modais alinhadas ao protótipo, RF-54 alterado e correções contra a API real |
 | [04/11/2026](#2026-11-04) | #apontamentos #dados-externos #tipos #cadastro #api #validacao #componente #layout #refatoracao #correcao #testes #configuracao #documentacao | Aba Apontamentos (F4) revisada e commitada, aba Dados Externos (F5) implementada, hooks genéricos, MenuAcoes, correção do POST e testes mais rápidos |
+
+---
+
+<a id="2026-11-11"></a>
+## 11/11/2026
+
+**Tags:** #dados-externos #integracao #indicadores #dashboards #api #validacao #componente #correcao #refatoracao #testes #configuracao #agentes #documentacao
+
+### Visão geral
+O usuário pediu para ler os documentos novos do back-end ("leia novos documentos do backend e faça as alterações necessárias"): `docs/backend/FRONT-meta-via-api-fase1.md`, `FRONT-meta-via-api-fase2.md` e `API (27).md`. O back-end entregou a meta via API (fase 1) e o executor das integrações (fase 2). O front foi adequado em TDD:
+- entrada da integração no formato SOAP;
+- aviso das variáveis de referência;
+- `finalidade` na validação pelo servidor;
+- `tipo de servico` aceito;
+- última consulta do dado externo e do indicador.
+
+A F6.14\* foi desbloqueada no plano.
+
+No meio do dia, o usuário definiu novas regras de execução de testes, para evitar travamentos e timeouts: lotes de até 150 testes, 2 testes simultâneos por agente e no máximo 10 subagentes ao mesmo tempo.
+
+A saída da integração mudou de rumo duas vezes:
+1. **"chave: tipo" com mapeamento.** Com um print, o usuário apontou que "o JSON esperado deveria ser de chave: tipo e não chave:valor". O front propôs ao back-end as opções A/B/C, e o usuário pediu a A. O back-end respondeu com a opção B (tipos + campos de mapeamento), e o front implementou a B. Por decisão do usuário, a modal só salva o formato novo e os marcadores (F5.21\*) foram retirados. Essa fase entrou no commit `6500740`.
+2. **"chave: tipo" sem mapeamento.** O usuário relatou erro mesmo com o JSON de saída correto e pediu para retirar as listas de seleção de campos: "os parâmetros servem apenas para mostrar ao backend qual a saída esperada do webservice e não é para fazer uma amarração". As listas foram removidas, a saída passou a ser validada só no front e a resposta ao back-end foi escrita (A-17). Essa fase entrou no commit `288d6c5`, e depois foi feita a build validada.
+
+No fim do dia, o back-end fechou o contrato: a saída é só documentação, com nomes livres. O front aplicou o ajuste final (modelo genérico e texto de ajuda novo), que ainda não foi commitado e não está na build de hoje. Ao fim do dia, 79 requisitos implementados (todos `implementado`).
+
+### Implementações
+
+#### Entrada da integração no formato SOAP (F5.7, F5.14, F5.16)
+- **Tags:** #dados-externos #integracao #validacao #componente
+- **Arquivos:** `src/utils/integracao/entrada.ts`, `src/utils/integracao/entrada.test.ts`, `src/utils/integracao/modelos.ts`, `src/utils/integracao/modelos.test.ts`, `src/pages/dados-externos/DialogoConcluirConstrucao.tsx`, `DialogoConcluirConstrucao.test.tsx`, `DialogoConcluirConstrucao.configuracoes.test.tsx`, `src/services/dadosExternosService.ts`, `src/types/dominio.ts`, `src/services/adaptadores.ts`
+- **Descrição:**
+  - Os "Parâmetros de entrada" passaram a seguir o formato SOAP do executor: `operacao` + `parametros` (uma chamada) ou `chamadas` (várias).
+  - O `MODELO_JSON_ENTRADA` do "Inserir modelo" foi trocado pelo modelo SOAP.
+  - O motor local valida a estrutura nova e mantém as expressões, as datas e a prévia.
+- **Motivação:** adequação ao contrato da fase 2 do back-end (`FRONT-meta-via-api-fase2.md`, `API (27).md`), a pedido do usuário ("leia novos documentos do backend e faça as alterações necessárias").
+- **Como usar / observações técnicas:** vale para o "Concluir construção", as "Configurações" e a integração da meta do indicador, que usam a mesma modal.
+
+#### Aviso de variáveis de referência na entrada
+- **Tags:** #integracao #validacao #componente
+- **Arquivos:** `src/utils/integracao/entrada.ts`, `src/pages/dados-externos/DialogoConcluirConstrucao.tsx`, `DialogoConcluirConstrucao.test.tsx`
+- **Descrição:** quando a entrada usa `%filial%`, `%colaborador%` ou `%zona%`, a modal mostra um aviso **não bloqueante** orientando o uso de `%empresas%`. O salvamento continua liberado.
+- **Motivação:** contrato da fase 1/2 do back-end: o executor consulta por empresas, e as variáveis de referência individuais não se aplicam.
+- **Como usar / observações técnicas:** o aviso não impede salvar.
+
+#### `finalidade` na validação pelo servidor e `tipo de servico` (F5.18, F6.11)
+- **Tags:** #api #integracao #validacao
+- **Arquivos:** `src/services/dadosExternosService.ts`, `src/services/dadosExternosService.validacao.test.ts`, `src/pages/dados-externos/useValidacaoServidor.ts`, `src/services/adaptadores.ts`, `src/services/indicadoresService.ts`
+- **Descrição:**
+  - O `POST /api/ped/integracao/validar` passou a enviar `finalidade`: `valor` no dado externo e `meta` no indicador (`tipoAlvo` da modal).
+  - O `tipo de servico` (`soap`/`rest`, `TIPOS_SERVICO_INTEGRACAO_API`) é aceito nas respostas, mas não é usado nem enviado pelo front.
+- **Motivação:** contrato das fases 1 e 2 (`API (27).md`).
+- **Como usar / observações técnicas:** depois da mudança "saída sem mapeamento" (ver Modificações), o `validar` vai só com a entrada.
+
+#### Última consulta do dado externo (F5.22\*)
+- **Tags:** #dados-externos #integracao #componente #api
+- **Arquivos:** `src/pages/dados-externos/TabelaDadosExternos.tsx`, `TabelaDadosExternos.ultimaConsulta.test.tsx`, `DadosExternosPage.ultimaConsulta.integration.test.tsx`, `src/services/dadosExternosService.ts`, `src/services/dadosExternosService.ultimaConsulta.test.ts`, `src/services/adaptadores.ts`, `src/types/dominio.ts`, `src/test/dadosExternosFalsos.ts`
+- **Descrição:** campos novos do executor, visíveis só para o Admin, que é o único perfil que os recebe:
+  - data da última consulta bem-sucedida (`ultimaConsultaEm`);
+  - erro da última consulta (`erroUltimaConsulta`; texto vazio vira `null`).
+
+  Na tabela:
+  - com erro, a coluna Situação ganha a etiqueta "Erro na última consulta";
+  - nos detalhes, "Última consulta" mostra a data e hora, ou "Nenhuma consulta ainda" quando há integração salva e nenhuma consulta;
+  - "Erro da última consulta" mostra o texto do back-end;
+  - sem integração salva e sem data, nada sobre a consulta aparece.
+- **Motivação:** contrato da fase 2 (executor) do back-end, a pedido do usuário.
+- **Como usar / observações técnicas:** requisito `F5.22` em `requisitos.json`, `implementado`. A exibição de "Nenhuma consulta ainda" nos dados do ERP segue como decisão em aberto.
+
+#### Última consulta da meta no indicador e nos dashboards (F6.11, F7.6)
+- **Tags:** #indicadores #dashboards #integracao #api
+- **Arquivos:** `src/pages/indicadores/TabelaIndicadores.tsx`, `TabelaIndicadores.executor.test.tsx`, `IndicadoresPage.executor.integration.test.tsx`, `src/services/indicadoresService.ts`, `src/services/indicadoresService.executor.test.ts`, `src/services/adaptadores.executor.test.ts`, `src/pages/dashboards/regrasDashboard.metaViaApi.test.ts`, `DashboardsPage.metaViaApi.integration.test.tsx`, `src/test/indicadoresFalsos.ts`
+- **Descrição:**
+  - Nos detalhes do indicador da fonte `integracao`, para quem pode configurar a integração (Admin), aparecem "Última consulta" (data e hora, ou "Nenhuma consulta ainda") e, com erro, "Erro da última consulta". As linhas ficam entre "Filiais sem meta" e "Cadastro".
+  - Nos dashboards, um indicador da fonte `integracao` com erro na última consulta fica indisponível com "Erro na consulta da meta".
+  - Com a consulta `ok`, o indicador continua disponível mesmo com filiais sem meta: não há regra local, quem decide é o back-end.
+- **Motivação:** contrato da fase 2 (executor) do back-end.
+- **Como usar / observações técnicas:** a F6.14\* (validar a meta via API de ponta a ponta) foi desbloqueada no plano, mas depende de o back-end ligar o executor (`PED_EXECUTOR_ATIVO=true`).
+
+#### Execução de testes em lotes de até 150
+- **Tags:** #testes #agentes #configuracao
+- **Arquivos:** `scripts/lotes-testes.mjs` (novo), `CLAUDE.md`, `.claude/agents/testes-unitarios.md`, `.claude/agents/testes-integracao.md`
+- **Descrição:**
+  - `node scripts/lotes-testes.mjs --projeto unit|integration [--max 150] [--saida <arquivo.json>] [filtros...]` divide a bateria em lotes de até N testes (padrão 150).
+  - A contagem é estática (lê os arquivos), para funcionar com testes de TDD que ainda não compilam.
+  - A distribuição é first-fit: um arquivo nunca é dividido entre lotes, e um arquivo com mais de N testes fica sozinho num lote.
+  - A saída é um JSON com `{ projeto, max, totalTestes, totalArquivos, lotes: [{ lote, testes, arquivos }] }`.
+  - O `CLAUDE.md` e os agentes passaram a exigir:
+    - um agente por lote;
+    - `--maxWorkers=2` em cada agente;
+    - no máximo 10 subagentes de **qualquer tipo** ao mesmo tempo, subindo os próximos à medida que os anteriores terminam;
+    - comandos a partir de `C:\` no Windows;
+    - bateria aprovada só com 100% em todos os lotes.
+- **Motivação:** pedido do usuário ("cada agente que executa testes fica responsável de até 150 testes no máximo... para não travar a máquina o orquestrador sobe no máximo 10 subagentes de uma única vez"), por causa de travamentos e timeouts sob carga.
+- **Como usar / observações técnicas:** usado nos dois commits do dia (28 lotes cada). Limitação conhecida: a contagem estática subestima testes gerados (por exemplo, `it.each`), e houve lote real com 251 testes. A melhoria do script ficou pendente.
+
+#### Hook `useInsercaoNoCursor`
+- **Tags:** #componente #refatoracao #integracao
+- **Arquivos:** `src/pages/dados-externos/useInsercaoNoCursor.ts` (novo), `src/pages/dados-externos/DialogoConcluirConstrucao.tsx`
+- **Descrição:**
+  - A lógica de inserir variáveis e operadores no cursor de uma caixa de texto da modal foi extraída para um hook (`ref`, `guardarSelecao`, `inserir`, `reiniciar`), com uma instância por caixa.
+  - Sem cursor definido pelo usuário, a inserção vai para o fim. Depois vale a última posição ou seleção guardada, e "Inserir modelo" reinicia.
+- **Motivação:** o hook foi extraído da modal quando entraram os botões de "Marcadores da saída" (F5.21*), para que a entrada e a saída tivessem, cada uma, a sua posição de cursor independente, com a mesma regra de inserção decidida em 10/11 (sem cursor definido, vai para o fim). Os marcadores foram removidos depois (saída por tipos), mas o hook continuou em uso pelas variáveis e operadores da entrada. Não foi revertido por ser uma extração neutra, que deixou a modal menor.
+- **Como usar / observações técnicas:** ligar `ref` e `guardarSelecao` nos eventos da caixa de texto.
+
+#### Documentos de contrato da saída com o back-end
+- **Tags:** #documentacao #api #integracao
+- **Arquivos:**
+  - `docs/backend/API (27).md`, `docs/backend/FRONT-meta-via-api-fase1.md`, `docs/backend/FRONT-meta-via-api-fase2.md` (do back-end, commitados em `6500740`);
+  - `docs/propostas-backend/PROPOSTA-saida-chave-tipo.md` e `docs/propostas-backend/FRONT-saida-chave-tipo.md` (`6500740`);
+  - `docs/propostas-backend/RESPOSTA-FRONT-saida-sem-mapeamento.md` (`288d6c5`);
+  - `docs/backend/RESPOSTA-saida-sem-mapeamento (1).md` e `docs/backend/FRONT-saida-chave-tipo (1).md` (do back-end, ainda não commitados).
+- **Descrição:**
+  - `PROPOSTA-saida-chave-tipo.md`: proposta do front com as opções A, B e C para a saída "chave: tipo" (A-16). A opção A foi a pedida pelo usuário.
+  - `FRONT-saida-chave-tipo.md`: resposta do back-end, que implementou a opção B (tipos + `campo da filial`/`campo do valor`/`campo da competencia`).
+  - `RESPOSTA-FRONT-saida-sem-mapeamento.md`: resposta do front pedindo a saída sem mapeamento, só informativa (A-17).
+  - `RESPOSTA-saida-sem-mapeamento (1).md` e `FRONT-saida-chave-tipo (1).md`: contrato final do back-end. A saída é só documentação para o dev back-end, os nomes são livres e só o formato e os tipos são validados. O 400 só vem para JSON inválido (com linha/coluna), objeto/lista vazios ou tipo fora de `string`/`number`/`date`/`boolean`. Os `campo da ...` são ignorados e `"mapeamento da saida"` vem sempre `null`. O formato antigo (lista) continua aceito. A A-17 foi resolvida.
+- **Motivação:** negociação do formato da saída a partir do pedido do usuário ("o JSON esperado deveria ser de chave: tipo e não chave:valor") e da decisão de que a saída não faz amarração.
+- **Como usar / observações técnicas:** o executor genérico segue desligado no back-end (`PED_EXECUTOR_ATIVO=false`).
+
+#### Build validada do sistema
+- **Tags:** #testes #configuracao
+- **Arquivos:** `dist/` (gerado; fora do controle de versão)
+- **Descrição:** build feita pelo `build-validado` depois do commit `288d6c5`, com o resultado REALIZADA:
+  - 79/79 requisitos;
+  - unitários 3753/3753 e integração 503/503;
+  - carga 100% 2xx (9.876 requisições, média 50 ms, p99 104 ms);
+  - primeira visita com `vendor` 310 kB + `index` 34 kB.
+- **Motivação:** pedido do usuário ("faça o commit e depois gere a build do sistema").
+- **Como usar / observações técnicas:** a build não inclui o ajuste final da saída (modelo genérico e texto de ajuda), feito depois.
+
+### Modificações
+
+#### Saída da integração por "chave: tipo" com mapeamento (F5.23\*, opção B)
+- **Tags:** #integracao #dados-externos #indicadores #validacao #componente #api
+- **Arquivos:** `src/utils/integracao/saida.ts`, `saida.test.ts`, `src/utils/integracao/mapeamento.ts` (criado neste commit e removido no seguinte), `mapeamento.test.ts`, `src/utils/integracao/modelos.ts`, `src/pages/dados-externos/DialogoConcluirConstrucao.tsx`, `DialogoConcluirConstrucao.css`, `src/pages/indicadores/useIntegracaoIndicador.ts`, `useIntegracaoIndicador.saidaTipos.test.tsx`, `IndicadoresPage.saidaTipos.integration.test.tsx`, `src/services/indicadoresService.saidaTipos.test.ts`, `src/services/adaptadores.saidaTiposIndicador.test.ts`, `src/services/dadosExternosService.ts`, `src/services/adaptadores.ts`, `src/types/dominio.ts` (commit `6500740`)
+- **Antes:** a saída era uma **lista** com valores (`filial` + `valor`/`meta`, `competencia` opcional), validada por `validarSaida(texto, campoValor)`.
+- **Depois:**
+  - A saída descreve **um item** da resposta como objeto `{ "campo": "tipo" }`, com os tipos `string`, `number`, `date` ou `boolean` entre aspas.
+  - A modal ganhou listas para mapear o campo da filial, do valor e da competência (`MapeamentoSaida`), enviadas como `campo da filial`, `campo do valor` e `campo da competencia`.
+  - Nas "Configurações", só se salva o formato novo. Uma integração salva em lista abre com o texto antigo, o aviso "Esta integração está no formato antigo (lista). Reescreva a saída no formato "campo": "tipo" para salvar." e o salvar bloqueado.
+  - "Inserir modelo de saída" não preenche o mapeamento.
+- **Motivação:** pedido do usuário com print: "o JSON esperado deveria ser de chave: tipo e não chave:valor". Decisões do usuário: a mudança vale só na saída e o tipo fica entre aspas. O usuário pediu a opção A, mas o back-end implementou a B e o front se adequou. A decisão de salvar só o formato novo também foi do usuário.
+- **Impacto:** modal "Concluir construção", "Configurações da integração" e integração da meta do indicador (F6.11), além dos corpos do `PUT .../concluir` e do `PUT .../integracao`. Requisitos alterados: F1.3, F5.1, F5.7, F5.14, F5.16, F5.17 (fixtures e corpo), F5.18 e F6.11. Todos passaram por `em-alteracao` e voltaram a `implementado`.
+
+#### Marcadores da saída criados e removidos (F5.21\*)
+- **Tags:** #integracao #api #refatoracao
+- **Arquivos:** `src/utils/integracao/saida.ts`, `src/services/dadosExternosService.ts` (`listarVariaveisSaida`, `GET /api/ped/integracao/variaveis-saida`), `marcadores.ts` (removido), `requisitos.json`
+- **Antes:** pela fase 1 do back-end, a saída em lista usava marcadores (`"%filial%"`, `"%valor%"`/`"%meta%"`, `"%competencia%"`), carregados de `GET /api/ped/integracao/variaveis-saida` (requisito novo F5.21).
+- **Depois:** marcadores e `listarVariaveisSaida` retirados. No plano, a F5.21\* foi cancelada e substituída pela F5.23\*.
+- **Motivação:** decisão do usuário ao adotar a saída "chave: tipo", em que os marcadores deixaram de fazer sentido.
+- **Impacto:** a modal não oferece mais marcadores na saída. Nenhuma integração em produção dependia deles.
+
+#### Saída sem mapeamento e validada só no front (F5.23\* alterada, A-17)
+- **Tags:** #integracao #dados-externos #indicadores #validacao #correcao #refatoracao #componente
+- **Arquivos:** `src/pages/dados-externos/DialogoConcluirConstrucao.tsx`, `DialogoConcluirConstrucao.css`, `src/pages/dados-externos/useValidacaoServidor.ts`, `src/pages/dados-externos/ValidacaoIntegracao.tsx`, `src/pages/dados-externos/DadosExternosPage.tsx`, `src/pages/indicadores/useIntegracaoIndicador.ts`, `src/services/dadosExternosService.ts`, `src/services/indicadoresService.ts`, `src/services/adaptadores.ts`, `src/types/dominio.ts`, `src/utils/integracao/saida.ts`, `src/utils/integracao/mapeamento.ts` e `mapeamento.test.ts` (**removidos**), `src/test/dadosExternosFalsos.ts`, `src/test/indicadoresFalsos.ts` e os testes correspondentes (commit `288d6c5`)
+- **Antes:**
+  - A modal tinha as listas de mapeamento (campo de valor, de competência e de filial).
+  - O `validar` do servidor validava a saída e prevalecia sobre o resultado local.
+  - Os corpos enviavam também os `campo da ...`.
+- **Depois:**
+  - As listas de mapeamento foram removidas.
+  - A saída é validada **só no front**: objeto não vazio, com tipos entre os quatro.
+  - O `POST /api/ped/integracao/validar` vai só com a entrada.
+  - Os corpos do concluir e da integração levam só os 4 campos (identificador, URL, parâmetros de saída e de entrada).
+  - `mapeamento.ts` foi excluído.
+- **Motivação:** pedido do usuário com print: "está dando erro mesmo com o JSON de saída correto; retirar a parte de baixo que tem os botões para selecionar os campos de valor, competência e de filial; os parâmetros servem apenas para mostrar ao backend qual a saída esperada do webservice e não é para fazer uma amarração". O erro vinha do `validar` do ambiente: o back-end ainda não tinha a versão nova, e a resposta dele prevalecia sobre a validação local.
+- **Impacto:** modal da integração do dado externo e do indicador, serviços e tipos. Requisitos F1.3, F5.1, F5.7, F5.14, F5.16–F5.19 e F6.11 alterados e de volta a `implementado`. Resposta ao back-end em `RESPOSTA-FRONT-saida-sem-mapeamento.md`.
+
+#### Erros da saída sem linha/coluna no motor local
+- **Tags:** #validacao #integracao
+- **Arquivos:** `src/utils/integracao/saida.ts`, `saida.test.ts`
+- **Antes:** os erros da saída traziam linha e coluna, como os demais erros de JSON.
+- **Depois:** os erros de estrutura e de tipo da saída aparecem sem linha/coluna. Só o JSON inválido mantém a posição.
+- **Motivação:** contrato das fases 1/2 do back-end (`API (27).md`).
+- **Impacto:** mensagens do campo "Parâmetros de saída".
+
+#### Ajuste final da saída pelo contrato do back-end (não commitado)
+- **Tags:** #integracao #componente #validacao #testes
+- **Arquivos:** `src/utils/integracao/modelos.ts`, `modelos.test.ts`, `src/pages/dados-externos/DialogoConcluirConstrucao.tsx`, `DialogoConcluirConstrucao.test.tsx`, `DialogoConcluirConstrucao.configuracoes.test.tsx`, `DialogoConcluirConstrucao.metaViaApi.test.tsx`, `DadosExternosPage.concluir.integration.test.tsx`, `requisitos.json`
+- **Antes:**
+  - Havia dois modelos de saída: `MODELO_JSON_SAIDA` (`{ codfil: "string", vlrLiq: "number" }`) para o dado externo e `MODELO_JSON_SAIDA_META` (`{ codfil: "string", metVlr: "number" }`) para o indicador.
+  - O texto de ajuda era "Descreva um item da resposta como { "campo": "tipo" }, com os tipos string, number, date ou boolean."
+- **Depois:**
+  - Um modelo único e genérico para dado externo e indicador: `{ "codigo_filial": "string", "quantidade": "number", "data": "date" }`. `MODELO_JSON_SAIDA_META` e o mapa `MODELO_SAIDA_POR_CAMPO` foram removidos.
+  - O texto de ajuda passou a ser "Descreva um item da resposta do web service com o tipo de cada campo. É só referência para a equipe de desenvolvimento; os nomes são livres."
+  - Testes novos: vários erros 400 da saída (um com linha/coluna) aparecem juntos no campo "Parâmetros de saída". O comportamento já existia e agora está coberto.
+  - Nenhum teste removido.
+  - Validação: unitários 3754/3754 e integração 504/504.
+- **Motivação:** pedido do usuário ("leia os novos arquivos que o backend implementou" e "aplicar os ajustes"), para seguir o contrato final do back-end (`RESPOSTA-saida-sem-mapeamento (1).md`, seção 4): exemplo genérico sem nomes obrigatórios e texto de ajuda sugerido.
+- **Impacto:** "Inserir modelo de saída" e o texto de ajuda da modal, nos dois alvos (dado externo e indicador). Ainda não commitado e fora da build de hoje.
+
+#### Commits `6500740` e `288d6c5`
+- **Tags:** #testes #configuracao
+- **Arquivos:** todos os listados acima. O `6500740` também inclui o fechamento de 10/11 (`docs/diario-implementacao.md`, `docs/documentacao.md`) e o plano atualizado.
+- **Antes:** último commit `a2ab9cc` (10/11).
+- **Depois:**
+  - `6500740` (pedido "faça o commit"): meta via API fases 1 e 2, última consulta, saída "chave: tipo" com mapeamento e testes em lotes. Teve 28 lotes em paralelo (24 unitários + 4 de integração), todos 100% (unitários 3842, integração 506), e o hook foi aprovado. Antes do commit, o plano registrou a remoção dos marcadores.
+  - `288d6c5` (pedido "faça o commit e depois gere a build do sistema"): saída sem mapeamento e resposta ao back-end (A-17). Teve 28 lotes, todos 100%, e o hook foi aprovado.
+- **Motivação:** pedidos do usuário.
+- **Impacto:** o ajuste final da saída e os dois documentos novos do back-end ficaram fora dos commits.
+
+### Pendências
+- Commit do ajuste final da saída e dos documentos `docs/backend/RESPOSTA-saida-sem-mapeamento (1).md` e `docs/backend/FRONT-saida-chave-tipo (1).md`.
+- Nova build com o ajuste final.
+- Melhoria do `scripts/lotes-testes.mjs`: a contagem estática subestima testes gerados, e houve lote real com 251 testes, acima do limite de 150.
+- F6.14\* (validar a meta via API de ponta a ponta) depende de o back-end ligar o executor (`PED_EXECUTOR_ATIVO=true`).
+- As integrações salvas em lista no ambiente real abrem com aviso e salvar bloqueado, e precisam ser reescritas pela TI no formato "chave: tipo".
+- Decisões antigas em aberto:
+  - "Nenhuma consulta ainda" nos dados do ERP;
+  - formato da "Última consulta";
+  - regras assumidas da meta por filial e da meta via API.
+- Teste lento: `DadosExternosPage.concluir.integration` (~23–70 s).
 
 ---
 

@@ -4,8 +4,11 @@
  * A autenticação em si é feita por `useSessao().entrar`; a tela só coleta usuário e senha,
  * controla o estado de envio e navega para o Início em caso de sucesso. A senha fica apenas
  * no estado do componente: nunca vai a storage nem a log.
+ *
+ * Limite de tentativas (F2.2): em `ApiError` 429, o envio fica bloqueado por `tentarNovamenteEm`
+ * segundos (ou 60 s, se a API não informar), com contagem regressiva fora de região viva.
  */
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CAMINHOS } from '../../caminhos'
 import { Aviso } from '../../components/Aviso'
@@ -14,6 +17,7 @@ import { Campo } from '../../components/Campo'
 import { Etiqueta } from '../../components/Etiqueta'
 import { Marca } from '../../components/Marca'
 import { Rodape } from '../../components/Rodape'
+import { ApiError } from '../../services/api'
 import { useSessao } from '../../sessao/SessaoProvider'
 import './LoginPage.css'
 
@@ -38,6 +42,13 @@ function IconeOlho({ aberto }: { aberto: boolean }) {
   )
 }
 
+/** Bloqueio usado quando a API responde 429 sem informar o tempo de espera. */
+const SEGUNDOS_BLOQUEIO_PADRAO = 60
+
+function segundosRestantes(fim: number): number {
+  return Math.ceil((fim - Date.now()) / 1000)
+}
+
 export function LoginPage() {
   const { entrar, erro } = useSessao()
   const navigate = useNavigate()
@@ -45,17 +56,42 @@ export function LoginPage() {
   const [senha, setSenha] = useState('')
   const [mostrarSenha, setMostrarSenha] = useState(false)
   const [enviando, setEnviando] = useState(false)
+  /** Instante (ms) em que o bloqueio por limite de tentativas termina; `null` sem bloqueio. */
+  const [fimBloqueio, setFimBloqueio] = useState<number | null>(null)
+  const [restantes, setRestantes] = useState(0)
+  const bloqueado = fimBloqueio !== null
+
+  // Contagem regressiva do bloqueio, recalculada pelo relógio a cada segundo; limpa ao desmontar.
+  useEffect(() => {
+    if (fimBloqueio === null) return
+    const intervalo = setInterval(() => {
+      const segundos = segundosRestantes(fimBloqueio)
+      if (segundos <= 0) {
+        clearInterval(intervalo)
+        setFimBloqueio(null)
+        setRestantes(0)
+      } else {
+        setRestantes(segundos)
+      }
+    }, 1000)
+    return () => clearInterval(intervalo)
+  }, [fimBloqueio])
 
   async function aoEnviar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (enviando) return
+    if (enviando || bloqueado) return
 
     setEnviando(true)
     try {
       await entrar(usuario, senha)
       navigate(CAMINHOS.inicio)
-    } catch {
+    } catch (falha) {
       // A mensagem já foi refletida em `erro` pela sessão; a tela permanece com os campos preenchidos.
+      if (falha instanceof ApiError && falha.status === 429) {
+        const segundos = falha.tentarNovamenteEm ?? SEGUNDOS_BLOQUEIO_PADRAO
+        setFimBloqueio(Date.now() + segundos * 1000)
+        setRestantes(segundos)
+      }
       setEnviando(false)
     }
   }
@@ -109,9 +145,12 @@ export function LoginPage() {
               }
             />
 
-            <Botao type="submit" className="login__entrar" disabled={enviando}>
-              Entrar
+            <Botao type="submit" className="login__entrar" disabled={enviando || bloqueado}>
+              {bloqueado ? `Aguarde ${restantes} s` : 'Entrar'}
             </Botao>
+
+            {/* Fora de região viva: a contagem não é anunciada a cada segundo (o alerta já informa). */}
+            {bloqueado ? <p className="login__espera">{`Tente novamente em ${restantes} s.`}</p> : null}
           </form>
         </section>
       </main>

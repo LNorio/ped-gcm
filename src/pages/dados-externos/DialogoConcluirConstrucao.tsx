@@ -13,8 +13,9 @@
  *
  * Também serve à integração da meta do indicador (F6.11, `tipoAlvo: 'indicador'`, modo `configurar`):
  * `dado` é um `AlvoIntegracao` (o `DadoExterno` é compatível). `tipoAlvo` muda o texto da modal, a
- * `finalidade` da validação no servidor (`valor` no dado externo, `meta` no indicador) e o modelo de
- * "Inserir modelo de saída". Sem janela retroativa nem dia da coleta, os valores de exemplo usam só `hoje`.
+ * `finalidade` da validação no servidor (`valor` no dado externo, `meta` no indicador). "Inserir modelo
+ * de saída" usa o mesmo modelo genérico (`MODELO_JSON_SAIDA`) para os dois (contrato final, 11/11/2026 —
+ * `docs/backend/FRONT-saida-chave-tipo (1).md`: a saída é só referência e os nomes são livres). Sem janela retroativa nem dia da coleta, os valores de exemplo usam só `hoje`.
  *
  * Saída por "chave: tipo" (11/11/2026, opção B — `docs/propostas-backend/FRONT-saida-chave-tipo.md`): a
  * saída descreve um item da resposta como `{ "campo": "tipo" }` (`string`, `number`, `date`, `boolean`) e
@@ -73,7 +74,7 @@ import { validarEntrada } from '../../utils/integracao/entrada'
 import { formatarErroIntegracao } from '../../utils/integracao/erros'
 import { valoresDeExemplo } from '../../utils/integracao/exemplos'
 import { type ContextoIntegracao, variaveisDoTexto } from '../../utils/integracao/expressoes'
-import { MODELO_JSON_ENTRADA, MODELO_JSON_SAIDA, MODELO_JSON_SAIDA_META } from '../../utils/integracao/modelos'
+import { MODELO_JSON_ENTRADA, MODELO_JSON_SAIDA } from '../../utils/integracao/modelos'
 import { type CampoValorSaida, validarSaida } from '../../utils/integracao/saida'
 import { TAMANHO_MAXIMO_URL, urlValida } from '../../utils/integracao/url'
 import { PainelVariaveis } from './PainelVariaveis'
@@ -91,7 +92,8 @@ export const TAMANHO_MAXIMO_IDENTIFICADOR = 60
 
 const MENSAGEM_LIMITE_IDENTIFICADOR = `O identificador aceita até ${TAMANHO_MAXIMO_IDENTIFICADOR} caracteres.`
 const MENSAGEM_LIMITE_URL = `A URL aceita até ${TAMANHO_MAXIMO_URL} caracteres.`
-const ORIENTACAO_SAIDA = 'Descreva um item da resposta como { "campo": "tipo" }, com os tipos string, number, date ou boolean.'
+const ORIENTACAO_SAIDA =
+  'Descreva um item da resposta do web service com o tipo de cada campo. É só referência para a equipe de desenvolvimento; os nomes são livres.'
 const AVISO_FORMATO_ANTIGO =
   'Esta integração está no formato antigo (lista). Reescreva a saída no formato "campo": "tipo" para salvar.'
 
@@ -118,7 +120,7 @@ export type ModoDialogoIntegracao = 'concluir' | 'configurar' | 'leitura'
 /** Modos em que a integração é editada. */
 export type ModoEdicaoIntegracao = Exclude<ModoDialogoIntegracao, 'leitura'>
 
-/** De quem é a integração (F6.11): muda o texto da modal, a `finalidade` e o modelo de saída. */
+/** De quem é a integração (F6.11): muda o texto da modal e a `finalidade`. */
 export type TipoAlvoIntegracao = 'dado-externo' | 'indicador'
 
 /**
@@ -143,7 +145,7 @@ export interface DialogoConcluirConstrucaoProps {
   modo?: ModoEdicaoIntegracao
   /** Dono da integração (dado externo ou indicador — F6.11); `null` mantém a modal fechada. */
   dado: AlvoIntegracao | null
-  /** De quem é a integração; muda o texto, a `finalidade` e o modelo de saída. Padrão `dado-externo`. */
+  /** De quem é a integração; muda o texto e a `finalidade`. Padrão `dado-externo`. */
   tipoAlvo?: TipoAlvoIntegracao
   /** Identificadores existentes, oferecidos como sugestão. */
   identificadores: IdentificadorColeta[]
@@ -189,16 +191,10 @@ const TEXTOS_MODO: Readonly<Record<ModoEdicaoIntegracao, { titulo: string; botao
   configurar: { titulo: 'Configurações da integração', botao: 'Salvar configurações' },
 }
 
-/** Campo de valor da integração (`finalidade` e modelo de saída), conforme o dono da integração. */
+/** Campo de valor da integração (`finalidade`), conforme o dono da integração. */
 const CAMPO_VALOR_POR_ALVO: Readonly<Record<TipoAlvoIntegracao, CampoValorSaida>> = {
   'dado-externo': 'valor',
   indicador: 'meta',
-}
-
-/** Modelo de "Inserir modelo de saída" para cada papel do valor. */
-const MODELO_SAIDA_POR_CAMPO: Readonly<Record<CampoValorSaida, string>> = {
-  valor: MODELO_JSON_SAIDA,
-  meta: MODELO_JSON_SAIDA_META,
 }
 
 type CampoModal = 'identificador' | 'url' | 'saida' | 'entrada'
@@ -423,7 +419,7 @@ function ConteudoDialogo({
   } = useInsercaoNoCursor(entrada, alterarEntrada)
 
   function inserirModeloSaida() {
-    alterarSaida(MODELO_SAIDA_POR_CAMPO[campoValor])
+    alterarSaida(MODELO_JSON_SAIDA)
   }
 
   function inserirModeloEntrada() {

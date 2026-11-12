@@ -1,5 +1,39 @@
 # Diário de Implementação — PED
 
+## 11/11/2026
+
+**Resumo:** O front foi adequado à meta via API das fases 1 e 2 do back-end (entrada SOAP, avisos, `finalidade`, executor e última consulta). A saída da integração mudou duas vezes: primeiro para "chave: tipo" com mapeamento, depois para "chave: tipo" só informativa, sem mapeamento, que é o contrato final com o back-end. Também entraram as regras de execução de testes em lotes de até 150. Dois commits (`6500740` e `288d6c5`), uma build validada e um ajuste final ainda não commitado. Ao fim do dia, 79 requisitos implementados.
+
+### Implementações
+- Entrada da integração no formato SOAP (`operacao` + `parametros`/`chamadas`), com o modelo novo do "Inserir modelo" (F5.7, F5.14).
+- Aviso não bloqueante de `%filial%`/`%colaborador%`/`%zona%` na entrada, orientando o uso de `%empresas%`.
+- `finalidade` (`valor`/`meta`) no `POST /api/ped/integracao/validar` e `tipo de servico` aceito na leitura, sem ser enviado.
+- "Última consulta do dado externo" (F5.22\*, só Admin): etiqueta "Erro na última consulta" e, nos detalhes, "Última consulta" e "Erro da última consulta".
+- Última consulta da meta no indicador da fonte `integracao` (F6.11), e dashboards com "Erro na consulta da meta" (F7.6).
+- `scripts/lotes-testes.mjs`: divide as baterias em lotes de até 150 testes (contagem estática, first-fit, sem quebrar arquivos).
+- Regras de execução de testes no `CLAUDE.md` e nos agentes `testes-unitarios`/`testes-integracao`: um agente por lote, 2 testes simultâneos por agente, no máximo 10 subagentes de qualquer tipo ao mesmo tempo.
+- Hook `useInsercaoNoCursor` extraído para a inserção de variáveis e operadores no cursor. Surgiu com os marcadores da saída (F5.21*), para cada caixa ter o seu cursor, e foi mantido depois da remoção deles.
+- Documentos com o back-end: `PROPOSTA-saida-chave-tipo.md` (opções A/B/C), `FRONT-saida-chave-tipo.md` (resposta do back, opção B) e `RESPOSTA-FRONT-saida-sem-mapeamento.md` (A-17).
+- Build validada REALIZADA: 79/79, unitários 3753, integração 503, carga 100% 2xx (9.876 requisições, média 50 ms, p99 104 ms). Primeira visita: `vendor` 310 kB + `index` 34 kB.
+
+### Modificações
+- Saída da integração de lista (`filial` + `valor`/`meta`) para objeto "chave: tipo" (`string`, `number`, `date`, `boolean`), com mapeamento (F5.23\*, opção B do back-end). Lista antiga abre com aviso e salvar bloqueado.
+- Marcadores da saída (F5.21\*, `%filial%`/`%valor%`/`%meta%`/`%competencia%`) implementados e depois removidos, por decisão do usuário.
+- Saída sem mapeamento: as listas de campo de valor, competência e filial saíram da modal. A saída passou a ser validada só no front, o `validar` vai só com a entrada, os corpos levam só os 4 campos e `mapeamento.ts` foi removido.
+- Erros de saída sem linha/coluna no motor local. Requisitos alterados: F1.3, F5.1, F5.7, F5.14, F5.16, F5.17, F5.18 e F6.11.
+- Commit `6500740` (28 lotes 100%: unitários 3842, integração 506) e commit `288d6c5` (28 lotes 100%). Hook aprovado nos dois.
+- Ajuste final (não commitado): modelo de saída único e genérico `{ "codigo_filial": "string", "quantidade": "number", "data": "date" }` para dado externo e indicador, texto de ajuda novo e cobertura dos erros 400 da saída junto ao campo. Unitários 3754/3754, integração 504/504.
+
+### Pendências
+- Commit do ajuste final e dos documentos novos do back-end. Build com o ajuste final (a build de hoje não o inclui).
+- Melhorar o `scripts/lotes-testes.mjs`: a contagem estática subestima testes gerados (houve lote real com 251 testes).
+- F6.14\* (validar a meta via API ponta a ponta) depende de `PED_EXECUTOR_ATIVO=true` no back-end.
+- Integrações salvas em lista no ambiente real precisam ser reescritas pela TI.
+- Decisões antigas em aberto: "Nenhuma consulta ainda" nos dados do ERP, formato da "Última consulta", regras assumidas da meta por filial e da meta via API.
+- Teste lento `DadosExternosPage.concluir.integration` (~23–70 s).
+
+---
+
 ## 10/11/2026
 
 **Resumo:** Duas builds validadas, decisões sobre as dúvidas da integração, ajustes de tabelas e da modal "Definir meta", build dividida (`vendor`/`index`) e abas sob demanda. Também entraram a meta por filial com "Definir metas pendentes" e a meta via API, adequada ao contrato final negociado com o back-end. Commit `a2ab9cc` feito na segunda tentativa. Ao fim do dia, 78 requisitos implementados e plano em 73% (93/127).

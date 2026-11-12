@@ -4,7 +4,7 @@ import { URL_META_VIA_API } from '../../test/indicadoresFalsos'
 import { identificadoresApi, variaveisIntegracaoSemExemplo } from '../../test/dadosExternosFalsos'
 import { colar, usuarioRapido } from '../../test/usuario'
 import type { ErroIntegracao } from '../../types/dominio'
-import { MODELO_JSON_SAIDA, MODELO_JSON_SAIDA_META } from '../../utils/integracao/modelos'
+import { MODELO_JSON_SAIDA } from '../../utils/integracao/modelos'
 import {
   type AlvoIntegracao,
   type DadosConclusaoConstrucao,
@@ -161,9 +161,13 @@ describe('F6.11 — DialogoConcluirConstrucao para a integração da meta do ind
   })
 
   /**
-   * Saída por "chave: tipo" (11/11/2026, opção B — `FRONT-saida-chave-tipo.md`): "Inserir modelo de saída"
-   * usa `MODELO_JSON_SAIDA_META` (`{ "codfil": "string", "metVlr": "number" }`) no indicador. Uma integração
-   * salva em lista (formato antigo) abre com o aviso para reescrever e o salvar bloqueado, como no dado externo.
+   * Saída por "chave: tipo" (11/11/2026, opção B — `FRONT-saida-chave-tipo.md`): uma integração salva em lista
+   * (formato antigo) abre com o aviso para reescrever e o salvar bloqueado, como no dado externo.
+   *
+   * Alteração de 11/11/2026 (contrato final — `docs/backend/RESPOSTA-saida-sem-mapeamento (1).md`, seção 4): a
+   * saída é só documentação; "Inserir modelo de saída" usa o **mesmo** modelo genérico do dado externo
+   * (`MODELO_JSON_SAIDA` = `{ "codigo_filial": "string", "quantidade": "number", "data": "date" }`) e o texto de
+   * ajuda é o mesmo. O modelo separado do indicador (`MODELO_JSON_SAIDA_META`) foi removido.
    *
    * Alteração de 11/11/2026 (saída sem mapeamento — `RESPOSTA-FRONT-saida-sem-mapeamento.md`): não há
    * "Campo da filial", "Campo da meta" nem "Campo da competência" (nem "Campo do valor"); o "falta: ..." não
@@ -192,16 +196,20 @@ describe('F6.11 — DialogoConcluirConstrucao para a integração da meta do ind
       expect(salvar()).toBeEnabled()
     })
 
-    it('"Inserir modelo de saída" usa o modelo do indicador (MODELO_JSON_SAIDA_META), válido', async () => {
+    it('"Inserir modelo de saída" usa o mesmo modelo genérico do dado externo (MODELO_JSON_SAIDA), válido', async () => {
       const user = usuarioRapido()
       renderizar({ dado: PENDENTE })
 
       await user.click(within(dialogo()).getByRole('button', { name: 'Inserir modelo de saída' }))
 
-      expect(campo('Parâmetros de saída')).toHaveValue(MODELO_JSON_SAIDA_META)
-      expect(campo('Parâmetros de saída')).not.toHaveValue(MODELO_JSON_SAIDA)
+      expect(campo('Parâmetros de saída')).toHaveValue(MODELO_JSON_SAIDA)
+      expect(JSON.parse((campo('Parâmetros de saída') as HTMLTextAreaElement).value)).toEqual({
+        codigo_filial: 'string',
+        quantidade: 'number',
+        data: 'date',
+      })
       expect(within(dialogo()).getByRole('status', { name: 'Validação dos parâmetros de saída' })).toHaveTextContent(
-        '2 campos: codfil (string), metVlr (number)',
+        '3 campos: codigo_filial (string), quantidade (number), data (date)',
       )
     })
 
@@ -247,11 +255,11 @@ describe('F6.11 — DialogoConcluirConstrucao para a integração da meta do ind
       expect(salvar()).toBeDisabled()
     })
 
-    it('mostra a mesma orientação do formato novo, sem a lista por filial', () => {
+    it('mostra o mesmo texto de ajuda da saída do dado externo, sem a lista por filial', () => {
       renderizar()
 
       expect(
-        within(dialogo()).getByText('Descreva um item da resposta como { "campo": "tipo" }, com os tipos string, number, date ou boolean.'),
+        within(dialogo()).getByText('Descreva um item da resposta do web service com o tipo de cada campo. É só referência para a equipe de desenvolvimento; os nomes são livres.'),
       ).toBeInTheDocument()
       expect(within(dialogo()).queryByText(/Lista com um item por filial/)).not.toBeInTheDocument()
     })
