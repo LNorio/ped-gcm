@@ -1,0 +1,55 @@
+/*
+ * Pré-visualização das imagens do encerramento (F10.4 — RF-80). Usa a variante larga do diálogo
+ * (`.dialogo--largo`); o corpo rola dentro do diálogo.
+ */
+
+.dialogo-previa .dialogo__corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.dialogo-previa__carregando,
+.dialogo-previa__nota,
+.dialogo-previa__progresso,
+.dialogo-previa__contagem {
+  margin: 0;
+}
+
+.dialogo-previa__nota,
+.dialogo-previa__contagem {
+  font-size: 0.875rem;
+  color: var(--cor-texto-secundario);
+}
+
+.dialogo-previa__progresso {
+  font-weight: 600;
+}
+
+.dialogo-previa__conteudo {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.dialogo-previa__filtros {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  align-items: end;
+  gap: 0.75rem 1rem;
+}
+
+.dialogo-previa__navegacao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.dialogo-previa__posicao {
+  font-weight: 600;
+  text-align: center;
+}

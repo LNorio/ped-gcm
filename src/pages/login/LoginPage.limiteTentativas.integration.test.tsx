@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { limparToken, obterToken } from '../../services/sessao'
 import { acessoApi, respostaJson, simularApi } from '../../test/apiFalsa'
+import { rotaInicioFalsa } from '../../test/inicioFalsos'
 import { renderizarApp } from '../../test/renderizarApp'
 
 /**
@@ -146,6 +147,8 @@ describe('F2.2 — Tela de login: limite de tentativas (integração: 429 da API
         return tentativas === 1 ? resposta429(5, '5') : respostaJson({ token: 'token-123' })
       },
       'GET /api/ped/acesso': () => respostaJson(acessoApi()),
+      // F11.1: o Início consulta GET /api/ped/inicio ao abrir (fora do que este teste verifica).
+      'GET /api/ped/inicio': rotaInicioFalsa('preenchedor'),
     })
     const user = await abrirLoginComRelogioFalso()
 
@@ -155,7 +158,8 @@ describe('F2.2 — Tela de login: limite de tentativas (integração: 429 da API
 
     expect(screen.getByRole('heading', { name: 'Início' })).toBeInTheDocument()
     expect(obterToken()).toBe('token-123')
-    expect(chamadas.map((c) => `${c.metodo} ${c.caminho}`)).toEqual([
+    // Só as chamadas de login e de acesso, na ordem; a consulta do Início (F11.1) fica de fora.
+    expect(chamadas.filter((c) => c.caminho !== '/api/ped/inicio').map((c) => `${c.metodo} ${c.caminho}`)).toEqual([
       'POST /api/valida-usuario',
       'POST /api/valida-usuario',
       'GET /api/ped/acesso',

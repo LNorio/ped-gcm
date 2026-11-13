@@ -1,0 +1,7 @@
+/* Avisos de pendências e de falta de faixas da prévia e da confirmação do encerramento. */
+
+.avisos-fechamento {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}

@@ -1,0 +1,47 @@
+/* Tabela da aba Fechamentos (F10.2). */
+
+.tabela-fechamentos__pilha {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.tabela-fechamentos__etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.tabela-fechamentos__titulo {
+  color: var(--cor-texto);
+  font-weight: 600;
+}
+
+.tabela-fechamentos__secundario {
+  color: var(--cor-texto-secundario);
+  font-size: 0.875em;
+}
+
+.tabela-fechamentos__pendencias {
+  color: var(--cor-perigo-escura);
+  font-size: 0.875em;
+}
+
+.tabela-fechamentos__progresso {
+  min-width: 140px;
+  align-items: stretch;
+}
+
+.tabela-fechamentos__barra {
+  height: 6px;
+  border-radius: 999px;
+  background-color: var(--cor-fundo-neutro);
+  overflow: hidden;
+}
+
+.tabela-fechamentos__barra-preenchida {
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--cor-primaria);
+}

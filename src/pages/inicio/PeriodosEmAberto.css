@@ -1,0 +1,56 @@
+/* "Períodos em aberto" do Início (F11.4): lista de dashboards com progresso e link "Preencher". */
+
+.periodos-em-aberto__lista {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.periodos-em-aberto__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--cor-borda-suave);
+}
+
+.periodos-em-aberto__item:first-child {
+  padding-top: 0;
+}
+
+.periodos-em-aberto__item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.periodos-em-aberto__dados {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.periodos-em-aberto__nome {
+  font-weight: 600;
+  color: var(--cor-texto);
+  overflow-wrap: anywhere;
+}
+
+.periodos-em-aberto__periodo,
+.periodos-em-aberto__progresso {
+  font-size: 0.875rem;
+  color: var(--cor-texto-secundario);
+}
+
+.periodos-em-aberto__acao {
+  text-decoration: none;
+}
+
+.periodos-em-aberto__vazio {
+  margin: 0;
+  color: var(--cor-texto-suave);
+}

@@ -1,0 +1,27 @@
+/* Confirmação do encerramento manual (F10.5 — RF-81, RF-82, RNF-07). */
+
+.dialogo-encerrar .dialogo__corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dialogo-encerrar__carregando,
+.dialogo-encerrar__total,
+.dialogo-encerrar__outros {
+  margin: 0;
+}
+
+.dialogo-encerrar__total {
+  font-weight: 600;
+}
+
+.dialogo-encerrar__filiais {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.dialogo-encerrar__outros {
+  font-size: 0.875rem;
+  color: var(--cor-texto-secundario);
+}

@@ -1,0 +1,10 @@
+/*
+ * Diálogo de uma imagem congelada (F10.6): estado de carga e a visualização (VisualizacaoImagem.css).
+ */
+
+.dialogo-imagem {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}

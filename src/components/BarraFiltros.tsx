@@ -1,4 +1,4 @@
-import { useId, type KeyboardEvent } from 'react'
+import { useId, type KeyboardEvent, type ReactNode } from 'react'
 import { normalizarBusca } from '../utils/formato'
 import { Botao } from './Botao'
 import { Chip } from './Chip'
@@ -49,13 +49,21 @@ export interface BarraFiltrosProps {
   /** Rótulo acessível do grupo de botões. Padrão: "Tipo". */
   rotuloBotoes?: string
 
+  /**
+   * Filtros adicionais do pai (ex.: um select de periodicidade), exibidos logo após a busca.
+   * A barra não conhece o estado deles: use `filtrosAdicionaisAtivos` para o "Limpar filtros".
+   */
+  children?: ReactNode
+  /** Indica que algum filtro adicional (`children`) está fora do padrão. Padrão: false. */
+  filtrosAdicionaisAtivos?: boolean
+
   /** Quando informado, exibe "Limpar filtros" sempre que houver algum filtro ativo. */
   onLimpar?: () => void
 }
 
 /**
- * Barra de filtros reutilizável das listagens: busca normalizada, seletor de situação,
- * botões com contagem e "Limpar filtros". Não conhece regras de negócio — recebe as opções,
+ * Barra de filtros reutilizável das listagens: busca normalizada, filtros adicionais do pai,
+ * seletor de situação, botões com contagem e "Limpar filtros". Não conhece regras de negócio — recebe as opções,
  * as contagens e os valores selecionados por props e devolve as mudanças pelos callbacks.
  */
 export function BarraFiltros({
@@ -71,6 +79,8 @@ export function BarraFiltros({
   botaoAtivo = null,
   onBotaoChange,
   rotuloBotoes = 'Tipo',
+  children,
+  filtrosAdicionaisAtivos = false,
   onLimpar,
 }: BarraFiltrosProps) {
   const idBusca = useId()
@@ -87,7 +97,7 @@ export function BarraFiltros({
    */
   const indiceSelecionado = temSituacoes ? situacoes.findIndex((opcao) => opcao.valor === situacao) : -1
   const indiceFocavel = indiceSelecionado === -1 ? 0 : indiceSelecionado
-  const filtrosAtivos = busca !== '' || situacaoAlterada || botaoAtivo !== null
+  const filtrosAtivos = busca !== '' || situacaoAlterada || botaoAtivo !== null || filtrosAdicionaisAtivos
   const exibirLimpar = onLimpar !== undefined && filtrosAtivos
 
   const selecionarSituacao = (valor: string) => {
@@ -146,6 +156,8 @@ export function BarraFiltros({
           onChange={(evento) => onBuscaChange(evento.target.value, normalizarBusca(evento.target.value))}
         />
       </div>
+
+      {children !== undefined && children !== null ? <div className="barra-filtros__secao">{children}</div> : null}
 
       {temSituacoes ? (
         <div className="barra-filtros__secao">

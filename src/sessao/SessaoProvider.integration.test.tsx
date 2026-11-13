@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EVENTO_SESSAO_EXPIRADA, apiFetch } from '../services/api'
 import { limparToken, obterToken } from '../services/sessao'
 import { FILIAIS_API, acessoApi, respostaErro, respostaJson, simularApi } from '../test/apiFalsa'
+import { rotaInicioFalsa } from '../test/inicioFalsos'
 import { renderizarApp } from '../test/renderizarApp'
 
 const MENSAGEM_SESSAO_EXPIRADA = 'Sua sessão expirou. Entre novamente.'
@@ -27,6 +28,8 @@ describe('F2.5 — Sair e sessão expirada (integração)', () => {
   function simularSessaoValida(rotasExtras: Parameters<typeof simularApi>[1] = {}) {
     return simularApi(fetchFalso, {
       'GET /api/ped/acesso': () => respostaJson(acessoApi({ perfil: 'admin', 'todas as filiais': true, filiais: FILIAIS_API })),
+      // F11.1: o Início consulta GET /api/ped/inicio; sem a rota, o erro da tela seria um alerta.
+      'GET /api/ped/inicio': rotaInicioFalsa('admin'),
       ...rotasExtras,
     })
   }

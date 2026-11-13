@@ -1,0 +1,39 @@
+/* Indicadores-resumo do Início (F11.3): grade de cartões com valor em destaque e rótulo. */
+
+.resumo-inicio {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.resumo-inicio__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: var(--cor-superficie);
+  box-shadow: var(--sombra-card);
+}
+
+.resumo-inicio__valor {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--cor-primaria);
+}
+
+.resumo-inicio__rotulo {
+  font-size: 0.875rem;
+  color: var(--cor-texto-secundario);
+}
+
+@media (max-width: 400px) {
+  .resumo-inicio {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

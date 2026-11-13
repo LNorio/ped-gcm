@@ -1,0 +1,33 @@
+/*
+ * Aba "Fechamentos" (F10.2): título, card "Encerrar período por dashboard" com a barra de filtros, o
+ * estado de carga e a tabela (corpo sem padding); abaixo, a consulta retroativa das imagens (F10.6).
+ */
+
+.fechamentos-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.fechamentos-page h1 {
+  margin: 0;
+}
+
+.fechamentos-page__card {
+  overflow: hidden;
+}
+
+/* O corpo do card não tem padding: o alerta de erro ganha o mesmo recuo da barra de filtros. */
+.fechamentos-page__estado:has(.estado-carga__erro) {
+  padding: 1rem 1.25rem;
+}
+
+@media (max-width: 600px) {
+  .fechamentos-page {
+    gap: 1rem;
+  }
+
+  .fechamentos-page__estado:has(.estado-carga__erro) {
+    padding: 0.75rem 1rem;
+  }
+}

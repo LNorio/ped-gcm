@@ -1,0 +1,7 @@
+/* Avisos do Início (F11.2): período aberto e acesso restrito, empilhados. */
+
+.avisos-inicio {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}

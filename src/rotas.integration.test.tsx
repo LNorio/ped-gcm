@@ -6,6 +6,7 @@ import { CAMINHOS, rotas } from './rotas'
 import { limparToken } from './services/sessao'
 import { SessaoProvider } from './sessao/SessaoProvider'
 import { FILIAIS_API, acessoApi, respostaJson, simularApi } from './test/apiFalsa'
+import { rotaInicioFalsa } from './test/inicioFalsos'
 import { renderizarApp } from './test/renderizarApp'
 
 const ABAS_ADMIN = ['Início', 'Tipos', 'Apontamentos', 'Dados Externos', 'Indicadores', 'Faixas', 'Dashboards', 'Preenchimento', 'Fechamentos']
@@ -55,6 +56,8 @@ describe('F2.3 — Rotas e layout principal (integração: token salvo → acess
     return simularApi(fetchFalso, {
       'GET /api/ped/acesso': () =>
         respostaJson(acessoApi({ perfil, 'todas as filiais': perfil !== 'preenchedor', filiais: FILIAIS_API })),
+      // F11.1: o Início consulta GET /api/ped/inicio (a tela tem os próprios testes em src/pages/inicio).
+      'GET /api/ped/inicio': rotaInicioFalsa(perfil),
     })
   }
 
@@ -76,7 +79,8 @@ describe('F2.3 — Rotas e layout principal (integração: token salvo → acess
     expect(screen.getByRole('contentinfo')).toHaveTextContent(
       'Desenvolvido pelo Departamento de TI do Grupo Comercial Mariano',
     )
-    expect(chamadas).toHaveLength(1)
+    // O acesso é obtido uma única vez e antes de tudo; a consulta do Início (F11.1) vem depois.
+    expect(chamadas.filter((c) => c.caminho === '/api/ped/acesso')).toHaveLength(1)
     expect(chamadas[0].caminho).toBe('/api/ped/acesso')
     expect(new Headers(chamadas[0].init?.headers).get('Authorization')).toBe('Bearer token-salvo')
   })

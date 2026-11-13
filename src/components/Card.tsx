@@ -40,12 +40,14 @@ export function Card({
   return (
     <section className={classes.join(' ')} aria-labelledby={titulo ? idTitulo : undefined}>
       {titulo ? (
-        <header className="card__cabecalho">
+        // <div>, não <header>: o Testing Library trata todo <header> como "banner", mesmo dentro de
+        // <section>, e o banner da página deve ser só o cabeçalho do sistema (seletor de filial).
+        <div className="card__cabecalho">
           <Titulo id={idTitulo} className="card__titulo">
             {titulo}
           </Titulo>
           {acoes ? <div className="card__acoes">{acoes}</div> : null}
-        </header>
+        </div>
       ) : null}
       <div className={classesCorpo.join(' ')}>{children}</div>
     </section>

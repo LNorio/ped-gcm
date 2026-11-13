@@ -1,0 +1,55 @@
+/* "Últimas alterações em apontamentos" do Início (F11.5): ação, apontamento, detalhe e data/usuário. */
+
+.ultimas-alteracoes__lista {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ultimas-alteracoes__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--cor-borda-suave);
+}
+
+.ultimas-alteracoes__item:first-child {
+  padding-top: 0;
+}
+
+.ultimas-alteracoes__item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.ultimas-alteracoes__topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ultimas-alteracoes__apontamento {
+  font-weight: 600;
+  color: var(--cor-texto);
+  overflow-wrap: anywhere;
+}
+
+.ultimas-alteracoes__detalhe {
+  font-size: 0.875rem;
+  color: var(--cor-texto);
+  overflow-wrap: anywhere;
+}
+
+.ultimas-alteracoes__quando {
+  font-size: 0.8125rem;
+  color: var(--cor-texto-suave);
+}
+
+.ultimas-alteracoes__vazio {
+  margin: 0;
+  color: var(--cor-texto-suave);
+}

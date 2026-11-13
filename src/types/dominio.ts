@@ -898,3 +898,232 @@ export interface JanelaMetas {
   editavel: boolean
   indicadores: IndicadorMetaPreenchimento[]
 }
+
+// ---------------------------------------------------------------------------
+// Fechamentos e imagens congeladas (F10.1 — RF-77 a RF-84, A-05, A-07)
+// ---------------------------------------------------------------------------
+
+/** Tipo da imagem congelada (A-07): por filial ou por colaborador. */
+export const TIPOS_IMAGEM = ['filial', 'colaborador'] as const
+export type TipoImagem = (typeof TIPOS_IMAGEM)[number]
+export const ROTULOS_TIPO_IMAGEM: Readonly<Record<TipoImagem, string>> = {
+  filial: 'Filial',
+  colaborador: 'Colaborador',
+}
+
+/** Rótulos de `SITUACOES_PERIODO` (RF-79). */
+export const ROTULOS_SITUACAO_PERIODO: Readonly<Record<SituacaoPeriodo, string>> = {
+  aberto: 'Em aberto',
+  encerrado: 'Encerrado',
+}
+
+/** Opção escolhida no cálculo da base (A ou B). */
+export type OpcaoDaPontuacao = 'A' | 'B'
+
+export interface PeriodoDaImagem {
+  codigo: string
+  inicio: DataApi | null
+  fim: DataApi | null
+}
+
+export interface DashboardDaImagem {
+  id: number | null
+  nome: string
+  periodicidade: Periodicidade | null
+  pontuacaoMaxima: number | null
+  tipoVinculo: TipoVinculo | null
+  formulaDePontuacao: string | null
+}
+
+export interface UnidadeDaImagem {
+  filial: string | null
+  nomeFilial: string | null
+  colaborador: string | null
+  cargo: string | null
+}
+
+export interface ResultadoOperacional {
+  indicador: string | null
+  valor: number | null
+  observacao: string | null
+}
+
+export interface IndicadorDaImagem {
+  indicador: string
+  /** `null` = sem meta (nunca 0). */
+  meta: number | null
+  /** `null` = lançamento pendente (RN-09) ou dado externo sem coleta ainda. */
+  realizado: number | null
+  /** `false` = dado externo sem coleta ainda (não é erro). */
+  coletaDisponivel: boolean
+  atingimento: number | null
+  pontosBase: number | null
+  pontosRealizados: number | null
+  observacao: string | null
+}
+
+export interface PontuacaoDaImagem {
+  calculada: boolean
+  /** Motivo da pontuação não calculada (ex.: sem tabela de faixas). */
+  motivo: string | null
+  faixaAtual: Faixa | null
+  faixaAnterior: Faixa | null
+  aliquotaAnterior: number | null
+  aliquotaAtual: number | null
+  pisoDaFaixa: number | null
+  opcaoA: number | null
+  opcaoB: number | null
+  opcaoSelecionada: OpcaoDaPontuacao | null
+  baseDeCalculo: number | null
+  valor: number | null
+}
+
+export interface FaixasDaImagem {
+  nome: string | null
+  versao: number | null
+  linhas: Faixa[]
+}
+
+/** Conteúdo da imagem congelada (RF-83): gravada (`GET /api/ped/imagens/{id}`) ou da prévia. */
+export interface ImagemCongelada {
+  /** `null` nas imagens da prévia (ainda não gravadas). */
+  id: number | null
+  codigo: string | null
+  lote: string | null
+  /** Chave da unidade na prévia (ex.: `filial:101`); `null` na imagem gravada. */
+  chave: string | null
+  tipo: TipoImagem
+  idColaborador: number | null
+  dashboard: DashboardDaImagem | null
+  periodo: PeriodoDaImagem | null
+  unidade: UnidadeDaImagem
+  resultadoOperacional: ResultadoOperacional | null
+  pedPercentual: number | null
+  pontosBaseTotal: number | null
+  indicadores: IndicadorDaImagem[]
+  pontuacao: PontuacaoDaImagem
+  faixas: FaixasDaImagem | null
+  pendencias: string[]
+  avisos: string[]
+  geradoEm: DataApi | null
+  usuario: string | null
+}
+
+/** Linha da consulta retroativa de imagens (`GET /api/ped/imagens` — RF-84). */
+export interface ImagemDaConsulta {
+  id: number
+  codigo: string
+  lote: string | null
+  tipo: TipoImagem
+  idColaborador: number | null
+  idDashboard: number | null
+  dashboard: string | null
+  periodo: string | null
+  filial: string | null
+  nomeFilial: string | null
+  colaborador: string | null
+  cargo: string | null
+  geradoEm: DataApi | null
+  usuario: string | null
+  pedPercentual: number | null
+  /** `null` quando a pontuação não foi calculada. */
+  pontuacao: number | null
+}
+
+/** Contagem de unidades do resumo; `unidades` vazia quando a API só informa a quantidade. */
+export interface ContagemUnidades {
+  quantidade: number
+  unidades: string[]
+}
+
+export interface ResumoFechamento {
+  imagensAGerar: number
+  unidadesJaEncerradas: ContagemUnidades
+  unidadesComPendencias: ContagemUnidades
+  unidadesSemTabelaDeFaixas: ContagemUnidades
+  avisos: string[]
+}
+
+/** Prévia do encerramento (`GET /api/ped/fechamentos/{id}/previa` — RF-80); nada é gravado. */
+export interface PreviaFechamento {
+  dashboard: DashboardDaImagem | null
+  periodo: PeriodoDaImagem | null
+  resumo: ResumoFechamento
+  imagens: ImagemCongelada[]
+}
+
+/** Resultado do encerramento (`POST /api/ped/fechamentos/{id}/encerrar` — RF-81). */
+export interface ResultadoEncerramento {
+  mensagem: string | null
+  lote: string | null
+  periodo: PeriodoDaImagem | null
+  imagensGeradas: number
+  codigosDasImagens: string[]
+  resumo: ResumoFechamento
+}
+
+// ---------------------------------------------------------------------------
+// Tela Início (`GET /api/ped/inicio` — F11, RF-06 a RF-11)
+// ---------------------------------------------------------------------------
+
+/** Mês aberto para preenchimento (RF-06); `aviso` traz a regra de um período aberto por vez. */
+export interface PeriodoAbertoInicio {
+  /** `AAAA-MM-DD` (dia 01). */
+  mesDeReferencia: string
+  abertoPor: string | null
+  abertoEm: string | null
+  aviso: string | null
+}
+
+/** Aviso de acesso restrito (RF-07); `null` no Admin e no Validador. */
+export interface AvisoDeAcessoInicio {
+  /** Ex.: `preenchedor` (tipos e filiais) ou `filiais` (só filiais restritas). */
+  tipo: string
+  mensagem: string | null
+  tipos: string[]
+  filiais: string[]
+}
+
+/** Indicador do resumo (RF-08), na ordem devolvida pela API (muda com o perfil). */
+export interface ItemResumoInicio {
+  chave: string
+  rotulo: string
+  valor: number
+}
+
+/** Dashboard com período em aberto (RF-10). */
+export interface PeriodoEmAbertoInicio {
+  id: number
+  nome: string
+  periodicidade: Periodicidade
+  periodoAtual: string
+  /** `true` quando todas as unidades da tela já foram encerradas (progresso 0 de 0). */
+  periodoEncerrado: boolean
+  filiaisAbertas: number
+  progresso: Progresso
+}
+
+/** Lançamento ou correção recente (RF-11). */
+export interface UltimaAlteracaoInicio {
+  acao: AcaoLancamento
+  apontamento: string
+  /** `AAAA-MM-DD`. */
+  competencia: string
+  /** Código da filial em texto. */
+  filial: string
+  valorAnterior: ValorLancamento | null
+  valorNovo: ValorLancamento | null
+  data: string
+  usuario: string | null
+}
+
+/** Tudo o que a tela Início precisa, numa chamada só. */
+export interface Inicio {
+  perfil: Perfil
+  filiais: Filial[]
+  periodoAberto: PeriodoAbertoInicio | null
+  avisoDeAcesso: AvisoDeAcessoInicio | null
+  resumo: ItemResumoInicio[]
+  periodosEmAberto: PeriodoEmAbertoInicio[]
+  ultimasAlteracoes: UltimaAlteracaoInicio[]
+}

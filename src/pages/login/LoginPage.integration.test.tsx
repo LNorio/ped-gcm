@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MENSAGEM_SEM_CONEXAO } from '../../services/api'
 import { limparToken, obterToken } from '../../services/sessao'
 import { FILIAIS_API, acessoApi, corpoDaChamada, respostaErro, respostaJson, simularApi } from '../../test/apiFalsa'
+import { rotaInicioFalsa } from '../../test/inicioFalsos'
 import { renderizarApp } from '../../test/renderizarApp'
 
 describe('F2.2 — Tela de login (integração: login → Início)', () => {
@@ -32,6 +33,8 @@ describe('F2.2 — Tela de login (integração: login → Início)', () => {
     const chamadas = simularApi(fetchFalso, {
       'POST /api/valida-usuario': () => respostaJson({ token: 'token-123' }),
       'GET /api/ped/acesso': () => respostaJson(acessoApi({ perfil: 'admin', 'todas as filiais': true, filiais: FILIAIS_API })),
+      // F11.1: o Início consulta GET /api/ped/inicio ao abrir (fora do que este teste verifica).
+      'GET /api/ped/inicio': rotaInicioFalsa('admin'),
     })
     renderizarApp('/login')
 
@@ -42,12 +45,14 @@ describe('F2.2 — Tela de login (integração: login → Início)', () => {
     expect(screen.getByText('Admin')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Programa de Excelência em Distribuição' })).not.toBeInTheDocument()
 
-    expect(chamadas.map((chamada) => `${chamada.metodo} ${chamada.caminho}`)).toEqual([
+    // Só as chamadas de login e de acesso, na ordem; a consulta do Início (F11.1) fica de fora.
+    const chamadasDeSessao = chamadas.filter((chamada) => chamada.caminho !== '/api/ped/inicio')
+    expect(chamadasDeSessao.map((chamada) => `${chamada.metodo} ${chamada.caminho}`)).toEqual([
       'POST /api/valida-usuario',
       'GET /api/ped/acesso',
     ])
     expect(corpoDaChamada(chamadas[0])).toEqual({ usuario: 'fulano', senha: 'segredo' })
-    expect(new Headers(chamadas[1].init?.headers).get('Authorization')).toBe('Bearer token-123')
+    expect(new Headers(chamadasDeSessao[1].init?.headers).get('Authorization')).toBe('Bearer token-123')
     expect(obterToken()).toBe('token-123')
     expect(sessionStorage.getItem('ped.token')).toBe('token-123')
   })
@@ -131,6 +136,8 @@ describe('F2.2 — Tela de login (integração: login → Início)', () => {
         return tentativas === 1 ? respostaErro(401, 'Usuário ou senha inválidos.') : respostaJson({ token: 'token-123' })
       },
       'GET /api/ped/acesso': () => respostaJson(acessoApi()),
+      // F11.1: o Início consulta GET /api/ped/inicio; sem a rota, o erro da tela seria um alerta.
+      'GET /api/ped/inicio': rotaInicioFalsa('preenchedor'),
     })
     renderizarApp('/login')
     const user = usuarioRapido()

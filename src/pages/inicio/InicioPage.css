@@ -1,0 +1,50 @@
+/*
+ * Aba "Início" (F11): cabeçalho com título e "Preencher apontamentos do período", estado de carga,
+ * avisos, indicadores-resumo e os painéis de períodos em aberto e últimas alterações.
+ */
+
+.inicio-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.inicio-page__cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.inicio-page h1 {
+  margin: 0;
+}
+
+.inicio-page__preencher {
+  text-decoration: none;
+}
+
+.inicio-page__paineis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .inicio-page__paineis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .inicio-page {
+    gap: 1rem;
+  }
+
+  .inicio-page__preencher {
+    width: 100%;
+    justify-content: center;
+  }
+}
