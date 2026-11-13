@@ -32,6 +32,66 @@ function obterFocaveis(raiz: HTMLElement): HTMLElement[] {
   )
 }
 
+interface EntradaPilha {
+  obterPainel: () => HTMLDivElement | null
+  fechar: () => void
+}
+
+/**
+ * Pilha dos diálogos abertos (o último é o de cima). Um único listener de teclado no `document`
+ * encaminha Esc e Tab só ao diálogo do topo, independentemente da ordem de registro.
+ */
+const pilhaDialogos: EntradaPilha[] = []
+
+function aoPressionarTecla(evento: KeyboardEvent) {
+  const topo = pilhaDialogos[pilhaDialogos.length - 1]
+  if (!topo) return
+
+  if (evento.key === 'Escape') {
+    evento.preventDefault()
+    topo.fechar()
+    return
+  }
+
+  if (evento.key !== 'Tab') return
+  const painel = topo.obterPainel()
+  if (!painel) return
+
+  const focaveis = obterFocaveis(painel)
+  const ativo = document.activeElement as HTMLElement | null
+
+  if (focaveis.length === 0) {
+    evento.preventDefault()
+    painel.focus()
+    return
+  }
+
+  const primeiro = focaveis[0]
+  const ultimo = focaveis[focaveis.length - 1]
+  const foraDoPainel = !ativo || !painel.contains(ativo)
+
+  if (evento.shiftKey) {
+    if (foraDoPainel || ativo === primeiro || ativo === painel) {
+      evento.preventDefault()
+      ultimo.focus()
+    }
+  } else if (foraDoPainel || ativo === ultimo) {
+    evento.preventDefault()
+    primeiro.focus()
+  }
+}
+
+/** Coloca o diálogo no topo da pilha; devolve a função que o retira. */
+function empilharDialogo(entrada: EntradaPilha): () => void {
+  if (pilhaDialogos.length === 0) document.addEventListener('keydown', aoPressionarTecla)
+  pilhaDialogos.push(entrada)
+  return () => {
+    const indice = pilhaDialogos.lastIndexOf(entrada)
+    if (indice >= 0) pilhaDialogos.splice(indice, 1)
+    if (pilhaDialogos.length === 0) document.removeEventListener('keydown', aoPressionarTecla)
+  }
+}
+
 /**
  * Diálogo modal acessível: `role="dialog"`, `aria-modal`, nomeado pelo título, com botão "Fechar",
  * fechamento por Esc, foco movido para dentro ao abrir, foco preso enquanto aberto e devolvido ao
@@ -59,48 +119,21 @@ export function Dialogo({ aberto, titulo, onFechar, children, acoes, descricao, 
     }
   }, [aberto])
 
-  // Teclado: Esc fecha; Tab/Shift+Tab ficam presos dentro do painel.
+  // Mantém a versão mais recente de `onFechar` sem reinscrever o diálogo na pilha a cada render.
+  const onFecharRef = useRef(onFechar)
+  useEffect(() => {
+    onFecharRef.current = onFechar
+  }, [onFechar])
+
+  // Teclado: entra na pilha de diálogos abertos; só o do topo trata Esc e Tab/Shift+Tab.
   useEffect(() => {
     if (!aberto) return
-
-    const aoPressionarTecla = (evento: KeyboardEvent) => {
-      if (evento.key === 'Escape') {
-        evento.preventDefault()
-        onFechar()
-        return
-      }
-
-      if (evento.key !== 'Tab') return
-      const painel = painelRef.current
-      if (!painel) return
-
-      const focaveis = obterFocaveis(painel)
-      const ativo = document.activeElement as HTMLElement | null
-
-      if (focaveis.length === 0) {
-        evento.preventDefault()
-        painel.focus()
-        return
-      }
-
-      const primeiro = focaveis[0]
-      const ultimo = focaveis[focaveis.length - 1]
-      const foraDoPainel = !ativo || !painel.contains(ativo)
-
-      if (evento.shiftKey) {
-        if (foraDoPainel || ativo === primeiro || ativo === painel) {
-          evento.preventDefault()
-          ultimo.focus()
-        }
-      } else if (foraDoPainel || ativo === ultimo) {
-        evento.preventDefault()
-        primeiro.focus()
-      }
+    const entrada: EntradaPilha = {
+      obterPainel: () => painelRef.current,
+      fechar: () => onFecharRef.current(),
     }
-
-    document.addEventListener('keydown', aoPressionarTecla)
-    return () => document.removeEventListener('keydown', aoPressionarTecla)
-  }, [aberto, onFechar])
+    return empilharDialogo(entrada)
+  }, [aberto])
 
   // Evita rolagem da página atrás do diálogo.
   useEffect(() => {

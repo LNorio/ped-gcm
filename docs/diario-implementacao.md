@@ -1,5 +1,62 @@
 # Diário de Implementação — PED
 
+## 12/11/2026
+
+**Resumo:** A aba Faixas ganhou a faixa geral, a situação ativa/inativa das tabelas com motivo obrigatório, a exclusão com motivo, o botão "Ver motivo" e a coluna "Ação" no histórico. A aba Dashboards passou a mostrar alertas de faixas. Tudo segue um contrato proposto ao back-end (A-18). Depois, foram escritos os testes TDD da F9.1 (serviços do Preenchimento), ainda sem implementação, por decisão do usuário. Antes disso, pela manhã, entrou o limite de tentativas no login (429, F2.10\*), e o commit `a9da8a5` foi feito. O trabalho da faixa geral e da F9.1 está no disco, sem commit. Ao fim do dia, 82 de 83 requisitos implementados (F9.1 `pendente`) e plano em 74%.
+
+### Implementações
+- Proposta de contrato ao back-end `docs/propostas-backend/PROPOSTA-faixa-geral-e-situacao.md` (F8.9\*, A-18): `geral`, `situacao` e dados da situação, `PUT /api/ped/faixas/{id}/situacao`, `DELETE` com motivo, `alertas de faixas` no dashboard e `acao` no histórico, com 3 dúvidas na seção 9.
+- Serviços, tipos e adaptadores da faixa geral e da situação (F8.10\*): campos novos em `TabelaFaixas`, filtro `situacao`, `alterarSituacaoTabelaFaixas`, `alertasDeFaixas` em `Dashboard`, `acao` no histórico e permissão `alterar-situacao-faixas` (Admin e Validador). A leitura tolera a resposta atual do servidor.
+- Faixa geral no cadastro (F8.7): caixa "Faixa geral (vale para todas as filiais)", envio de `filial: "todas"`, nome "{dashboard} · Geral" e filial "Todas as filiais (geral)".
+- Inativar e reativar tabela de faixas com motivo obrigatório (F8.7): diálogo novo `DialogoSituacaoTabelaFaixas`, etiqueta "Inativa", filtro "Situação" (padrão Ativas) e o erro de conflito (400) mostrado no diálogo.
+- Botão "Ver motivo" na listagem (F8.8): diálogo novo `DialogoMotivoFaixas` ("Motivo da última alteração"), que lê a linha mais recente do histórico.
+- Alertas de faixas na aba Dashboards (F7.14\*): etiqueta e lista por dashboard ativo, e um aviso geral próprio.
+- Testes TDD da F9.1 (serviços de período, preenchimento e metas), registrada como `pendente`: 6 arquivos de teste e as fixtures `src/test/preenchimentoFalsos.ts`. Os testes estão vermelhos pelo motivo certo. Um protótipo descartável passou em 164/164, e nenhum código de produção ficou.
+- Limite de tentativas no login (F2.10\*, HTTP 429):
+  - `ApiError.tentarNovamenteEm` lê `"segundos para tentar novamente"` ou o cabeçalho `Retry-After`;
+  - mensagem pt-BR para o 429;
+  - na `LoginPage`, o envio fica bloqueado por N s (padrão 60), com "Aguarde N s" e "Tente novamente em N s.", sem reenvio automático.
+
+### Modificações
+- Commit `a9da8a5` (10:19), com:
+  - o F2.10\*;
+  - o ajuste final da saída da integração (F5.23\*), descrito em 11/11;
+  - os 3 documentos de qualidade do back-end recebidos hoje (só o 429 exigiu mudança no front);
+  - o fechamento de 11/11 e o resumo semanal.
+
+  Requisitos F1.2, F2.1 e F2.2 passaram por `em-alteracao` e voltaram a `implementado`.
+- Exclusão de tabela de faixas (F8.6): agora pede o "Motivo da exclusão", e o `DELETE` vai com `{ motivo }`. O bloqueio de tabela de dashboard existente passou a orientar "Inativar tabela".
+- Histórico de versões (F8.5): coluna "Ação" quando a API informa. Linhas de inativação e reativação ficam sem "Ver faixas da versão".
+- Listagem de faixas (F8.2): a consulta leva sempre `situacao=ativas` por padrão, e "Alterar faixas" só aparece em tabela ativa.
+- Restrição de filial do Validador nas faixas (P-04): por correção do usuário, a proposta pede ao back-end que a retire. Admin e Validador mexem na faixa geral com as mesmas regras.
+- Requisito dos alertas de faixas renomeado de F7.11 para F7.14, porque colidia com uma atividade já concluída.
+- Requisitos F1.3, F7.1, F8.1, F8.2, F8.5 e F8.6 reabertos (`em-alteracao`) e concluídos de novo. F8.7, F8.8 e F7.14 criados e concluídos. Suíte com 4422/4422 testes, mais 15 de cobertura complementar.
+
+### Pendências
+- F8.12\* bloqueada até o back-end implementar a proposta (A-18), incluindo as 3 dúvidas da seção 9.
+- O nome acessível do "Ver motivo" é igual em todas as linhas. A correção exige ajustar um teste e depende de decisão do usuário.
+- Confirmar se o servidor atual aceita `situacao=ativas` na listagem de faixas.
+- Decidir sobre um filtro "Com problemas de faixa" na aba Dashboards.
+- Implementar a F9.1 (integracao-api) e escrever os testes das telas F9.2–F9.12.
+- Dúvidas de contrato da F9.1:
+  - envelope e formato do mês em `/preenchimento/meses`;
+  - campos dos apontamentos;
+  - formato de `dados.erros`;
+  - linhas do `/periodo/historico`;
+  - envelope de `/metas`;
+  - leitura de "2.000" na F9.6.
+- Confirmar a validação local da F9.1 com 400 local.
+- Pendências antigas:
+  - push do `a9da8a5` (o origin está em `288d6c5`);
+  - commit do trabalho de hoje;
+  - build;
+  - contagem do `scripts/lotes-testes.mjs`, que subestima (chegou a gerar um lote de 222 testes);
+  - F6.14\* (depende de `PED_EXECUTOR_ATIVO`);
+  - 429 ao recarregar a página;
+  - texto próprio para erros 422.
+
+---
+
 ## 11/11/2026
 
 **Resumo:** O front foi adequado à meta via API das fases 1 e 2 do back-end (entrada SOAP, avisos, `finalidade`, executor e última consulta). A saída da integração mudou duas vezes: primeiro para "chave: tipo" com mapeamento, depois para "chave: tipo" só informativa, sem mapeamento, que é o contrato final com o back-end. Também entraram as regras de execução de testes em lotes de até 150. Dois commits (`6500740` e `288d6c5`), uma build validada e um ajuste final ainda não commitado. Ao fim do dia, 79 requisitos implementados.

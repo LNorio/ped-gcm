@@ -1,0 +1,7 @@
+/* "Histórico de aberturas de período" (F9.11). */
+
+.dialogo-historico-periodos__mes {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}

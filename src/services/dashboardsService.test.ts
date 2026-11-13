@@ -76,6 +76,7 @@ const COMERCIAL = {
   quantidadeDeIndicadores: 2,
   pontos: { soma: 100, maximo: 100 },
   alertas: [],
+  alertasDeFaixas: [],
   cadastradoEm: '2026-09-01 10:00:00',
   ultimaAlteracao: '2026-10-20 15:30:00',
 }
@@ -98,8 +99,9 @@ describe('F7.1 — Serviço de dashboards: listagem, detalhe, prévia, cadastro 
   })
 
   describe('SITUACOES_FILTRO_DASHBOARD e rótulos', () => {
-    it('as situações do filtro são todas, ativos, inativos, construcao e problemas, nesta ordem (valores da API)', () => {
-      expect(SITUACOES_FILTRO_DASHBOARD).toEqual(['todas', 'ativos', 'inativos', 'construcao', 'problemas'])
+    it('as situações do filtro são todas, ativos, inativos, construcao, problemas e problemas_faixa, nesta ordem (valores da API)', () => {
+      // problemas_faixa: contrato final das faixas (F8.12*, `API (28).md`) — "problemas" não inclui os alertas de faixas.
+      expect(SITUACOES_FILTRO_DASHBOARD).toEqual(['todas', 'ativos', 'inativos', 'construcao', 'problemas', 'problemas_faixa'])
     })
 
     it('os rótulos em pt-BR seguem o RF-47', () => {
@@ -109,6 +111,7 @@ describe('F7.1 — Serviço de dashboards: listagem, detalhe, prévia, cadastro 
         inativos: 'Inativos',
         construcao: 'Em construção/modificação (TI)',
         problemas: 'Com problemas',
+        problemas_faixa: 'Com problemas de faixa',
       })
     })
   })
@@ -207,6 +210,7 @@ describe('F7.1 — Serviço de dashboards: listagem, detalhe, prévia, cadastro 
         quantidadeDeIndicadores: 0,
         pontos: { soma: 0, maximo: 0 },
         alertas: [],
+        alertasDeFaixas: [],
         cadastradoEm: null,
         ultimaAlteracao: null,
       })
@@ -232,6 +236,7 @@ describe('F7.1 — Serviço de dashboards: listagem, detalhe, prévia, cadastro 
           quantidadeDeIndicadores: 2,
           pontos: { soma: 100, maximo: 100 },
           alertas: [],
+          alertasDeFaixas: [],
           cadastradoEm: '2026-11-05 16:28:43-04:00',
           ultimaAlteracao: '2026-11-05 16:28:43-04:00',
         },
@@ -258,6 +263,7 @@ describe('F7.1 — Serviço de dashboards: listagem, detalhe, prévia, cadastro 
           quantidadeDeIndicadores: 3,
           pontos: { soma: 100, maximo: 100 },
           alertas: [],
+          alertasDeFaixas: [],
           cadastradoEm: '2026-11-05 16:28:43-04:00',
           ultimaAlteracao: '2026-11-05 16:52:42-04:00',
         },

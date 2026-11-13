@@ -1,10 +1,14 @@
 /**
- * Formulário "Nova tabela de faixas" (F8.3 — RF-42, RF-43, RN-14).
+ * Formulário "Nova tabela de faixas" (F8.3, F8.7 — RF-42, RF-43, RN-14).
  *
- * Campos: Dashboard (obrigatório), Filial (obrigatória só quando o cabeçalho está em "Todas as
- * filiais"; senão mostra a filial do cabeçalho), Descrição (opcional) e as faixas (EditorFaixas,
- * iniciando com uma linha vazia). Quando o dashboard e a filial escolhidos já têm tabela (em
- * `tabelas`), mostra a orientação de usar "Alterar faixas" e desabilita o salvar (RN-14).
+ * Campos: "Faixa geral (vale para todas as filiais)" (F8.7), Dashboard (obrigatório), Filial
+ * (obrigatória só quando o cabeçalho está em "Todas as filiais"; senão mostra a filial do cabeçalho),
+ * Descrição (opcional) e as faixas (EditorFaixas, iniciando com uma linha vazia). Com a faixa geral
+ * marcada, a filial deixa de ser pedida (o campo some, assim como a filial do cabeçalho) e o cadastro
+ * envia `filial: 'todas'`. Quando o dashboard e a filial escolhidos já têm tabela **ativa** por
+ * filial (em `tabelas`), mostra a orientação de usar "Alterar faixas" e desabilita o salvar (RN-14);
+ * os conflitos com a faixa geral são validados pela API (`400`, mostrado em `erro`). Com `conflitos`
+ * (F8.12*), o alerta também mostra o dashboard escolhido e as tabelas em conflito (`AvisoConflitoFaixas`).
  *
  * Valida localmente antes de chamar `onSalvar`. O erro devolvido pela API (`erro`) aparece dentro do
  * formulário sem apagar o que o usuário digitou.
@@ -15,7 +19,9 @@ import { Botao } from '../../components/Botao'
 import { Campo } from '../../components/Campo'
 import { Etiqueta } from '../../components/Etiqueta'
 import { Select, type OpcaoSelect } from '../../components/Select'
+import type { ConflitoFaixas } from '../../services/faixasService'
 import type { Dashboard, Filial, NovaTabelaFaixas, TabelaFaixas } from '../../types/dominio'
+import { AvisoConflitoFaixas } from './AvisoConflitoFaixas'
 import { EditorFaixas } from './EditorFaixas'
 import { linhaFaixaVazia, validarLinhasFaixas, type LinhaFaixaEditavel } from './regrasFaixas'
 import './EditorFaixas.css'
@@ -33,6 +39,8 @@ export interface FormularioTabelaFaixasProps {
   salvando: boolean
   /** Mensagem de erro devolvida ao salvar; `null` quando não há. */
   erro: string | null
+  /** Tabelas em conflito do `400` (F8.12*), mostradas com `erro`; ausente, `null` ou vazia = só a mensagem. */
+  conflitos?: ConflitoFaixas[] | null
   onSalvar: (dados: NovaTabelaFaixas) => void
   onCancelar: () => void
 }
@@ -58,10 +66,12 @@ export function FormularioTabelaFaixas({
   filiais,
   salvando,
   erro,
+  conflitos,
   onSalvar,
   onCancelar,
 }: FormularioTabelaFaixasProps) {
   const [dashboard, setDashboard] = useState('')
+  const [geral, setGeral] = useState(false)
   const [filialEscolhida, setFilialEscolhida] = useState('')
   const [descricao, setDescricao] = useState('')
   const [linhas, setLinhas] = useState<LinhaFaixaEditavel[]>(() => [linhaFaixaVazia()])
@@ -70,10 +80,15 @@ export function FormularioTabelaFaixas({
   const opcoesDashboard: OpcaoSelect[] = dashboards.map((item) => ({ valor: String(item.id), rotulo: item.nome }))
   const opcoesFilial: OpcaoSelect[] = filiais.map((item) => ({ valor: item.codigo, rotulo: rotuloFilial(item) }))
 
-  const idDashboard = dashboards.find((item) => String(item.id) === dashboard)?.id
-  const filial = filialFixa ? filialFixa.codigo : filialEscolhida
+  const dashboardEscolhido = dashboards.find((item) => String(item.id) === dashboard)
+  const idDashboard = dashboardEscolhido?.id
+  const filialPorFilial = filialFixa ? filialFixa.codigo : filialEscolhida
+  const filial = geral ? 'todas' : filialPorFilial
   const jaExiste =
-    idDashboard !== undefined && filial !== '' && tabelas.some((t) => t.idDashboard === idDashboard && t.filial === filial)
+    !geral &&
+    idDashboard !== undefined &&
+    filial !== '' &&
+    tabelas.some((t) => t.situacao === 'ativa' && !t.geral && t.idDashboard === idDashboard && t.filial === filial)
 
   function limparErro(campo: keyof ErrosFormulario) {
     setErros((atual) => (atual[campo] ? { ...atual, [campo]: undefined } : atual))
@@ -97,12 +112,24 @@ export function FormularioTabelaFaixas({
 
   return (
     <form className="formulario-faixas" onSubmit={enviar} noValidate>
-      {filialFixa ? (
+      {filialFixa && !geral ? (
         <span>
           <Etiqueta tom="info">{`Filial ${rotuloFilial(filialFixa)}`}</Etiqueta>
         </span>
       ) : null}
-      {erro ? <Aviso tipo="erro">{erro}</Aviso> : null}
+      <AvisoConflitoFaixas erro={erro} conflitos={conflitos} dashboard={dashboardEscolhido?.nome} />
+
+      <label className="formulario-faixas__caixa">
+        <input
+          type="checkbox"
+          checked={geral}
+          onChange={(evento) => {
+            setGeral(evento.target.checked)
+            limparErro('filial')
+          }}
+        />
+        Faixa geral (vale para todas as filiais)
+      </label>
 
       <div className="formulario-faixas__grade">
         <Select
@@ -117,7 +144,7 @@ export function FormularioTabelaFaixas({
             limparErro('dashboard')
           }}
         />
-        {filialFixa ? null : (
+        {filialFixa || geral ? null : (
           <Select
             rotulo="Filial"
             obrigatorio

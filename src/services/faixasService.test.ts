@@ -20,7 +20,10 @@ import { definirToken, limparToken } from './sessao'
 
 const ROTA = '/api/ped/faixas'
 
-/** Tabela 1 (PED Comercial · Filial 101) convertida para o domínio. */
+/**
+ * Tabela 1 (PED Comercial · Filial 101) convertida para o domínio. A resposta não traz os campos da
+ * F8.7 (formato atual da API): a tabela é lida como faixa por filial (`geral: false`) e `ativa`.
+ */
 const COMERCIAL_101: TabelaFaixas = {
   id: 1,
   idDashboard: 1,
@@ -28,6 +31,11 @@ const COMERCIAL_101: TabelaFaixas = {
   dashboardExcluido: false,
   filial: '101',
   nomeFilial: 'CAMPO GRANDE',
+  geral: false,
+  situacao: 'ativa',
+  motivoDaSituacao: null,
+  dataDaSituacao: null,
+  usuarioDaSituacao: null,
   descricao: 'Resultado operacional',
   versaoVigente: 2,
   dataDaVersao: '2026-10-20 15:30:00',
@@ -155,7 +163,7 @@ describe('F8.1 — Serviço de faixas: listagem, detalhe, cadastro e alteração
       ])
     })
 
-    it('campos opcionais ausentes: descrição, data e autor null, "dashboard excluido" false, faixas [] e quantidade da lista', async () => {
+    it('campos opcionais ausentes: descrição, data e autor null, "dashboard excluido" false, faixas [] e quantidade da lista; sem os campos da F8.7, faixa por filial ativa', async () => {
       const minimo = {
         id: 9,
         'id dashboard': 2,
@@ -175,6 +183,11 @@ describe('F8.1 — Serviço de faixas: listagem, detalhe, cadastro e alteração
         dashboardExcluido: false,
         filial: '102',
         nomeFilial: 'DOURADOS',
+        geral: false,
+        situacao: 'ativa',
+        motivoDaSituacao: null,
+        dataDaSituacao: null,
+        usuarioDaSituacao: null,
         descricao: null,
         versaoVigente: 1,
         dataDaVersao: null,

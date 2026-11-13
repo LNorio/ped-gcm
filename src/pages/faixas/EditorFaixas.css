@@ -63,6 +63,14 @@
   gap: 20px;
 }
 
+.formulario-faixas__caixa {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 36px;
+  cursor: pointer;
+}
+
 .formulario-faixas__grade {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

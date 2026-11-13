@@ -14,6 +14,7 @@ import {
   type Acesso,
   type AjusteMetas,
   type AlertaDashboard,
+  type AlertaFaixasDashboard,
   type Apontamento,
   type Auditoria,
   type Calculo,
@@ -55,9 +56,11 @@ import {
   type SistemaOrigem,
   type SituacaoDadoExterno,
   type SituacaoDashboard,
+  type SituacaoTabelaFaixas,
   type SituacaoMetaViaApi,
   type SituacaoPeriodo,
   type TabelaFaixas,
+  type TipoAlertaFaixas,
   type TarefaBitrix,
   type TipoApontamento,
   type TipoComposicao,
@@ -319,6 +322,13 @@ export interface AlertaDashboardApi {
   'pontos afetados': number
 }
 
+/** F7.14: alerta de faixas do dashboard (proposta "faixa geral e situação", seção 6). */
+export interface AlertaFaixasDashboardApi {
+  tipo: TipoAlertaFaixas
+  mensagem: string
+  filial?: string | number | null
+}
+
 export interface DashboardApi {
   id: number
   nome: string
@@ -333,6 +343,7 @@ export interface DashboardApi {
   'quantidade de indicadores'?: number | null
   pontos?: PontosDashboardApi | null
   alertas?: AlertaDashboardApi[] | null
+  'alertas de faixas'?: AlertaFaixasDashboardApi[] | null
   'cadastrado em'?: string | null
   'ultima alteracao'?: string | null
 }
@@ -348,8 +359,17 @@ export interface TabelaFaixasApi {
   'id dashboard': number
   dashboard: string
   'dashboard excluido'?: boolean | null
-  filial: string
-  'nome filial': string
+  /** `null` na faixa geral (F8.7). */
+  filial: string | number | null
+  /** `null` na faixa geral (F8.7). */
+  'nome filial': string | null
+  /** F8.7: ausente ou `null` = `false` (faixa por filial). */
+  geral?: boolean | null
+  /** F8.7: ausente ou `null` = `ativa`. */
+  situacao?: SituacaoTabelaFaixas | null
+  'motivo da situacao'?: string | null
+  'data da situacao'?: string | null
+  'usuario da situacao'?: string | null
   descricao?: string | null
   'versao vigente': number
   'data da versao'?: string | null
@@ -782,6 +802,14 @@ function paraAlertaDashboard(alerta: AlertaDashboardApi): AlertaDashboard {
   return { indicador: alerta.indicador, motivo: alerta.motivo, pontosAfetados: alerta['pontos afetados'] }
 }
 
+function paraAlertaFaixasDashboard(alerta: AlertaFaixasDashboardApi): AlertaFaixasDashboard {
+  return {
+    tipo: alerta.tipo,
+    mensagem: alerta.mensagem,
+    filial: alerta.filial === undefined || alerta.filial === null ? null : String(alerta.filial),
+  }
+}
+
 export function paraDashboard(dashboard: DashboardApi): Dashboard {
   return {
     id: dashboard.id,
@@ -797,6 +825,7 @@ export function paraDashboard(dashboard: DashboardApi): Dashboard {
     quantidadeDeIndicadores: dashboard['quantidade de indicadores'] ?? 0,
     pontos: { soma: dashboard.pontos?.soma ?? 0, maximo: dashboard.pontos?.maximo ?? 0 },
     alertas: lista(dashboard.alertas, paraAlertaDashboard),
+    alertasDeFaixas: lista(dashboard['alertas de faixas'], paraAlertaFaixasDashboard),
     cadastradoEm: ouNulo(dashboard['cadastrado em']),
     ultimaAlteracao: ouNulo(dashboard['ultima alteracao']),
   }
@@ -809,8 +838,13 @@ export function paraTabelaFaixas(tabela: TabelaFaixasApi): TabelaFaixas {
     idDashboard: tabela['id dashboard'],
     dashboard: tabela.dashboard,
     dashboardExcluido: tabela['dashboard excluido'] === true,
-    filial: String(tabela.filial),
-    nomeFilial: tabela['nome filial'],
+    filial: tabela.filial === null ? null : String(tabela.filial),
+    nomeFilial: ouNulo(tabela['nome filial']),
+    geral: tabela.geral === true,
+    situacao: tabela.situacao === 'inativa' ? 'inativa' : 'ativa',
+    motivoDaSituacao: ouNulo(tabela['motivo da situacao']),
+    dataDaSituacao: ouNulo(tabela['data da situacao']),
+    usuarioDaSituacao: ouNulo(tabela['usuario da situacao']),
     descricao: ouNulo(tabela.descricao),
     versaoVigente: tabela['versao vigente'],
     dataDaVersao: ouNulo(tabela['data da versao']),

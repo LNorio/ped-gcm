@@ -4,12 +4,343 @@
 
 | Data | Tags | Resumo |
 | --- | --- | --- |
+| [12/11/2026](#2026-11-12) | #faixas #dashboards #preenchimento #login #cadastro #api #tipos #validacao #componente #testes #documentacao | Faixa geral, situação ativa/inativa com motivo, exclusão com motivo, "Ver motivo", coluna "Ação" no histórico e alertas de faixas nos dashboards, pelo contrato proposto ao back-end (A-18); limite de tentativas no login (429) e commit `a9da8a5`; testes TDD da F9.1 (serviços do Preenchimento), sem implementação |
 | [11/11/2026](#2026-11-11) | #dados-externos #integracao #indicadores #dashboards #api #validacao #componente #correcao #refatoracao #testes #configuracao #agentes #documentacao | Meta via API fases 1 e 2 (entrada SOAP, avisos, finalidade, última consulta), testes em lotes de até 150, saída da integração por "chave: tipo" (com e depois sem mapeamento, contrato final do back-end), commits `6500740` e `288d6c5` e build validada |
 | [10/11/2026](#2026-11-10) | #dados-externos #integracao #indicadores #dashboards #apontamentos #cadastro #api #validacao #componente #layout #navegacao #configuracao #testes #documentacao | Duas builds validadas, decisões da integração, `TextoTruncado`, tabelas sem rolagem, build dividida e abas sob demanda, meta por filial com metas pendentes, meta via API pelo contrato final e commit `a2ab9cc` |
 | [09/11/2026](#2026-11-09) | #apontamentos #dados-externos #integracao #cadastro #api #validacao #componente #correcao #testes #documentacao | Build validada, indicadores do apontamento como lista de nomes (F4.9\*) e mudança de requisito "integração de dados externos" (F5.7 e F5.14–F5.18), da tela sem API ao contrato do back-end com validação híbrida |
 | [06/11/2026](#2026-11-06) | #tipos #indicadores #dashboards #dados-externos #cadastro #api #validacao #componente #correcao #testes #configuracao #documentacao | Build validada, id da tarefa Bitrix em texto, adequação aos documentos novos do back-end (grupos nos tipos, exclusão de indicador só pelo Admin, tarefas Bitrix, identificador com - e .) e 67/67 requisitos implementados |
 | [05/11/2026](#2026-11-05) | #indicadores #dashboards #faixas #apontamentos #dados-externos #cadastro #api #validacao #componente #layout #correcao #testes #documentacao | Abas Indicadores (F6), Dashboards (F7) e Faixas (F8) em TDD, modais alinhadas ao protótipo, RF-54 alterado e correções contra a API real |
 | [04/11/2026](#2026-11-04) | #apontamentos #dados-externos #tipos #cadastro #api #validacao #componente #layout #refatoracao #correcao #testes #configuracao #documentacao | Aba Apontamentos (F4) revisada e commitada, aba Dados Externos (F5) implementada, hooks genéricos, MenuAcoes, correção do POST e testes mais rápidos |
+
+---
+
+<a id="2026-11-12"></a>
+## 12/11/2026
+
+**Tags:** #faixas #dashboards #preenchimento #login #cadastro #api #tipos #validacao #componente #testes #documentacao
+
+### Visão geral
+O dia teve três frentes.
+
+**0. Limite de tentativas no login e commit `a9da8a5` (manhã).** O back-end enviou 3 documentos de qualidade. Só o limite de tentativas no login (HTTP 429) exigia mudança no front, e ela foi implementada (F2.10\*). O commit `a9da8a5` (10:19) reuniu:
+- o F2.10\*;
+- o ajuste final da saída da integração (F5.23\*), já descrito em 11/11;
+- os documentos recebidos;
+- o fechamento de 11/11 e o resumo semanal.
+
+**1. Faixa geral e "Ver motivo".** O usuário pediu para "ter a possibilidade de colocar uma faixa geral e não somente por filial, ter um botão que mostra o motivo da alteração da versão das faixas". O back-end ainda não tem isso. O usuário decidiu propor o contrato ao back-end e já implementar o front, que segue a proposta e tolera a resposta atual do servidor. As regras definidas pelo usuário:
+- num dashboard vale a faixa geral OU as faixas por filial; por filial, no máximo uma ativa por filial;
+- faixa vinculada a dashboard não se exclui, só se inativa;
+- inativar, reativar e excluir exigem motivo;
+- a reativação é permitida se não gerar conflito;
+- o dashboard mostra alertas de conflito de faixas ativas, de dashboard sem faixa ativa e de tentativa bloqueada;
+- o botão "Ver motivo" fica na listagem das faixas.
+
+Durante o trabalho, o usuário corrigiu o escopo: "tanto admin como validador podem mexer na faixa geral, tanto que o usuário validador tem acesso a todas as filiais". Por isso, a proposta pede ao back-end que retire das faixas a restrição P-04 (Validador só na própria filial).
+
+O trabalho foi feito em TDD:
+- **atividades:** proposta (F8.9\*), serviços (F8.10\*), telas (F8.11\*) e alertas nos dashboards (F7.14\*);
+- **requisitos novos:** F8.7, F8.8 e F7.14;
+- **requisitos reabertos e concluídos de novo:** F1.3, F7.1, F8.1, F8.2, F8.5 e F8.6.
+
+Resultado: 4422/4422 testes, mais 15 de cobertura complementar. A F8.12\* (validação de ponta a ponta) está bloqueada até a resposta do back-end (A-18).
+
+**2. Fase Preenchimento (F9).** O usuário pediu para "ir para a fase de preenchimento", seguido de "após a criação dos testes pare e encerre o dia". A F9 é a próxima fase do plano, e as fases F7 e F8 estão praticamente concluídas. Foram escritos os testes TDD da F9.1 (serviços), registrada como `pendente`, sem implementação.
+
+Depois do `a9da8a5`, não houve outro commit: o trabalho da faixa geral e da F9.1 está no disco. Ao fim do dia, 82 de 83 requisitos estão `implementado` (F9.1 `pendente`), e o plano está em 74% (100 de 135 atividades).
+
+### Implementações
+
+#### Proposta de contrato ao back-end: faixa geral e situação (F8.9\*, A-18)
+- **Tags:** #faixas #dashboards #api #documentacao
+- **Arquivos:** `docs/propostas-backend/PROPOSTA-faixa-geral-e-situacao.md`
+- **Descrição:** a proposta tem por base a `API (27).md` (fase 5, faixas) e não renomeia nem remove campos. Pede:
+  - **Campos novos na tabela:** `geral`; `filial` e `nome filial` nulos na geral; `situacao` (`ativa`/`inativa`, ausente = `ativa`); `motivo da situacao`, `data da situacao` e `usuario da situacao`. Pede também o filtro `situacao` (`ativas`, `inativas` ou `todas`) na listagem, que traz também a geral ao filtrar por filial.
+  - **Cadastro da geral:** com `"filial": "todas"`. Responde `400` com `mensagem` e `conflitos` quando já há geral ativa, quando há faixa de filial ativa com a geral, ou quando a filial já tem uma faixa ativa. Faixas inativas não contam.
+  - **Rota nova `PUT /api/ped/faixas/{id}/situacao`:** recebe `{ ativa, motivo }`, com motivo obrigatório nos dois sentidos. A reativação segue as regras de conflito. Inativar a última faixa é permitido e gera o alerta "sem faixa ativa". A mudança não gera versão nova, e alterar uma faixa inativa dá `400`.
+  - **`DELETE /api/ped/faixas/{id}`:** com corpo `{ motivo }` obrigatório. A tabela de dashboard existente continua bloqueada.
+  - **`alertas de faixas` no dashboard:** tipos `conflito` e `sem_faixa`, com `filial` ou `null`. Também o filtro opcional `situacao=problemas_faixa`.
+  - **`acao` no histórico:** `cadastro`, `alteracao`, `inativacao` ou `reativacao`. Linha sem `acao` = alteração.
+  - **Cálculo (P-10):** usa a geral ativa; sem ela, a faixa ativa da filial.
+  - **Acesso:** Admin e Validador, com as mesmas regras. Pede a retirada da P-04 nas faixas.
+  - **Dúvidas (seção 9):**
+    1. impacto da retirada da P-04 em outras rotas;
+    2. `filial: "todas"` × `geral: true`;
+    3. `DELETE` com corpo × `?motivo=`.
+- **Motivação:**
+  - permitir uma única tabela de faixas para todas as filiais;
+  - dar rastreabilidade às mudanças (motivo obrigatório e visível);
+  - impedir que se perca uma faixa usada por dashboard.
+
+  O usuário decidiu propor o contrato e já implementar o front. A retirada da P-04 atende à correção do usuário: Admin e Validador mexem na faixa geral, e o Validador tem acesso a todas as filiais.
+- **Como usar / observações técnicas:** pendente no back-end (A-18). O "Ver motivo" usa a rota de histórico que já existe.
+
+#### Serviços, tipos e adaptadores da faixa geral e da situação (F8.10\*)
+- **Tags:** #faixas #dashboards #api #tipos #validacao
+- **Arquivos:** `src/types/dominio.ts`, `src/services/adaptadores.ts`, `src/services/faixasService.ts`, `src/services/dashboardsService.ts`, `src/sessao/permissoes.ts`, `src/pages/faixas/regrasFaixas.ts`, `src/pages/faixas/useFaixas.ts`; fixtures `src/test/faixasFalsos.ts` e `src/test/dashboardsFalsos.ts`. Testes novos:
+  - `src/services/faixasService.situacao.test.ts`
+  - `faixasService.historicoAcao.test.ts`
+  - `dashboardsService.alertasFaixas.test.ts`
+  - `src/sessao/permissoes.faixasSituacao.test.ts`
+  - `src/pages/faixas/regrasFaixas.geral.test.ts`
+- **Descrição:**
+  - **`TabelaFaixas`:** ganhou `geral`, `situacao` (`SITUACOES_TABELA_FAIXAS`), `motivoDaSituacao`, `dataDaSituacao` e `usuarioDaSituacao`. `filial` e `nomeFilial` passaram a aceitar `null`. Sem os campos novos (resposta atual do servidor), a tabela é lida como por filial e `ativa`, com os dados da situação `null`.
+  - **`Dashboard`:** ganhou `alertasDeFaixas` (`AlertaFaixasDashboard`: `tipo` `conflito`/`sem_faixa`, `mensagem`, `filial` ou `null`). Quando a API não informa, é `[]`. A validação da listagem aceita a lista `"alertas de faixas"`, e um `tipo` desconhecido torna a resposta inválida.
+  - **`faixasService`:**
+    - filtro `situacao` na query;
+    - `alterarSituacaoTabelaFaixas(id, { ativa, motivo })` faz o `PUT .../{id}/situacao` com a regra "2xx = gravado". O `400` de conflito chega como `ApiError`, com a mensagem da API e os `conflitos` em `dados`;
+    - `excluirTabelaFaixas(id, motivo)` envia `{ motivo }` no `DELETE`;
+    - `VersaoFaixas.acao` é lida de `ACOES_HISTORICO_FAIXAS`; valor ausente ou desconhecido vira `null`.
+  - **`NovaTabelaFaixas.filial`:** aceita `'todas'` para a faixa geral.
+  - **Permissão nova `alterar-situacao-faixas`:** Admin e Validador.
+  - **`regrasFaixas`:**
+    - `nomeTabelaFaixas` mostra "{dashboard} · Geral" na geral;
+    - `textoFilialTabelaFaixas` mostra "Todas as filiais (geral)";
+    - `rotuloAcaoHistoricoFaixas` dá os rótulos Cadastro, Alteração das faixas, Inativação e Reativação;
+    - `ehMudancaDeSituacao` identifica as linhas de inativação e reativação.
+  - **`useFaixas`:** guarda a situação (padrão `ativas`) e consulta de novo ao trocá-la. Expõe `alterarSituacao`, que recarrega a lista, e `excluir(id, motivo)`.
+- **Motivação:** dar à tela a base para a faixa geral, a situação e o motivo (pedido do usuário de 12/11/2026), tolerando o servidor atual enquanto a proposta não é implementada. A permissão para o Validador atende à correção do usuário.
+- **Como usar / observações técnicas:** `situacao=ativas` vai sempre na query. Falta confirmar com o back-end se o servidor atual ignora ou rejeita o parâmetro. Requisitos concluídos: F1.3 (59/59), F7.1 (161/161), F8.1 (79/79), F8.5 e F8.7 (72/72).
+
+#### Faixa geral no cadastro e situação das tabelas na aba Faixas (F8.7, F8.11\*)
+- **Tags:** #faixas #cadastro #validacao #componente
+- **Arquivos:** `src/pages/faixas/FaixasPage.tsx`/`.css`, `ListaTabelasFaixas.tsx`/`.css`, `FormularioTabelaFaixas.tsx`, `EditorFaixas.css`, `DialogoSituacaoTabelaFaixas.tsx` (novo). Testes:
+  - `FormularioTabelaFaixas.geral.test.tsx`
+  - `ListaTabelasFaixas.situacao.test.tsx`
+  - `DialogoSituacaoTabelaFaixas.test.tsx`
+  - `FaixasPage.situacao.integration.test.tsx`
+- **Descrição:**
+  - **Formulário "Nova tabela de faixas":**
+    - ganhou a caixa "Faixa geral (vale para todas as filiais)";
+    - marcada, a caixa esconde a filial (do cabeçalho ou a escolhida) e o cadastro envia `filial: 'todas'`;
+    - o aviso "tabela já existe" (RN-14) passou a considerar só as tabelas **ativas** por filial. Os conflitos com a geral ficam com o `400` da API, mostrado no formulário.
+  - **Listagem:**
+    - a coluna Filial mostra "Todas as filiais (geral)" na geral;
+    - a tabela inativa recebe a etiqueta "Inativa";
+    - o menu tem "Inativar tabela" (tabela ativa) ou "Reativar tabela" (inativa), com a permissão `alterar-situacao-faixas`;
+    - "Alterar faixas" só aparece em tabela ativa.
+  - **Filtro "Situação":** opções Ativas, Inativas e Todas, com Ativas como padrão.
+  - **Diálogo "Inativar/Reativar tabela de faixas":**
+    - o motivo é obrigatório e vai sem espaços nas pontas;
+    - o erro da API (ex.: `400` de conflito na reativação) aparece dentro do diálogo, que continua aberto com o motivo digitado;
+    - no sucesso, a lista é recarregada e aparece "Tabela de faixas inativada." ou "Tabela de faixas reativada.".
+- **Motivação:**
+  - permitir uma única tabela para todas as filiais;
+  - dar rastreabilidade (motivo obrigatório);
+  - inativar, em vez de excluir, a faixa usada por dashboard.
+
+  O pedido é do usuário, de 12/11/2026.
+- **Como usar / observações técnicas:** decisões do gerador de testes:
+  - rótulos "Inativar tabela"/"Reativar tabela", no padrão de "Excluir tabela";
+  - erro de conflito dentro do diálogo ou do formulário;
+  - o `ApiError` existente basta, sem tipo novo.
+
+  O requisito F8.2 foi reaberto e concluído (37/37).
+
+#### Botão "Ver motivo" (F8.8, F8.11\*)
+- **Tags:** #faixas #componente
+- **Arquivos:** `src/pages/faixas/DialogoMotivoFaixas.tsx` (novo), `ListaTabelasFaixas.tsx`/`.css`, `FaixasPage.tsx`. Testes:
+  - `ListaTabelasFaixas.motivo.test.tsx`
+  - `DialogoMotivoFaixas.test.tsx`
+  - `FaixasPage.motivo.integration.test.tsx`
+- **Descrição:**
+  - O botão "Ver motivo" fica na linha da listagem, fora do menu de ações, com a permissão de ver o histórico.
+  - O diálogo "Motivo da última alteração" consulta sozinho o histórico (`listarHistoricoFaixas`) ao abrir e mostra, da linha mais recente, a ação, o motivo, o autor e a data.
+  - Na tabela inativa, o diálogo mostra também o motivo, o autor e a data da inativação ("Inativada em"), vindos da situação da própria tabela.
+  - O diálogo é somente leitura.
+- **Motivação:** pedido do usuário ("ter um botão que mostra o motivo da alteração da versão das faixas"). O usuário decidiu que o botão fica na listagem das faixas.
+- **Como usar / observações técnicas:** F8.8 com 19/19. O nome acessível do botão é igual em todas as linhas, e o leitor de tela não distingue as tabelas. A correção (ex.: incluir o nome da tabela) exige ajustar um teste e depende de decisão do usuário.
+
+#### Alertas de faixas na aba Dashboards (F7.14, F7.14\*)
+- **Tags:** #dashboards #faixas #componente
+- **Arquivos:** `src/pages/dashboards/TabelaDashboards.tsx`, `src/pages/dashboards/DashboardsPage.tsx`; testes `TabelaDashboards.alertasFaixas.test.tsx` e `DashboardsPage.alertasFaixas.integration.test.tsx`
+- **Descrição:**
+  - Em dashboard **ativo** com `alertasDeFaixas`, a linha mostra a etiqueta "{N} alerta(s) de faixas" (tom perigo) e a lista "Alertas de faixas em {nome}", com as mensagens na ordem da API.
+  - A aba mostra um aviso geral próprio, separado do aviso de indicadores: "{N} dashboard(s) com alerta(s) de faixas. Corrija na aba Faixas antes do encerramento.".
+- **Motivação:** decisão do usuário de mostrar no dashboard os conflitos de faixas ativas e a falta de faixa ativa. A "tentativa bloqueada" é o `400` mostrado na aba Faixas.
+- **Como usar / observações técnicas:**
+  - Como os alertas de indicadores (RF-47), os alertas de faixas só aparecem em dashboard ativo.
+  - O filtro `situacao=problemas_faixa` da proposta não entrou, porque não foi pedido. Falta o usuário decidir sobre um filtro "Com problemas de faixa".
+  - O requisito, criado como F7.11, foi renomeado para F7.14 porque colidia com a atividade F7.11\* (tarefa Bitrix), já concluída. F7.14 com 13/13.
+
+#### Testes TDD da F9.1: serviços da fase Preenchimento
+- **Tags:** #preenchimento #api #tipos #testes
+- **Arquivos:**
+  - `src/services/periodoService.test.ts`
+  - `src/services/preenchimentoService.test.ts`
+  - `src/services/preenchimentoService.lancamentos.test.ts`
+  - `src/services/metasService.test.ts`
+  - `src/services/indicadoresService.historicoMetasMes.test.ts`
+  - `src/types/dominio.preenchimento.test.ts`
+  - fixtures `src/test/preenchimentoFalsos.ts`
+  - registro em `requisitos.json`
+- **Descrição:** testes unitários da camada de serviços:
+  - **período:** `obterPeriodo`, `listarHistoricoPeriodos` e `abrirPeriodo` (Admin), RF-75 e RF-76;
+  - **meses e tela do mês:** `listarMesesPreenchimento(ano, filial)` e `obterPreenchimento({ filial, mesDeReferencia?, busca? })`, RF-60 a RF-65;
+  - **lançamento e correção em lote:** `salvarPreenchimento`, `PUT` tudo ou nada com "2xx = gravado";
+  - **erros por item:** `errosDoPreenchimento`;
+  - **histórico do apontamento:** `listarHistoricoApontamento`, RF-66 a RF-69;
+  - **"Editar metas":** `listarMetasPreenchimento`, `ajustarMetas` e `errosDoAjusteMetas`, RF-71 a RF-73;
+  - **histórico de metas por mês:** RF-74;
+  - **enums do domínio do preenchimento.**
+
+  As fixtures montam o cenário da filial 101 com outubro/2026 aberto: meses do ano, tela do mês com progresso 2 de 3, histórico de correção, aberturas (com uma reabertura) e janela de metas. A F9.1 foi registrada como `pendente`.
+- **Motivação:** a F9 é a próxima fase do plano, e a F7 e a F8 estão praticamente concluídas. A implementação não foi feita por decisão do usuário ("após a criação dos testes pare e encerre o dia").
+- **Como usar / observações técnicas:**
+  - Os testes estão vermelhos pelo motivo certo (módulos inexistentes). Um protótipo descartável passou em 164/164, e nenhum código de produção ficou.
+  - **Decisões:**
+    - os valores vão no `PUT` como número ou booleano já convertidos, como em Faixas;
+    - o mês vai como `AAAA-MM` na query e `AAAA-MM-01` no corpo;
+    - antes de chamar a API, há validação local de filial (obrigatória e diferente de "todas"), mês e ano (de 2000 ao atual), com `ApiError` 400 local (a confirmar);
+    - o histórico de metas reaproveita `listarHistoricoMetas` (F6.8), com o filtro novo `mesDeReferencia`;
+    - `paraPeriodo` não muda, e o `reaberto` é tratado no serviço;
+    - por ora, a tela ignora o `?dashboard=` vindo da aba Dashboards.
+  - **Formatos assumidos, que são dúvidas de contrato:**
+    - envelope e formato do mês em `/preenchimento/meses`;
+    - campos dos apontamentos (dashboards e imagens congeladas);
+    - erros por item do `PUT` (`dados.erros`);
+    - linhas do `/periodo/historico`;
+    - envelope de `/metas`;
+    - leitura de "2.000" na entrada de valores (F9.6).
+  - **Próximo passo:** implementar a F9.1 (integracao-api) e escrever os testes das telas F9.2–F9.12.
+
+#### Limite de tentativas no login, HTTP 429 (F2.10\*)
+- **Tags:** #login #api #validacao #componente
+- **Arquivos:** `src/services/api.ts`, `src/services/autenticacao.ts` (comentário), `src/pages/login/LoginPage.tsx`, `src/pages/login/LoginPage.css`. Testes:
+  - `src/services/api.tentarNovamenteEm.test.ts`
+  - `src/services/autenticacao.limiteTentativas.test.ts`
+  - `src/pages/login/LoginPage.limiteTentativas.test.tsx`
+  - `src/pages/login/LoginPage.limiteTentativas.integration.test.tsx`
+- **Descrição:**
+  - **`ApiError`:** ganhou `tentarNovamenteEm`, em segundos inteiros. O valor vem do campo `"segundos para tentar novamente"` do corpo (número maior que 0, com fração arredondada para cima). Sem ele, vem do cabeçalho `Retry-After` (inteiro maior que 0). Sem os dois, fica `undefined`.
+  - **Mensagem padrão do 429:** "Muitas tentativas. Aguarde alguns instantes e tente novamente.". A requisição nunca é repetida sozinha, porque cada reenvio conta como nova tentativa no back-end.
+  - **`LoginPage`:**
+    - um 429 bloqueia o envio por N segundos (padrão 60);
+    - o botão fica desabilitado com "Aguarde N s";
+    - o texto "Tente novamente em N s." fica fora de região viva;
+    - a contagem é recalculada pelo relógio a cada segundo;
+    - Enter e clique não enviam durante o bloqueio;
+    - 401 e 404 não bloqueiam.
+- **Motivação:** adequação ao documento do back-end `docs/backend/FRONT-erros-e-limite-de-login (1).md`. Segundo o plano, foi pedido do usuário ("pode fazer o ajuste do login"). Os demais pontos dos 3 documentos são do sistema Premiações ou já eram atendidos.
+- **Como usar / observações técnicas:**
+  - Validação:
+    - typecheck ok;
+    - lint só com o aviso antigo;
+    - `test:implementados` com unitários 3789/3789 e integração 511/511.
+  - O bloqueio fica só em memória e não sobrevive a recarregar a página. Isso está em aberto e não foi pedido.
+
+### Modificações
+
+#### Commit `a9da8a5`
+- **Tags:** #login #testes #documentacao
+- **Arquivos:**
+  - limite de tentativas no login: arquivos do F2.10\* acima;
+  - ajuste final da saída da integração: `src/pages/dados-externos/DialogoConcluirConstrucao.tsx` e `src/utils/integracao/modelos.ts`, com os testes;
+  - documentos do back-end:
+    - `docs/backend/FRONT-consistencia-mes-e-escopo (1).md`
+    - `FRONT-erros-e-limite-de-login (1).md`
+    - `FRONT-erros-nativos-e-datas (1).md`
+    - `FRONT-saida-chave-tipo (1).md`
+    - `RESPOSTA-saida-sem-mapeamento (1).md`
+  - fechamento e resumo: `docs/diario-implementacao.md`, `docs/documentacao.md` e `docs/resumos/resumo_2026-11-05.md`;
+  - `requisitos.json` e o plano.
+- **Antes:** o ajuste final da saída (F5.23\*), o fechamento de 11/11 e o resumo semanal estavam no disco, sem commit.
+- **Depois:** o commit de 10:19 de 12/11 levou:
+  - o F2.10\* (com F1.2, F2.1 e F2.2 passando por `em-alteracao` e voltando a `implementado`);
+  - o contrato final da saída da integração (F5.7, F5.14, F5.16, F6.11);
+  - os documentos de qualidade do back-end;
+  - o fechamento de 11/11 e o resumo semanal.
+- **Motivação:** registrar o limite de tentativas no login e o ajuste final de 11/11, conforme a mensagem do commit.
+- **Impacto:** o origin continua em `288d6c5`, e o push do `a9da8a5` está pendente.
+
+#### Exclusão de tabela de faixas com motivo (F8.6)
+- **Tags:** #faixas #cadastro #validacao
+- **Arquivos:** `src/pages/faixas/DialogoExcluirTabelaFaixas.tsx`, `FaixasPage.tsx`, `useFaixas.ts`, `src/services/faixasService.ts`; testes `DialogoExcluirTabelaFaixas.test.tsx` e `FaixasPage.exclusao.integration.test.tsx`
+- **Antes:**
+  - a exclusão da tabela de dashboard excluído só pedia confirmação;
+  - o `DELETE` ia sem corpo;
+  - o bloqueio de tabela de dashboard existente orientava só "Alterar faixas".
+- **Depois:**
+  - o diálogo pede o "Motivo da exclusão" (obrigatório, com o erro "Informe o motivo da exclusão.");
+  - o `DELETE` vai com `{ motivo }`;
+  - o bloqueio orienta "Inativar tabela" para que a tabela deixe de valer, ou "Alterar faixas" para gerar uma nova versão.
+- **Motivação:** decisão do usuário de exigir motivo para inativar, reativar e excluir, e de não excluir faixa vinculada a dashboard (só inativar).
+- **Impacto:** depende do back-end aceitar corpo no `DELETE` (dúvida 3 da proposta). F8.6 com 17/17.
+
+#### Coluna "Ação" no histórico de versões (F8.5)
+- **Tags:** #faixas #componente
+- **Arquivos:** `src/pages/faixas/DialogoHistoricoFaixas.tsx`; teste `DialogoHistoricoFaixas.acao.test.tsx`
+- **Antes:** o histórico listava só as versões das faixas, com a chave da linha igual ao número da versão.
+- **Depois:**
+  - quando alguma linha traz `acao`, a coluna "Ação" aparece depois de "Versão";
+  - as linhas de inativação e reativação não têm "Ver faixas da versão vN";
+  - a chave da linha passou a ser a posição no histórico, porque a mesma versão pode se repetir. O cache das faixas continua por versão.
+- **Motivação:** rastreabilidade das mudanças de situação, pedida pelo usuário em 12/11/2026.
+- **Impacto:** sem `acao` (servidor atual), o histórico fica como antes. F8.5 com 26/26.
+
+#### Listagem de faixas com situação padrão (F8.2)
+- **Tags:** #faixas #api
+- **Arquivos:** `src/pages/faixas/useFaixas.ts`, `FaixasPage.tsx`, `ListaTabelasFaixas.tsx`; testes `FaixasPage.integration.test.tsx`, `src/services/faixasService.test.ts`, `faixasService.versoes.test.ts`, `src/services/adaptadores.test.ts` e `dashboardsService.test.ts` (adequados)
+- **Antes:**
+  - a primeira consulta, e a volta a "Todas as filiais", iam sem query;
+  - o menu não tinha "Inativar tabela".
+- **Depois:**
+  - a consulta leva sempre `situacao=ativas` (ou a situação escolhida no filtro);
+  - o menu traz "Inativar tabela"/"Reativar tabela";
+  - os objetos esperados nos testes de serviço ganharam os campos novos.
+- **Motivação:** a faixa inativa deixa de valer e, por padrão, fica fora da lista (pedido de 12/11/2026).
+- **Impacto:** se o servidor atual rejeitar `situacao`, a aba Faixas deixa de carregar. Falta confirmar com o back-end.
+
+#### Acesso do Validador à faixa geral (correção do usuário)
+- **Tags:** #faixas #api #documentacao
+- **Arquivos:** `src/sessao/permissoes.ts`, `docs/propostas-backend/PROPOSTA-faixa-geral-e-situacao.md`
+- **Antes:** a primeira concepção previa permissão exclusiva do Admin para a faixa geral. No back-end, a P-04 limita o Validador à própria filial nas faixas.
+- **Depois:** Admin e Validador fazem tudo na faixa geral, com as mesmas regras (`alterar-situacao-faixas` para os dois). A proposta pede ao back-end que retire a P-04 das faixas.
+- **Motivação:** correção do usuário durante o trabalho: "tanto admin como validador podem mexer na faixa geral, tanto que o usuário validador tem acesso a todas as filiais".
+- **Impacto:** a P-04 pode afetar outras rotas no back-end (dúvida 1 da proposta).
+
+#### Renomeação do requisito F7.11 para F7.14
+- **Tags:** #dashboards #testes #documentacao
+- **Arquivos:** `requisitos.json`, comentários e testes dos alertas de faixas
+- **Antes:** o requisito dos alertas de faixas foi criado como F7.11.
+- **Depois:** o requisito passou a se chamar F7.14, igual ao id da atividade.
+- **Motivação:** o id colidia com a atividade F7.11\* (tarefa Bitrix), já concluída. A convenção é "requisito = id da atividade".
+- **Impacto:** nenhum no comportamento.
+
+#### Reabertura e conclusão de requisitos
+- **Tags:** #testes
+- **Arquivos:** `requisitos.json`
+- **Antes:** F1.3, F7.1, F8.1, F8.2, F8.5 e F8.6 estavam `implementado`.
+- **Depois:**
+  - os requisitos acima foram para `em-alteracao` (testes adequados pelo gerador-testes) e voltaram a `implementado`;
+  - F8.7, F8.8 e F7.14 foram criados e concluídos;
+  - F9.1 foi criada como `pendente`.
+
+  Validação:
+  - typecheck e lint sem erros (só o aviso antigo em `AlertasMenu.tsx`);
+  - suíte completa com 4422/4422;
+  - implementados: unitários 3448/3448 e integração 491/491;
+  - 15 testes novos de cobertura complementar: casos inválidos da tabela, `tipo` desconhecido de alerta e linhas do histórico com a mesma versão.
+- **Motivação:** ciclo TDD da alteração de requisito pedida pelo usuário em 12/11/2026.
+- **Impacto:** 82 de 83 requisitos `implementado`. F7 concluída. F8 em 90% (9/10, com a F8.12\* bloqueada).
+
+### Pendências
+- F8.12\* bloqueada até o back-end implementar a proposta (A-18) e responder às 3 dúvidas da seção 9.
+- O nome acessível do "Ver motivo" é igual em todas as linhas. A correção exige ajustar um teste e depende de decisão do usuário.
+- Confirmar se o servidor atual aceita `situacao=ativas` em `GET /api/ped/faixas`.
+- Decidir sobre um filtro "Com problemas de faixa" na aba Dashboards.
+- Confirmar se o aviso "tabela já existe", que considera só a lista filtrada, basta (a API cobre o conflito com o 400).
+- Continua em aberto: `id dashboard` nulo depois da exclusão do dashboard. Com a regra nova, a exclusão só vale nesse caso.
+- Implementar a F9.1 (integracao-api) e depois escrever os testes das telas F9.2–F9.12.
+- Dúvidas de contrato da F9.1 (listadas acima) e confirmação da validação local com 400.
+- Pendências antigas que continuam:
+  - push do `a9da8a5` (o origin está em `288d6c5`);
+  - commit do trabalho de hoje, quando o usuário pedir;
+  - build;
+  - melhorar a contagem do `scripts/lotes-testes.mjs`, que subestima e chegou a gerar um lote de 222 testes;
+  - F6.14\* (depende de `PED_EXECUTOR_ATIVO`);
+  - 429 ao recarregar a página;
+  - texto próprio para erros 422.
 
 ---
 

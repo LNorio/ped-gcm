@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cabecalhoDaChamada, respostaErro, respostaJson, simularApi } from '../test/apiFalsa'
+import { cabecalhoDaChamada, corpoDaChamada, respostaErro, respostaJson, simularApi } from '../test/apiFalsa'
 import { FAIXAS_V1_COMERCIAL_101, historicoFaixasApi, versaoFaixasApi } from '../test/faixasFalsos'
 import { ApiError, MENSAGEM_RESPOSTA_INVALIDA, MENSAGEM_SEM_CONEXAO } from './api'
 import { excluirTabelaFaixas, listarHistoricoFaixas, obterFaixasDaVersao, type VersaoFaixas } from './faixasService'
@@ -7,10 +7,13 @@ import { definirToken, limparToken } from './sessao'
 
 const ROTA = '/api/ped/faixas'
 
+/** Histórico no formato atual da API (sem `acao` — F8.5): `acao` é `null`. */
 const HISTORICO: VersaoFaixas[] = [
-  { versao: 2, vigente: true, motivo: 'Reajuste do trimestre', data: '2026-10-20 15:30:00', usuario: 'Ana Costa', quantidadeDeFaixas: 3 },
-  { versao: 1, vigente: false, motivo: 'Cadastro inicial', data: '2026-09-01 10:00:00', usuario: 'Maria Souza', quantidadeDeFaixas: 2 },
+  { versao: 2, vigente: true, motivo: 'Reajuste do trimestre', data: '2026-10-20 15:30:00', usuario: 'Ana Costa', quantidadeDeFaixas: 3, acao: null },
+  { versao: 1, vigente: false, motivo: 'Cadastro inicial', data: '2026-09-01 10:00:00', usuario: 'Maria Souza', quantidadeDeFaixas: 2, acao: null },
 ]
+
+const MOTIVO_EXCLUSAO = 'Dashboard encerrado em 2025'
 
 describe('F8.1 — Serviço de faixas: histórico de versões, faixas de uma versão e exclusão (RF-45, RF-46)', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
@@ -128,16 +131,18 @@ describe('F8.1 — Serviço de faixas: histórico de versões, faixas de uma ver
     })
   })
 
-  describe('excluirTabelaFaixas(id) — RF-46; 2xx significa excluído', () => {
-    it('DELETE /api/ped/faixas/{id} com o token; 204 resolve sem valor', async () => {
+  describe('excluirTabelaFaixas(id, motivo) — RF-46; motivo obrigatório (F8.6, 12/11/2026); 2xx significa excluído', () => {
+    it('DELETE /api/ped/faixas/{id} com o token e o corpo { motivo }; 204 resolve sem valor', async () => {
       const chamadas = simularApi(fetchFalso, { [`DELETE ${ROTA}/4`]: () => new Response(null, { status: 204 }) })
 
-      await expect(excluirTabelaFaixas(4)).resolves.toBeUndefined()
+      await expect(excluirTabelaFaixas(4, MOTIVO_EXCLUSAO)).resolves.toBeUndefined()
 
       expect(chamadas).toHaveLength(1)
       expect(chamadas[0].metodo).toBe('DELETE')
       expect(chamadas[0].caminho).toBe(`${ROTA}/4`)
       expect(cabecalhoDaChamada(chamadas[0], 'Authorization')).toBe('Bearer token-123')
+      expect(cabecalhoDaChamada(chamadas[0], 'Content-Type')).toBe('application/json')
+      expect(corpoDaChamada(chamadas[0])).toEqual({ motivo: MOTIVO_EXCLUSAO })
     })
 
     it.each<[string, () => Response]>([
@@ -147,7 +152,7 @@ describe('F8.1 — Serviço de faixas: histórico de versões, faixas de uma ver
     ])('%s também resolve sem valor, sem erro', async (_caso, resposta) => {
       simularApi(fetchFalso, { [`DELETE ${ROTA}/4`]: resposta })
 
-      await expect(excluirTabelaFaixas(4)).resolves.toBeUndefined()
+      await expect(excluirTabelaFaixas(4, MOTIVO_EXCLUSAO)).resolves.toBeUndefined()
     })
 
     it('400 (dashboard ainda existe — RF-46) chega como ApiError com a mensagem da API', async () => {
@@ -155,7 +160,7 @@ describe('F8.1 — Serviço de faixas: histórico de versões, faixas de uma ver
         [`DELETE ${ROTA}/1`]: () => respostaErro(400, 'A tabela só pode ser excluída depois que o dashboard for excluído.'),
       })
 
-      await expect(excluirTabelaFaixas(1)).rejects.toMatchObject({
+      await expect(excluirTabelaFaixas(1, MOTIVO_EXCLUSAO)).rejects.toMatchObject({
         status: 400,
         mensagem: 'A tabela só pode ser excluída depois que o dashboard for excluído.',
       })
@@ -163,10 +168,10 @@ describe('F8.1 — Serviço de faixas: histórico de versões, faixas de uma ver
 
     it('403 e falha de rede chegam como ApiError', async () => {
       simularApi(fetchFalso, { [`DELETE ${ROTA}/4`]: () => respostaErro(403, 'Acesso negado.') })
-      await expect(excluirTabelaFaixas(4)).rejects.toMatchObject({ status: 403, mensagem: 'Acesso negado.' })
+      await expect(excluirTabelaFaixas(4, MOTIVO_EXCLUSAO)).rejects.toMatchObject({ status: 403, mensagem: 'Acesso negado.' })
 
       fetchFalso.mockRejectedValue(new TypeError('Failed to fetch'))
-      await expect(excluirTabelaFaixas(4)).rejects.toMatchObject({ status: 0, mensagem: MENSAGEM_SEM_CONEXAO })
+      await expect(excluirTabelaFaixas(4, MOTIVO_EXCLUSAO)).rejects.toMatchObject({ status: 0, mensagem: MENSAGEM_SEM_CONEXAO })
     })
   })
 })

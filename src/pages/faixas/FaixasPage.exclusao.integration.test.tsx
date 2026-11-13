@@ -5,6 +5,7 @@ import {
   FILIAIS_API,
   acessoApi,
   cabecalhoDaChamada,
+  corpoDaChamada,
   respostaErro,
   respostaJson,
   simularApi,
@@ -14,13 +15,14 @@ import {
 import { criarApiFaixasFalsa } from '../../test/faixasFalsos'
 import { escolherAcao, rotuloAcoesTabelaFaixas } from '../../test/menuAcoes'
 import { renderizarApp } from '../../test/renderizarApp'
-import { usuarioRapido, type Usuario } from '../../test/usuario'
+import { colar, usuarioRapido, type Usuario } from '../../test/usuario'
 
 const ROTA = '/api/ped/faixas'
 const ANTIGO_101 = 'PED Antigo · Filial 101'
 const COMERCIAL_101 = 'PED Comercial · Filial 101'
+const MOTIVO = 'Dashboard encerrado em 2025'
 
-describe('F8.6 — Excluir tabela de faixas (integração: /faixas — RF-46, RN-18, RNF-07)', () => {
+describe('F8.6 — Excluir tabela de faixas (integração: /faixas — RF-46, RN-18, RNF-07; motivo obrigatório desde 12/11/2026)', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
 
   beforeEach(() => {
@@ -57,13 +59,19 @@ describe('F8.6 — Excluir tabela de faixas (integração: /faixas — RF-46, RN
     return dialogo()
   }
 
-  it('Admin exclui a tabela de dashboard excluído: confirmação com o impacto → DELETE → "Tabela de faixas excluída." e a linha sai', async () => {
+  /** Preenche o motivo obrigatório (F8.6, 12/11/2026) e confirma. */
+  async function confirmarComMotivo(user: Usuario, janela: HTMLElement, motivo = MOTIVO) {
+    await colar(user, within(janela).getByRole('textbox', { name: 'Motivo da exclusão' }), motivo)
+    await user.click(within(janela).getByRole('button', { name: 'Excluir' }))
+  }
+
+  it('Admin exclui a tabela de dashboard excluído: confirmação com o impacto e o motivo → DELETE com { motivo } → "Tabela de faixas excluída." e a linha sai', async () => {
     const user = usuarioRapido()
     const chamadas = simularSessao()
     const janela = await pedirExclusao(user, ANTIGO_101)
 
     expect(janela).toHaveTextContent('Imagens já congeladas mantêm as faixas vigentes no fechamento.')
-    await user.click(within(janela).getByRole('button', { name: 'Excluir' }))
+    await confirmarComMotivo(user, janela)
 
     const notificacao = await screen.findByText('Tabela de faixas excluída.')
     expect(notificacao.closest('[role="status"]')).not.toBeNull()
@@ -71,6 +79,7 @@ describe('F8.6 — Excluir tabela de faixas (integração: /faixas — RF-46, RN
     expect(deletes(chamadas)).toHaveLength(1)
     expect(deletes(chamadas)[0].caminho).toBe(`${ROTA}/4`)
     expect(cabecalhoDaChamada(deletes(chamadas)[0], 'Authorization')).toBe('Bearer token-salvo')
+    expect(corpoDaChamada(deletes(chamadas)[0])).toEqual({ motivo: MOTIVO })
     await waitFor(() => expect(gatilho(ANTIGO_101)).not.toBeInTheDocument())
     expect(gatilho(COMERCIAL_101)).toBeInTheDocument()
   })
@@ -87,6 +96,18 @@ describe('F8.6 — Excluir tabela de faixas (integração: /faixas — RF-46, RN
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(deletes(chamadas)).toHaveLength(0)
     expect(gatilho(COMERCIAL_101)).toBeInTheDocument()
+  })
+
+  it('sem motivo, "Excluir" mostra "Informe o motivo da exclusão." no diálogo e não faz DELETE', async () => {
+    const user = usuarioRapido()
+    const chamadas = simularSessao()
+    const janela = await pedirExclusao(user, ANTIGO_101)
+
+    await user.click(within(janela).getByRole('button', { name: 'Excluir' }))
+
+    expect(within(dialogo()).getByText('Informe o motivo da exclusão.')).toBeInTheDocument()
+    expect(deletes(chamadas)).toHaveLength(0)
+    expect(gatilho(ANTIGO_101)).toBeInTheDocument()
   })
 
   it('"Cancelar" fecha sem DELETE e a linha continua', async () => {
@@ -108,7 +129,7 @@ describe('F8.6 — Excluir tabela de faixas (integração: /faixas — RF-46, RN
     })
     const janela = await pedirExclusao(user, ANTIGO_101)
 
-    await user.click(within(janela).getByRole('button', { name: 'Excluir' }))
+    await confirmarComMotivo(user, janela)
 
     expect(await screen.findByRole('alert')).toHaveTextContent('A tabela só pode ser excluída depois que o dashboard for excluído.')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -127,6 +148,7 @@ describe('F8.6 — Excluir tabela de faixas (integração: /faixas — RF-46, RN
     })
     const janela = await pedirExclusao(user, ANTIGO_101)
 
+    await colar(user, within(janela).getByRole('textbox', { name: 'Motivo da exclusão' }), MOTIVO)
     const excluir = within(janela).getByRole('button', { name: 'Excluir' })
     await user.dblClick(excluir)
     liberar()
@@ -140,7 +162,7 @@ describe('F8.6 — Excluir tabela de faixas (integração: /faixas — RF-46, RN
     const chamadas = simularSessao('validador')
     const janela = await pedirExclusao(user, ANTIGO_101)
 
-    await user.click(within(janela).getByRole('button', { name: 'Excluir' }))
+    await confirmarComMotivo(user, janela)
 
     await screen.findByText('Tabela de faixas excluída.')
     expect(deletes(chamadas)[0].caminho).toBe(`${ROTA}/4`)

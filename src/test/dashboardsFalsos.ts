@@ -61,6 +61,14 @@ export interface AlertaDashboardApiFalso {
   'pontos afetados': number
 }
 
+/** F7.14: alerta de faixas do dashboard (proposta "faixa geral e situação", seção 6). */
+export interface AlertaFaixasDashboardApiFalso {
+  tipo: 'conflito' | 'sem_faixa'
+  mensagem: string
+  /** Filial do alerta; `null` quando vale para o dashboard todo. */
+  filial: string | null
+}
+
 export interface DashboardApiFalso {
   id: number
   nome: string
@@ -77,6 +85,8 @@ export interface DashboardApiFalso {
   'quantidade de indicadores': number
   pontos: { soma: number; maximo: number }
   alertas: AlertaDashboardApiFalso[]
+  /** F7.14: ausente no formato atual da API (= sem alertas de faixas). */
+  'alertas de faixas'?: AlertaFaixasDashboardApiFalso[]
   'cadastrado em': string | null
   'ultima alteracao': string | null
 }
@@ -310,6 +320,7 @@ function copiar(dashboard: DashboardApiFalso): DashboardApiFalso {
     'itens vinculados': [...dashboard['itens vinculados']],
     pontos: { ...dashboard.pontos },
     alertas: dashboard.alertas.map((alerta) => ({ ...alerta })),
+    ...(dashboard['alertas de faixas'] ? { 'alertas de faixas': dashboard['alertas de faixas'].map((alerta) => ({ ...alerta })) } : {}),
   }
 }
 
@@ -322,6 +333,45 @@ export function dashboardsApi(): DashboardApiFalso[] {
     DASHBOARD_LOGISTICA_API,
     DASHBOARD_FINANCEIRO_API,
   ].map(copiar)
+}
+
+/** Alertas de faixas usados nos testes da F7.14 (proposta, seção 6). */
+export const ALERTA_FAIXAS_CONFLITO_101: AlertaFaixasDashboardApiFalso = {
+  tipo: 'conflito',
+  mensagem: 'faixa geral e faixa da filial 101 ativas ao mesmo tempo',
+  filial: '101',
+}
+export const ALERTA_FAIXAS_SEM_FAIXA_102: AlertaFaixasDashboardApiFalso = {
+  tipo: 'sem_faixa',
+  mensagem: 'filial 102 sem faixa ativa',
+  filial: '102',
+}
+export const ALERTA_FAIXAS_DASHBOARD_SEM_FAIXA: AlertaFaixasDashboardApiFalso = {
+  tipo: 'sem_faixa',
+  mensagem: 'dashboard sem faixa ativa',
+  filial: null,
+}
+
+/**
+ * Lista padrão com "alertas de faixas" (F7.14), no formato proposto:
+ * - PED Comercial (ativo): conflito na filial 101 e filial 102 sem faixa ativa;
+ * - PED Gerentes (ativo): "dashboard sem faixa ativa" (filial null) — também tem o alerta de indicador;
+ * - PED Supervisores (em construção) e PED Financeiro (inativo): "dashboard sem faixa ativa", que a
+ *   tela não mostra (como os alertas de indicadores, só em dashboard ativo);
+ * - PED Logística: sem o campo (formato atual).
+ */
+export function dashboardsComAlertasDeFaixasApi(): DashboardApiFalso[] {
+  const alertas: Readonly<Record<number, AlertaFaixasDashboardApiFalso[]>> = {
+    1: [ALERTA_FAIXAS_CONFLITO_101, ALERTA_FAIXAS_SEM_FAIXA_102],
+    2: [ALERTA_FAIXAS_DASHBOARD_SEM_FAIXA],
+    3: [ALERTA_FAIXAS_DASHBOARD_SEM_FAIXA],
+    5: [ALERTA_FAIXAS_DASHBOARD_SEM_FAIXA],
+  }
+  return dashboardsApi().map((dashboard) =>
+    alertas[dashboard.id]
+      ? { ...dashboard, 'alertas de faixas': alertas[dashboard.id].map((alerta) => ({ ...alerta })) }
+      : dashboard,
+  )
 }
 
 function casaBusca(dashboard: DashboardApiFalso, termo: string): boolean {
@@ -344,7 +394,11 @@ function casaSituacao(dashboard: DashboardApiFalso, situacao: string | null): bo
     case 'construcao':
       return dashboard.situacao === 'em_construcao' || dashboard.situacao === 'em_modificacao'
     case 'problemas':
+      // O filtro "problemas" não inclui os alertas de faixas (contrato final, F8.12*).
       return dashboard.situacao === 'ativo' && dashboard.alertas.length > 0
+    case 'problemas_faixa':
+      // F7.14 (contrato final): só dashboards ativos com "alertas de faixas".
+      return dashboard.situacao === 'ativo' && (dashboard['alertas de faixas'] ?? []).length > 0
     default:
       return true
   }
@@ -352,7 +406,8 @@ function casaSituacao(dashboard: DashboardApiFalso, situacao: string | null): bo
 
 /**
  * Aplica à lista os filtros da query string como a API faz: `busca` (dashboard, item vinculado ou
- * indicador, sem acento/maiúsculas) e `situacao` (todas | ativos | inativos | construcao | problemas).
+ * indicador, sem acento/maiúsculas) e `situacao` (todas | ativos | inativos | construcao | problemas |
+ * problemas_faixa).
  */
 export function filtrarDashboardsApi(lista: DashboardApiFalso[], url: URL): DashboardApiFalso[] {
   const busca = url.searchParams.get('busca') ?? ''

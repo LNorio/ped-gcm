@@ -10,7 +10,8 @@
  * - "Preencher apontamentos" abre `/preenchimento?dashboard={id}`;
  * - desativar/ativar e excluir (`useAcoesSituacaoExclusao`) e concluir construção/modificação
  *   (`useAcaoConfirmada`), sempre com confirmação e um único aviso de erro de ação na página.
- * Com dashboard ativo com indicador problemático na lista, mostra o alerta geral (RF-47).
+ * Com dashboard ativo com indicador problemático na lista, mostra o alerta geral (RF-47); com dashboard
+ * ativo com alerta de faixas, mostra um aviso próprio, separado (F7.14).
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -55,6 +56,7 @@ import './DashboardsPage.css'
 const MENSAGENS_ACOES = { situacao: 'Situação do dashboard alterada.', exclusao: 'Dashboard excluído.' }
 const MENSAGEM_CONCLUSAO = 'Conclusão registrada.'
 const COMPLEMENTO_ALERTA = 'Corrija na aba Indicadores antes do encerramento.'
+const COMPLEMENTO_ALERTA_FAIXAS = 'Corrija na aba Faixas antes do encerramento.'
 
 const LISTAS_VAZIAS: ListasFormularioDashboard = {
   indicadores: [],
@@ -82,6 +84,12 @@ function textoAlertaGeral(quantidade: number): string {
   return quantidade === 1
     ? `1 dashboard com indicador com problema. ${COMPLEMENTO_ALERTA}`
     : `${quantidade} dashboards com indicadores com problema. ${COMPLEMENTO_ALERTA}`
+}
+
+function textoAlertaFaixas(quantidade: number): string {
+  return quantidade === 1
+    ? `1 dashboard com alerta de faixas. ${COMPLEMENTO_ALERTA_FAIXAS}`
+    : `${quantidade} dashboards com alertas de faixas. ${COMPLEMENTO_ALERTA_FAIXAS}`
 }
 
 /** Diálogo do formulário: cadastro ou edição de um dashboard da lista. */
@@ -282,6 +290,7 @@ export function DashboardsPage() {
   const filtroAtivo = filtros.busca !== FILTROS_PADRAO.busca || filtros.situacao !== FILTROS_PADRAO.situacao
   const textoVazio = filtroAtivo ? 'Nenhum dashboard encontrado para os filtros.' : 'Nenhum dashboard cadastrado.'
   const comProblema = dashboards.filter((d) => d.situacao === 'ativo' && d.alertas.length > 0).length
+  const comAlertaDeFaixas = dashboards.filter((d) => d.situacao === 'ativo' && d.alertasDeFaixas.length > 0).length
   const mostrarLista = carregouUmaVez && erro === null
 
   const edicao = formulario?.modo === 'edicao'
@@ -328,6 +337,8 @@ export function DashboardsPage() {
       {erroAcao !== null ? <Aviso tipo="erro">{erroAcao}</Aviso> : null}
 
       {mostrarLista && comProblema > 0 ? <Aviso tipo="alerta">{textoAlertaGeral(comProblema)}</Aviso> : null}
+
+      {mostrarLista && comAlertaDeFaixas > 0 ? <Aviso tipo="alerta">{textoAlertaFaixas(comAlertaDeFaixas)}</Aviso> : null}
 
       <Card semPadding className="dashboards-page__card">
         <BarraFiltros

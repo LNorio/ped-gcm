@@ -98,7 +98,15 @@ describe('F7.2 — Listagem de dashboards (DashboardsPage)', () => {
 
     expect(screen.getByRole('searchbox', { name: 'Buscar' })).toHaveAttribute('placeholder', 'Dashboard, item vinculado ou indicador')
     const opcoes = within(screen.getByRole('listbox', { name: 'Situação' })).getAllByRole('option')
-    expect(opcoes.map((opcao) => opcao.textContent)).toEqual(['Todas', 'Ativos', 'Inativos', 'Em construção/modificação (TI)', 'Com problemas'])
+    // "Com problemas de faixa" (situacao=problemas_faixa): contrato final das faixas (F8.12*).
+    expect(opcoes.map((opcao) => opcao.textContent)).toEqual([
+      'Todas',
+      'Ativos',
+      'Inativos',
+      'Em construção/modificação (TI)',
+      'Com problemas',
+      'Com problemas de faixa',
+    ])
   })
 
   it('erro de carga: Aviso de erro com a mensagem e "Tentar novamente", sem a tabela; tentar de novo recarrega', async () => {

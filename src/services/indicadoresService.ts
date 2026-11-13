@@ -8,7 +8,7 @@
  *                                                                 com meta por filial, `"metas por filial"` no lugar de `meta` (F6.10)
  * - `PUT    /api/ped/indicadores-cadastro/{id}/situacao`         `{ ativo }` — Admin e Validador (RF-38)
  * - `DELETE /api/ped/indicadores-cadastro/{id}`                  Admin — recusa (400) se já esteve vinculado a dashboard (RN-11, RF-37)
- * - `GET    /api/ped/indicadores-cadastro/{id}/metas-historico`  `filial` (RF-39)
+ * - `GET    /api/ped/indicadores-cadastro/{id}/metas-historico`  `filial` (RF-39) e `mes_de_referencia` (F9.1, RF-74)
  * - `PUT    /api/ped/indicadores-cadastro/{id}/metas-filiais`    `{ "metas por filial": [...] }` — define a meta das
  *                                                                 filiais pendentes (F6.12, `API (26).md`)
  * - `PUT    /api/ped/indicadores-cadastro/{id}/integracao`       Admin — integração da meta via API (F6.11, proposta);
@@ -82,6 +82,7 @@ import {
 } from './adaptadores'
 import { ApiError, MENSAGEM_RESPOSTA_INVALIDA, type ValorQuery, apiFetch } from './api'
 import { corpoIntegracao } from './dadosExternosService'
+import { mesParaQuery } from './preenchimentoService'
 
 const ROTA_INDICADORES = '/ped/indicadores-cadastro'
 
@@ -196,6 +197,11 @@ export interface ResultadoSituacaoIndicador {
 export interface FiltrosHistoricoMetas {
   /** Código da filial. Ausente ou `todas` não entra na query (todas as filiais, só Admin). */
   filial?: string
+  /**
+   * F9.1 (RF-74): mês do ajuste, `AAAA-MM` ou `AAAA-MM-DD`, enviado como `mes_de_referencia=AAAA-MM`.
+   * Ausente ou vazio não entra na query; fora do formato rejeita com `ApiError(400, MENSAGEM_MES_INVALIDO)`.
+   */
+  mesDeReferencia?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -513,7 +519,10 @@ export async function excluirIndicador(id: number): Promise<void> {
 /** Histórico de ajustes de meta do indicador (RF-39), na ordem devolvida pela API. */
 export async function listarHistoricoMetas(id: number, filtros: FiltrosHistoricoMetas = {}): Promise<HistoricoMeta[]> {
   const filial = filtros.filial === 'todas' ? undefined : filtros.filial
-  const resposta = await apiFetch<unknown>(`${ROTA_INDICADORES}/${id}/metas-historico`, { query: { filial } })
+  const mes = filtros.mesDeReferencia?.trim() ? mesParaQuery(filtros.mesDeReferencia) : undefined
+  const resposta = await apiFetch<unknown>(`${ROTA_INDICADORES}/${id}/metas-historico`, {
+    query: { filial, mes_de_referencia: mes },
+  })
   const lista: unknown = ehObjeto(resposta) ? resposta.historico : resposta
   if (!Array.isArray(lista) || !lista.every(ehHistoricoMetaApi)) throw respostaInvalida()
   return lista.map((item) => paraHistoricoMeta(item))

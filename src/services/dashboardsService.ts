@@ -65,6 +65,7 @@
 import {
   PERIODICIDADES,
   SITUACOES_DASHBOARD,
+  TIPOS_ALERTA_FAIXAS,
   TIPOS_VINCULO,
   type DadosDashboard,
   type Dashboard,
@@ -77,8 +78,11 @@ import { ApiError, MENSAGEM_RESPOSTA_INVALIDA, type ValorQuery, apiFetch } from 
 const ROTA_DASHBOARDS = '/ped/dashboards'
 const ROTA_VINCULOS = '/ped/vinculos'
 
-/** Situações aceitas pelo filtro da API, na ordem exibida na tela. */
-export const SITUACOES_FILTRO_DASHBOARD = ['todas', 'ativos', 'inativos', 'construcao', 'problemas'] as const
+/**
+ * Situações aceitas pelo filtro da API, na ordem exibida na tela. `problemas_faixa` (F8.12*, contrato
+ * final): dashboards ativos com alertas de faixas.
+ */
+export const SITUACOES_FILTRO_DASHBOARD = ['todas', 'ativos', 'inativos', 'construcao', 'problemas', 'problemas_faixa'] as const
 
 export type SituacaoFiltroDashboard = (typeof SITUACOES_FILTRO_DASHBOARD)[number]
 
@@ -88,6 +92,7 @@ export const ROTULOS_SITUACAO_FILTRO_DASHBOARD: Readonly<Record<SituacaoFiltroDa
   inativos: 'Inativos',
   construcao: 'Em construção/modificação (TI)',
   problemas: 'Com problemas',
+  problemas_faixa: 'Com problemas de faixa',
 }
 
 /** Filtros de `listarDashboards`; só os informados entram na query. */
@@ -288,6 +293,16 @@ function ehAlertaApi(valor: unknown): boolean {
   return ehObjeto(valor) && ehTexto(valor.indicador) && ehTexto(valor.motivo) && ehNumero(valor['pontos afetados'])
 }
 
+/** F7.14: alerta de faixas (`tipo` conhecido, `mensagem` e `filial` em texto, número ou `null`). */
+function ehAlertaFaixasApi(valor: unknown): boolean {
+  return (
+    ehObjeto(valor) &&
+    ehUmDe(TIPOS_ALERTA_FAIXAS, valor.tipo) &&
+    ehTexto(valor.mensagem) &&
+    opcional(valor.filial, ehTextoOuNumero)
+  )
+}
+
 /** Dashboard completo e válido no formato da listagem. Campos opcionais aceitam ausência ou `null`. */
 function ehDashboardApi(valor: unknown): valor is DashboardApi {
   if (!ehObjeto(valor)) return false
@@ -305,6 +320,7 @@ function ehDashboardApi(valor: unknown): valor is DashboardApi {
     opcional(valor['quantidade de indicadores'], ehNumero) &&
     opcional(valor.pontos, ehPontosApi) &&
     opcional(valor.alertas, (v) => ehListaDe(v, ehAlertaApi)) &&
+    opcional(valor['alertas de faixas'], (v) => ehListaDe(v, ehAlertaFaixasApi)) &&
     opcional(valor['cadastrado em'], ehTexto) &&
     opcional(valor['ultima alteracao'], ehTexto)
   )

@@ -5,6 +5,11 @@
  * (F6.8). Cada versão pode mostrar as suas faixas ("Ver faixas da versão vN"), consultadas por
  * `obterFaixasDaVersao` uma só vez por versão; várias podem ficar abertas. Falha ao consultar uma
  * versão vira um alerta na linha, sem fechar o histórico. Somente leitura.
+ *
+ * F8.5 (proposta "faixa geral e situação", seção 7): quando alguma linha traz `acao`, a coluna "Ação"
+ * aparece depois de "Versão". Linhas de inativação, reativação e exclusão (F8.12*) não criam versão nem
+ * têm faixas próprias: não oferecem "Ver faixas da versão vN". Como a mesma versão pode aparecer em mais de uma
+ * linha, a chave da linha é a posição no histórico; o cache das faixas continua por versão.
  */
 import { useEffect, useState } from 'react'
 import { Aviso } from '../../components/Aviso'
@@ -19,7 +24,7 @@ import { listarHistoricoFaixas, obterFaixasDaVersao, type VersaoFaixas } from '.
 import type { Faixa, TabelaFaixas } from '../../types/dominio'
 import { formatarDataHora } from '../../utils/formato'
 import { TabelaValoresFaixas } from './TabelaValoresFaixas'
-import { nomeTabelaFaixas } from './regrasFaixas'
+import { linhaTemFaixasDaVersao, nomeTabelaFaixas, rotuloAcaoHistoricoFaixas } from './regrasFaixas'
 import '../indicadores/DialogoHistoricoMetas.css'
 
 export interface DialogoHistoricoFaixasProps {
@@ -38,6 +43,12 @@ interface EstadoConsulta {
 /** Faixas de uma versão: carregando, carregadas ou com erro. */
 type FaixasDaVersao = { estado: 'carregando' } | { estado: 'pronto'; faixas: Faixa[] } | { estado: 'erro'; erro: string }
 
+/** Linha do histórico com a chave própria (a versão pode se repetir entre linhas). */
+interface LinhaHistorico {
+  chave: number
+  versao: VersaoFaixas
+}
+
 const SEM_VALOR = '—'
 
 function textoFaixas(quantidade: number | null): string {
@@ -48,6 +59,7 @@ function textoFaixas(quantidade: number | null): string {
 function ConteudoHistorico({ tabela }: { tabela: TabelaFaixas }) {
   const [tentativa, setTentativa] = useState(0)
   const [estado, setEstado] = useState<EstadoConsulta | null>(null)
+  /** Chaves (posições) das linhas abertas. */
   const [abertas, setAbertas] = useState<ReadonlySet<number>>(() => new Set())
   const [faixasPorVersao, setFaixasPorVersao] = useState<ReadonlyMap<number, FaixasDaVersao>>(() => new Map())
 
@@ -78,12 +90,12 @@ function ConteudoHistorico({ tabela }: { tabela: TabelaFaixas }) {
     )
   }
 
-  function alternarVersao(versao: number) {
-    const aberta = abertas.has(versao)
+  function alternarVersao(chave: number, versao: number) {
+    const aberta = abertas.has(chave)
     setAbertas((atuais) => {
       const novas = new Set(atuais)
-      if (aberta) novas.delete(versao)
-      else novas.add(versao)
+      if (aberta) novas.delete(chave)
+      else novas.add(chave)
       return novas
     })
     if (aberta) return
@@ -92,7 +104,8 @@ function ConteudoHistorico({ tabela }: { tabela: TabelaFaixas }) {
     if (atual === undefined || atual.estado === 'erro') carregarVersao(versao)
   }
 
-  function detalhesDaVersao(versao: VersaoFaixas) {
+  function detalhesDaVersao({ versao }: LinhaHistorico) {
+    if (!linhaTemFaixasDaVersao(versao.acao)) return null
     const faixas = faixasPorVersao.get(versao.versao)
     if (faixas === undefined || faixas.estado === 'carregando') {
       return <RegiaoStatus mensagem={`Carregando faixas da versão v${versao.versao}...`} />
@@ -101,40 +114,46 @@ function ConteudoHistorico({ tabela }: { tabela: TabelaFaixas }) {
     return <TabelaValoresFaixas faixas={faixas.faixas} legenda={`Faixas da versão v${versao.versao}`} />
   }
 
-  const colunas: ColunaTabela<VersaoFaixas>[] = [
+  const consultaAtual = estado !== null && estado.tentativa === tentativa ? estado : null
+  const carregando = consultaAtual === null
+  const erro = consultaAtual?.erro ?? null
+  const versoes = consultaAtual?.versoes ?? []
+  const linhas: LinhaHistorico[] = versoes.map((versao, chave) => ({ chave, versao }))
+  const temAcao = versoes.some((versao) => versao.acao !== null)
+
+  const colunas: ColunaTabela<LinhaHistorico>[] = [
     {
       chave: 'versao',
       titulo: 'Versão',
-      render: (versao) => (
+      render: ({ versao }) => (
         <span className="dialogo-historico-faixas__versao">
           <span>{`v${versao.versao}`}</span>
           {versao.vigente ? <Etiqueta tom="sucesso">Vigente</Etiqueta> : null}
         </span>
       ),
     },
-    { chave: 'motivo', titulo: 'Motivo', render: (versao) => versao.motivo },
-    { chave: 'data', titulo: 'Data', render: (versao) => formatarDataHora(versao.data) },
-    { chave: 'usuario', titulo: 'Autor', render: (versao) => versao.usuario },
-    { chave: 'faixas', titulo: 'Faixas', render: (versao) => textoFaixas(versao.quantidadeDeFaixas) },
+    ...(temAcao
+      ? [{ chave: 'acao', titulo: 'Ação', render: ({ versao }: LinhaHistorico) => rotuloAcaoHistoricoFaixas(versao.acao) }]
+      : []),
+    { chave: 'motivo', titulo: 'Motivo', render: ({ versao }) => versao.motivo },
+    { chave: 'data', titulo: 'Data', render: ({ versao }) => formatarDataHora(versao.data) },
+    { chave: 'usuario', titulo: 'Autor', render: ({ versao }) => versao.usuario },
+    { chave: 'faixas', titulo: 'Faixas', render: ({ versao }) => textoFaixas(versao.quantidadeDeFaixas) },
     {
       chave: 'acoes',
       titulo: 'Ações',
       alinhar: 'direita',
-      render: (versao) => {
-        const aberta = abertas.has(versao.versao)
+      render: ({ chave, versao }) => {
+        if (!linhaTemFaixasDaVersao(versao.acao)) return null
+        const aberta = abertas.has(chave)
         return (
-          <Botao variante="link" tamanho="pequeno" aria-expanded={aberta} onClick={() => alternarVersao(versao.versao)}>
+          <Botao variante="link" tamanho="pequeno" aria-expanded={aberta} onClick={() => alternarVersao(chave, versao.versao)}>
             {`${aberta ? 'Ocultar' : 'Ver'} faixas da versão v${versao.versao}`}
           </Botao>
         )
       },
     },
   ]
-
-  const consultaAtual = estado !== null && estado.tentativa === tentativa ? estado : null
-  const carregando = consultaAtual === null
-  const erro = consultaAtual?.erro ?? null
-  const versoes = consultaAtual?.versoes ?? []
 
   return (
     <div className="dialogo-historico">
@@ -151,8 +170,8 @@ function ConteudoHistorico({ tabela }: { tabela: TabelaFaixas }) {
       {!carregando && !erro && versoes.length > 0 ? (
         <Tabela
           colunas={colunas}
-          dados={versoes}
-          obterChave={(versao) => versao.versao}
+          dados={linhas}
+          obterChave={(linha) => linha.chave}
           legenda="Versões"
           expandir={detalhesDaVersao}
           expandidas={abertas}

@@ -508,6 +508,7 @@ describe('F1.3 — Adaptadores da API (ida: resposta → tipo)', () => {
       quantidadeDeIndicadores: 2,
       pontos: { soma: 100, maximo: 100 },
       alertas: [{ indicador: 'Clientes atendidos', motivo: 'Indicador inativo', pontosAfetados: 60 }],
+      alertasDeFaixas: [],
       cadastradoEm: '2026-10-28 13:00:00',
       ultimaAlteracao: '2026-10-30 09:30:00',
     })
@@ -554,6 +555,11 @@ describe('F1.3 — Adaptadores da API (ida: resposta → tipo)', () => {
       dashboardExcluido: false,
       filial: '101',
       nomeFilial: 'CAMPO GRANDE',
+      geral: false,
+      situacao: 'ativa',
+      motivoDaSituacao: null,
+      dataDaSituacao: null,
+      usuarioDaSituacao: null,
       descricao: null,
       versaoVigente: 2,
       dataDaVersao: '2026-10-30 10:00:00',
@@ -564,6 +570,55 @@ describe('F1.3 — Adaptadores da API (ida: resposta → tipo)', () => {
         { de: 1000.01, ate: 2000, aliquota: 1.5 },
       ],
     })
+  })
+
+  it('paraTabelaFaixas converte a faixa geral inativa (F8.7): geral, filial e nome filial null, situação, motivo, data e usuário da situação', () => {
+    const resultado = paraTabelaFaixas({
+      id: 7,
+      'id dashboard': 3,
+      dashboard: 'PED Gerentes',
+      'dashboard excluido': false,
+      geral: true,
+      filial: null,
+      'nome filial': null,
+      situacao: 'inativa',
+      'motivo da situacao': 'passou a valer faixa por filial',
+      'data da situacao': '2026-11-12T14:05:00.000000Z',
+      'usuario da situacao': 'admin',
+      descricao: null,
+      'versao vigente': 2,
+      'data da versao': '2026-11-01T10:00:00.000000Z',
+      'autor da versao': 'admin',
+      'quantidade de faixas': 1,
+      faixas: [{ de: 0, ate: 1000, aliquota: 0 }],
+    })
+
+    expect(resultado).toMatchObject({
+      id: 7,
+      geral: true,
+      filial: null,
+      nomeFilial: null,
+      situacao: 'inativa',
+      motivoDaSituacao: 'passou a valer faixa por filial',
+      dataDaSituacao: '2026-11-12T14:05:00.000000Z',
+      usuarioDaSituacao: 'admin',
+    })
+  })
+
+  it('paraDashboard converte "alertas de faixas" (F7.14): tipo, mensagem e filial (ou null)', () => {
+    const dashboard = paraDashboard({
+      ...RESPOSTA_REAL_LISTAGEM_DASHBOARDS_API[0],
+      'alertas de faixas': [
+        { tipo: 'conflito', mensagem: 'faixa geral e faixa da filial 101 ativas ao mesmo tempo', filial: '101' },
+        { tipo: 'sem_faixa', mensagem: 'dashboard sem faixa ativa', filial: null },
+      ],
+    })
+
+    expect(dashboard.alertasDeFaixas).toEqual([
+      { tipo: 'conflito', mensagem: 'faixa geral e faixa da filial 101 ativas ao mesmo tempo', filial: '101' },
+      { tipo: 'sem_faixa', mensagem: 'dashboard sem faixa ativa', filial: null },
+    ])
+    expect(dashboard.alertas).toEqual([])
   })
 
   it('paraTabelaFaixas usa a quantidade de faixas da lista quando a API não envia "quantidade de faixas"', () => {
@@ -868,6 +923,12 @@ describe('F1.3 — Adaptadores da API (volta: tipo → corpo da requisição)', 
         { de: 1000.01, ate: 2000, aliquota: 1.5 },
       ],
     })
+  })
+
+  it('paraCorpoNovaTabelaFaixas da faixa geral (F8.7) envia "filial": "todas"', () => {
+    expect(
+      paraCorpoNovaTabelaFaixas({ dashboard: 3, filial: 'todas', descricao: 'Régua única', faixas: [{ de: 0, ate: 2000, aliquota: 1 }] }),
+    ).toEqual({ dashboard: 3, filial: 'todas', descricao: 'Régua única', faixas: [{ de: 0, ate: 2000, aliquota: 1 }] })
   })
 
   it('paraCorpoPreenchimento monta o corpo de PUT /api/ped/preenchimento (lançamento e correção)', () => {

@@ -9,7 +9,8 @@
  * - "Desativar"/"Ativar" (ativo ou inativo) ou "Concluir construção/modificação (TI)" (em TI), só Admin;
  * - "Excluir" só Admin.
  * Os pesos abrem abaixo da linha (`PesosDashboard`); várias linhas podem ficar abertas.
- * Os alertas de indicadores com problema só aparecem em dashboard ativo (RF-47).
+ * Os alertas de indicadores com problema só aparecem em dashboard ativo (RF-47); os alertas de faixas
+ * (F7.14 — conflito de faixas ativas, filial ou dashboard sem faixa ativa) também, em lista própria.
  *
  * Colunas: Dashboard, Periodicidade, Vínculo, Indicadores, Período atual e Ações.
  */
@@ -86,7 +87,9 @@ function emTi(dashboard: Dashboard): boolean {
 
 function colunaDashboard(dashboard: Dashboard) {
   const data = textoData(dashboard)
-  const alertas = dashboard.situacao === 'ativo' ? dashboard.alertas : []
+  const ativo = dashboard.situacao === 'ativo'
+  const alertas = ativo ? dashboard.alertas : []
+  const alertasDeFaixas = ativo ? dashboard.alertasDeFaixas : []
   return (
     <div className="tabela-dashboards__pilha">
       <span className="tabela-dashboards__titulo">{dashboard.nome}</span>
@@ -97,6 +100,9 @@ function colunaDashboard(dashboard: Dashboard) {
         {alertas.length > 0 ? (
           <Etiqueta tom="perigo">{contagem(alertas.length, 'indicador com problema', 'indicadores com problema')}</Etiqueta>
         ) : null}
+        {alertasDeFaixas.length > 0 ? (
+          <Etiqueta tom="perigo">{contagem(alertasDeFaixas.length, 'alerta de faixas', 'alertas de faixas')}</Etiqueta>
+        ) : null}
       </div>
       {data ? <span className="tabela-dashboards__secundario">{data}</span> : null}
       {alertas.length > 0 ? (
@@ -105,6 +111,13 @@ function colunaDashboard(dashboard: Dashboard) {
             <li key={`${alerta.indicador}-${indice}`}>
               {`${alerta.indicador} — ${alerta.motivo} · ${formatarPontos(alerta.pontosAfetados)} pts`}
             </li>
+          ))}
+        </ul>
+      ) : null}
+      {alertasDeFaixas.length > 0 ? (
+        <ul className="tabela-dashboards__problemas" aria-label={`Alertas de faixas em ${dashboard.nome}`}>
+          {alertasDeFaixas.map((alerta, indice) => (
+            <li key={`${alerta.tipo}-${alerta.filial ?? 'geral'}-${indice}`}>{alerta.mensagem}</li>
           ))}
         </ul>
       ) : null}

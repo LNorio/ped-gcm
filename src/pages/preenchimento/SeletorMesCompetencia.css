@@ -1,0 +1,102 @@
+/* Seletor do mês de competência e do ano (F9.3). */
+
+.seletor-mes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.seletor-mes__ano {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.seletor-mes__rotulo-ano {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--cor-texto-secundario);
+}
+
+.seletor-mes__campo-ano {
+  width: 6rem;
+  min-height: 36px;
+  padding: 0 0.5rem;
+  border: 1px solid var(--cor-borda-controle);
+  border-radius: var(--raio-pequeno);
+  background-color: var(--cor-superficie);
+  color: var(--cor-texto);
+  font: inherit;
+}
+
+.seletor-mes__meses {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.seletor-mes__mes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+  min-height: 56px;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background-color: var(--cor-superficie);
+  color: var(--cor-texto);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.seletor-mes__mes:hover:not(:disabled) {
+  border-color: var(--cor-primaria);
+}
+
+.seletor-mes__mes:disabled {
+  background-color: var(--cor-superficie-suave);
+  color: var(--cor-texto-suave);
+  cursor: not-allowed;
+}
+
+.seletor-mes__mes--aberto {
+  border-color: var(--cor-sucesso);
+}
+
+.seletor-mes__mes--selecionado {
+  border-color: var(--cor-primaria);
+  box-shadow: inset 0 0 0 1px var(--cor-primaria);
+  background-color: var(--cor-fundo);
+}
+
+.seletor-mes__nome {
+  display: block;
+  font-weight: 600;
+}
+
+.seletor-mes__detalhe,
+.seletor-mes__pendentes {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--cor-texto-secundario);
+}
+
+.seletor-mes__detalhe--aberto {
+  color: var(--cor-sucesso);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .seletor-mes__meses {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .seletor-mes__meses {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

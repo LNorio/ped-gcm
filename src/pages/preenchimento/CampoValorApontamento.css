@@ -1,0 +1,16 @@
+/* Campo do valor de um apontamento (F9.6): caixa decimal (com "%" na porcentagem) ou Sim/Não. */
+
+.campo-valor-apontamento {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.campo-valor-apontamento--numero {
+  max-width: 12rem;
+}
+
+.campo-valor-apontamento__booleano {
+  display: inline-flex;
+  gap: 0.5rem;
+}

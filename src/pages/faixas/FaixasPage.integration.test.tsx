@@ -19,7 +19,8 @@ import { formatarMoeda, formatarPercentual } from '../../utils/formato'
 
 const ROTA = '/api/ped/faixas'
 const MENSAGEM_SESSAO_EXPIRADA = 'Sua sessão expirou. Entre novamente.'
-const MENU_COMPLETO = ['Ver faixas', 'Alterar faixas', 'Histórico de versões', 'Excluir tabela']
+/** Menu de uma tabela ativa com todas as permissões (F8.7: "Inativar tabela" antes de "Excluir tabela"). */
+const MENU_COMPLETO = ['Ver faixas', 'Alterar faixas', 'Histórico de versões', 'Inativar tabela', 'Excluir tabela']
 
 describe('F8.2 — Aba Faixas (integração: /faixas com Admin, Validador e Preenchedor — RF-41, RNF-03)', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
@@ -64,14 +65,14 @@ describe('F8.2 — Aba Faixas (integração: /faixas com Admin, Validador e Pree
       .getAllByRole('button', { name: /^Ações da tabela de faixas / })
       .map((botao) => botao.getAttribute('aria-label')?.replace('Ações da tabela de faixas ', ''))
 
-  it('Admin com "Todas as filiais": título "Faixas", GET /api/ped/faixas sem filtro e com o Bearer, e todas as tabelas', async () => {
+  it('Admin com "Todas as filiais": título "Faixas", GET /api/ped/faixas sem filial, só com situacao=ativas (filtro padrão — F8.7), com o Bearer, e todas as tabelas', async () => {
     const chamadas = simularSessao('admin')
 
     const tabela = await abrirTela()
 
     expect(screen.getByRole('heading', { level: 1, name: 'Faixas' })).toBeInTheDocument()
     expect(getsFaixas(chamadas)).toHaveLength(1)
-    expect(getsFaixas(chamadas)[0].url.search).toBe('')
+    expect([...getsFaixas(chamadas)[0].url.searchParams.entries()]).toEqual([['situacao', 'ativas']])
     expect(cabecalhoDaChamada(getsFaixas(chamadas)[0], 'Authorization')).toBe('Bearer token-salvo')
     expect(nomesNaTabela(tabela)).toEqual([...NOMES_TABELAS_FAIXAS])
     expect(within(tabela).getAllByRole('columnheader').map((c) => c.textContent)).toEqual(['Dashboard', 'Filial', 'Versão vigente', 'Faixas', 'Ações'])
@@ -80,7 +81,7 @@ describe('F8.2 — Aba Faixas (integração: /faixas com Admin, Validador e Pree
     expect(within(comercial).getByText('20/10/2026 15:30 por Ana Costa')).toBeInTheDocument()
   })
 
-  it('escolher uma filial no cabeçalho consulta GET ?filial={código} e mostra só as tabelas dela; voltar a "Todas" consulta sem filtro', async () => {
+  it('escolher uma filial no cabeçalho consulta GET ?filial={código} e mostra só as tabelas dela; voltar a "Todas" consulta sem filial (mantendo situacao=ativas)', async () => {
     const user = usuarioRapido()
     const chamadas = simularSessao('admin')
     await abrirTela()
@@ -96,7 +97,7 @@ describe('F8.2 — Aba Faixas (integração: /faixas com Admin, Validador e Pree
     await user.selectOptions(seletorFilial(), 'todas')
 
     await waitFor(() => expect(getsFaixas(chamadas)).toHaveLength(3))
-    expect(getsFaixas(chamadas)[2].url.search).toBe('')
+    expect([...getsFaixas(chamadas)[2].url.searchParams.entries()]).toEqual([['situacao', 'ativas']])
     await waitFor(() => expect(nomesNaTabela(screen.getByRole('table', { name: 'Tabelas de faixas' }))).toHaveLength(4))
   })
 

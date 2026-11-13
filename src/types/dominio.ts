@@ -554,6 +554,18 @@ export interface AlertaDashboard {
   pontosAfetados: number
 }
 
+/** Tipos de alerta de faixas do dashboard (F7.14 — proposta "faixa geral e situação", seção 6). */
+export const TIPOS_ALERTA_FAIXAS = ['conflito', 'sem_faixa'] as const
+export type TipoAlertaFaixas = (typeof TIPOS_ALERTA_FAIXAS)[number]
+
+/** Alerta de faixas do dashboard (F7.14): faixas em conflito ou filial/dashboard sem faixa ativa. */
+export interface AlertaFaixasDashboard {
+  tipo: TipoAlertaFaixas
+  mensagem: string
+  /** Filial do alerta; `null` quando vale para o dashboard todo. */
+  filial: string | null
+}
+
 export interface Dashboard {
   id: number
   nome: string
@@ -569,6 +581,8 @@ export interface Dashboard {
   quantidadeDeIndicadores: number
   pontos: PontosDashboard
   alertas: AlertaDashboard[]
+  /** F7.14: alertas de faixas; `[]` quando a API não informa. */
+  alertasDeFaixas: AlertaFaixasDashboard[]
   cadastradoEm: DataApi | null
   ultimaAlteracao: DataApi | null
 }
@@ -579,13 +593,27 @@ export interface Faixa {
   aliquota: number
 }
 
+/** Situação da tabela de faixas (F8.7). */
+export const SITUACOES_TABELA_FAIXAS = ['ativa', 'inativa'] as const
+export type SituacaoTabelaFaixas = (typeof SITUACOES_TABELA_FAIXAS)[number]
+
 export interface TabelaFaixas {
   id: number
   idDashboard: number
   dashboard: string
   dashboardExcluido: boolean
-  filial: string
-  nomeFilial: string
+  /** `null` na faixa geral (F8.7). */
+  filial: string | null
+  /** `null` na faixa geral (F8.7). */
+  nomeFilial: string | null
+  /** F8.7: `true` na faixa geral (todas as filiais). */
+  geral: boolean
+  /** F8.7: `ativa` quando a API não informa. */
+  situacao: SituacaoTabelaFaixas
+  /** F8.7: motivo, data e autor da última inativação/reativação; `null` se nunca mudou. */
+  motivoDaSituacao: string | null
+  dataDaSituacao: DataApi | null
+  usuarioDaSituacao: string | null
   descricao: string | null
   versaoVigente: number
   dataDaVersao: DataApi | null
@@ -702,6 +730,7 @@ export interface DadosDashboard {
 
 export interface NovaTabelaFaixas {
   dashboard: number
+  /** Código da filial, ou `'todas'` para a faixa geral (F8.7). */
   filial: string
   descricao: string | null
   faixas: Faixa[]
@@ -731,4 +760,141 @@ export interface AjusteMetas {
   filial: string
   mesDeReferencia: DataApi
   itens: ItemAjusteMeta[]
+}
+
+// ---------------------------------------------------------------------------
+// Preenchimento (F9.1 — RF-60 a RF-76)
+// ---------------------------------------------------------------------------
+
+/** Situação de um mês de competência na barra de meses do preenchimento (RF-61). */
+export const SITUACOES_MES_PREENCHIMENTO = ['aberto', 'fechado', 'futuro'] as const
+export type SituacaoMesPreenchimento = (typeof SITUACOES_MES_PREENCHIMENTO)[number]
+
+/** Situação do mês na tela do preenchimento: só meses já abertos podem ser consultados. */
+export type SituacaoMesConsultado = Exclude<SituacaoMesPreenchimento, 'futuro'>
+
+/** Situação do apontamento no mês (RF-65): `nao_lancado` é o pendente de um mês fechado. */
+export const SITUACOES_LANCAMENTO = ['pendente', 'nao_lancado', 'preenchido', 'corrigido'] as const
+export type SituacaoLancamento = (typeof SITUACOES_LANCAMENTO)[number]
+export const ROTULOS_SITUACAO_LANCAMENTO: Readonly<Record<SituacaoLancamento, string>> = {
+  pendente: 'Pendente',
+  nao_lancado: 'Não lançado',
+  preenchido: 'Preenchido',
+  corrigido: 'Corrigido',
+}
+
+/** Ação de uma linha do histórico do apontamento (RF-69). */
+export const ACOES_LANCAMENTO = ['lancamento', 'correcao'] as const
+export type AcaoLancamento = (typeof ACOES_LANCAMENTO)[number]
+export const ROTULOS_ACAO_LANCAMENTO: Readonly<Record<AcaoLancamento, string>> = {
+  lancamento: 'Lançamento',
+  correcao: 'Correção',
+}
+
+/** Origem da meta do cadastro na janela "Editar metas" (RF-72): a da filial ou a geral. */
+export const ORIGENS_META_DO_CADASTRO = ['filial', 'geral'] as const
+export type OrigemMetaDoCadastro = (typeof ORIGENS_META_DO_CADASTRO)[number]
+
+/** Valor lançado: número, ou `true`/`false` em apontamento booleano. */
+export type ValorLancamento = number | boolean
+
+/** Abertura de período (RF-75, RF-76): `reaberto` indica que um mês passado foi reaberto. */
+export interface PeriodoAberto extends Periodo {
+  reaberto: boolean
+}
+
+/** Mês da barra de meses (`GET /api/ped/preenchimento/meses`). */
+export interface MesPreenchimento {
+  /** 1 a 12. */
+  mes: number
+  /** Sempre `AAAA-MM-01`. */
+  mesDeReferencia: DataApi
+  situacao: SituacaoMesPreenchimento
+  /** Apontamentos pendentes; a API só informa no mês aberto (`null` nos demais). */
+  pendentes: number | null
+}
+
+/** Dashboard que usa o apontamento (RF-65); `id`/`periodicidade` `null` quando a API não informa. */
+export interface DashboardDoApontamento {
+  id: number | null
+  nome: string
+  periodicidade: Periodicidade | null
+}
+
+/** Imagem congelada que usou o valor do apontamento (RF-70). */
+export interface ImagemCongeladaDoApontamento {
+  codigo: string | null
+  dashboard: string | null
+  periodo: string | null
+}
+
+/** Apontamento na tela do preenchimento de uma filial e mês. */
+export interface ApontamentoPreenchimento {
+  id: number
+  nome: string
+  descricao: string | null
+  tipoValor: TipoValor
+  situacao: SituacaoLancamento
+  /** `null` quando não há lançamento. */
+  valor: ValorLancamento | null
+  indicadores: IndicadorDoApontamento[]
+  dashboards: DashboardDoApontamento[]
+  imagensCongeladas: ImagemCongeladaDoApontamento[]
+}
+
+/** Tipo de apontamento (aba) na tela do preenchimento. */
+export interface TipoPreenchimento {
+  id: number
+  nome: string
+  quantidade: number
+  apontamentos: ApontamentoPreenchimento[]
+}
+
+/** Resposta de `GET /api/ped/preenchimento` (RF-62 a RF-65). */
+export interface TelaPreenchimento {
+  filial: string
+  nomeFilial: string | null
+  mesDeReferencia: DataApi
+  situacaoDoMes: SituacaoMesConsultado
+  /** Só o mês aberto aceita lançamento e correção. */
+  editavel: boolean
+  periodoAberto: DataApi | null
+  abertoPor: string | null
+  abertoEm: DataApi | null
+  progresso: Progresso
+  tipos: TipoPreenchimento[]
+}
+
+/** Linha de `GET /api/ped/apontamentos/{id}/historico` (RF-69). */
+export interface HistoricoLancamento {
+  data: DataApi
+  acao: AcaoLancamento
+  valorAnterior: ValorLancamento | null
+  valorNovo: ValorLancamento | null
+  usuario: string | null
+  motivo: string | null
+}
+
+/** Indicador da janela "Editar metas" (`GET /api/ped/metas` — RF-71, RF-72). */
+export interface IndicadorMetaPreenchimento {
+  id: number
+  nome: string
+  /** Nomes dos tipos. */
+  tipos: string[]
+  composicao: ComposicaoIndicador | null
+  sentido: Sentido | null
+  /** Meta da filial no cadastro; senão, a geral. */
+  metaDoCadastro: number | null
+  metaDoCadastroOrigem: OrigemMetaDoCadastro | null
+  /** Meta que vale no mês (o ajuste do mês, se houver; senão, a do cadastro). */
+  metaVigente: number | null
+  /** `true` quando a meta do mês foi ajustada no preenchimento. */
+  ajustada: boolean
+}
+
+/** Resposta de `GET /api/ped/metas`. */
+export interface JanelaMetas {
+  situacaoDoMes: SituacaoMesConsultado
+  editavel: boolean
+  indicadores: IndicadorMetaPreenchimento[]
 }

@@ -1,0 +1,111 @@
+/*
+ * Aba "Preenchimento" (F9.2–F9.12): área de ações do topo (título, metas e período),
+ * resumo do mês, seletor de mês, apontamentos por tipo e "Salvar lançamentos".
+ */
+
+.preenchimento-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.preenchimento-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.preenchimento-acoes h1 {
+  margin: 0;
+}
+
+.preenchimento-page__sem-filial {
+  margin: 0;
+  color: var(--cor-texto-secundario);
+}
+
+.preenchimento-page__salvar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  background-color: var(--cor-fundo);
+}
+
+/* Resumo do mês (F9.4). */
+.resumo-mes-preenchimento {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-cartao);
+  background-color: var(--cor-superficie);
+  box-shadow: var(--sombra-card);
+}
+
+.resumo-mes-preenchimento p {
+  margin: 0;
+}
+
+.resumo-mes-preenchimento__linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.resumo-mes-preenchimento__filial {
+  font-weight: 600;
+  color: var(--cor-texto);
+}
+
+.resumo-mes-preenchimento__competencia,
+.resumo-mes-preenchimento__abertura {
+  color: var(--cor-texto-secundario);
+}
+
+.resumo-mes-preenchimento__progresso {
+  font-weight: 500;
+  color: var(--cor-texto);
+}
+
+/* Diálogo "Corrigir lançamento" (F9.7). */
+.dialogo-correcao-apontamento {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dialogo-correcao-apontamento p {
+  margin: 0;
+}
+
+.dialogo-correcao-apontamento__nome {
+  font-weight: 600;
+  color: var(--cor-texto);
+}
+
+.dialogo-correcao-apontamento__atual {
+  color: var(--cor-texto-secundario);
+}
+
+@media (max-width: 600px) {
+  .preenchimento-page {
+    gap: 1rem;
+  }
+}
+
+/* Botões de metas e de período (F9.9–F9.12). */
+.preenchimento-acoes__botoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}

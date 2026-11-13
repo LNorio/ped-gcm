@@ -17,6 +17,13 @@
   font-size: 0.875em;
 }
 
+.lista-faixas__acoes {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 .tabela-valores-faixas {
   max-width: 40rem;
 }
@@ -26,4 +33,26 @@
   align-items: center;
   gap: 0.375rem;
   font-weight: 600;
+}
+
+/* "Motivo da última alteração" (F8.8): pares rótulo/valor. */
+.dialogo-motivo-faixas__campos {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+}
+
+.dialogo-motivo-faixas__par {
+  display: contents;
+}
+
+.dialogo-motivo-faixas__rotulo {
+  color: var(--cor-texto-secundario);
+  font-weight: 600;
+}
+
+.dialogo-motivo-faixas__valor {
+  margin: 0;
+  color: var(--cor-texto);
 }

@@ -71,6 +71,7 @@ const REGRAS_SITUACAO: Partial<Record<SituacaoFiltroDashboard, RegraSituacao<Das
   inativos: (dashboard) => dashboard.situacao === 'inativo',
   construcao: (dashboard) => dashboard.situacao === 'em_construcao' || dashboard.situacao === 'em_modificacao',
   problemas: (dashboard) => dashboard.situacao === 'ativo' && dashboard.alertas.length > 0,
+  problemas_faixa: (dashboard) => dashboard.situacao === 'ativo' && dashboard.alertasDeFaixas.length > 0,
 }
 
 function carregarDashboards(filtros: FiltrosTelaDashboards): Promise<Dashboard[]> {

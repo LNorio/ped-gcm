@@ -111,6 +111,14 @@ export function podeAcessar(perfil: Perfil | null, aba: Aba): boolean {
  * | alterar-faixas                |   x   |     x     |             |
  * | ver-historico-faixas          |   x   |     x     |             |
  * | excluir-faixas                |   x   |     x     |             |
+ * | alterar-situacao-faixas       |   x   |     x     |             |
+ * | abrir-periodo                 |   x   |           |             |
+ *
+ * `alterar-situacao-faixas` (F8.7): inativar/reativar a tabela de faixas, inclusive a faixa geral
+ * (decisão do negócio de 12/11/2026: Admin e Validador, com as mesmas regras).
+ *
+ * `abrir-periodo` (F9.11, F9.12 — RF-76): "Abrir outro mês" e a reabertura de um mês passado já
+ * fechado, na aba Preenchimento; só o Admin (`POST /api/ped/periodo/abrir`).
  */
 export type AcaoPermissao =
   | 'cadastrar-tipo'
@@ -139,6 +147,8 @@ export type AcaoPermissao =
   | 'alterar-faixas'
   | 'ver-historico-faixas'
   | 'excluir-faixas'
+  | 'alterar-situacao-faixas'
+  | 'abrir-periodo'
 
 /** Matriz de ações: perfis autorizados por ação. Único ponto que conhece essa regra. */
 const PERFIS_POR_ACAO: Readonly<Record<AcaoPermissao, readonly Perfil[]>> = {
@@ -167,6 +177,8 @@ const PERFIS_POR_ACAO: Readonly<Record<AcaoPermissao, readonly Perfil[]>> = {
   'alterar-faixas': ['admin', 'validador'],
   'ver-historico-faixas': ['admin', 'validador'],
   'excluir-faixas': ['admin', 'validador'],
+  'alterar-situacao-faixas': ['admin', 'validador'],
+  'abrir-periodo': ['admin'],
 }
 
 /** Indica se o perfil pode executar a ação. `null` nunca pode. */

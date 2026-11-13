@@ -1,6 +1,6 @@
 /*
- * Aba "Faixas" (F8.2–F8.6): cabeçalho com título e "Nova tabela de faixas", estado de carga, aviso de
- * erro da página e card com a lista das tabelas (corpo sem padding).
+ * Aba "Faixas" (F8.2–F8.8): cabeçalho com título e "Nova tabela de faixas", filtro de situação, estado
+ * de carga, aviso de erro da página e card com a lista das tabelas (corpo sem padding).
  */
 
 .faixas-page {
@@ -19,6 +19,10 @@
 
 .faixas-page h1 {
   margin: 0;
+}
+
+.faixas-page__filtros {
+  max-width: 14rem;
 }
 
 .faixas-page__card {

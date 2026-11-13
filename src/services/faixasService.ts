@@ -1,15 +1,31 @@
 /**
  * Serviço de faixas (F8.1 — RF-41 a RF-46).
  *
- * Rotas de `docs/backend/API (24).md`, seção "Cadastro e Preenchimento — fase 5: faixas":
- * - `GET    /api/ped/faixas?filial=&dashboard=`     lista as tabelas com as faixas vigentes
- *                                                   (`filial` omitida ou `todas` = todas)
+ * Rotas de `docs/backend/API (28).md`, seção "Cadastro e Preenchimento — fase 5: faixas":
+ * - `GET    /api/ped/faixas?filial=&dashboard=&situacao=`  lista as tabelas com as faixas vigentes
+ *                                                   (`filial` omitida ou `todas` = todas; com uma filial,
+ *                                                   vêm também as gerais; `situacao` padrão do back = `todas`)
  * - `GET    /api/ped/faixas/{id}`                   uma tabela, com as faixas vigentes
  * - `POST   /api/ped/faixas`                        cadastro (versão 1 — `paraCorpoNovaTabelaFaixas`)
  * - `PUT    /api/ped/faixas/{id}`                   "Alterar faixas" `{ motivo, faixas }` — gera a versão seguinte
- * - `GET    /api/ped/faixas/{id}/historico`         versões, da mais recente para a mais antiga
+ * - `GET    /api/ped/faixas/{id}/historico`         histórico em lista única, com `acao`
  * - `GET    /api/ped/faixas/{id}/versoes/{versao}`  as faixas de uma versão
- * - `DELETE /api/ped/faixas/{id}`                   exclusão (só depois que o dashboard foi excluído)
+ * - `DELETE /api/ped/faixas/{id}`                   exclusão `{ motivo }` (só depois que o dashboard foi excluído)
+ * - `PUT    /api/ped/faixas/{id}/situacao`          inativar/reativar `{ ativa, motivo }` (F8.7)
+ *
+ * Faixa geral, situação e `acao` do histórico (F8.5, F8.7, F8.12*): contrato final do back-end em
+ * `docs/backend/FRONT-faixa-geral-e-situacao.md` e `docs/backend/RESPOSTA-faixa-geral-e-situacao.md`.
+ * - A faixa geral é cadastrada com `"filial": "todas"` e chega com `geral: true` e `filial` e
+ *   "nome filial" `null`. A leitura continua tolerante: sem `geral`/`situacao` (ou com `null`), a tabela
+ *   é por filial e `ativa`.
+ * - `acao` do histórico: `cadastro`, `alteracao`, `inativacao`, `reativacao` e `exclusao` (esta só no
+ *   histórico de faixa já excluída); valor ausente ou desconhecido vira `null`.
+ * - `POST` responde `{ mensagem, id, versao, geral }`, `PUT` `{ mensagem, versao }` e `PUT .../situacao`
+ *   `{ mensagem, situacao }`, sem a tabela: resolvem `null` (gravado; recarregar a lista).
+ * - Faixa de dashboard excluído não muda de situação: `400` com a mensagem da API.
+ * - O `400` de conflito (cadastro e reativação) chega como `ApiError`, com a `mensagem` da API (que não
+ *   cita o dashboard) e o corpo em `dados`; `conflitosDoErro` lê a lista `conflitos`
+ *   (`{ id, geral, filial, "nome filial" }`), que pode faltar numa corrida entre gravações.
  *
  * As faixas são enviadas como números já convertidos pelo front (a API leria um texto como "2.000"
  * como 2).
@@ -37,7 +53,7 @@
  * dado atualizado. A exclusão resolve sem valor em qualquer 2xx (204, 200 com ou sem corpo).
  */
 
-import type { Faixa, NovaTabelaFaixas, TabelaFaixas } from '../types/dominio'
+import { type Faixa, type NovaTabelaFaixas, SITUACOES_TABELA_FAIXAS, type TabelaFaixas } from '../types/dominio'
 import { type FaixaApi, type TabelaFaixasApi, paraCorpoNovaTabelaFaixas, paraTabelaFaixas } from './adaptadores'
 import { ApiError, MENSAGEM_RESPOSTA_INVALIDA, type ValorQuery, apiFetch } from './api'
 
@@ -49,6 +65,27 @@ export interface FiltrosFaixas {
   filial?: string
   /** Id do dashboard. */
   dashboard?: number
+  /** Situação das tabelas (F8.7); ausente = não vai na query. */
+  situacao?: 'ativas' | 'inativas' | 'todas'
+}
+
+/** Corpo de inativar/reativar a tabela (F8.7); o motivo é obrigatório nos dois sentidos. */
+export interface AlteracaoSituacaoFaixas {
+  ativa: boolean
+  motivo: string
+}
+
+/** Ações das linhas do histórico (F8.5). */
+export const ACOES_HISTORICO_FAIXAS = ['cadastro', 'alteracao', 'inativacao', 'reativacao', 'exclusao'] as const
+export type AcaoHistoricoFaixas = (typeof ACOES_HISTORICO_FAIXAS)[number]
+
+/** Tabela em conflito do `400` de cadastro/reativação (F8.7, F8.12*). */
+export interface ConflitoFaixas {
+  id: number
+  geral: boolean
+  /** Código da filial em texto; `null` na faixa geral. */
+  filial: string | null
+  nomeFilial: string | null
 }
 
 /** Corpo de "Alterar faixas" (RF-44): gera a versão seguinte da tabela. */
@@ -66,6 +103,8 @@ export interface VersaoFaixas {
   usuario: string
   /** `null` quando a API não informa. */
   quantidadeDeFaixas: number | null
+  /** F8.5: ação da linha; `null` quando a API não informa (ou informa valor desconhecido). */
+  acao: AcaoHistoricoFaixas | null
 }
 
 // ---------------------------------------------------------------------------
@@ -88,6 +127,10 @@ function opcional(valor: unknown, validar: (v: unknown) => boolean): boolean {
 const ehTexto = (v: unknown): v is string => typeof v === 'string'
 const ehNumero = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 const ehBooleano = (v: unknown): v is boolean => typeof v === 'boolean'
+
+function ehUmDe<T extends string>(valores: readonly T[], valor: unknown): valor is T {
+  return typeof valor === 'string' && (valores as readonly string[]).includes(valor)
+}
 
 function textoOuNulo(valor: unknown): string | null {
   return ehTexto(valor) ? valor : null
@@ -147,13 +190,25 @@ function tabelaApiOuNula(valor: unknown): TabelaFaixasApi | null {
   const dataDaVersao = valor['data da versao']
   const autorDaVersao = valor['autor da versao']
   const quantidade = valor['quantidade de faixas']
+  const { geral, situacao } = valor
+  const motivoDaSituacao = valor['motivo da situacao']
+  const dataDaSituacao = valor['data da situacao']
+  const usuarioDaSituacao = valor['usuario da situacao']
+  const ehGeral = geral === true
+  const ehFilial = (v: unknown): boolean => ehTexto(v) || ehNumero(v)
 
   if (
     !ehNumero(id) ||
     !ehNumero(idDashboard) ||
     !ehTexto(dashboard) ||
-    !(ehTexto(filial) || ehNumero(filial)) ||
-    !ehTexto(nomeFilial) ||
+    !opcional(geral, ehBooleano) ||
+    // Na faixa geral (F8.7), filial e "nome filial" podem ser nulos; na faixa por filial, obrigatórios.
+    !(ehGeral ? opcional(filial, ehFilial) : ehFilial(filial)) ||
+    !(ehGeral ? opcional(nomeFilial, ehTexto) : ehTexto(nomeFilial)) ||
+    !opcional(situacao, (v) => ehUmDe(SITUACOES_TABELA_FAIXAS, v)) ||
+    !opcional(motivoDaSituacao, ehTexto) ||
+    !opcional(dataDaSituacao, ehTexto) ||
+    !opcional(usuarioDaSituacao, ehTexto) ||
     !ehNumero(versaoVigente) ||
     !opcional(dashboardExcluido, ehBooleano) ||
     !opcional(descricao, ehTexto) ||
@@ -176,8 +231,13 @@ function tabelaApiOuNula(valor: unknown): TabelaFaixasApi | null {
     'id dashboard': idDashboard,
     dashboard,
     'dashboard excluido': dashboardExcluido === true,
-    filial: String(filial),
-    'nome filial': nomeFilial,
+    filial: ehFilial(filial) ? String(filial) : null,
+    'nome filial': textoOuNulo(nomeFilial),
+    geral: ehGeral,
+    situacao: ehUmDe(SITUACOES_TABELA_FAIXAS, situacao) ? situacao : 'ativa',
+    'motivo da situacao': textoOuNulo(motivoDaSituacao),
+    'data da situacao': textoOuNulo(dataDaSituacao),
+    'usuario da situacao': textoOuNulo(usuarioDaSituacao),
     descricao: textoOuNulo(descricao),
     'versao vigente': versaoVigente,
     'data da versao': textoOuNulo(dataDaVersao),
@@ -227,6 +287,7 @@ function converterVersao(valor: unknown): VersaoFaixas {
     data: valor.data,
     usuario: valor.usuario,
     quantidadeDeFaixas: numeroOuNulo(valor['quantidade de faixas']),
+    acao: ehUmDe(ACOES_HISTORICO_FAIXAS, valor.acao) ? valor.acao : null,
   }
 }
 
@@ -240,7 +301,7 @@ function converterFaixasDaVersao(resposta: unknown): Faixa[] {
 
 function montarQuery(filtros: FiltrosFaixas): Record<string, ValorQuery> {
   const filial = filtros.filial && filtros.filial !== 'todas' ? filtros.filial : undefined
-  return { filial, dashboard: filtros.dashboard }
+  return { filial, dashboard: filtros.dashboard, situacao: filtros.situacao }
 }
 
 // ---------------------------------------------------------------------------
@@ -297,7 +358,37 @@ export async function obterFaixasDaVersao(id: number, versao: number): Promise<F
   return converterFaixasDaVersao(resposta)
 }
 
-/** Exclui a tabela de faixas (RF-46). Resolve sem valor em qualquer 2xx. */
-export async function excluirTabelaFaixas(id: number): Promise<void> {
-  await apiFetch<unknown>(`${ROTA_FAIXAS}/${id}`, { method: 'DELETE' })
+/**
+ * Inativa (`ativa: false`) ou reativa (`ativa: true`) a tabela de faixas, com o motivo (F8.7).
+ * Ver a regra "2xx = gravado" no topo do arquivo; o `400` de conflito chega como `ApiError`.
+ */
+export async function alterarSituacaoTabelaFaixas(id: number, dados: AlteracaoSituacaoFaixas): Promise<TabelaFaixas | null> {
+  const resposta = await apiFetch<unknown>(`${ROTA_FAIXAS}/${id}/situacao`, {
+    method: 'PUT',
+    body: { ativa: dados.ativa, motivo: dados.motivo },
+  })
+  return extrairTabelaOuNula(resposta)
+}
+
+/** Exclui a tabela de faixas com o motivo (RF-46, F8.6). Resolve sem valor em qualquer 2xx. */
+export async function excluirTabelaFaixas(id: number, motivo: string): Promise<void> {
+  await apiFetch<unknown>(`${ROTA_FAIXAS}/${id}`, { method: 'DELETE', body: { motivo } })
+}
+
+/**
+ * Tabelas em conflito do `400` de cadastro/reativação (F8.12*): lê `dados.conflitos` do `ApiError`.
+ * Devolve `null` quando o erro não é `ApiError`, não tem corpo ou não traz conflitos (ausente, nulo,
+ * vazio ou fora de lista). Itens fora do formato são ignorados; filial numérica vira texto.
+ */
+export function conflitosDoErro(erro: unknown): ConflitoFaixas[] | null {
+  if (!(erro instanceof ApiError) || !ehObjeto(erro.dados)) return null
+  const lista = erro.dados.conflitos
+  if (!Array.isArray(lista)) return null
+  const conflitos: ConflitoFaixas[] = []
+  for (const item of lista) {
+    if (!ehObjeto(item) || !ehNumero(item.id)) continue
+    const filial = ehTexto(item.filial) || ehNumero(item.filial) ? String(item.filial) : null
+    conflitos.push({ id: item.id, geral: item.geral === true, filial, nomeFilial: textoOuNulo(item['nome filial']) })
+  }
+  return conflitos.length > 0 ? conflitos : null
 }

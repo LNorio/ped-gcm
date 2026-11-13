@@ -1,0 +1,63 @@
+/* Janela "Editar metas" (F9.9) e histórico de ajustes de meta (F9.10) do Preenchimento. */
+
+.metas-preenchimento {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.metas-preenchimento__cabecalho {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+}
+
+.metas-preenchimento__par {
+  display: contents;
+}
+
+.metas-preenchimento__rotulo {
+  color: var(--cor-texto-secundario);
+  font-weight: 600;
+}
+
+.metas-preenchimento__valor {
+  margin: 0;
+  color: var(--cor-texto);
+}
+
+.metas-preenchimento__filtro {
+  max-width: 280px;
+}
+
+.metas-preenchimento__indicador {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--cor-texto);
+}
+
+.metas-preenchimento__origem {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--cor-texto-secundario);
+}
+
+.metas-preenchimento__campo {
+  min-width: 140px;
+}
+
+.metas-preenchimento__campo .campo {
+  gap: 0;
+}
+
+.metas-preenchimento__nome {
+  font-weight: 600;
+  color: var(--cor-texto);
+}
+
+.metas-preenchimento__vazio {
+  color: var(--cor-texto-secundario);
+}

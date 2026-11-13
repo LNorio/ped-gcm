@@ -1,23 +1,29 @@
 /**
- * Lista das tabelas de faixas (F8.2 — RF-41, RNF-03).
+ * Lista das tabelas de faixas (F8.2, F8.7, F8.8 — RF-41, RNF-03).
  *
  * Componente de apresentação: recebe as tabelas já consultadas e avisa o pai quando o usuário escolhe
  * uma ação no menu da linha. Itens do menu:
  * - "Ver faixas"/"Ocultar faixas" sempre (abre abaixo da linha as faixas vigentes);
- * - "Alterar faixas", "Histórico de versões" e "Excluir tabela" conforme as permissões.
+ * - "Alterar faixas" (só na tabela ativa), "Histórico de versões", "Inativar tabela"/"Reativar
+ *   tabela" (F8.7, conforme a situação) e "Excluir tabela", conforme as permissões.
+ * Tabela de dashboard excluído não muda de situação (F8.12*, contrato final): sem "Inativar tabela" e
+ * "Reativar tabela"; só pode ser excluída.
  * "Excluir tabela" aparece também em tabela de dashboard existente: o bloqueio é explicado no
  * diálogo de exclusão (F8.6). Várias linhas podem ficar abertas ao mesmo tempo.
+ * O botão "Ver motivo" (F8.8) fica na linha, fora do menu, com a permissão do histórico.
  *
- * Colunas: Dashboard, Filial, Versão vigente, Faixas e Ações.
+ * Colunas: Dashboard (com a etiqueta "Inativa"), Filial ("Todas as filiais (geral)" na faixa geral),
+ * Versão vigente, Faixas e Ações.
  */
 import { useState } from 'react'
+import { Botao } from '../../components/Botao'
 import { Etiqueta } from '../../components/Etiqueta'
 import { MenuAcoes, type ItemMenuAcoes } from '../../components/MenuAcoes'
 import { Tabela, type ColunaTabela } from '../../components/Tabela'
 import type { TabelaFaixas } from '../../types/dominio'
 import { formatarDataHora } from '../../utils/formato'
 import { TabelaValoresFaixas } from './TabelaValoresFaixas'
-import { nomeTabelaFaixas } from './regrasFaixas'
+import { nomeTabelaFaixas, textoFilialTabelaFaixas } from './regrasFaixas'
 import './ListaTabelasFaixas.css'
 
 export interface ListaTabelasFaixasProps {
@@ -28,9 +34,15 @@ export interface ListaTabelasFaixasProps {
   podeVerHistorico: boolean
   /** Exibe "Excluir tabela". */
   podeExcluir: boolean
+  /** Exibe "Inativar tabela" (tabela ativa) ou "Reativar tabela" (inativa) — F8.7. */
+  podeAlterarSituacao?: boolean
   onAlterar: (tabela: TabelaFaixas) => void
   onVerHistorico: (tabela: TabelaFaixas) => void
   onExcluir: (tabela: TabelaFaixas) => void
+  /** "Inativar tabela" ou "Reativar tabela" (F8.7). */
+  onAlterarSituacao?: (tabela: TabelaFaixas) => void
+  /** Botão "Ver motivo" da linha (F8.8); exibido com `podeVerHistorico`. */
+  onVerMotivo?: (tabela: TabelaFaixas) => void
   /** Texto exibido quando `tabelas` está vazia. */
   textoVazio: string
 }
@@ -46,6 +58,7 @@ function colunaDashboard(tabela: TabelaFaixas) {
       <span className="lista-faixas__titulo">{tabela.dashboard}</span>
       {tabela.descricao ? <span className="lista-faixas__secundario">{tabela.descricao}</span> : null}
       {tabela.dashboardExcluido ? <Etiqueta tom="perigo">Dashboard excluído</Etiqueta> : null}
+      {tabela.situacao === 'inativa' ? <Etiqueta tom="alerta">Inativa</Etiqueta> : null}
     </div>
   )
 }
@@ -67,9 +80,12 @@ export function ListaTabelasFaixas({
   podeAlterar,
   podeVerHistorico,
   podeExcluir,
+  podeAlterarSituacao = false,
   onAlterar,
   onVerHistorico,
   onExcluir,
+  onAlterarSituacao,
+  onVerMotivo,
   textoVazio,
 }: ListaTabelasFaixasProps) {
   const [expandidas, setExpandidas] = useState<ReadonlySet<TabelaFaixas['id']>>(() => new Set())
@@ -100,15 +116,22 @@ export function ListaTabelasFaixas({
         onSelecionar: () => alternarFaixas(tabela.id),
       },
     ]
-    if (podeAlterar) itens.push({ rotulo: 'Alterar faixas', onSelecionar: () => onAlterar(tabela) })
+    const ativa = tabela.situacao !== 'inativa'
+    if (podeAlterar && ativa) itens.push({ rotulo: 'Alterar faixas', onSelecionar: () => onAlterar(tabela) })
     if (podeVerHistorico) itens.push({ rotulo: 'Histórico de versões', onSelecionar: () => onVerHistorico(tabela) })
+    if (podeAlterarSituacao && !tabela.dashboardExcluido) {
+      itens.push({
+        rotulo: ativa ? 'Inativar tabela' : 'Reativar tabela',
+        onSelecionar: () => onAlterarSituacao?.(tabela),
+      })
+    }
     if (podeExcluir) itens.push({ rotulo: 'Excluir tabela', onSelecionar: () => onExcluir(tabela), perigo: true })
     return itens
   }
 
   const colunas: ColunaTabela<TabelaFaixas>[] = [
     { chave: 'dashboard', titulo: 'Dashboard', render: colunaDashboard },
-    { chave: 'filial', titulo: 'Filial', render: (tabela) => `${tabela.filial} - ${tabela.nomeFilial}` },
+    { chave: 'filial', titulo: 'Filial', render: textoFilialTabelaFaixas },
     { chave: 'versao', titulo: 'Versão vigente', render: colunaVersao },
     { chave: 'faixas', titulo: 'Faixas', render: (tabela) => textoQuantidadeFaixas(tabela.quantidadeDeFaixas) },
     {
@@ -116,7 +139,14 @@ export function ListaTabelasFaixas({
       titulo: 'Ações',
       alinhar: 'direita',
       render: (tabela) => (
-        <MenuAcoes rotulo={`Ações da tabela de faixas ${nomeTabelaFaixas(tabela)}`} itens={itensDoMenu(tabela)} />
+        <div className="lista-faixas__acoes">
+          {podeVerHistorico ? (
+            <Botao variante="link" tamanho="pequeno" onClick={() => onVerMotivo?.(tabela)}>
+              Ver motivo
+            </Botao>
+          ) : null}
+          <MenuAcoes rotulo={`Ações da tabela de faixas ${nomeTabelaFaixas(tabela)}`} itens={itensDoMenu(tabela)} />
+        </div>
       ),
     },
   ]
