@@ -1,0 +1,22 @@
+[
+    {
+        "id": 2,
+        "nome": "PED",
+        "tipo de vinculo": "cargos",
+        "itens vinculados": [
+            "Consultor de Vendas Balcão"
+        ],
+        "periodicidade": "mensal",
+        "periodo atual": "11\/2026",
+        "situacao do periodo": "aberto",
+        "unidades de imagem": 60,
+        "unidades encerradas": 0,
+        "unidades com pendencias": 60,
+        "progresso": {
+            "preenchidos": 0,
+            "total": 420
+        },
+        "indicadores com problema": 0,
+        "unidades sem tabela de faixas": 0
+    }
+]

@@ -42,7 +42,8 @@ function textoUnidades(fechamento: Fechamento): string {
     : contagem(fechamento.unidadesDeImagem, 'colaborador', 'colaboradores')
 }
 
-function textoSemFaixas(unidades: string[]): string {
+function textoSemFaixas(quantidade: number, unidades: string[]): string {
+  if (unidades.length === 0) return `Sem tabela de faixas: ${contagem(quantidade, 'unidade', 'unidades')}`
   return unidades.length === 1
     ? `Sem tabela de faixas: filial ${unidades[0]}`
     : `Sem tabela de faixas: filiais ${unidades.join(', ')}`
@@ -56,18 +57,20 @@ function percentualProgresso(fechamento: Fechamento): number {
 }
 
 function colunaDashboard(fechamento: Fechamento) {
-  const problemas = fechamento.indicadoresComProblema
-  const semFaixas = fechamento.unidadesSemTabelaDeFaixas
+  const problemas = fechamento.quantidadeIndicadoresComProblema
+  const semFaixas = fechamento.quantidadeUnidadesSemTabelaDeFaixas
   return (
     <div className="tabela-fechamentos__pilha">
       <span className="tabela-fechamentos__titulo">{fechamento.nome}</span>
       <span className="tabela-fechamentos__secundario">{textoVinculo(fechamento)}</span>
-      {problemas.length > 0 || semFaixas.length > 0 ? (
+      {problemas > 0 || semFaixas > 0 ? (
         <div className="tabela-fechamentos__etiquetas">
-          {problemas.length > 0 ? (
-            <Etiqueta tom="perigo">{contagem(problemas.length, 'indicador com problema', 'indicadores com problema')}</Etiqueta>
+          {problemas > 0 ? (
+            <Etiqueta tom="perigo">{contagem(problemas, 'indicador com problema', 'indicadores com problema')}</Etiqueta>
           ) : null}
-          {semFaixas.length > 0 ? <Etiqueta tom="alerta">{textoSemFaixas(semFaixas)}</Etiqueta> : null}
+          {semFaixas > 0 ? (
+            <Etiqueta tom="alerta">{textoSemFaixas(semFaixas, fechamento.unidadesSemTabelaDeFaixas)}</Etiqueta>
+          ) : null}
         </div>
       ) : null}
     </div>

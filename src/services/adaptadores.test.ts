@@ -692,7 +692,72 @@ describe('F1.3 — Adaptadores da API (ida: resposta → tipo)', () => {
       unidadesComPendencias: 1,
       progresso: { preenchidos: 3, total: 4 },
       indicadoresComProblema: ['Clientes atendidos'],
+      quantidadeIndicadoresComProblema: 1,
       unidadesSemTabelaDeFaixas: ['201'],
+      quantidadeUnidadesSemTabelaDeFaixas: 1,
+    })
+  })
+
+  it('paraFechamento com "indicadores com problema" e "unidades sem tabela de faixas" em contagem (formato real de 16/11/2026): as quantidades vêm do número e as listas ficam vazias', () => {
+    const resultado = paraFechamento({
+      id: 2,
+      nome: 'PED',
+      'tipo de vinculo': 'cargos',
+      'itens vinculados': ['Consultor de Vendas Balcão'],
+      periodicidade: 'mensal',
+      'periodo atual': '11/2026',
+      'situacao do periodo': 'aberto',
+      'unidades de imagem': 60,
+      'unidades encerradas': 0,
+      'unidades com pendencias': 60,
+      progresso: { preenchidos: 0, total: 420 },
+      'indicadores com problema': 3,
+      'unidades sem tabela de faixas': 2,
+    })
+
+    expect(resultado).toMatchObject({
+      indicadoresComProblema: [],
+      quantidadeIndicadoresComProblema: 3,
+      unidadesSemTabelaDeFaixas: [],
+      quantidadeUnidadesSemTabelaDeFaixas: 2,
+    })
+  })
+
+  it('paraFechamento com contagens 0 devolve quantidades 0 e listas vazias', () => {
+    const resultado = paraFechamento({
+      id: 2,
+      nome: 'PED',
+      'tipo de vinculo': 'cargos',
+      periodicidade: 'mensal',
+      'periodo atual': '11/2026',
+      'situacao do periodo': 'aberto',
+      'indicadores com problema': 0,
+      'unidades sem tabela de faixas': 0,
+    })
+
+    expect(resultado).toMatchObject({
+      indicadoresComProblema: [],
+      quantidadeIndicadoresComProblema: 0,
+      unidadesSemTabelaDeFaixas: [],
+      quantidadeUnidadesSemTabelaDeFaixas: 0,
+    })
+  })
+
+  it('paraFechamento sem "indicadores com problema" e sem "unidades sem tabela de faixas": quantidades 0 e listas vazias', () => {
+    const resultado = paraFechamento({
+      id: 4,
+      nome: 'PED Contábil',
+      'tipo de vinculo': 'filiais',
+      periodicidade: 'trimestral',
+      'periodo atual': '10/2026',
+      'situacao do periodo': 'aberto',
+    })
+
+    expect(resultado).toMatchObject({
+      indicadoresComProblema: [],
+      quantidadeIndicadoresComProblema: 0,
+      unidadesSemTabelaDeFaixas: [],
+      quantidadeUnidadesSemTabelaDeFaixas: 0,
     })
   })
 

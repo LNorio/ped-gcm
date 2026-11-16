@@ -10,6 +10,7 @@ import {
   fechamentosApi,
   previaComercialApi,
   respostaEncerramentoApi,
+  resumoNumericoApi,
 } from '../test/fechamentosFalsos'
 import type { Fechamento, ImagemCongelada, PreviaFechamento, ResultadoEncerramento, ResumoFechamento } from '../types/dominio'
 import { ApiError, MENSAGEM_RESPOSTA_INVALIDA, MENSAGEM_SEM_CONEXAO } from './api'
@@ -30,8 +31,19 @@ const FECHAMENTO_GERENTES: Fechamento = {
   unidadesEncerradas: 0,
   unidadesComPendencias: 2,
   progresso: { preenchidos: 1, total: 4 },
-  indicadoresComProblema: ['Custo de frete por entrega'],
-  unidadesSemTabelaDeFaixas: ['102'],
+  indicadoresComProblema: [],
+  quantidadeIndicadoresComProblema: 1,
+  unidadesSemTabelaDeFaixas: [],
+  quantidadeUnidadesSemTabelaDeFaixas: 1,
+}
+
+/** Resumo só com contagens (`resumoNumericoApi()`), no formato do domínio. */
+const RESUMO_NUMERICO: ResumoFechamento = {
+  imagensAGerar: 2,
+  unidadesJaEncerradas: { quantidade: 1, unidades: [] },
+  unidadesComPendencias: { quantidade: 1, unidades: [] },
+  unidadesSemTabelaDeFaixas: { quantidade: 1, unidades: [] },
+  avisos: [],
 }
 
 const RESUMO_COMERCIAL: ResumoFechamento = {
@@ -228,9 +240,58 @@ describe('F10.1 — Serviço dos fechamentos: lista, prévia e encerramento (RF-
           unidadesComPendencias: 0,
           progresso: { preenchidos: 0, total: 0 },
           indicadoresComProblema: [],
+          quantidadeIndicadoresComProblema: 0,
           unidadesSemTabelaDeFaixas: [],
+          quantidadeUnidadesSemTabelaDeFaixas: 0,
         },
       ])
+    })
+
+    it('"indicadores com problema" e "unidades sem tabela de faixas" como números (formato real de 16/11/2026) viram as quantidades, com as listas vazias', async () => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}`]: () =>
+          respostaJson([
+            { ...FECHAMENTO_GERENTES_API, 'indicadores com problema': 3, 'unidades sem tabela de faixas': 2 },
+            { ...FECHAMENTO_COMERCIAL_API, 'indicadores com problema': 0, 'unidades sem tabela de faixas': 0 },
+          ]),
+      })
+
+      const [gerentes, comercial] = await listarFechamentos()
+
+      expect(gerentes).toMatchObject({
+        indicadoresComProblema: [],
+        quantidadeIndicadoresComProblema: 3,
+        unidadesSemTabelaDeFaixas: [],
+        quantidadeUnidadesSemTabelaDeFaixas: 2,
+      })
+      expect(comercial).toMatchObject({
+        indicadoresComProblema: [],
+        quantidadeIndicadoresComProblema: 0,
+        unidadesSemTabelaDeFaixas: [],
+        quantidadeUnidadesSemTabelaDeFaixas: 0,
+      })
+    })
+
+    it('formato antigo (listas) continua aceito: a quantidade é o tamanho da lista e os nomes e códigos ficam disponíveis', async () => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}`]: () =>
+          respostaJson([
+            {
+              ...FECHAMENTO_GERENTES_API,
+              'indicadores com problema': ['Custo de frete por entrega', 'Ticket médio'],
+              'unidades sem tabela de faixas': ['102'],
+            },
+          ]),
+      })
+
+      const [fechamento] = await listarFechamentos()
+
+      expect(fechamento).toMatchObject({
+        indicadoresComProblema: ['Custo de frete por entrega', 'Ticket médio'],
+        quantidadeIndicadoresComProblema: 2,
+        unidadesSemTabelaDeFaixas: ['102'],
+        quantidadeUnidadesSemTabelaDeFaixas: 1,
+      })
     })
 
     it('"indicadores com problema" como objetos { indicador, motivo } viram os nomes; filiais sem faixas numéricas viram texto', async () => {
@@ -248,7 +309,9 @@ describe('F10.1 — Serviço dos fechamentos: lista, prévia e encerramento (RF-
       const [fechamento] = await listarFechamentos()
 
       expect(fechamento.indicadoresComProblema).toEqual(['Custo de frete por entrega'])
+      expect(fechamento.quantidadeIndicadoresComProblema).toBe(1)
       expect(fechamento.unidadesSemTabelaDeFaixas).toEqual(['102', '103'])
+      expect(fechamento.quantidadeUnidadesSemTabelaDeFaixas).toBe(2)
     })
 
     it.each([
@@ -261,6 +324,10 @@ describe('F10.1 — Serviço dos fechamentos: lista, prévia e encerramento (RF-
       ['tipo de vínculo desconhecido', [{ ...FECHAMENTO_COMERCIAL_API, 'tipo de vinculo': 'zonas' }]],
       ['"unidades de imagem" em texto', [{ ...FECHAMENTO_COMERCIAL_API, 'unidades de imagem': 'três' }]],
       ['progresso sem números', [{ ...FECHAMENTO_COMERCIAL_API, progresso: { preenchidos: 'cinco', total: 6 } }]],
+      ['"indicadores com problema" em texto não numérico', [{ ...FECHAMENTO_COMERCIAL_API, 'indicadores com problema': 'muitos' }]],
+      ['"indicadores com problema" como objeto', [{ ...FECHAMENTO_COMERCIAL_API, 'indicadores com problema': { total: 1 } }]],
+      ['"unidades sem tabela de faixas" em texto não numérico', [{ ...FECHAMENTO_COMERCIAL_API, 'unidades sem tabela de faixas': 'duas' }]],
+      ['"unidades sem tabela de faixas" como objeto', [{ ...FECHAMENTO_COMERCIAL_API, 'unidades sem tabela de faixas': { total: 1 } }]],
     ])('resposta 2xx com %s vira ApiError "resposta inválida" (um item inválido rejeita a lista)', async (_caso, corpo) => {
       simularApi(fetchFalso, { [`GET ${ROTA}`]: () => respostaJson(corpo) })
 
@@ -360,6 +427,17 @@ describe('F10.1 — Serviço dos fechamentos: lista, prévia e encerramento (RF-
       })
     })
 
+    it('resumo só com contagens numéricas (inclusive "unidades com pendencias" e "unidades sem tabela de faixas") vira as quantidades sem códigos; "indicadores com problema" no resumo é ignorado', async () => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}/1/previa`]: () => respostaJson({ ...previaComercialApi(), resumo: resumoNumericoApi() }),
+      })
+
+      const previa = await obterPreviaFechamento(1)
+
+      expect(previa.resumo).toEqual<ResumoFechamento>(RESUMO_NUMERICO)
+      expect(previa.imagens).toHaveLength(2)
+    })
+
     it('campos ausentes: sem resumo (imagens a gerar = nº de imagens), dashboard null, período em texto e sem imagens = []', async () => {
       simularApi(fetchFalso, {
         [`GET ${ROTA}/1/previa`]: () => respostaJson({ periodo: '4º tri/2026', imagens: previaComercialApi().imagens }),
@@ -431,6 +509,14 @@ describe('F10.1 — Serviço dos fechamentos: lista, prévia e encerramento (RF-
         codigosDasImagens: [],
         resumo: RESUMO_COMERCIAL,
       })
+    })
+
+    it('resumo só com contagens numéricas vira as quantidades sem códigos', async () => {
+      simularApi(fetchFalso, {
+        [`POST ${ROTA}/1/encerrar`]: () => respostaJson({ ...respostaEncerramentoApi(), resumo: resumoNumericoApi() }),
+      })
+
+      await expect(encerrarFechamento(1)).resolves.toMatchObject({ imagensGeradas: 2, resumo: RESUMO_NUMERICO })
     })
 
     it('"imagens geradas" como lista de códigos ou de objetos { codigo } dá a quantidade e os códigos; período como objeto', async () => {

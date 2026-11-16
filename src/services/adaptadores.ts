@@ -405,8 +405,10 @@ export interface FechamentoApi {
   'unidades encerradas'?: number | null
   'unidades com pendencias'?: number | null
   progresso?: ProgressoApi | null
-  'indicadores com problema'?: string[] | null
-  'unidades sem tabela de faixas'?: Array<string | number> | null
+  /** Contagem (formato real) ou lista de nomes (formato antigo). */
+  'indicadores com problema'?: number | string[] | null
+  /** Contagem (formato real) ou lista de códigos de filial (formato antigo). */
+  'unidades sem tabela de faixas'?: number | Array<string | number> | null
 }
 
 // ---------------------------------------------------------------------------
@@ -866,7 +868,19 @@ export function paraHistoricoMeta(historico: HistoricoMetaApi): HistoricoMeta {
   }
 }
 
+/** Contagem ou lista: número → `{ quantidade, [] }`; lista → `{ tamanho, lista }`; ausente → `{ 0, [] }`. */
+function contagemOuLista(valor: number | Array<string | number> | null | undefined): {
+  quantidade: number
+  itens: string[]
+} {
+  if (typeof valor === 'number') return { quantidade: valor, itens: [] }
+  const itens = listaDeTextos(valor)
+  return { quantidade: itens.length, itens }
+}
+
 export function paraFechamento(fechamento: FechamentoApi): Fechamento {
+  const indicadores = contagemOuLista(fechamento['indicadores com problema'])
+  const semFaixas = contagemOuLista(fechamento['unidades sem tabela de faixas'])
   return {
     id: fechamento.id,
     nome: fechamento.nome,
@@ -879,8 +893,10 @@ export function paraFechamento(fechamento: FechamentoApi): Fechamento {
     unidadesEncerradas: fechamento['unidades encerradas'] ?? 0,
     unidadesComPendencias: fechamento['unidades com pendencias'] ?? 0,
     progresso: paraProgresso(fechamento.progresso),
-    indicadoresComProblema: lista(fechamento['indicadores com problema'], (nome) => nome),
-    unidadesSemTabelaDeFaixas: listaDeTextos(fechamento['unidades sem tabela de faixas']),
+    indicadoresComProblema: indicadores.itens,
+    quantidadeIndicadoresComProblema: indicadores.quantidade,
+    unidadesSemTabelaDeFaixas: semFaixas.itens,
+    quantidadeUnidadesSemTabelaDeFaixas: semFaixas.quantidade,
   }
 }
 

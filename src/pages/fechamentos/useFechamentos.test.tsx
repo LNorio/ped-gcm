@@ -84,8 +84,10 @@ describe('F10.2 — useFechamentos: lista de fechamentos com filtros consultados
       unidadesDeImagem: 2,
       unidadesComPendencias: 2,
       progresso: { preenchidos: 1, total: 4 },
-      indicadoresComProblema: ['Custo de frete por entrega'],
-      unidadesSemTabelaDeFaixas: ['102'],
+      indicadoresComProblema: [],
+      quantidadeIndicadoresComProblema: 1,
+      unidadesSemTabelaDeFaixas: [],
+      quantidadeUnidadesSemTabelaDeFaixas: 1,
     })
   })
 

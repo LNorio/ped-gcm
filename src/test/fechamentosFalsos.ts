@@ -6,10 +6,15 @@
  * Linhas de `GET /api/ped/fechamentos` (`fechamentosApi()`, na ordem da API: periodicidade e nome):
  * - (2) PED Gerentes — cargos ["Gerente de Loja"], mensal, 11/2026, **aberto**; 2 unidades (Ana Souza,
  *   filial 100, e Diego Rocha, filial 102), nenhuma encerrada, 2 com pendências, progresso 1 de 4;
- *   indicador com problema "Custo de frete por entrega"; filial 102 sem tabela de faixas;
+ *   1 indicador com problema ("Custo de frete por entrega"); 1 unidade (filial 102) sem tabela de faixas;
  * - (1) PED Comercial — filiais 100, 101 e 102, trimestral, 4º tri/2026, **aberto**; 3 unidades, 1
- *   encerrada (100), 1 com pendências (102), progresso 5 de 6; filial 102 sem tabela de faixas;
+ *   encerrada (100), 1 com pendências (102), progresso 5 de 6; 1 unidade (filial 102) sem tabela de faixas;
  * - (6) PED Vendedores — colaboradores [12, 13], anual, 2026, **encerrado** (2 de 2), progresso 0 de 0.
+ *
+ * Formato real (`docs/backend/exemplos-reais/fechamentos.json`, enviado pelo usuário em 16/11/2026):
+ * "indicadores com problema" e "unidades sem tabela de faixas" chegam como **contagens numéricas**, e
+ * é assim que as linhas acima vêm. O formato antigo (listas de nomes/códigos) continua aceito por
+ * tolerância; os testes que precisam dele sobrescrevem os dois campos com listas.
  *
  * Imagens congeladas (`GET /api/ped/imagens/{id}`; lista em `imagensApi()`):
  * - (1) IMG-000001 · ENC-000001 · PED Comercial · 3º tri/2026 · filial 100 MATRIZ (`tipo: filial`) —
@@ -41,7 +46,9 @@
  *   `"opcao selecionada"` `"a"`/`"b"`) ou `{ calculada: false, motivo }`; `faixas` como
  *   `{ versao, descricao, linhas }`; `pendencias` e `avisos` como listas de textos;
  * - `resumo` com "imagens a gerar" e "unidades ja encerradas" numéricos e "unidades com pendencias" e
- *   "unidades sem tabela de faixas" como listas de códigos de filial;
+ *   "unidades sem tabela de faixas" como listas de códigos de filial (a resposta real da prévia ainda não
+ *   foi recebida; como a lista de fechamentos real traz contagens, o serviço aceita número ou lista em
+ *   todas as contagens do resumo — ver `resumoNumericoApi()`);
  * - encerramento: `{ mensagem, lote, periodo, "imagens geradas" (número), resumo }`;
  * - linha da consulta de imagens com exatamente os campos do contrato (`id`, `codigo`, `lote`, `tipo`,
  *   "id colaborador", `dashboard` e `periodo` em texto, `filial` código, `colaborador` nome ou `null`,
@@ -75,8 +82,10 @@ export interface FechamentoApiFalso {
   'unidades encerradas': number
   'unidades com pendencias': number
   progresso: { preenchidos: number; total: number }
-  'indicadores com problema': string[]
-  'unidades sem tabela de faixas': string[]
+  /** Contagem (formato real) ou lista de nomes (formato antigo, aceito por tolerância). */
+  'indicadores com problema': number | string[]
+  /** Contagem (formato real) ou lista de códigos de filial (formato antigo, aceito por tolerância). */
+  'unidades sem tabela de faixas': number | Array<string | number>
 }
 
 export interface DashboardDaImagemApiFalso {
@@ -232,8 +241,8 @@ export const FECHAMENTO_GERENTES_API: FechamentoApiFalso = {
   'unidades encerradas': 0,
   'unidades com pendencias': 2,
   progresso: { preenchidos: 1, total: 4 },
-  'indicadores com problema': ['Custo de frete por entrega'],
-  'unidades sem tabela de faixas': ['102'],
+  'indicadores com problema': 1,
+  'unidades sem tabela de faixas': 1,
 }
 
 export const FECHAMENTO_COMERCIAL_API: FechamentoApiFalso = {
@@ -248,8 +257,8 @@ export const FECHAMENTO_COMERCIAL_API: FechamentoApiFalso = {
   'unidades encerradas': 1,
   'unidades com pendencias': 1,
   progresso: { preenchidos: 5, total: 6 },
-  'indicadores com problema': [],
-  'unidades sem tabela de faixas': ['102'],
+  'indicadores com problema': 0,
+  'unidades sem tabela de faixas': 1,
 }
 
 export const FECHAMENTO_VENDEDORES_API: FechamentoApiFalso = {
@@ -264,8 +273,8 @@ export const FECHAMENTO_VENDEDORES_API: FechamentoApiFalso = {
   'unidades encerradas': 2,
   'unidades com pendencias': 0,
   progresso: { preenchidos: 0, total: 0 },
-  'indicadores com problema': [],
-  'unidades sem tabela de faixas': [],
+  'indicadores com problema': 0,
+  'unidades sem tabela de faixas': 0,
 }
 
 export function copiarFechamento(fechamento: FechamentoApiFalso): FechamentoApiFalso {
@@ -589,6 +598,21 @@ function resumoApi(sobrescrever: Partial<ResumoFechamentoApiFalso> = {}): Resumo
     'unidades sem tabela de faixas': [],
     avisos: [],
     ...sobrescrever,
+  }
+}
+
+/**
+ * Resumo só com contagens numéricas (formato provável da prévia real, pelo que a lista de fechamentos
+ * real mostrou em 16/11/2026): PED Comercial no 4º tri/2026, sem os códigos das filiais.
+ */
+export function resumoNumericoApi(): Record<string, unknown> {
+  return {
+    'imagens a gerar': 2,
+    'unidades ja encerradas': 1,
+    'unidades com pendencias': 1,
+    'unidades sem tabela de faixas': 1,
+    'indicadores com problema': 0,
+    avisos: [],
   }
 }
 

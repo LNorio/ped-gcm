@@ -166,34 +166,69 @@ describe('F10.2 — TabelaFechamentos: linhas da aba Fechamentos (RF-78, RN-16)'
     })
   })
 
+  /**
+   * Etiquetas pelas contagens (formato real de 16/11/2026: "indicadores com problema" e "unidades sem
+   * tabela de faixas" chegam como números). A etiqueta de faixas cita os códigos só quando a API manda a
+   * lista (formato antigo); com contagem 0, nenhuma etiqueta.
+   */
   describe('etiquetas de indicadores com problema e falta de tabela de faixas', () => {
-    it('um indicador com problema: etiqueta "1 indicador com problema"', () => {
+    it('contagem 1 de indicadores (sem lista de nomes): etiqueta "1 indicador com problema"', () => {
       renderizar()
       expect(within(linha('PED Gerentes')).getByText('1 indicador com problema')).toBeInTheDocument()
     })
 
-    it('vários: "2 indicadores com problema"', () => {
-      const dois: Fechamento = { ...porNome('PED Gerentes'), indicadoresComProblema: ['Custo de frete por entrega', 'Ticket médio'] }
+    it('contagem de vários indicadores sem lista de nomes: "3 indicadores com problema"', () => {
+      const tres: Fechamento = { ...porNome('PED Gerentes'), indicadoresComProblema: [], quantidadeIndicadoresComProblema: 3 }
+      renderizar({ fechamentos: [tres] })
+
+      expect(within(linha('PED Gerentes')).getByText('3 indicadores com problema')).toBeInTheDocument()
+    })
+
+    it('com a lista de nomes (formato antigo): "2 indicadores com problema"', () => {
+      const dois: Fechamento = {
+        ...porNome('PED Gerentes'),
+        indicadoresComProblema: ['Custo de frete por entrega', 'Ticket médio'],
+        quantidadeIndicadoresComProblema: 2,
+      }
       renderizar({ fechamentos: [dois] })
 
       expect(within(linha('PED Gerentes')).getByText('2 indicadores com problema')).toBeInTheDocument()
     })
 
-    it('uma filial sem faixas: "Sem tabela de faixas: filial 102"', () => {
+    it('contagem 1 de unidades sem faixas, sem lista de códigos: "Sem tabela de faixas: 1 unidade"', () => {
       renderizar()
 
-      expect(within(linha('PED Gerentes')).getByText('Sem tabela de faixas: filial 102')).toBeInTheDocument()
-      expect(within(linha('PED Comercial')).getByText('Sem tabela de faixas: filial 102')).toBeInTheDocument()
+      expect(within(linha('PED Gerentes')).getByText('Sem tabela de faixas: 1 unidade')).toBeInTheDocument()
+      expect(within(linha('PED Comercial')).getByText('Sem tabela de faixas: 1 unidade')).toBeInTheDocument()
     })
 
-    it('várias filiais sem faixas: "Sem tabela de faixas: filiais 101, 102"', () => {
-      const duas: Fechamento = { ...porNome('PED Comercial'), unidadesSemTabelaDeFaixas: ['101', '102'] }
+    it('contagem de várias unidades sem faixas, sem lista de códigos: "Sem tabela de faixas: 60 unidades"', () => {
+      const sessenta: Fechamento = { ...porNome('PED Gerentes'), unidadesSemTabelaDeFaixas: [], quantidadeUnidadesSemTabelaDeFaixas: 60 }
+      renderizar({ fechamentos: [sessenta] })
+
+      expect(within(linha('PED Gerentes')).getByText('Sem tabela de faixas: 60 unidades')).toBeInTheDocument()
+    })
+
+    it('com a lista de uma filial (formato antigo): "Sem tabela de faixas: filial 102"', () => {
+      const uma: Fechamento = { ...porNome('PED Comercial'), unidadesSemTabelaDeFaixas: ['102'], quantidadeUnidadesSemTabelaDeFaixas: 1 }
+      renderizar({ fechamentos: [uma] })
+
+      expect(within(linha('PED Comercial')).getByText('Sem tabela de faixas: filial 102')).toBeInTheDocument()
+      expect(within(linha('PED Comercial')).queryByText('Sem tabela de faixas: 1 unidade')).not.toBeInTheDocument()
+    })
+
+    it('com a lista de várias filiais (formato antigo): "Sem tabela de faixas: filiais 101, 102"', () => {
+      const duas: Fechamento = {
+        ...porNome('PED Comercial'),
+        unidadesSemTabelaDeFaixas: ['101', '102'],
+        quantidadeUnidadesSemTabelaDeFaixas: 2,
+      }
       renderizar({ fechamentos: [duas] })
 
       expect(within(linha('PED Comercial')).getByText('Sem tabela de faixas: filiais 101, 102')).toBeInTheDocument()
     })
 
-    it('sem problemas e com faixas: nenhuma das duas etiquetas', () => {
+    it('contagens 0: nenhuma das duas etiquetas', () => {
       renderizar()
       const comercial = linha('PED Comercial')
       const vendedores = linha('PED Vendedores')
@@ -201,6 +236,20 @@ describe('F10.2 — TabelaFechamentos: linhas da aba Fechamentos (RF-78, RN-16)'
       expect(within(comercial).queryByText(/com problema/)).not.toBeInTheDocument()
       expect(within(vendedores).queryByText(/com problema/)).not.toBeInTheDocument()
       expect(within(vendedores).queryByText(/Sem tabela de faixas/)).not.toBeInTheDocument()
+    })
+
+    it('formato real (as duas contagens 0, como em exemplos-reais/fechamentos.json): nenhuma etiqueta', () => {
+      const real: Fechamento = {
+        ...porNome('PED Gerentes'),
+        indicadoresComProblema: [],
+        quantidadeIndicadoresComProblema: 0,
+        unidadesSemTabelaDeFaixas: [],
+        quantidadeUnidadesSemTabelaDeFaixas: 0,
+      }
+      renderizar({ fechamentos: [real] })
+
+      expect(within(linha('PED Gerentes')).queryByText(/com problema/)).not.toBeInTheDocument()
+      expect(within(linha('PED Gerentes')).queryByText(/Sem tabela de faixas/)).not.toBeInTheDocument()
     })
   })
 

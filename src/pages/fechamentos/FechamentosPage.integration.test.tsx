@@ -12,7 +12,7 @@ import {
   type ChamadaRegistrada,
   type RotaFalsa,
 } from '../../test/apiFalsa'
-import { criarApiFechamentosFalsa, type FechamentoApiFalso } from '../../test/fechamentosFalsos'
+import { FECHAMENTO_GERENTES_API, criarApiFechamentosFalsa, type FechamentoApiFalso } from '../../test/fechamentosFalsos'
 import { itensDoMenuAcoes, rotuloAcoesDashboard } from '../../test/menuAcoes'
 import { renderizarApp } from '../../test/renderizarApp'
 
@@ -152,7 +152,7 @@ describe('F10.2 — Aba Fechamentos: lista de dashboards ativos com filtros (int
         '25',
       )
       expect(within(tr).getByText('1 indicador com problema')).toBeInTheDocument()
-      expect(within(tr).getByText('Sem tabela de faixas: filial 102')).toBeInTheDocument()
+      expect(within(tr).getByText('Sem tabela de faixas: 1 unidade')).toBeInTheDocument()
     })
 
     it('PED Comercial (por filiais) e PED Vendedores (encerrado, sem pendências)', async () => {
@@ -166,6 +166,7 @@ describe('F10.2 — Aba Fechamentos: lista de dashboards ativos com filtros (int
       expect(within(comercial).getByText('4º tri/2026')).toBeInTheDocument()
       expect(within(comercial).getByText('5 de 6 lançamentos')).toBeInTheDocument()
       expect(within(comercial).queryByText(/com problema/)).not.toBeInTheDocument()
+      expect(within(comercial).getByText('Sem tabela de faixas: 1 unidade')).toBeInTheDocument()
 
       const vendedores = linha(tabela, 'PED Vendedores')
       expect(within(vendedores).getByText('2 colaboradores vinculados')).toBeInTheDocument()
@@ -173,6 +174,24 @@ describe('F10.2 — Aba Fechamentos: lista de dashboards ativos com filtros (int
       expect(within(vendedores).getByText('Anual')).toBeInTheDocument()
       expect(within(vendedores).getByText('Encerrado')).toBeInTheDocument()
       expect(within(vendedores).queryByText(/Sem tabela de faixas/)).not.toBeInTheDocument()
+    })
+
+    it('formato antigo (listas de nomes e códigos) continua aceito: etiquetas pela quantidade e com os códigos das filiais', async () => {
+      simularSessao('admin', {
+        fechamentos: [
+          {
+            ...FECHAMENTO_GERENTES_API,
+            'indicadores com problema': ['Custo de frete por entrega', 'Ticket médio'],
+            'unidades sem tabela de faixas': ['101', '102'],
+          },
+        ],
+      })
+      const { tabela } = await abrirTela()
+      const tr = linha(tabela, 'PED Gerentes')
+
+      expect(screen.queryByText('Resposta inválida do servidor.')).not.toBeInTheDocument()
+      expect(within(tr).getByText('2 indicadores com problema')).toBeInTheDocument()
+      expect(within(tr).getByText('Sem tabela de faixas: filiais 101, 102')).toBeInTheDocument()
     })
 
     it('menu de ações da linha em aberto tem "Pré-visualizar imagens" e "Encerrar período"', async () => {

@@ -8,7 +8,9 @@
  * - `POST /api/ped/fechamentos/{id}/encerrar` encerramento, sem corpo.
  *
  * Formatos aceitos onde o contrato não detalha (ver `src/test/fechamentosFalsos.ts`):
- * - "indicadores com problema" em texto ou `{ indicador }` (vira o nome); filiais numéricas viram texto;
+ * - "indicadores com problema" e "unidades sem tabela de faixas" da lista como contagem (número ou texto
+ *   decimal canônico, formato real) ou lista: indicadores em texto ou `{ indicador }` (vira o nome),
+ *   filiais numéricas viram texto;
  * - imagem da prévia como `{ chave, ...conteúdo }` ou `{ chave, imagem }`; o conteúdo é convertido por
  *   `paraImagemCongelada` (o mesmo do detalhe da imagem);
  * - resumo com contagens numéricas ou listas (códigos em texto, número ou `{ filial }`); sem resumo,
@@ -146,6 +148,14 @@ function nomeDoIndicador(item: unknown): string {
   throw respostaInvalida()
 }
 
+/** Contagem (número ou texto canônico) ou lista convertida item a item; outro tipo rejeita a resposta. */
+function contagemOuListaDaLinha<T>(valor: unknown, converter: (item: unknown) => T): number | T[] {
+  if (Array.isArray(valor)) return valor.map(converter)
+  const numero = numeroLido(valor)
+  if (numero === undefined) throw respostaInvalida()
+  return numero ?? 0
+}
+
 function paraLinhaFechamento(item: unknown): Fechamento {
   if (
     !ehObjeto(item) ||
@@ -172,8 +182,8 @@ function paraLinhaFechamento(item: unknown): Fechamento {
     'unidades encerradas': contagem(item['unidades encerradas']),
     'unidades com pendencias': contagem(item['unidades com pendencias']),
     progresso: { preenchidos: contagem(progresso.preenchidos), total: contagem(progresso.total) },
-    'indicadores com problema': listaOpcional(item['indicadores com problema']).map(nomeDoIndicador),
-    'unidades sem tabela de faixas': listaOpcional(item['unidades sem tabela de faixas']).map(codigoObrigatorio),
+    'indicadores com problema': contagemOuListaDaLinha(item['indicadores com problema'], nomeDoIndicador),
+    'unidades sem tabela de faixas': contagemOuListaDaLinha(item['unidades sem tabela de faixas'], codigoObrigatorio),
   }
   return paraFechamento(linha)
 }

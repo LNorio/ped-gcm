@@ -650,8 +650,12 @@ export interface Fechamento {
   unidadesEncerradas: number
   unidadesComPendencias: number
   progresso: Progresso
+  /** Nomes dos indicadores com problema; vazio quando a API manda só a contagem. */
   indicadoresComProblema: string[]
+  quantidadeIndicadoresComProblema: number
+  /** Códigos das filiais sem tabela de faixas; vazio quando a API manda só a contagem. */
   unidadesSemTabelaDeFaixas: string[]
+  quantidadeUnidadesSemTabelaDeFaixas: number
 }
 
 // ---------------------------------------------------------------------------
