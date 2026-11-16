@@ -1,5 +1,102 @@
 # Diário de Implementação — PED
 
+## 13/11/2026
+
+**Resumo:** O front foi adequado ao contrato final da faixa geral e da situação enviado pelo back-end (F8.12\*, A-18 resolvida). Foram implementadas por completo as fases Preenchimento (F9), Fechamentos e imagens congeladas (F10.1–F10.7) e Início (F11). Foram feitos dois commits, `797bc54` e `d499d3e`, enviados ao GitHub junto com o `a9da8a5`. Depois do push, a aba Preenchimento passou a separar os tipos em subabas, como no protótipo, e o Início ganhou os blocos de indicadores com meta pendente e de dashboards em construção (F11.6). Esse trabalho ainda não tem commit. Ao fim do dia, 107 requisitos estão `implementado`.
+
+### Implementações
+- Registro dos documentos novos do back-end:
+  - `docs/backend/RESPOSTA-faixa-geral-e-situacao.md`;
+  - `docs/backend/FRONT-faixa-geral-e-situacao.md`;
+  - `docs/backend/API (28).md`.
+- Serviços do Preenchimento (F9.1): `preenchimentoService`, `periodoService` e `metasService`, mais os tipos do bloco "Preenchimento" em `dominio.ts`.
+- Tela de Preenchimento (F9.2–F9.8):
+  - filial obrigatória;
+  - seletor de mês e ano;
+  - cabeçalho do mês com progresso;
+  - apontamentos por tipo, com busca;
+  - lançamento de valores em lote ("Salvar lançamentos");
+  - correção com motivo e histórico do apontamento;
+  - aviso de mês congelado em imagens.
+- "Editar metas" e histórico de ajustes de meta (F9.9–F9.10).
+- Abrir outro mês e reabrir mês passado (F9.11–F9.12), com o histórico de períodos e a permissão `abrir-periodo`, só para o Admin.
+- Serviços de fechamentos e imagens (F10.1): `fechamentosService` e `imagensService`.
+- Lista de fechamentos com filtros e "Limpar filtros" (F10.2).
+- Componente `VisualizacaoImagem`, para imagens de filial e de colaborador (F10.3).
+- Pré-visualização do fechamento, com escolha de filial, busca de colaborador e navegação "Imagem X de N" (F10.4).
+- Encerramento manual com confirmação e lote ENC (F10.5).
+- Consulta retroativa de imagens dentro da aba Fechamentos (F10.6).
+- Tipos de imagem pela regra A-07 do back-end (F10.7).
+- Serviço `GET /api/ped/inicio` (F11.1).
+- Tela Início (F11.2–F11.5):
+  - avisos do período e de acesso;
+  - resumo por perfil;
+  - períodos em aberto, com "Preencher";
+  - últimas 6 alterações.
+- Blocos do Início para Admin e Validador (F11.6, atividade não planejada):
+  - cards "Indicadores com meta pendente" e "Dashboards em construção";
+  - painéis com as listas e os links "Ver indicadores" e "Ver dashboards";
+  - dados das rotas existentes (`situacao=meta` + `meta_filial_pendente` e `situacao=construcao`), sem mudança no back-end.
+
+### Modificações
+- Faixas e dashboards adequados ao contrato final (F8.12\*):
+  - ação `exclusao` no histórico;
+  - tabela de dashboard excluído sem Inativar/Reativar;
+  - conflito (400) com "Dashboard: {nome}" e a lista "Tabelas em conflito";
+  - filtro "Com problemas de faixa" (`problemas_faixa`) na aba Dashboards.
+
+  Os requisitos F7.1, F7.2, F7.14, F8.1, F8.5, F8.7 e F8.8 foram reabertos e concluídos de novo (510/510).
+- `Dialogo` com pilha de diálogos (F1.8 reaberto): Esc e Tab agem só no diálogo de cima.
+- Correções da revisão da F9:
+  - corrida de filial durante a gravação;
+  - erro escondido pela busca;
+  - seletor que sumia após erro;
+  - metas não recarregadas após abrir ou reabrir o mês;
+  - correção que fechava durante o salvamento.
+- A consulta das metas passou a ser antecipada no `usePreenchimento` (`onTelaRecebida` → `anteciparMetasPreenchimento`). Com isso, saíram cerca de 250 ms de atraso do "Editar metas", que esgotavam o tempo dos testes de integração sob carga. Nenhum teste foi alterado.
+- `BarraFiltros`: novas props opcionais `children` e `filtrosAdicionaisAtivos`.
+- `Card`: o cabeçalho passou de `<header>` para `<div>`.
+- Testes de F2.2, F2.3 e F2.5 adequados para simular `GET /api/ped/inicio`, sem mudança de comportamento.
+- Correção nos auxiliares `tabela()` e `linhas()` do teste `DialogoPreviaFechamento.test.tsx`, feita pelo gerador-testes. Eles buscavam sempre o diálogo "PED Comercial", e 5 testes abriam o "PED Gerentes".
+- Commits:
+  - `797bc54` (11:44), aprovado na terceira tentativa do hook;
+  - `d499d3e` (16:55, 77 arquivos), com 4733/4733 unitários e 717/717 de integração.
+- Push feito: `a9da8a5`, `797bc54` e `d499d3e` foram enviados, e o origin/main está em `d499d3e`.
+- Aba Preenchimento com subabas por tipo, como no protótipo (F9.2, F9.5–F9.8 alterados e concluídos de novo):
+  - abas "{tipo} {N}" navegáveis por setas, Home e End, abrindo na primeira com apontamentos;
+  - a busca esconde as abas e mostra uma lista única com a etiqueta do tipo;
+  - rascunhos preservados entre abas; erro em outra aba seleciona a aba e foca o campo.
+
+  Substitui as regiões empilhadas, por decisão do usuário. 301 unitários e 105 de integração na pasta.
+- Teste de F2.2 (`LoginPage.integration`) passou a comparar só as rotas de sessão, porque o Início do admin faz mais 3 chamadas.
+
+### Pendências
+- Erro "Resposta inválida do servidor" na aba Preenchimento: aguardando o JSON real de `GET /api/ped/preenchimento/meses` e de `GET /api/ped/preenchimento`, pedido ao usuário.
+- Rótulos do resumo do Início sem acento vindos da API ("construcao", "Lancamentos").
+- Risco de timeout do primeiro teste do Início sob carga, que pode bloquear o hook de pre-commit.
+- Commit do trabalho da tarde (subabas e F11.6), junto com os documentos de fechamento.
+- Publicação conjunta de back e front das faixas, porque o `DELETE` passou a exigir motivo. Verificar depois do deploy se o corpo do `DELETE` chega ao servidor; a alternativa é `?motivo=`.
+- Confirmar com o usuário o filtro "Com problemas de faixa".
+- F10.8, bloqueada pela P-08.
+- F12.1 e F12.2 (acessibilidade e responsividade).
+- F1.18, F5.10 e F6.14\*.
+- O `lotes-testes.mjs` conta menos testes do que existem: os lotes reais chegam a 229.
+- O `Suspense` das rotas sob demanda atrasa cerca de 300 ms e deixa instável, sob carga, o primeiro teste de integração de cada arquivo.
+- Decisões pendentes do usuário na F10:
+  - menu das linhas já encerradas: "Pré-visualizar"/"Encerrar" ou "Ver imagens" (protótipo);
+  - aviso pela quantidade quando o resumo vem como número;
+  - teste instável da prévia.
+- "Preencher" do Início vai para `/preenchimento` sem pré-seleção, porque o RF-10 pede só o botão. É um risco médio, porque o contrato fala no preenchimento "daquela filial", e depende de decisão do usuário.
+- Risco baixo da F10.5: a consulta de imagens perde os filtros depois de um encerramento, porque é remontada por `key`.
+- Dúvidas de contrato da F9, da F10 e da F11, registradas no plano.
+- Dúvidas abertas ao usuário:
+  - limite de 100% na porcentagem;
+  - "1.500" e mais de 2 casas decimais;
+  - alerta de faixa com tipo desconhecido;
+  - Validador × imagens (API linha 688 × A-05).
+
+---
+
 ## 12/11/2026
 
 **Resumo:** A aba Faixas ganhou a faixa geral, a situação ativa/inativa das tabelas com motivo obrigatório, a exclusão com motivo, o botão "Ver motivo" e a coluna "Ação" no histórico. A aba Dashboards passou a mostrar alertas de faixas. Tudo segue um contrato proposto ao back-end (A-18). Depois, foram escritos os testes TDD da F9.1 (serviços do Preenchimento), ainda sem implementação, por decisão do usuário. Antes disso, pela manhã, entrou o limite de tentativas no login (429, F2.10\*), e o commit `a9da8a5` foi feito. O trabalho da faixa geral e da F9.1 está no disco, sem commit. Ao fim do dia, 82 de 83 requisitos implementados (F9.1 `pendente`) e plano em 74%.

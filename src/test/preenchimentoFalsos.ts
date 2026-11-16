@@ -22,13 +22,15 @@
  *   apontamento 5) meta do cadastro 1500 (geral), vigente 2000.25, ajustada; (13) "Faturamento"
  *   (Comercial, dado externo 3) meta do cadastro 500000 (filial), vigente 500000, sem ajuste.
  *
- * Formatos assumidos onde o documento não detalha (ver as dúvidas da F9.1 no `requisitos.json`):
- * - meses: `{ ano, meses: [{ "mes de referencia": "AAAA-MM-01", situacao, pendentes? }] }`;
+ * Formatos conforme as respostas reais do back-end (F9.13*, `docs/backend/exemplos-reais/`):
+ * - meses: `{ filial, ano, "periodo aberto", meses: [{ mes: "AAAA-MM-01", situacao, pendentes }] }`
+ *   (`pendentes` `null` fora do mês aberto);
  * - apontamento do preenchimento: `id`, `nome`, `descricao`, `"tipo de valor"`, `situacao`, `valor`,
- *   `indicadores` (nomes), `dashboards` (`{ id, nome, periodicidade }`) e `"imagens congeladas"`
- *   (`{ codigo, dashboard, periodo }`);
+ *   `"lancado em"` (não exibido), `indicadores` (nomes), `dashboards` (`{ id, nome, periodicidade }`) e
+ *   `"imagens congeladas"` (`{ codigo, dashboard, periodo }`);
  * - histórico de aberturas e do apontamento: lista pura (o serviço também aceita `{ historico }`);
- * - "Editar metas": `{ "situacao do mes", editavel, indicadores: [...] }`.
+ * - "Editar metas": `{ filial, "mes de referencia", "situacao do mes", editavel, indicadores, quantidade }`,
+ *   com `composicao` como lista de nomes dos itens (ex.: `["Visitas a clientes"]`).
  */
 
 export type ValorLancamentoApi = number | boolean | string | null
@@ -61,22 +63,36 @@ export function historicoPeriodosApi(): PeriodoApiFalso[] {
 export type SituacaoMesApi = 'aberto' | 'fechado' | 'futuro'
 
 export interface MesPreenchimentoApiFalso {
+  /** Formato antigo (ainda aceito pelo serviço). */
   'mes de referencia'?: string
-  mes?: number
+  /** Formato real: data `AAAA-MM-DD` (dia 01); o número de 1 a 12 é o formato antigo. */
+  mes?: string | number
   situacao: SituacaoMesApi | string
   pendentes?: number | null
 }
 
-/** Os 12 meses do ano: antes de `mesAberto` fechados, `mesAberto` aberto (com `pendentes`), depois futuros. */
-export function mesesPreenchimentoApi(ano = 2026, mesAberto = 10, pendentes = 1): { ano: number; meses: MesPreenchimentoApiFalso[] } {
+/** Envelope real de `GET /api/ped/preenchimento/meses`. */
+export interface MesesPreenchimentoApiFalsos {
+  filial: string
+  ano: number
+  'periodo aberto': string | null
+  meses: MesPreenchimentoApiFalso[]
+}
+
+/**
+ * Os 12 meses do ano no formato real (`mes: "AAAA-MM-01"`): antes de `mesAberto` fechados, `mesAberto`
+ * aberto (com `pendentes`), depois futuros; `pendentes` `null` fora do mês aberto. `mesAberto` fora de
+ * 1 a 12 (ex.: 13) = nenhum mês aberto no ano (`"periodo aberto"` `null`).
+ */
+export function mesesPreenchimentoApi(ano = 2026, mesAberto = 10, pendentes = 1, filial = '101'): MesesPreenchimentoApiFalsos {
+  const referencia = (mes: number) => `${ano}-${String(mes).padStart(2, '0')}-01`
   const meses = Array.from({ length: 12 }, (_, indice): MesPreenchimentoApiFalso => {
     const mes = indice + 1
-    const referencia = `${ano}-${String(mes).padStart(2, '0')}-01`
-    if (mes < mesAberto) return { 'mes de referencia': referencia, situacao: 'fechado' }
-    if (mes === mesAberto) return { 'mes de referencia': referencia, situacao: 'aberto', pendentes }
-    return { 'mes de referencia': referencia, situacao: 'futuro' }
+    if (mes < mesAberto) return { mes: referencia(mes), situacao: 'fechado', pendentes: null }
+    if (mes === mesAberto) return { mes: referencia(mes), situacao: 'aberto', pendentes }
+    return { mes: referencia(mes), situacao: 'futuro', pendentes: null }
   })
-  return { ano, meses }
+  return { filial, ano, 'periodo aberto': mesAberto >= 1 && mesAberto <= 12 ? referencia(mesAberto) : null, meses }
 }
 
 export interface DashboardDoApontamentoApiFalso {
@@ -98,6 +114,8 @@ export interface ApontamentoPreenchimentoApiFalso {
   'tipo de valor': string
   situacao: string
   valor?: ValorLancamentoApi
+  /** Data/hora do lançamento (formato real, ex.: `"2026-10-03 11:15:00-04:00"`); não é exibida. */
+  'lancado em'?: string | null
   indicadores?: unknown
   dashboards?: unknown
   'imagens congeladas'?: unknown
@@ -110,6 +128,7 @@ export const APONTAMENTO_VISITAS_API: ApontamentoPreenchimentoApiFalso = {
   'tipo de valor': 'Numeral',
   situacao: 'Preenchido',
   valor: 1234.56,
+  'lancado em': '2026-10-03 11:15:00-04:00',
   indicadores: ['Cobertura de clientes'],
   dashboards: [{ id: 1, nome: 'PED Comercial', periodicidade: 'mensal' }],
   'imagens congeladas': [],
@@ -122,6 +141,7 @@ export const APONTAMENTO_VITRINE_API: ApontamentoPreenchimentoApiFalso = {
   'tipo de valor': 'Booleano',
   situacao: 'Pendente',
   valor: null,
+  'lancado em': null,
   indicadores: [],
   dashboards: [],
   'imagens congeladas': [],
@@ -134,6 +154,7 @@ export const APONTAMENTO_INADIMPLENCIA_API: ApontamentoPreenchimentoApiFalso = {
   'tipo de valor': 'Porcentagem',
   situacao: 'Corrigido',
   valor: 80,
+  'lancado em': '2026-10-20 10:00:00-04:00',
   indicadores: ['Inadimplência'],
   dashboards: [{ id: 2, nome: 'PED Gerentes', periodicidade: 'trimestral' }],
   'imagens congeladas': [{ codigo: 'IMG-000012', dashboard: 'PED Gerentes', periodo: '3º tri/2026' }],
@@ -228,7 +249,7 @@ export const INDICADOR_META_COBERTURA_API: IndicadorMetaApiFalso = {
   id: 12,
   nome: 'Cobertura de clientes',
   tipos: ['Comercial'],
-  composicao: { tipo: 'apontamentos', itens: [{ id: 5, nome: 'Visitas a clientes', ativo: true }] },
+  composicao: ['Visitas a clientes'],
   sentido: 'maior_melhor',
   'meta do cadastro': 1500,
   'meta do cadastro origem': 'geral',
@@ -240,7 +261,7 @@ export const INDICADOR_META_FATURAMENTO_API: IndicadorMetaApiFalso = {
   id: 13,
   nome: 'Faturamento',
   tipos: ['Comercial'],
-  composicao: { tipo: 'dado_externo', itens: [{ id: 3, nome: 'Faturamento', ativo: true }] },
+  composicao: ['Faturamento'],
   sentido: 'maior_melhor',
   'meta do cadastro': 500000,
   'meta do cadastro origem': 'filial',
@@ -249,16 +270,23 @@ export const INDICADOR_META_FATURAMENTO_API: IndicadorMetaApiFalso = {
 }
 
 export interface JanelaMetasApiFalsa {
+  filial?: string
+  'mes de referencia'?: string
   'situacao do mes': string
   editavel?: boolean | null
   indicadores: IndicadorMetaApiFalso[]
+  quantidade?: number
 }
 
+/** Janela no formato real; `quantidade` acompanha os indicadores, salvo se sobrescrita. */
 export function janelaMetasApi(sobrescrever: Partial<JanelaMetasApiFalsa> = {}): JanelaMetasApiFalsa {
-  return {
+  const janela: JanelaMetasApiFalsa = {
+    filial: '101',
+    'mes de referencia': '2026-10-01',
     'situacao do mes': 'aberto',
     editavel: true,
     indicadores: [INDICADOR_META_COBERTURA_API, INDICADOR_META_FATURAMENTO_API],
     ...sobrescrever,
   }
+  return { ...janela, quantidade: sobrescrever.quantidade ?? janela.indicadores.length }
 }

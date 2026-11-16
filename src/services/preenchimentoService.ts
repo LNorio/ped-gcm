@@ -14,8 +14,12 @@
  * - ano dos meses entre 2000 e o ano atual → `MENSAGEM_ANO_INVALIDO`.
  * Essas regras também são usadas por `periodoService` e `metasService`.
  *
- * Formatos assumidos onde o documento não detalha (ver `src/test/preenchimentoFalsos.ts`):
- * - meses: lista pura ou `{ meses }`; o mês vem em `"mes de referencia"` (`AAAA-MM...`) ou em `mes` (número);
+ * Formatos reais em `docs/backend/exemplos-reais/` (`preenchimento-meses.json` e `preenchimento.json`)
+ * e, onde não há exemplo, assumidos (ver `src/test/preenchimentoFalsos.ts`):
+ * - meses: lista pura ou `{ meses }` (no formato real, `{ filial, ano, "periodo aberto", meses }`: os
+ *   campos extras do envelope são tolerados e ignorados); o mês vem em `mes` como texto `AAAA-MM` ou
+ *   `AAAA-MM-DD` (formato real; o ano sai da própria data), em `"mes de referencia"` (`AAAA-MM...`) ou
+ *   em `mes` numérico (o ano é o pedido); mês fora de 01–12 ou texto fora do formato rejeita a resposta;
  * - tela: `filial` numérica vira texto; `situacao` do apontamento sem diferenciar maiúsculas nem
  *   acentos (`Nao lancado` → `nao_lancado`); `valor` número, booleano (no booleano, `1`/`0` também) ou
  *   texto decimal canônico (`"1234.50"`); texto em pt-BR (`"1.234,56"`) é inválido;
@@ -188,21 +192,25 @@ function normalizar(texto: string): string {
 // Conversões (API → domínio)
 // ---------------------------------------------------------------------------
 
+/**
+ * Ano e mês de um texto de mês: `"mes de referencia"` aceita `AAAA-MM...` (o resto é ignorado); `mes`
+ * em texto exige `AAAA-MM` ou `AAAA-MM-DD`. Fora do formato devolve `null`.
+ */
+function anoEMesDoTexto(texto: string, estrito: boolean): { ano: number; mes: number } | null {
+  const partes = (estrito ? FORMATO_MES : /^(\d{4})-(\d{2})/).exec(texto.trim())
+  return partes ? { ano: Number(partes[1]), mes: Number(partes[2]) } : null
+}
+
 function paraMesPreenchimento(item: unknown, ano: number): MesPreenchimento {
   if (!ehObjeto(item) || !ehUmDe(SITUACOES_MES_PREENCHIMENTO, item.situacao) || !opcional(item.pendentes, ehNumero)) {
     throw respostaInvalida()
   }
   const referencia = item['mes de referencia']
-  let anoDoMes = ano
-  let mes: number
-  if (ehTexto(referencia) && /^\d{4}-\d{2}/.test(referencia)) {
-    anoDoMes = Number(referencia.slice(0, 4))
-    mes = Number(referencia.slice(5, 7))
-  } else if (ehNumero(item.mes) && Number.isInteger(item.mes)) {
-    mes = item.mes
-  } else {
-    throw respostaInvalida()
-  }
+  let anoEMes = ehTexto(referencia) ? anoEMesDoTexto(referencia, false) : null
+  if (anoEMes === null && ehTexto(item.mes)) anoEMes = anoEMesDoTexto(item.mes, true)
+  if (anoEMes === null && ehNumero(item.mes) && Number.isInteger(item.mes)) anoEMes = { ano, mes: item.mes }
+  if (anoEMes === null) throw respostaInvalida()
+  const { ano: anoDoMes, mes } = anoEMes
   if (mes < 1 || mes > 12) throw respostaInvalida()
   return {
     mes,

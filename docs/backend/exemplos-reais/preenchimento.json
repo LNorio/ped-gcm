@@ -1,0 +1,21 @@
+{
+    "filial": "100", "nome filial": "Filial 100", "mes de referencia": "2026-10-01",
+    "situacao do mes": "aberto", "editavel": true, "periodo aberto": "2026-10-01",
+    "aberto por": null, "aberto em": "2026-10-30 15:06:23-04:00",
+    "progresso": { "preenchidos": 0, "total": 10 },
+    "tipos": [
+        { "id": 1, "nome": "Comercial", "quantidade": 0, "apontamentos": [] },
+        { "id": 7, "nome": "Contabilidade", "quantidade": 1, "apontamentos": [
+            { "id": 5, "nome": "teste", "descricao": "teste", "id tipo": 7, "tipo": "Contabilidade",
+              "tipo de valor": "Porcentagem", "situacao": "Pendente", "valor": null, "lancado em": null,
+              "indicadores": ["teste 2", "teste indicador", "testes"], "dashboards": [], "imagens congeladas": [] } ] },
+        { "id": 2, "nome": "Financeiro", "quantidade": 1, "apontamentos": [
+            { "id": 13, "nome": "Documento não fiscal", "descricao": "Documento não fiscal", "id tipo": 2, "tipo": "Financeiro",
+              "tipo de valor": "Booleano", "situacao": "Pendente", "valor": null, "lancado em": null,
+              "indicadores": ["Indicadores de Financeiro"], "dashboards": [], "imagens congeladas": [] } ] },
+        { "id": 4, "nome": "Tecnologia da Informação", "quantidade": 1, "apontamentos": [
+            { "id": 6, "nome": "teste 2", "descricao": "teste 2", "id tipo": 4, "tipo": "Tecnologia da Informação",
+              "tipo de valor": "Numeral", "situacao": "Pendente", "valor": null, "lancado em": null,
+              "indicadores": ["teste 2", "testes"], "dashboards": [], "imagens congeladas": [] } ] }
+    ]
+}

@@ -1,0 +1,19 @@
+{
+    "filial": "100",
+    "ano": 2026,
+    "periodo aberto": "2026-10-01",
+    "meses": [
+        { "mes": "2026-01-01", "situacao": "fechado", "pendentes": null },
+        { "mes": "2026-02-01", "situacao": "fechado", "pendentes": null },
+        { "mes": "2026-03-01", "situacao": "fechado", "pendentes": null },
+        { "mes": "2026-04-01", "situacao": "fechado", "pendentes": null },
+        { "mes": "2026-05-01", "situacao": "fechado", "pendentes": null },
+        { "mes": "2026-06-01", "situacao": "fechado", "pendentes": null },
+        { "mes": "2026-07-01", "situacao": "fechado", "pendentes": null },
+        { "mes": "2026-08-01", "situacao": "fechado", "pendentes": null },
+        { "mes": "2026-09-01", "situacao": "fechado", "pendentes": null },
+        { "mes": "2026-10-01", "situacao": "aberto", "pendentes": 10 },
+        { "mes": "2026-11-01", "situacao": "fechado", "pendentes": null },
+        { "mes": "2026-12-01", "situacao": "futuro", "pendentes": null }
+    ]
+}

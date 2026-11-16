@@ -33,7 +33,7 @@ const INICIO_PREENCHEDOR: Inicio = {
   resumo: [
     { chave: 'apontamentos dos meus tipos', rotulo: 'Apontamentos dos meus tipos', valor: 3 },
     { chave: 'dashboards com meus apontamentos', rotulo: 'Dashboards com meus apontamentos', valor: 1 },
-    { chave: 'meus dados externos em construcao', rotulo: 'Meus dados externos em construção (TI)', valor: 0 },
+    { chave: 'meus dados externos em construcao', rotulo: 'Meus dados externos em construção pela TI', valor: 0 },
     { chave: 'lancamentos pendentes', rotulo: 'Lançamentos pendentes no período', valor: 1 },
   ],
   periodosEmAberto: [
@@ -59,7 +59,8 @@ const INICIO_PREENCHEDOR: Inicio = {
  *
  * Conversão para o domínio (`Inicio` em `src/types/dominio.ts`): `perfil`; `filiais` → `Filial[]`
  * (`empresa: null`, código em texto); `"periodo aberto"` → `{ mesDeReferencia, abertoPor, abertoEm, aviso }`
- * ou `null`; `"aviso de acesso"` → `{ tipo, mensagem, tipos, filiais }` ou `null`; `resumo` na ordem da API;
+ * ou `null`; `"aviso de acesso"` → `{ tipo, mensagem, tipos, filiais }` ou `null`; `resumo` na ordem da API, com o rótulo
+ * pela `chave` (`ROTULOS_RESUMO_INICIO`; chave desconhecida mantém o `rotulo` da API — ver `inicioService.rotulos.test.ts`);
  * `"periodos em aberto"` → `{ id, nome, periodicidade, periodoAtual, periodoEncerrado, filiaisAbertas,
  * progresso }`; `"ultimas alteracoes"` → `{ acao, apontamento, competencia, filial, valorAnterior,
  * valorNovo, data, usuario }` (valores número, booleano ou `null`).

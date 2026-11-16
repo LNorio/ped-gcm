@@ -3,6 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { limparToken } from '../../services/sessao'
 import { corpoDaChamada, respostaErro, respostaJson } from '../../test/apiFalsa'
 import {
+  APONTAMENTO_INADIMPLENCIA_API,
+  APONTAMENTO_VISITAS_API,
+  APONTAMENTO_VITRINE_API,
+  telaPreenchimentoApi,
+  type ApontamentoPreenchimentoApiFalso,
+} from '../../test/preenchimentoFalsos'
+import {
+  APONTAMENTO_PEDIDOS_API,
   ROTA_PREENCHIMENTO,
   getsDe,
   putsPreenchimento,
@@ -23,7 +31,10 @@ import { usuarioRapido } from '../../test/usuario'
  * - valores inválidos ou negativos aparecem na linha do apontamento e nada é enviado;
  * - no sucesso, a notificação informa os lançados e a tela recarrega (os lançados passam a "Preenchido");
  * - na recusa (tudo ou nada), os erros por item aparecem na linha de cada apontamento, a mensagem geral
- *   aparece junto do botão, os valores digitados continuam e a tela não recarrega.
+ *   aparece junto do botão, os valores digitados continuam e a tela não recarrega;
+ * - subabas por tipo (alteração de 13/11/2026): os valores digitados continuam ao trocar de aba e são
+ *   enviados mesmo os de abas não visíveis; um erro (local ou da API) num apontamento de outra aba
+ *   seleciona a aba dele e leva o foco ao campo; a recarga depois de salvar mantém a aba.
  * Relógio fixo em 13/11/2026 (só `Date`).
  */
 describe('F9.6 — Lançamento em lote (integração: /preenchimento)', () => {
@@ -48,6 +59,8 @@ describe('F9.6 — Lançamento em lote (integração: /preenchimento)', () => {
   const linha = (nome: string) => screen.getByRole('article', { name: nome })
   const salvar = () => screen.getByRole('button', { name: 'Salvar lançamentos' })
   const campoPedidos = () => within(linha('Pedidos digitados')).getByRole('textbox', { name: 'Valor de Pedidos digitados' })
+  const aba = (tipo: string) =>
+    within(screen.getByRole('tablist', { name: 'Tipos de apontamento' })).getByRole('tab', { name: (nome) => nome.startsWith(tipo) })
 
   async function abrirTela(perfil: PerfilPreenchimento = 'preenchedor', opcoes: OpcoesSessaoPreenchimento = {}) {
     const sessao = simularSessaoPreenchimento(fetchFalso, perfil, { tela: telaComPedidosApi(), ...opcoes })
@@ -198,7 +211,7 @@ describe('F9.6 — Lançamento em lote (integração: /preenchimento)', () => {
   describe('erro de validação num apontamento oculto pela busca', () => {
     const busca = () => screen.getByRole('searchbox', { name: 'Buscar apontamento ou indicador' })
 
-    it('limpa a busca, mostra todos os tipos e apontamentos, exibe o erro na linha e leva o foco ao campo inválido', async () => {
+    it('limpa a busca, volta às abas na aba do apontamento, exibe o erro na linha e leva o foco ao campo inválido', async () => {
       const user = usuarioRapido()
       const { chamadas } = await abrirTela()
 
@@ -210,10 +223,10 @@ describe('F9.6 — Lançamento em lote (integração: /preenchimento)', () => {
 
       expect(await within(linha('Pedidos digitados')).findByRole('alert')).toHaveTextContent('O valor não pode ser negativo.')
       expect(busca()).toHaveValue('')
-      expect(screen.getByRole('region', { name: 'Comercial' })).toBeInTheDocument()
-      expect(screen.getByRole('region', { name: 'Financeiro' })).toBeInTheDocument()
+      expect(aba('Comercial')).toHaveAttribute('aria-selected', 'true')
+      expect(aba('Financeiro')).toBeInTheDocument()
       expect(linha('Visitas a clientes')).toBeInTheDocument()
-      expect(linha('Inadimplência')).toBeInTheDocument()
+      expect(linha('Vitrine montada')).toBeInTheDocument()
       await waitFor(() => expect(campoPedidos()).toHaveFocus())
       expect(campoPedidos()).toHaveValue('-5')
       expect(putsPreenchimento(chamadas)).toHaveLength(0)
@@ -237,6 +250,131 @@ describe('F9.6 — Lançamento em lote (integração: /preenchimento)', () => {
           ],
         }),
       )
+    })
+  })
+
+  // Alteração de 13/11/2026: apontamentos em subabas por tipo, como no protótipo. Tela com um pendente
+  // em cada aba: "Pedidos digitados" (Comercial) e "Títulos renegociados" (Financeiro, id 12).
+  describe('subabas por tipo: rascunhos e erros em outra aba', () => {
+    const RENEGOCIADOS_API: ApontamentoPreenchimentoApiFalso = { ...APONTAMENTO_PEDIDOS_API, id: 12, nome: 'Títulos renegociados' }
+    const telaComPendenteEmCadaAba = () =>
+      telaPreenchimentoApi({
+        progresso: { preenchidos: 2, total: 5 },
+        tipos: [
+          { id: 1, nome: 'Comercial', quantidade: 3, apontamentos: [APONTAMENTO_VISITAS_API, APONTAMENTO_VITRINE_API, APONTAMENTO_PEDIDOS_API] },
+          { id: 2, nome: 'Financeiro', quantidade: 2, apontamentos: [APONTAMENTO_INADIMPLENCIA_API, RENEGOCIADOS_API] },
+        ],
+      })
+    const campoRenegociados = () =>
+      within(linha('Títulos renegociados')).getByRole('textbox', { name: 'Valor de Títulos renegociados' })
+
+    it('os valores digitados continuam ao trocar de aba', async () => {
+      const user = usuarioRapido()
+      await abrirTela('preenchedor', { tela: telaComPendenteEmCadaAba() })
+
+      await user.type(campoPedidos(), '7')
+      await user.click(aba('Financeiro'))
+      await user.type(campoRenegociados(), '3,5')
+      await user.click(aba('Comercial'))
+
+      expect(campoPedidos()).toHaveValue('7')
+      await user.click(aba('Financeiro'))
+      expect(campoRenegociados()).toHaveValue('3,5')
+    })
+
+    it('"Salvar lançamentos" envia também os valores de abas não visíveis, na ordem da tela', async () => {
+      const user = usuarioRapido()
+      const { chamadas } = await abrirTela('preenchedor', { tela: telaComPendenteEmCadaAba() })
+
+      await user.click(aba('Financeiro'))
+      await user.type(campoRenegociados(), '3,5')
+      await user.click(aba('Comercial'))
+      await user.type(campoPedidos(), '7')
+      expect(screen.queryByRole('article', { name: 'Títulos renegociados' })).not.toBeInTheDocument()
+
+      await user.click(salvar())
+
+      await waitFor(() => expect(putsPreenchimento(chamadas)).toHaveLength(1))
+      expect(corpoDaChamada(putsPreenchimento(chamadas)[0])).toEqual({
+        filial: '101',
+        'mes de referencia': '2026-10-01',
+        itens: [
+          { 'id apontamento': 11, valor: 7 },
+          { 'id apontamento': 12, valor: 3.5 },
+        ],
+      })
+      expect(await screen.findByText('2 lançamentos salvos.')).toBeInTheDocument()
+    })
+
+    it('"Salvar lançamentos" fica habilitado com valor informado só em outra aba', async () => {
+      const user = usuarioRapido()
+      await abrirTela('preenchedor', { tela: telaComPendenteEmCadaAba() })
+
+      await user.click(aba('Financeiro'))
+      await user.type(campoRenegociados(), '3')
+      await user.click(aba('Comercial'))
+
+      expect(salvar()).toBeEnabled()
+    })
+
+    it('erro de validação num apontamento de outra aba: a aba dele é selecionada, o erro aparece e o foco vai ao campo', async () => {
+      const user = usuarioRapido()
+      const { chamadas } = await abrirTela('preenchedor', { tela: telaComPendenteEmCadaAba() })
+
+      await user.click(aba('Financeiro'))
+      await user.type(campoRenegociados(), '-5')
+      await user.click(aba('Comercial'))
+      await user.click(within(linha('Vitrine montada')).getByRole('button', { name: 'Sim' }))
+      await user.click(salvar())
+
+      expect(await within(linha('Títulos renegociados')).findByRole('alert')).toHaveTextContent('O valor não pode ser negativo.')
+      expect(aba('Financeiro')).toHaveAttribute('aria-selected', 'true')
+      await waitFor(() => expect(campoRenegociados()).toHaveFocus())
+      expect(campoRenegociados()).toHaveValue('-5')
+      expect(putsPreenchimento(chamadas)).toHaveLength(0)
+    })
+
+    it('recusa da API num apontamento de outra aba: a aba dele é selecionada, o erro aparece e o foco vai ao campo', async () => {
+      const user = usuarioRapido()
+      const { chamadas } = await abrirTela('preenchedor', {
+        tela: telaComPendenteEmCadaAba(),
+        respostaPut: () =>
+          respostaJson(
+            { mensagem: 'Lote recusado: nenhum item foi gravado.', erros: [{ 'id apontamento': 12, mensagem: 'Apontamento desativado.' }] },
+            400,
+          ),
+      })
+      const telasAntes = getsDe(chamadas, ROTA_PREENCHIMENTO).length
+
+      await user.click(aba('Financeiro'))
+      await user.type(campoRenegociados(), '3')
+      await user.click(aba('Comercial'))
+      await user.type(campoPedidos(), '7')
+      await user.click(salvar())
+
+      expect(await within(linha('Títulos renegociados')).findByText('Apontamento desativado.')).toBeInTheDocument()
+      expect(aba('Financeiro')).toHaveAttribute('aria-selected', 'true')
+      await waitFor(() => expect(campoRenegociados()).toHaveFocus())
+      expect(screen.getByText('Lote recusado: nenhum item foi gravado.')).toBeInTheDocument()
+      expect(campoRenegociados()).toHaveValue('3')
+      await user.click(aba('Comercial'))
+      expect(campoPedidos()).toHaveValue('7')
+      expect(getsDe(chamadas, ROTA_PREENCHIMENTO)).toHaveLength(telasAntes)
+    })
+
+    it('depois de salvar, a tela recarrega na mesma aba', async () => {
+      const user = usuarioRapido()
+      const { chamadas } = await abrirTela('preenchedor', { tela: telaComPendenteEmCadaAba() })
+      const telasAntes = getsDe(chamadas, ROTA_PREENCHIMENTO).length
+
+      await user.click(aba('Financeiro'))
+      await user.type(campoRenegociados(), '3')
+      await user.click(salvar())
+
+      expect(await screen.findByText('1 lançamento salvo.')).toBeInTheDocument()
+      await waitFor(() => expect(getsDe(chamadas, ROTA_PREENCHIMENTO)).toHaveLength(telasAntes + 1))
+      await waitFor(() => expect(within(linha('Títulos renegociados')).getByText('Preenchido')).toBeInTheDocument())
+      expect(aba('Financeiro')).toHaveAttribute('aria-selected', 'true')
     })
   })
 

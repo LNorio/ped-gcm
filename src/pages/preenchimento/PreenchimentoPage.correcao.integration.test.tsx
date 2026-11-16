@@ -21,7 +21,8 @@ const ROTA_HISTORICO_9 = '/api/ped/apontamentos/9/historico'
  *   do atual e motivo, envia `PUT /api/ped/preenchimento` com um item e o `motivo`; no sucesso fecha,
  *   notifica "1 correção salva." e recarrega; na recusa, a mensagem fica no diálogo, que continua aberto;
  * - "Histórico" abre "Histórico do apontamento" com o lançamento e as correções da filial e do mês.
- * Relógio fixo em 13/11/2026 (só `Date`).
+ * Subabas por tipo (alteração de 13/11/2026): "Inadimplência" fica na aba Financeiro; depois de salvar a
+ * correção, a tela recarrega na mesma aba. Relógio fixo em 13/11/2026 (só `Date`).
  */
 describe('F9.7 — Correção e histórico do apontamento (integração: /preenchimento)', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
@@ -46,9 +47,16 @@ describe('F9.7 — Correção e histórico do apontamento (integração: /preenc
   const dialogoCorrecao = () => screen.getByRole('dialog', { name: 'Corrigir lançamento' })
   const dialogoHistorico = () => screen.getByRole('dialog', { name: 'Histórico do apontamento' })
 
+  // Subabas por tipo (alteração de 13/11/2026): "Inadimplência" fica na aba Financeiro.
+  const aba = (tipo: string) =>
+    within(screen.getByRole('tablist', { name: 'Tipos de apontamento' })).getByRole('tab', { name: (nome) => nome.startsWith(tipo) })
+
+  /** Abre a tela já na aba Financeiro, onde está "Inadimplência". */
   async function abrirTela(opcoes: OpcoesSessaoPreenchimento = {}) {
     const sessao = simularSessaoPreenchimento(fetchFalso, 'preenchedor', opcoes)
     renderizarApp('/preenchimento')
+    await screen.findByRole('article', { name: 'Visitas a clientes' })
+    await usuarioRapido().click(aba('Financeiro'))
     await screen.findByRole('article', { name: 'Inadimplência' })
     return sessao
   }
@@ -147,10 +155,13 @@ describe('F9.7 — Correção e histórico do apontamento (integração: /preenc
     it('valores digitados no lote continuam depois de uma correção cancelada', async () => {
       const user = usuarioRapido()
       await abrirTela()
+      await user.click(aba('Comercial'))
       await user.click(within(linha('Vitrine montada')).getByRole('button', { name: 'Sim' }))
 
+      await user.click(aba('Financeiro'))
       await user.click(within(linha('Inadimplência')).getByRole('button', { name: 'Corrigir' }))
       await user.click(within(dialogoCorrecao()).getByRole('button', { name: 'Cancelar' }))
+      await user.click(aba('Comercial'))
 
       expect(within(linha('Vitrine montada')).getByRole('button', { name: 'Sim' })).toHaveAttribute('aria-pressed', 'true')
     })
@@ -187,6 +198,7 @@ describe('F9.7 — Correção e histórico do apontamento (integração: /preenc
       await waitFor(() =>
         expect(within(screen.getByRole('region', { name: 'Resumo do mês' })).getByText('Competência: 09/2026')).toBeInTheDocument(),
       )
+      await user.click(aba('Financeiro'))
 
       await user.click(within(linha('Inadimplência')).getByRole('button', { name: 'Histórico' }))
 

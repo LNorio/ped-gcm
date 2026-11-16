@@ -28,14 +28,19 @@ describe('F9.7 — ListaApontamentosPreenchimento ("Corrigir" e "Histórico" por
   }
 
   const linha = (nome: string) => screen.getByRole('article', { name: nome })
+  // Subabas por tipo (alteração de 13/11/2026): "Inadimplência" fica na aba Financeiro.
+  const aba = (tipo: string) =>
+    within(screen.getByRole('tablist', { name: 'Tipos de apontamento' })).getByRole('tab', { name: (nome) => nome.startsWith(tipo) })
 
-  it('mês editável: apontamentos já lançados oferecem "Corrigir" e "Histórico"', () => {
+  it('mês editável: apontamentos já lançados oferecem "Corrigir" e "Histórico"', async () => {
+    const user = usuarioRapido()
     renderizar()
 
-    for (const nome of ['Visitas a clientes', 'Inadimplência']) {
-      expect(within(linha(nome)).getByRole('button', { name: 'Corrigir' })).toBeInTheDocument()
-      expect(within(linha(nome)).getByRole('button', { name: 'Histórico' })).toBeInTheDocument()
-    }
+    expect(within(linha('Visitas a clientes')).getByRole('button', { name: 'Corrigir' })).toBeInTheDocument()
+    expect(within(linha('Visitas a clientes')).getByRole('button', { name: 'Histórico' })).toBeInTheDocument()
+    await user.click(aba('Financeiro'))
+    expect(within(linha('Inadimplência')).getByRole('button', { name: 'Corrigir' })).toBeInTheDocument()
+    expect(within(linha('Inadimplência')).getByRole('button', { name: 'Histórico' })).toBeInTheDocument()
   })
 
   it('apontamento sem valor não oferece "Corrigir" nem "Histórico"', () => {
@@ -48,6 +53,7 @@ describe('F9.7 — ListaApontamentosPreenchimento ("Corrigir" e "Histórico" por
   it('"Corrigir" chama onCorrigir com o apontamento da linha', async () => {
     const user = usuarioRapido()
     const props = renderizar()
+    await user.click(aba('Financeiro'))
 
     await user.click(within(linha('Inadimplência')).getByRole('button', { name: 'Corrigir' }))
 
@@ -65,12 +71,15 @@ describe('F9.7 — ListaApontamentosPreenchimento ("Corrigir" e "Histórico" por
     expect(props.onCorrigir).not.toHaveBeenCalled()
   })
 
-  it('mês não editável (consulta): nenhum "Corrigir", mas "Histórico" continua nos já lançados', () => {
+  it('mês não editável (consulta): nenhum "Corrigir", mas "Histórico" continua nos já lançados', async () => {
+    const user = usuarioRapido()
     renderizar({ tipos: telaMesFechado().tipos, editavel: false })
 
     expect(screen.queryByRole('button', { name: 'Corrigir' })).not.toBeInTheDocument()
     expect(within(linha('Visitas a clientes')).getByRole('button', { name: 'Histórico' })).toBeInTheDocument()
-    expect(within(linha('Inadimplência')).getByRole('button', { name: 'Histórico' })).toBeInTheDocument()
     expect(within(linha('Vitrine montada')).queryByRole('button', { name: 'Histórico' })).not.toBeInTheDocument()
+    await user.click(aba('Financeiro'))
+    expect(screen.queryByRole('button', { name: 'Corrigir' })).not.toBeInTheDocument()
+    expect(within(linha('Inadimplência')).getByRole('button', { name: 'Histórico' })).toBeInTheDocument()
   })
 })

@@ -6,12 +6,19 @@
  * (login, sem acesso, aplicação) é a camada de rotas. Ao montar com token salvo, consulta
  * `GET /ped/acesso`; ouve `EVENTO_SESSAO_EXPIRADA` (401 em chamadas autenticadas) para encerrar a
  * sessão com a mensagem padrão.
+ *
+ * Ao obter o acesso (restauração ou login), avisa `acessoObtido` antes de aplicar o estado, para que a
+ * tela que vai abrir possa antecipar as próprias consultas (ex.: o Início). Como essas consultas saem
+ * antes de a sessão autenticada aparecer, um 401 delas que chegue nesse intervalo só encerra a sessão
+ * logo depois de a sessão autenticada ser exibida (o fluxo visto é o mesmo de sempre: a tela abre e
+ * volta ao login com o aviso de sessão expirada).
  */
 
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ApiError, EVENTO_SESSAO_EXPIRADA, mensagemDeErro, mensagemPadraoPorStatus } from '../services/api'
 import { entrar as entrarServico, obterAcesso } from '../services/autenticacao'
 import { limparToken, obterToken } from '../services/sessao'
+import { avisarAcessoObtido } from './acessoObtido'
 import type { Acesso, Filial } from '../types/dominio'
 import { TODAS_AS_FILIAIS } from './filial'
 
@@ -70,6 +77,11 @@ function dadosComAcesso(acesso: Acesso): DadosSessao {
   }
 }
 
+/** Sessão expirada: volta ao anônimo com a mensagem padrão (sem efeito se já está anônima). */
+function expirar(atual: DadosSessao): DadosSessao {
+  return atual.estado === 'anonimo' ? atual : { ...SESSAO_ANONIMA, erro: mensagemPadraoPorStatus(401) }
+}
+
 /** 401 ao restaurar: o cliente HTTP já disparou `EVENTO_SESSAO_EXPIRADA`, que preencheu `erro`. */
 function ehSessaoExpirada(erro: unknown): boolean {
   return erro instanceof ApiError && erro.status === 401
@@ -78,6 +90,37 @@ function ehSessaoExpirada(erro: unknown): boolean {
 export function SessaoProvider({ children }: { children: ReactNode }) {
   const [dados, setDados] = useState<DadosSessao>(dadosIniciais)
   const montado = useRef(false)
+  // Sessão autenticada já aplicada (`setDados`), mas ainda não exibida; e expiração que chegou nesse meio-tempo.
+  const autenticacaoPendente = useRef(false)
+  const expiracaoAdiada = useRef(false)
+  // Muda a cada sessão autenticada aplicada, para o efeito abaixo rodar a cada novo login — inclusive com o
+  // estado já `autenticado` (novo login sem sair antes, logins concorrentes).
+  const [versaoAutenticacao, setVersaoAutenticacao] = useState(0)
+
+  /** Monta o estado autenticado e, se o usuário tem perfil, avisa quem antecipa as consultas da tela. */
+  const dadosAoObterAcesso = useCallback((acesso: Acesso): DadosSessao => {
+    const novos = dadosComAcesso(acesso)
+    if (novos.estado === 'autenticado') {
+      autenticacaoPendente.current = true
+      setVersaoAutenticacao((versao) => versao + 1)
+      avisarAcessoObtido({ acesso, filialSelecionada: novos.filialSelecionada })
+    }
+    return novos
+  }, [])
+
+  // A sessão autenticada (de cada novo login) entrou na tela: deixa de estar pendente. Efeito de layout
+  // (síncrono ao commit) para que um 401 que chegue logo depois já encerre a sessão na hora, sem depender
+  // de quando os efeitos passivos rodam.
+  useLayoutEffect(() => {
+    if (dados.estado === 'autenticado') autenticacaoPendente.current = false
+  }, [dados.estado, versaoAutenticacao])
+
+  // A sessão autenticada foi exibida: aplica a expiração adiada, se houver.
+  useEffect(() => {
+    if (dados.estado !== 'autenticado' || autenticacaoPendente.current || !expiracaoAdiada.current) return
+    expiracaoAdiada.current = false
+    setDados(expirar)
+  }, [dados.estado, versaoAutenticacao])
 
   useEffect(() => {
     montado.current = true
@@ -93,7 +136,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
 
     obterAcesso()
       .then((acesso) => {
-        if (ativo) setDados(dadosComAcesso(acesso))
+        if (ativo) setDados(dadosAoObterAcesso(acesso))
       })
       .catch((erro: unknown) => {
         if (!ativo) return
@@ -110,7 +153,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     return () => {
       ativo = false
     }
-  }, [])
+  }, [dadosAoObterAcesso])
 
   // Sessão expirada sinalizada pelo cliente HTTP (401 em chamada autenticada).
   // Com a sessão já anônima (após sair ou nunca autenticada) não há o que expirar: o estado é
@@ -118,9 +161,12 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const aoExpirar = () => {
       limparToken()
-      setDados((atual) =>
-        atual.estado === 'anonimo' ? atual : { ...SESSAO_ANONIMA, erro: mensagemPadraoPorStatus(401) },
-      )
+      // 401 de uma consulta antecipada, antes de a sessão autenticada aparecer: aplica logo depois.
+      if (autenticacaoPendente.current) {
+        expiracaoAdiada.current = true
+        return
+      }
+      setDados(expirar)
     }
     window.addEventListener(EVENTO_SESSAO_EXPIRADA, aoExpirar)
     return () => {
@@ -132,16 +178,19 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     try {
       await entrarServico(usuario, senha)
       const acesso = await obterAcesso()
-      if (montado.current) setDados(dadosComAcesso(acesso))
+      if (montado.current) setDados(dadosAoObterAcesso(acesso))
     } catch (erro) {
       limparToken()
       if (montado.current) setDados({ ...SESSAO_ANONIMA, erro: mensagemDeErro(erro) })
       throw erro
     }
-  }, [])
+  }, [dadosAoObterAcesso])
 
   const sair = useCallback((): void => {
     limparToken()
+    // Uma expiração adiada não sobrevive ao sair: não pode derrubar o próximo login.
+    autenticacaoPendente.current = false
+    expiracaoAdiada.current = false
     setDados(SESSAO_ANONIMA)
   }, [])
 

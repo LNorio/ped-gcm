@@ -6,13 +6,18 @@
  * com "Apontamentos dos meus tipos" e sem "Dashboards ativos"). Trocar a filial do cabeçalho atualiza os
  * valores.
  *
+ * Rótulos (decisão de 16/11/2026): o servidor real manda o `rotulo` sem acentos ("Dados externos em construcao
+ * pela TI", "Lancamentos pendentes no periodo") e o front exibe o texto correto escolhido pela `chave`
+ * (`ROTULOS_RESUMO_INICIO`); chave desconhecida exibe o `rotulo` da API como veio. Os fixtures de
+ * `src/test/inicioFalsos.ts` mandam os rótulos sem acento, como a API real.
+ *
  * A rota é carregada sob demanda: os testes esperam a lista com `findBy*` (timeout padrão do projeto).
  */
 import { screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { limparToken } from '../../services/sessao'
-import { simularApi } from '../../test/apiFalsa'
-import { rotasDoInicio } from '../../test/inicioFalsos'
+import { respostaJson, simularApi } from '../../test/apiFalsa'
+import { inicioAdminApi, rotasDoInicio } from '../../test/inicioFalsos'
 import { renderizarApp } from '../../test/renderizarApp'
 import { usuarioRapido } from '../../test/usuario'
 
@@ -59,9 +64,11 @@ describe('F11.3 — Indicadores-resumo do Início por perfil (integração)', ()
         ['Apontamentos ativos', '12'],
         ['Dados externos ativos', '5'],
         ['Total de indicadores', '8'],
-        ['Dados externos em construção (TI)', '2'],
+        ['Dados externos em construção pela TI', '2'],
         ['Lançamentos pendentes no período', '1.234'],
       ])
+      expect(within(lista).queryByText('Dados externos em construcao pela TI')).not.toBeInTheDocument()
+      expect(within(lista).queryByText('Lancamentos pendentes no periodo')).not.toBeInTheDocument()
     })
 
     it('trocar a filial do cabeçalho para 101 atualiza os valores (pendentes da filial: 3)', async () => {
@@ -89,10 +96,12 @@ describe('F11.3 — Indicadores-resumo do Início por perfil (integração)', ()
       esperarItens(lista, [
         ['Apontamentos ativos', '12'],
         ['Dashboards com meus apontamentos', '3'],
-        ['Meus dados externos em construção (TI)', '1'],
+        ['Meus dados externos em construção pela TI', '1'],
         ['Dashboards ativos', '4'],
         ['Lançamentos pendentes no período', '9'],
       ])
+      expect(within(lista).queryByText('Meus dados externos em construcao pela TI')).not.toBeInTheDocument()
+      expect(within(lista).queryByText('Lancamentos pendentes no periodo')).not.toBeInTheDocument()
     })
   })
 
@@ -105,10 +114,36 @@ describe('F11.3 — Indicadores-resumo do Início por perfil (integração)', ()
       esperarItens(lista, [
         ['Apontamentos dos meus tipos', '3'],
         ['Dashboards com meus apontamentos', '1'],
-        ['Meus dados externos em construção (TI)', '0'],
+        ['Meus dados externos em construção pela TI', '0'],
         ['Lançamentos pendentes no período', '1'],
       ])
       expect(within(lista).queryByText('Dashboards ativos')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('rótulos pela chave', () => {
+    it('chave desconhecida exibe o rótulo da API como veio; a conhecida, o texto com acento', async () => {
+      simularApi(
+        fetchFalso,
+        rotasDoInicio('admin', {
+          'GET /api/ped/inicio': () =>
+            respostaJson(
+              inicioAdminApi({
+                resumo: [
+                  { chave: 'nova metrica do servidor', rotulo: 'Nova metrica do servidor', valor: 4 },
+                  { chave: 'lancamentos pendentes', rotulo: 'Lancamentos pendentes no periodo', valor: 7 },
+                ],
+              }),
+            ),
+        }),
+      )
+
+      const lista = await abrirResumo()
+
+      esperarItens(lista, [
+        ['Nova metrica do servidor', '4'],
+        ['Lançamentos pendentes no período', '7'],
+      ])
     })
   })
 })

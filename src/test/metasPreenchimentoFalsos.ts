@@ -13,6 +13,7 @@
  * mais recente ao mais antigo: 1.800,00 → 2.000,25 (Ana Costa, "sazonalidade", 20/10/2026 14:30) e
  * 1.500,00 → 1.800,00 (Fulano, "campanha de clientes", 05/10/2026 09:00).
  */
+// Domínio: `composicao` são os nomes dos itens (F9.13*: a API real devolve a composição como lista de textos).
 import type { IndicadorMetaPreenchimento, JanelaMetas } from '../types/dominio'
 import { respostaErro, respostaJson, type RotaFalsa } from './apiFalsa'
 import {
@@ -31,7 +32,7 @@ export const INDICADOR_META_COBERTURA: IndicadorMetaPreenchimento = {
   id: 12,
   nome: 'Cobertura de clientes',
   tipos: ['Comercial'],
-  composicao: { tipo: 'apontamentos', itens: [{ id: 5, nome: 'Visitas a clientes', ativo: true }] },
+  composicao: ['Visitas a clientes'],
   sentido: 'maior_melhor',
   metaDoCadastro: 1500,
   metaDoCadastroOrigem: 'geral',
@@ -43,7 +44,7 @@ export const INDICADOR_META_FATURAMENTO: IndicadorMetaPreenchimento = {
   id: 13,
   nome: 'Faturamento',
   tipos: ['Comercial'],
-  composicao: { tipo: 'dado_externo', itens: [{ id: 3, nome: 'Faturamento (ERP)', ativo: true }] },
+  composicao: ['Faturamento (ERP)'],
   sentido: 'maior_melhor',
   metaDoCadastro: 500000,
   metaDoCadastroOrigem: 'filial',
@@ -55,7 +56,7 @@ export const INDICADOR_META_INADIMPLENCIA: IndicadorMetaPreenchimento = {
   id: 14,
   nome: 'Inadimplência',
   tipos: ['Financeiro'],
-  composicao: { tipo: 'apontamentos', itens: [{ id: 9, nome: 'Títulos em atraso', ativo: true }] },
+  composicao: ['Títulos em atraso'],
   sentido: 'menor_melhor',
   metaDoCadastro: 5,
   metaDoCadastroOrigem: 'geral',
@@ -81,7 +82,7 @@ export const INDICADOR_META_INADIMPLENCIA_API: IndicadorMetaApiFalso = {
   id: 14,
   nome: 'Inadimplência',
   tipos: ['Financeiro'],
-  composicao: { tipo: 'apontamentos', itens: [{ id: 9, nome: 'Títulos em atraso', ativo: true }] },
+  composicao: ['Títulos em atraso'],
   sentido: 'menor_melhor',
   'meta do cadastro': 5,
   'meta do cadastro origem': 'geral',

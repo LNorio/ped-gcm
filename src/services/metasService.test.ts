@@ -13,7 +13,7 @@ const COBERTURA: IndicadorMetaPreenchimento = {
   id: 12,
   nome: 'Cobertura de clientes',
   tipos: ['Comercial'],
-  composicao: { tipo: 'apontamentos', itens: [{ id: 5, nome: 'Visitas a clientes', ativo: true }] },
+  composicao: ['Visitas a clientes'],
   sentido: 'maior_melhor',
   metaDoCadastro: 1500,
   metaDoCadastroOrigem: 'geral',
@@ -25,7 +25,7 @@ const FATURAMENTO: IndicadorMetaPreenchimento = {
   id: 13,
   nome: 'Faturamento',
   tipos: ['Comercial'],
-  composicao: { tipo: 'dado_externo', itens: [{ id: 3, nome: 'Faturamento', ativo: true }] },
+  composicao: ['Faturamento'],
   sentido: 'maior_melhor',
   metaDoCadastro: 500000,
   metaDoCadastroOrigem: 'filial',
@@ -128,7 +128,7 @@ describe('F9.1 — Serviço de metas no preenchimento (RF-71 a RF-74)', () => {
       expect(janela.indicadores[0]).toMatchObject({ metaDoCadastro: 1500, metaVigente: 2000.25, tipos: ['Comercial'] })
     })
 
-    it('campos opcionais ausentes: tipos [], composição, sentido, metas e origem null, ajustada false', async () => {
+    it('campos opcionais ausentes: tipos e composição [], sentido, metas e origem null, ajustada false', async () => {
       simularApi(fetchFalso, { [`GET ${ROTA}`]: () => respostaJson(janelaMetasApi({ indicadores: [{ id: 20, nome: 'Ticket médio' }] })) })
 
       const janela = await listarMetasPreenchimento({ filial: '101' })
@@ -138,7 +138,7 @@ describe('F9.1 — Serviço de metas no preenchimento (RF-71 a RF-74)', () => {
           id: 20,
           nome: 'Ticket médio',
           tipos: [],
-          composicao: null,
+          composicao: [],
           sentido: null,
           metaDoCadastro: null,
           metaDoCadastroOrigem: null,
@@ -146,6 +146,46 @@ describe('F9.1 — Serviço de metas no preenchimento (RF-71 a RF-74)', () => {
           ajustada: false,
         },
       ])
+    })
+
+    it('F9.13* — composição em lista de textos (formato real) vira a lista de nomes, na ordem devolvida', async () => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}`]: () =>
+          respostaJson(janelaMetasApi({ indicadores: [{ ...INDICADOR_META_COBERTURA_API, composicao: ['Coaching', 'Treinamento técnico'] }] })),
+      })
+
+      const janela = await listarMetasPreenchimento({ filial: '101' })
+
+      expect(janela.indicadores[0].composicao).toEqual(['Coaching', 'Treinamento técnico'])
+    })
+
+    it.each<[string, unknown, string[]]>([
+      ['objeto { tipo, itens } (formato antigo) vira os nomes dos itens', { tipo: 'apontamentos', itens: [{ id: 5, nome: 'Visitas a clientes', ativo: true }] }, ['Visitas a clientes']],
+      ['lista de objetos { nome } vira os nomes', [{ id: 5, nome: 'Visitas a clientes' }, { nome: 'Vitrine montada' }], ['Visitas a clientes', 'Vitrine montada']],
+      ['itens irreconhecíveis na lista são ignorados', ['Coaching', 7, null, { id: 1 }, 'Treinamento técnico'], ['Coaching', 'Treinamento técnico']],
+      ['lista vazia vira []', [], []],
+      ['null vira []', null, []],
+      ['texto solto vira []', 'Coaching', []],
+    ])('F9.13* — composição: %s, sem rejeitar a lista', async (_caso, composicao, esperado) => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}`]: () => respostaJson(janelaMetasApi({ indicadores: [{ ...INDICADOR_META_COBERTURA_API, composicao }] })),
+      })
+
+      const janela = await listarMetasPreenchimento({ filial: '101' })
+
+      expect(janela.indicadores[0].composicao).toEqual(esperado)
+    })
+
+    it('F9.13* — campos extras do envelope (filial, "mes de referencia", quantidade) são tolerados e não entram na janela', async () => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}`]: () => respostaJson({ ...janelaMetasApi(), filial: '101', 'mes de referencia': '2026-10-01', quantidade: 9 }),
+      })
+
+      await expect(listarMetasPreenchimento({ filial: '101' })).resolves.toEqual<JanelaMetas>({
+        situacaoDoMes: 'aberto',
+        editavel: true,
+        indicadores: [COBERTURA, FATURAMENTO],
+      })
     })
 
     it('"meta do cadastro origem" e sentido desconhecidos viram null, sem rejeitar a lista', async () => {

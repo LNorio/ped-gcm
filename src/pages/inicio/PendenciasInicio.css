@@ -1,0 +1,49 @@
+/* Painéis "Indicadores com meta pendente" e "Dashboards em construção" do Início (F11.6). */
+
+.pendencias-inicio__lista {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pendencias-inicio__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--cor-borda-suave);
+}
+
+.pendencias-inicio__item:first-child {
+  padding-top: 0;
+}
+
+.pendencias-inicio__item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.pendencias-inicio__nome {
+  font-weight: 600;
+  color: var(--cor-texto);
+  overflow-wrap: anywhere;
+}
+
+.pendencias-inicio__detalhe {
+  font-size: 0.875rem;
+  color: var(--cor-texto-secundario);
+  overflow-wrap: anywhere;
+}
+
+.pendencias-inicio__link {
+  text-decoration: none;
+}
+
+.pendencias-inicio__vazio,
+.pendencias-inicio__falha {
+  margin: 0;
+  color: var(--cor-texto-suave);
+}

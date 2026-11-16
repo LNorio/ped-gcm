@@ -881,7 +881,8 @@ export interface IndicadorMetaPreenchimento {
   nome: string
   /** Nomes dos tipos. */
   tipos: string[]
-  composicao: ComposicaoIndicador | null
+  /** Nomes dos itens da composição (apontamentos ou dado externo), na ordem devolvida. */
+  composicao: string[]
   sentido: Sentido | null
   /** Meta da filial no cadastro; senão, a geral. */
   metaDoCadastro: number | null
@@ -1090,6 +1091,22 @@ export interface ItemResumoInicio {
   rotulo: string
   valor: number
 }
+
+/**
+ * Rótulos em pt-BR do resumo do Início, pela `chave` (F11.3). O servidor envia o `rotulo` sem acentos;
+ * chaves fora desta tabela mantêm o rótulo da API.
+ */
+export const ROTULOS_RESUMO_INICIO: Readonly<Record<string, string>> = Object.freeze({
+  'apontamentos ativos': 'Apontamentos ativos',
+  'dados externos ativos': 'Dados externos ativos',
+  'total de indicadores': 'Total de indicadores',
+  'dados externos em construcao': 'Dados externos em construção pela TI',
+  'lancamentos pendentes': 'Lançamentos pendentes no período',
+  'dashboards com meus apontamentos': 'Dashboards com meus apontamentos',
+  'meus dados externos em construcao': 'Meus dados externos em construção pela TI',
+  'dashboards ativos': 'Dashboards ativos',
+  'apontamentos dos meus tipos': 'Apontamentos dos meus tipos',
+})
 
 /** Dashboard com período em aberto (RF-10). */
 export interface PeriodoEmAbertoInicio {

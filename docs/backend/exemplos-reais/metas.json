@@ -1,0 +1,17 @@
+{
+    "filial": "100",
+    "mes de referencia": "2026-10-01",
+    "situacao do mes": "aberto",
+    "editavel": true,
+    "indicadores": [
+        { "id": 17, "nome": "Indicadores de Financeiro", "tipos": ["Financeiro"],
+          "composicao": ["Documento não fiscal", "Pagamento com multas\/juros", "Pagamento fora da programação", "Qualidade do lançamento"],
+          "sentido": "maior_melhor", "meta do cadastro": 4, "meta do cadastro origem": "geral", "meta vigente": 4, "ajustada": false },
+        { "id": 3, "nome": "teste 2", "tipos": ["Contabilidade", "Tecnologia da Informação"],
+          "composicao": ["teste", "teste 2"],
+          "sentido": "maior_melhor", "meta do cadastro": 300, "meta do cadastro origem": "geral", "meta vigente": 300, "ajustada": false },
+        { "id": 2, "nome": "teste externo", "tipos": ["Contabilidade"], "composicao": ["teste 2"],
+          "sentido": "menor_melhor", "meta do cadastro": 120, "meta do cadastro origem": "geral", "meta vigente": 120, "ajustada": false }
+    ],
+    "quantidade": 9
+}

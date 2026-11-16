@@ -10,7 +10,8 @@
  *   histórico do apontamento.
  *
  * O estado do lançamento (rascunhos, erros, diálogos) fica em `TelaDoMes`, que é recriada a cada filial
- * e mês (`key`), para que os valores digitados não passem de um mês para outro.
+ * e mês (`key`), para que os valores digitados não passem de um mês para outro. A recarga do mesmo mês
+ * (depois de salvar ou corrigir) não a recria, de modo que a subaba de tipo selecionada se mantém.
  *
  * A janela de metas é consultada assim que chega a tela de outra filial ou de outro mês
  * (`onTelaRecebida` → `anteciparMetasPreenchimento`), em paralelo com a renderização da tela, em vez
@@ -105,8 +106,14 @@ function TelaDoMes({ tela, salvar, onNotificar }: TelaDoMesProps) {
       setRascunhos({})
       onNotificar(mensagemSucessoPreenchimento(resultado))
     } catch (falha) {
-      setErros(errosPorApontamento(falha))
+      const errosDaApi = errosPorApontamento(falha)
+      setErros(errosDaApi)
       setErroGeral(mensagemDeErro(falha))
+      // Foco no primeiro apontamento com erro, na ordem da tela (a lista seleciona a aba dele).
+      const primeiroComErro = tela.tipos
+        .flatMap((tipo) => tipo.apontamentos)
+        .find((apontamento) => errosDaApi[apontamento.id] !== undefined)
+      if (primeiroComErro) setPedidoFoco({ id: primeiroComErro.id })
     } finally {
       setSalvandoLote(false)
     }

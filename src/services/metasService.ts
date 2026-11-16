@@ -11,10 +11,13 @@
  * Filial e mês seguem as regras do preenchimento (validação local em `preenchimentoService`:
  * `MENSAGEM_FILIAL_OBRIGATORIA` e `MENSAGEM_MES_INVALIDO`).
  *
- * Leitura (formato assumido: `{ "situacao do mes", editavel, indicadores }`): `editavel` ausente segue
+ * Leitura (formato real em `docs/backend/exemplos-reais/metas.json`:
+ * `{ filial, "mes de referencia", "situacao do mes", editavel, indicadores, quantidade }`; `filial`,
+ * `"mes de referencia"` e `quantidade` são tolerados e não entram na janela): `editavel` ausente segue
  * a situação do mês; metas em número ou texto decimal canônico (`"2000.25"`; pt-BR é inválido); `tipos`
- * em nomes ou `{ id, nome }` (vira o nome); `composicao`, `sentido` e `"meta do cadastro origem"`
- * desconhecidos viram `null`, sem rejeitar a lista. Respostas 2xx fora do formato viram
+ * em nomes ou `{ id, nome }` (vira o nome); `composicao` vira a lista dos nomes dos itens (lista de
+ * textos, lista de `{ nome }` ou `{ tipo, itens }`; outro formato vira `[]`); `sentido` e
+ * `"meta do cadastro origem"` desconhecidos viram `null`, sem rejeitar a lista. Respostas 2xx fora do formato viram
  * `ApiError(200, MENSAGEM_RESPOSTA_INVALIDA)`; um único indicador inválido rejeita a resposta inteira.
  *
  * Regra "2xx = gravado" no `PUT`: qualquer 2xx resolve; `ajustadas` ausente ou inválida vira `0` e a
@@ -24,14 +27,11 @@
 
 import {
   type AjusteMetas,
-  type ComponenteIndicador,
-  type ComposicaoIndicador,
   type IndicadorMetaPreenchimento,
   type JanelaMetas,
   ORIGENS_META_DO_CADASTRO,
   SENTIDOS,
   type SituacaoMesConsultado,
-  TIPOS_COMPOSICAO,
 } from '../types/dominio'
 import { paraCorpoAjusteMetas } from './adaptadores'
 import { ApiError, MENSAGEM_RESPOSTA_INVALIDA, apiFetch } from './api'
@@ -103,22 +103,21 @@ function idOuNulo(valor: unknown): number | null {
   return null
 }
 
-function nomeDoTipo(item: unknown): string | null {
+/** Nome de um tipo ou de um item da composição: o texto, ou o `nome` de um objeto; senão `null`. */
+function nomeDoItem(item: unknown): string | null {
   if (ehTexto(item)) return item
   if (ehObjeto(item) && ehTexto(item.nome)) return item.nome
   return null
 }
 
-function componenteOuNulo(item: unknown): ComponenteIndicador | null {
-  if (!ehObjeto(item) || !ehNumero(item.id) || !ehTexto(item.nome)) return null
-  return { id: item.id, nome: item.nome, ativo: item.ativo !== false }
-}
-
-/** Composição reconhecida (`apontamentos`/`dado_externo`); qualquer outro formato vira `null`. */
-function composicaoOuNula(valor: unknown): ComposicaoIndicador | null {
-  if (!ehObjeto(valor) || !ehUmDe(TIPOS_COMPOSICAO, valor.tipo)) return null
-  const itens = Array.isArray(valor.itens) ? valor.itens.map(componenteOuNulo).filter((item) => item !== null) : []
-  return { tipo: valor.tipo, itens }
+/**
+ * Composição pelos nomes dos itens: lista de textos (formato real) ou de `{ nome }`, ou o objeto
+ * `{ tipo, itens: [{ nome }] }`; itens irreconhecíveis são ignorados e qualquer outro formato vira `[]`.
+ */
+function nomesDaComposicao(valor: unknown): string[] {
+  const itens: unknown = ehObjeto(valor) ? valor.itens : valor
+  if (!Array.isArray(itens)) return []
+  return itens.map(nomeDoItem).filter((nome) => nome !== null)
 }
 
 function paraIndicadorMeta(item: unknown): IndicadorMetaPreenchimento {
@@ -127,8 +126,8 @@ function paraIndicadorMeta(item: unknown): IndicadorMetaPreenchimento {
   return {
     id: item.id,
     nome: item.nome,
-    tipos: Array.isArray(item.tipos) ? item.tipos.map(nomeDoTipo).filter((nome) => nome !== null) : [],
-    composicao: composicaoOuNula(item.composicao),
+    tipos: Array.isArray(item.tipos) ? item.tipos.map(nomeDoItem).filter((nome) => nome !== null) : [],
+    composicao: nomesDaComposicao(item.composicao),
     sentido: ehUmDe(SENTIDOS, item.sentido) ? item.sentido : null,
     metaDoCadastro: meta(item['meta do cadastro']),
     metaDoCadastroOrigem: ehUmDe(ORIGENS_META_DO_CADASTRO, origem) ? origem : null,

@@ -26,6 +26,7 @@ import {
   PERFIS,
   PERIODICIDADES,
   type PeriodoAbertoInicio,
+  ROTULOS_RESUMO_INICIO,
   type PeriodoEmAbertoInicio,
   type UltimaAlteracaoInicio,
   type ValorLancamento,
@@ -125,7 +126,8 @@ function paraAvisoDeAcesso(valor: unknown): AvisoDeAcessoInicio | null {
 
 function paraItemResumo(item: unknown): ItemResumoInicio {
   if (!ehObjeto(item) || !ehTexto(item.chave) || !ehTexto(item.rotulo) || !ehNumero(item.valor)) throw respostaInvalida()
-  return { chave: item.chave, rotulo: item.rotulo, valor: item.valor }
+  const rotulo = Object.hasOwn(ROTULOS_RESUMO_INICIO, item.chave) ? ROTULOS_RESUMO_INICIO[item.chave] : item.rotulo
+  return { chave: item.chave, rotulo, valor: item.valor }
 }
 
 function paraPeriodoEmAberto(item: unknown): PeriodoEmAbertoInicio {

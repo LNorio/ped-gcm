@@ -4,7 +4,9 @@
  * Componente de apresentação: a página carrega a `JanelaMetas` (`listarMetasPreenchimento`) e envia o
  * ajuste (`ajustarMetas`). Mostra a filial, o mês e a situação; um filtro "Tipo" local (só oculta
  * linhas: os valores digitados nas linhas ocultas são mantidos e enviados ao salvar) e a tabela
- * "Metas dos indicadores" com a meta do cadastro (e a origem) e a meta vigente do mês.
+ * "Metas dos indicadores" com o indicador e a meta vigente do mês. A janela usa a variante larga do
+ * `Dialogo`; tipos, composição e meta do cadastro não são exibidos (retirados a pedido do usuário em
+ * 16/11/2026 — F9.13*).
  *
  * No mês editável, cada linha tem "Nova meta" e "Motivo"; "Salvar metas" valida tudo no front (lote
  * tudo ou nada) e chama `onConfirmar` com as linhas preenchidas, na ordem da janela. Fora do mês
@@ -26,7 +28,6 @@ import type {
   IndicadorMetaPreenchimento,
   ItemAjusteMeta,
   JanelaMetas,
-  OrigemMetaDoCadastro,
   SituacaoMesConsultado,
 } from '../../types/dominio'
 import { formatarCompetencia, formatarNumero, lerDecimal } from '../../utils/formato'
@@ -66,11 +67,6 @@ const SEM_ERROS_INDICADORES: readonly ErroDeIndicador[] = []
 const ROTULOS_SITUACAO: Readonly<Record<SituacaoMesConsultado, string>> = {
   aberto: 'Aberto',
   fechado: 'Fechado',
-}
-
-const ROTULOS_ORIGEM: Readonly<Record<OrigemMetaDoCadastro, string>> = {
-  filial: 'Meta da filial',
-  geral: 'Meta geral',
 }
 
 interface ValoresLinha {
@@ -156,11 +152,6 @@ function errosDaApiPorIndicador(
 
 function textoMeta(valor: number | null): string {
   return valor === null ? SEM_VALOR : formatarNumero(valor)
-}
-
-function textoComposicao(indicador: IndicadorMetaPreenchimento): string {
-  const nomes = indicador.composicao?.itens.map((item) => item.nome) ?? []
-  return nomes.length > 0 ? nomes.join(', ') : SEM_VALOR
 }
 
 interface CampoDaLinhaProps {
@@ -324,21 +315,6 @@ function ConteudoEditarMetas({
         </div>
       ),
     },
-    { chave: 'tipos', titulo: 'Tipos', render: (indicador) => indicador.tipos.join(', ') },
-    { chave: 'composicao', titulo: 'Composição', render: (indicador) => textoComposicao(indicador) },
-    {
-      chave: 'metaDoCadastro',
-      titulo: 'Meta do cadastro',
-      alinhar: 'direita',
-      render: (indicador) => (
-        <>
-          <span>{textoMeta(indicador.metaDoCadastro)}</span>
-          {indicador.metaDoCadastro !== null && indicador.metaDoCadastroOrigem ? (
-            <span className="metas-preenchimento__origem">{ROTULOS_ORIGEM[indicador.metaDoCadastroOrigem]}</span>
-          ) : null}
-        </>
-      ),
-    },
     { chave: 'metaVigente', titulo: 'Meta vigente', alinhar: 'direita', render: (indicador) => textoMeta(indicador.metaVigente) },
   ]
 
@@ -436,7 +412,7 @@ export function DialogoEditarMetas({
       aberto={janela !== null}
       titulo="Editar metas"
       onFechar={onCancelar}
-      className="dialogo--largo"
+      className="dialogo--largo dialogo-editar-metas"
       acoes={
         janela?.editavel ? (
           <>

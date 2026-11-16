@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { APONTAMENTO_INADIMPLENCIA, telaMesFechado, tiposPreenchimento } from '../../test/preenchimentoTelaFalsos'
+import { usuarioRapido } from '../../test/usuario'
 import type { TipoPreenchimento } from '../../types/dominio'
 import { ListaApontamentosPreenchimento, type ListaApontamentosPreenchimentoProps } from './ListaApontamentosPreenchimento'
 
@@ -29,11 +30,17 @@ describe('F9.8 — ListaApontamentosPreenchimento (aviso de imagens congeladas)'
   }
 
   const linha = (nome: string) => screen.getByRole('article', { name: nome })
+  // Subabas por tipo (alteração de 13/11/2026): "Inadimplência" fica na aba Financeiro.
+  const aba = (tipo: string) =>
+    within(screen.getByRole('tablist', { name: 'Tipos de apontamento' })).getByRole('tab', { name: (nome) => nome.startsWith(tipo) })
 
-  it('o apontamento com imagem congelada avisa quais imagens são e que a correção vale só para os períodos abertos', () => {
+  it('o apontamento com imagem congelada avisa quais imagens são e que a correção vale só para os períodos abertos', async () => {
+    const user = usuarioRapido()
     renderizar()
+    await user.click(aba('Financeiro'))
 
     expect(within(linha('Inadimplência')).getByRole('note')).toHaveTextContent(AVISO_INADIMPLENCIA)
+    expect(screen.getAllByText(/já foi congelado/)).toHaveLength(1)
   })
 
   it('os apontamentos sem imagens congeladas não mostram o aviso', () => {
@@ -41,7 +48,7 @@ describe('F9.8 — ListaApontamentosPreenchimento (aviso de imagens congeladas)'
 
     expect(within(linha('Visitas a clientes')).queryByText(/já foi congelado/)).not.toBeInTheDocument()
     expect(within(linha('Vitrine montada')).queryByText(/já foi congelado/)).not.toBeInTheDocument()
-    expect(screen.getAllByText(/já foi congelado/)).toHaveLength(1)
+    expect(screen.queryAllByText(/já foi congelado/)).toHaveLength(0)
   })
 
   it('várias imagens aparecem no mesmo aviso', () => {
@@ -68,8 +75,10 @@ describe('F9.8 — ListaApontamentosPreenchimento (aviso de imagens congeladas)'
     )
   })
 
-  it('o aviso também aparece na consulta de um mês fechado', () => {
+  it('o aviso também aparece na consulta de um mês fechado', async () => {
+    const user = usuarioRapido()
     renderizar({ tipos: telaMesFechado().tipos, editavel: false })
+    await user.click(aba('Financeiro'))
 
     expect(within(linha('Inadimplência')).getByRole('note')).toHaveTextContent(AVISO_INADIMPLENCIA)
   })

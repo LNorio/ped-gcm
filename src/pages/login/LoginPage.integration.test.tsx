@@ -45,8 +45,10 @@ describe('F2.2 — Tela de login (integração: login → Início)', () => {
     expect(screen.getByText('Admin')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Programa de Excelência em Distribuição' })).not.toBeInTheDocument()
 
-    // Só as chamadas de login e de acesso, na ordem; a consulta do Início (F11.1) fica de fora.
-    const chamadasDeSessao = chamadas.filter((chamada) => chamada.caminho !== '/api/ped/inicio')
+    // Só as chamadas de sessão (login e acesso), na ordem; as consultas do Início (F11.1 e, para Admin e
+    // Validador, as listagens da F11.6) ficam de fora.
+    const ROTAS_DE_SESSAO = ['/api/valida-usuario', '/api/ped/acesso']
+    const chamadasDeSessao = chamadas.filter((chamada) => ROTAS_DE_SESSAO.includes(chamada.caminho))
     expect(chamadasDeSessao.map((chamada) => `${chamada.metodo} ${chamada.caminho}`)).toEqual([
       'POST /api/valida-usuario',
       'GET /api/ped/acesso',

@@ -20,10 +20,11 @@ import { DialogoEditarMetas, type DialogoEditarMetasProps } from './DialogoEdita
  *   ("Aberto"/"Fechado").
  * - Filtro "Tipo" (combobox, local): "Todos os tipos" e os nomes dos tipos dos indicadores, na ordem em
  *   que aparecem, sem repetir.
- * - Tabela "Metas dos indicadores": "Indicador" (nome + Etiqueta "Ajustada" quando `ajustada`), "Tipos"
- *   (nomes separados por ", "), "Composição" (nomes dos itens), "Meta do cadastro" (número pt-BR com 2
- *   casas e a origem "Meta da filial"/"Meta geral"), "Meta vigente" (pt-BR, 2 casas) e, só no mês
- *   editável, "Nova meta" e "Motivo". Meta nula → "—". Indicador ajustado oferece o botão
+ * - Janela na variante larga do `Dialogo` (classe `dialogo--largo`), pedido do usuário em 16/11/2026.
+ * - Tabela "Metas dos indicadores", exatamente nesta ordem: "Indicador" (nome + Etiqueta "Ajustada"
+ *   quando `ajustada`), "Meta vigente" (pt-BR, 2 casas) e, só no mês editável, "Nova meta" e "Motivo".
+ *   Sem as colunas "Tipos", "Composição" e "Meta do cadastro" (retiradas em 16/11/2026); o filtro por
+ *   tipo continua usando `indicador.tipos`. Meta nula → "—". Indicador ajustado oferece o botão
  *   "Histórico de {nome}" → `onVerHistorico(indicador)` (também em consulta).
  * - Mês editável: campos "Nova meta de {nome}" e "Motivo do ajuste de {nome}"; linhas em branco ficam de
  *   fora; "Salvar metas" (submit) → `onConfirmar(itens: ItemAjusteMeta[])` na ordem da janela, meta com
@@ -149,7 +150,6 @@ describe('F9.9 — DialogoEditarMetas (janela "Editar metas" — RF-72, RF-73, R
       const misto: IndicadorMetaPreenchimento = { ...INDICADOR_META_FATURAMENTO, tipos: ['Comercial', 'Financeiro'] }
       renderizar({ janela: janelaMetas({ indicadores: [INDICADOR_META_COBERTURA, misto, INDICADOR_META_INADIMPLENCIA] }) })
 
-      expect(celula('Faturamento', 'Tipos')).toHaveTextContent('Comercial, Financeiro')
       await user.selectOptions(filtroTipo(), within(filtroTipo()).getByRole('option', { name: 'Financeiro' }))
 
       expect(linhas()).toHaveLength(2)
@@ -158,31 +158,29 @@ describe('F9.9 — DialogoEditarMetas (janela "Editar metas" — RF-72, RF-73, R
   })
 
   describe('indicadores (RF-72, RN-07)', () => {
-    it('tabela "Metas dos indicadores" com as colunas do requisito, uma linha por indicador, na ordem da janela', () => {
+    it('a janela usa a variante larga do diálogo (dialogo--largo)', () => {
       renderizar()
 
-      for (const coluna of ['Indicador', 'Tipos', 'Composição', 'Meta do cadastro', 'Meta vigente', 'Nova meta', 'Motivo']) {
-        expect(titulos()).toContain(coluna)
-      }
-      expect(titulos().indexOf('Meta do cadastro')).toBeLessThan(titulos().indexOf('Meta vigente'))
+      expect(dialogo()).toHaveClass('dialogo--largo')
+    })
+
+    it('tabela "Metas dos indicadores" só com Indicador, Meta vigente, Nova meta e Motivo, uma linha por indicador, na ordem da janela', () => {
+      renderizar()
+
+      expect(titulos()).toEqual(['Indicador', 'Meta vigente', 'Nova meta', 'Motivo'])
       const nomes = ['Cobertura de clientes', 'Faturamento', 'Inadimplência']
       expect(nomesNaTabela().map((texto) => nomes.find((nome) => texto.startsWith(nome)))).toEqual(nomes)
     })
 
-    it('mostra tipos, composição, meta do cadastro com a origem e meta vigente em pt-BR (2 casas)', () => {
+    it('mostra a meta vigente em pt-BR (2 casas), sem tipos, composição nem meta do cadastro', () => {
       renderizar()
 
-      expect(celula('Cobertura de clientes', 'Tipos')).toHaveTextContent('Comercial')
-      expect(celula('Cobertura de clientes', 'Composição')).toHaveTextContent('Visitas a clientes')
-      expect(celula('Cobertura de clientes', 'Meta do cadastro')).toHaveTextContent('1.500,00')
-      expect(celula('Cobertura de clientes', 'Meta do cadastro')).toHaveTextContent('Meta geral')
       expect(celula('Cobertura de clientes', 'Meta vigente')).toHaveTextContent('2.000,25')
-
-      expect(celula('Faturamento', 'Composição')).toHaveTextContent('Faturamento (ERP)')
-      expect(celula('Faturamento', 'Meta do cadastro')).toHaveTextContent('500.000,00')
-      expect(celula('Faturamento', 'Meta do cadastro')).toHaveTextContent('Meta da filial')
-      expect(celula('Faturamento', 'Meta do cadastro')).not.toHaveTextContent('Meta geral')
       expect(celula('Faturamento', 'Meta vigente')).toHaveTextContent('500.000,00')
+      expect(within(tabela()).queryByText('Visitas a clientes')).not.toBeInTheDocument()
+      expect(within(tabela()).queryByText('Meta geral')).not.toBeInTheDocument()
+      expect(within(tabela()).queryByText('Meta da filial')).not.toBeInTheDocument()
+      expect(within(tabela()).queryByText('1.500,00')).not.toBeInTheDocument()
     })
 
     it('etiqueta "Ajustada" só no indicador com ajuste no mês', () => {
@@ -193,19 +191,17 @@ describe('F9.9 — DialogoEditarMetas (janela "Editar metas" — RF-72, RF-73, R
       expect(within(celula('Inadimplência', 'Indicador')).queryByText('Ajustada')).not.toBeInTheDocument()
     })
 
-    it('meta do cadastro e meta vigente nulas aparecem como "—"; composição nula também', () => {
+    it('meta vigente nula aparece como "—"', () => {
       const semMeta: IndicadorMetaPreenchimento = {
         ...INDICADOR_META_FATURAMENTO,
-        composicao: null,
+        composicao: [],
         metaDoCadastro: null,
         metaDoCadastroOrigem: null,
         metaVigente: null,
       }
       renderizar({ janela: janelaMetas({ indicadores: [semMeta] }) })
 
-      expect(celula('Faturamento', 'Meta do cadastro')).toHaveTextContent('—')
       expect(celula('Faturamento', 'Meta vigente')).toHaveTextContent('—')
-      expect(celula('Faturamento', 'Composição')).toHaveTextContent('—')
     })
   })
 
@@ -405,8 +401,7 @@ describe('F9.9 — DialogoEditarMetas (janela "Editar metas" — RF-72, RF-73, R
 
       expect(within(dialogo()).queryByRole('textbox')).not.toBeInTheDocument()
       expect(within(dialogo()).queryByRole('button', { name: 'Salvar metas' })).not.toBeInTheDocument()
-      expect(titulos()).not.toContain('Nova meta')
-      expect(titulos()).not.toContain('Motivo')
+      expect(titulos()).toEqual(['Indicador', 'Meta vigente'])
       expect(within(dialogo()).getByText(MENSAGEM_CONSULTA)).toBeInTheDocument()
       expect(celula('Cobertura de clientes', 'Meta vigente')).toHaveTextContent('2.000,25')
     })

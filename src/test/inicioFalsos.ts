@@ -20,8 +20,10 @@
  *   Logística e a filial "101 - CAMPO GRANDE"; resumo com 4 indicadores (sem "Dashboards ativos");
  *   1 período (PED Comercial 2 de 3); sem alterações.
  *
- * Formatos assumidos onde o contrato não detalha: datas `aaaa-mm-dd hh:mm:ss`; `rotulo` do resumo já em
- * pt-BR com acentos; `filial` das alterações como código em texto.
+ * Formatos assumidos onde o contrato não detalha: datas `aaaa-mm-dd hh:mm:ss`; `filial` das alterações como
+ * código em texto. O `rotulo` do resumo vem **sem acentos**, como no servidor real (ex.: "Dados externos em
+ * construcao pela TI", "Lancamentos pendentes no periodo"); o front exibe o rótulo correto pela `chave`
+ * (`ROTULOS_RESUMO_INICIO`, decisão de 16/11/2026).
  */
 import type { AcessoApiFalso, RotaFalsa } from './apiFalsa'
 import { FILIAIS_API, acessoApi, respostaErro, respostaJson } from './apiFalsa'
@@ -123,31 +125,31 @@ export const RESUMO_ADMIN_API: ItemResumoApiFalso[] = [
   { chave: 'apontamentos ativos', rotulo: 'Apontamentos ativos', valor: 12 },
   { chave: 'dados externos ativos', rotulo: 'Dados externos ativos', valor: 5 },
   { chave: 'total de indicadores', rotulo: 'Total de indicadores', valor: 8 },
-  { chave: 'dados externos em construcao', rotulo: 'Dados externos em construção (TI)', valor: 2 },
-  { chave: 'lancamentos pendentes', rotulo: 'Lançamentos pendentes no período', valor: 1234 },
+  { chave: 'dados externos em construcao', rotulo: 'Dados externos em construcao pela TI', valor: 2 },
+  { chave: 'lancamentos pendentes', rotulo: 'Lancamentos pendentes no periodo', valor: 1234 },
 ]
 
 export const RESUMO_ADMIN_101_API: ItemResumoApiFalso[] = [
   { chave: 'apontamentos ativos', rotulo: 'Apontamentos ativos', valor: 12 },
   { chave: 'dados externos ativos', rotulo: 'Dados externos ativos', valor: 5 },
   { chave: 'total de indicadores', rotulo: 'Total de indicadores', valor: 8 },
-  { chave: 'dados externos em construcao', rotulo: 'Dados externos em construção (TI)', valor: 2 },
-  { chave: 'lancamentos pendentes', rotulo: 'Lançamentos pendentes no período', valor: 3 },
+  { chave: 'dados externos em construcao', rotulo: 'Dados externos em construcao pela TI', valor: 2 },
+  { chave: 'lancamentos pendentes', rotulo: 'Lancamentos pendentes no periodo', valor: 3 },
 ]
 
 export const RESUMO_VALIDADOR_API: ItemResumoApiFalso[] = [
   { chave: 'apontamentos ativos', rotulo: 'Apontamentos ativos', valor: 12 },
   { chave: 'dashboards com meus apontamentos', rotulo: 'Dashboards com meus apontamentos', valor: 3 },
-  { chave: 'meus dados externos em construcao', rotulo: 'Meus dados externos em construção (TI)', valor: 1 },
+  { chave: 'meus dados externos em construcao', rotulo: 'Meus dados externos em construcao pela TI', valor: 1 },
   { chave: 'dashboards ativos', rotulo: 'Dashboards ativos', valor: 4 },
-  { chave: 'lancamentos pendentes', rotulo: 'Lançamentos pendentes no período', valor: 9 },
+  { chave: 'lancamentos pendentes', rotulo: 'Lancamentos pendentes no periodo', valor: 9 },
 ]
 
 export const RESUMO_PREENCHEDOR_API: ItemResumoApiFalso[] = [
   { chave: 'apontamentos dos meus tipos', rotulo: 'Apontamentos dos meus tipos', valor: 3 },
   { chave: 'dashboards com meus apontamentos', rotulo: 'Dashboards com meus apontamentos', valor: 1 },
-  { chave: 'meus dados externos em construcao', rotulo: 'Meus dados externos em construção (TI)', valor: 0 },
-  { chave: 'lancamentos pendentes', rotulo: 'Lançamentos pendentes no período', valor: 1 },
+  { chave: 'meus dados externos em construcao', rotulo: 'Meus dados externos em construcao pela TI', valor: 0 },
+  { chave: 'lancamentos pendentes', rotulo: 'Lancamentos pendentes no periodo', valor: 1 },
 ]
 
 export const PERIODO_COMERCIAL_API: PeriodoEmAbertoApiFalso = {

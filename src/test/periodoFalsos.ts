@@ -26,6 +26,7 @@ import {
   periodoApi,
   telaPreenchimentoApi,
   type MesPreenchimentoApiFalso,
+  type MesesPreenchimentoApiFalsos,
   type PeriodoApiFalso,
 } from './preenchimentoFalsos'
 
@@ -86,14 +87,15 @@ export function criarApiPeriodoFalsa(opcoes: OpcoesApiPeriodoFalsa = {}): ApiPer
     })
   }
 
-  function mesesDoAno(ano: number): { ano: number; meses: MesPreenchimentoApiFalso[] } {
+  /** Formato real (F9.13*): `{ filial, ano, "periodo aberto", meses: [{ mes: "AAAA-MM-01", situacao, pendentes }] }`. */
+  function mesesDoAno(ano: number, filial: string): MesesPreenchimentoApiFalsos {
     const meses = Array.from({ length: 12 }, (_, indice): MesPreenchimentoApiFalso => {
       const referencia = `${ano}-${String(indice + 1).padStart(2, '0')}-01`
-      if (referencia === periodo['mes de referencia']) return { 'mes de referencia': referencia, situacao: 'aberto', pendentes: 1 }
-      if (referencia > MES_ATUAL_FALSO) return { 'mes de referencia': referencia, situacao: 'futuro' }
-      return { 'mes de referencia': referencia, situacao: 'fechado' }
+      if (referencia === periodo['mes de referencia']) return { mes: referencia, situacao: 'aberto', pendentes: 1 }
+      if (referencia > MES_ATUAL_FALSO) return { mes: referencia, situacao: 'futuro', pendentes: null }
+      return { mes: referencia, situacao: 'fechado', pendentes: null }
     })
-    return { ano, meses }
+    return { filial, ano, 'periodo aberto': periodo['mes de referencia'], meses }
   }
 
   const rotas: Record<string, RotaFalsa> = {
@@ -119,7 +121,7 @@ export function criarApiPeriodoFalsa(opcoes: OpcoesApiPeriodoFalsa = {}): ApiPer
     },
     'GET /api/ped/preenchimento/meses': (_init, url) => {
       const ano = Number(url.searchParams.get('ano') ?? periodo['mes de referencia'].slice(0, 4))
-      return respostaJson(mesesDoAno(ano))
+      return respostaJson(mesesDoAno(ano, url.searchParams.get('filial') ?? '101'))
     },
   }
 

@@ -36,17 +36,26 @@ describe('F9.8 — Aviso de imagens congeladas (integração: /preenchimento)', 
 
   const linha = (nome: string) => screen.getByRole('article', { name: nome })
 
+  // Subabas por tipo (alteração de 13/11/2026): "Inadimplência" fica na aba Financeiro.
+  const aba = (tipo: string) =>
+    within(screen.getByRole('tablist', { name: 'Tipos de apontamento' })).getByRole('tab', { name: (nome) => nome.startsWith(tipo) })
+
+  /** Abre a tela já na aba Financeiro, onde está "Inadimplência". */
   async function abrirTela() {
     const sessao = simularSessaoPreenchimento(fetchFalso, 'validador')
     renderizarApp('/preenchimento')
+    await screen.findByRole('article', { name: 'Visitas a clientes' })
+    await usuarioRapido().click(aba('Financeiro'))
     await screen.findByRole('article', { name: 'Inadimplência' })
     return sessao
   }
 
   it('o apontamento congelado em imagem mostra o aviso com a imagem; os demais não', async () => {
+    const user = usuarioRapido()
     await abrirTela()
 
     expect(within(linha('Inadimplência')).getByRole('note')).toHaveTextContent(AVISO)
+    await user.click(aba('Comercial'))
     expect(within(linha('Visitas a clientes')).queryByText(/já foi congelado/)).not.toBeInTheDocument()
     expect(within(linha('Vitrine montada')).queryByText(/já foi congelado/)).not.toBeInTheDocument()
   })
@@ -77,6 +86,7 @@ describe('F9.8 — Aviso de imagens congeladas (integração: /preenchimento)', 
     await waitFor(() =>
       expect(within(screen.getByRole('region', { name: 'Resumo do mês' })).getByText('Competência: 09/2026')).toBeInTheDocument(),
     )
+    await user.click(aba('Financeiro'))
     expect(within(linha('Inadimplência')).getByRole('note')).toHaveTextContent(AVISO)
   })
 })

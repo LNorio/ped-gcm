@@ -124,6 +124,41 @@ describe('F9.1 — Serviço do preenchimento: meses e tela do mês (RF-60 a RF-6
       expect(meses.map((m) => m.situacao)).toEqual([...Array<string>(9).fill('fechado'), 'aberto', 'futuro', 'futuro'])
     })
 
+    it('F9.13* — formato real: "mes" como data "AAAA-MM-DD", envelope com filial, ano e "periodo aberto" e "pendentes" null', async () => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA_MESES}`]: () =>
+          respostaJson({
+            filial: '101',
+            ano: 2026,
+            'periodo aberto': '2026-10-01',
+            meses: [
+              { mes: '2026-09-01', situacao: 'fechado', pendentes: null },
+              { mes: '2026-10-01', situacao: 'aberto', pendentes: 10 },
+              { mes: '2026-11-01', situacao: 'fechado', pendentes: null },
+              { mes: '2026-12-01', situacao: 'futuro', pendentes: null },
+            ],
+          }),
+      })
+
+      await expect(listarMesesPreenchimento(2026, '101')).resolves.toEqual<MesPreenchimento[]>([
+        { mes: 9, mesDeReferencia: '2026-09-01', situacao: 'fechado', pendentes: null },
+        { mes: 10, mesDeReferencia: '2026-10-01', situacao: 'aberto', pendentes: 10 },
+        { mes: 11, mesDeReferencia: '2026-11-01', situacao: 'fechado', pendentes: null },
+        { mes: 12, mesDeReferencia: '2026-12-01', situacao: 'futuro', pendentes: null },
+      ])
+    })
+
+    it('F9.13* — "mes" em texto "AAAA-MM" (sem o dia) também é aceito; o ano vem da própria data', async () => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA_MESES}`]: () => respostaJson({ meses: [{ mes: '2025-12', situacao: 'fechado' }, { mes: '2025-11-15', situacao: 'fechado' }] }),
+      })
+
+      await expect(listarMesesPreenchimento(2026, '101')).resolves.toEqual<MesPreenchimento[]>([
+        { mes: 12, mesDeReferencia: '2025-12-01', situacao: 'fechado', pendentes: null },
+        { mes: 11, mesDeReferencia: '2025-11-01', situacao: 'fechado', pendentes: null },
+      ])
+    })
+
     it('aceita a lista pura de meses', async () => {
       simularApi(fetchFalso, { [`GET ${ROTA_MESES}`]: () => respostaJson(mesesPreenchimentoApi(2025, 13).meses) })
 
@@ -197,6 +232,9 @@ describe('F9.1 — Serviço do preenchimento: meses e tela do mês (RF-60 a RF-6
       ['um mês sem situação', { meses: [{ 'mes de referencia': '2026-01-01' }] }],
       ['um mês sem "mes de referencia" nem "mes"', { meses: [{ situacao: 'fechado' }] }],
       ['um mês com "mes" 13', { meses: [{ mes: 13, situacao: 'fechado' }] }],
+      ['um mês com "mes" "2026-13-01"', { meses: [{ mes: '2026-13-01', situacao: 'fechado' }] }],
+      ['um mês com "mes" "2026-00-01"', { meses: [{ mes: '2026-00-01', situacao: 'fechado' }] }],
+      ['um mês com "mes" em texto fora do formato', { meses: [{ mes: 'janeiro', situacao: 'fechado' }] }],
       ['"pendentes" em texto', { meses: [{ mes: 10, situacao: 'aberto', pendentes: 'três' }] }],
     ])('resposta 2xx com %s vira ApiError "resposta inválida"', async (_caso, corpo) => {
       simularApi(fetchFalso, { [`GET ${ROTA_MESES}`]: () => respostaJson(corpo) })

@@ -181,23 +181,21 @@ describe('F9.9 — Editar metas no Preenchimento (integração: /preenchimento)'
   })
 
   describe('janela (RF-72)', () => {
-    it('abre "Editar metas" com filial, mês, situação e os indicadores com meta do cadastro × vigente e "Ajustada"', async () => {
+    it('abre "Editar metas" (diálogo largo) com filial, mês, situação e os indicadores com a meta vigente e "Ajustada"', async () => {
       const user = usuarioRapido()
       simularSessao()
 
       await abrirJanela(user)
 
+      expect(dialogo()).toHaveClass('dialogo--largo')
+      expect(titulos()).toEqual(['Indicador', 'Meta vigente', 'Nova meta', 'Motivo'])
+
       expect(valor('Filial')).toBe('101 - CAMPO GRANDE')
       expect(valor('Mês')).toBe('10/2026')
       expect(valor('Situação')).toBe('Aberto')
-      expect(celula('Cobertura de clientes', 'Tipos')).toHaveTextContent('Comercial')
-      expect(celula('Cobertura de clientes', 'Composição')).toHaveTextContent('Visitas a clientes')
-      expect(celula('Cobertura de clientes', 'Meta do cadastro')).toHaveTextContent('1.500,00')
-      expect(celula('Cobertura de clientes', 'Meta do cadastro')).toHaveTextContent('Meta geral')
       expect(celula('Cobertura de clientes', 'Meta vigente')).toHaveTextContent('2.000,25')
       expect(within(celula('Cobertura de clientes', 'Indicador')).getByText('Ajustada')).toBeInTheDocument()
-      expect(celula('Faturamento', 'Meta do cadastro')).toHaveTextContent('500.000,00')
-      expect(celula('Faturamento', 'Meta do cadastro')).toHaveTextContent('Meta da filial')
+      expect(celula('Faturamento', 'Meta vigente')).toHaveTextContent('500.000,00')
       expect(within(celula('Faturamento', 'Indicador')).queryByText('Ajustada')).not.toBeInTheDocument()
     })
 
@@ -265,7 +263,6 @@ describe('F9.9 — Editar metas no Preenchimento (integração: /preenchimento)'
 
       await waitFor(() => expect(celula('Faturamento', 'Meta vigente')).toHaveTextContent('520.000,50'))
       expect(within(celula('Faturamento', 'Indicador')).getByText('Ajustada')).toBeInTheDocument()
-      expect(celula('Faturamento', 'Meta do cadastro')).toHaveTextContent('500.000,00')
       expect(novaMeta('Faturamento')).toHaveValue('')
     })
 

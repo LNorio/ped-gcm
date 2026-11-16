@@ -1,5 +1,11 @@
 /* Janela "Editar metas" (F9.9) e histórico de ajustes de meta (F9.10) do Preenchimento. */
 
+/* Mais larga que a variante dialogo--largo (800px): as colunas Nova meta e Motivo cabem sem
+   rolagem horizontal (pedido do usuário, 16/11/2026). Em telas menores, o Dialogo ocupa a largura disponível. */
+.dialogo.dialogo-editar-metas {
+  max-width: 1040px;
+}
+
 .metas-preenchimento {
   display: flex;
   flex-direction: column;
@@ -39,14 +45,8 @@
   color: var(--cor-texto);
 }
 
-.metas-preenchimento__origem {
-  display: block;
-  font-size: 0.8125rem;
-  color: var(--cor-texto-secundario);
-}
-
 .metas-preenchimento__campo {
-  min-width: 140px;
+  min-width: 160px;
 }
 
 .metas-preenchimento__campo .campo {

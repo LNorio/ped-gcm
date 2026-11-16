@@ -8,7 +8,7 @@ const RESUMO_ADMIN: ItemResumoInicio[] = [
   { chave: 'apontamentos ativos', rotulo: 'Apontamentos ativos', valor: 12 },
   { chave: 'dados externos ativos', rotulo: 'Dados externos ativos', valor: 5 },
   { chave: 'total de indicadores', rotulo: 'Total de indicadores', valor: 8 },
-  { chave: 'dados externos em construcao', rotulo: 'Dados externos em construção (TI)', valor: 2 },
+  { chave: 'dados externos em construcao', rotulo: 'Dados externos em construção pela TI', valor: 2 },
   { chave: 'lancamentos pendentes', rotulo: 'Lançamentos pendentes no período', valor: 1234 },
 ]
 
@@ -31,6 +31,8 @@ function esperarItens(esperados: Array<[string, string]>) {
  * Props: `{ itens: ItemResumoInicio[] }`. Lista (`<ul aria-label="Indicadores-resumo">`) com um item por
  * indicador, na ordem recebida (a API monta a lista conforme o perfil), cada um com o `rotulo` da API e o
  * `valor` em pt-BR sem casas decimais (ponto de milhar: 1.234). Lista vazia: nada é exibido.
+ * O `rotulo` recebido já é o texto correto em pt-BR: a escolha pela `chave` (`ROTULOS_RESUMO_INICIO`, rótulos
+ * da API sem acento) é feita em `obterInicio` (ver `src/services/inicioService.rotulos.test.ts`).
  */
 describe('F11.3 — ResumoInicio (indicadores-resumo por perfil)', () => {
   it('Admin: os 5 indicadores na ordem da API, com rótulo e valor', () => {
@@ -40,7 +42,7 @@ describe('F11.3 — ResumoInicio (indicadores-resumo por perfil)', () => {
       ['Apontamentos ativos', '12'],
       ['Dados externos ativos', '5'],
       ['Total de indicadores', '8'],
-      ['Dados externos em construção (TI)', '2'],
+      ['Dados externos em construção pela TI', '2'],
       ['Lançamentos pendentes no período', formatarNumero(1234, 0)],
     ])
   })
@@ -50,7 +52,7 @@ describe('F11.3 — ResumoInicio (indicadores-resumo por perfil)', () => {
       <ResumoInicio
         itens={[
           { chave: 'lancamentos pendentes', rotulo: 'Lançamentos pendentes no período', valor: 1234 },
-          { chave: 'meus dados externos em construcao', rotulo: 'Meus dados externos em construção (TI)', valor: 0 },
+          { chave: 'meus dados externos em construcao', rotulo: 'Meus dados externos em construção pela TI', valor: 0 },
         ]}
       />,
     )
@@ -58,7 +60,7 @@ describe('F11.3 — ResumoInicio (indicadores-resumo por perfil)', () => {
     expect(formatarNumero(1234, 0)).toBe('1.234')
     esperarItens([
       ['Lançamentos pendentes no período', '1.234'],
-      ['Meus dados externos em construção (TI)', '0'],
+      ['Meus dados externos em construção pela TI', '0'],
     ])
   })
 
@@ -68,7 +70,7 @@ describe('F11.3 — ResumoInicio (indicadores-resumo por perfil)', () => {
         itens={[
           { chave: 'apontamentos dos meus tipos', rotulo: 'Apontamentos dos meus tipos', valor: 3 },
           { chave: 'dashboards com meus apontamentos', rotulo: 'Dashboards com meus apontamentos', valor: 1 },
-          { chave: 'meus dados externos em construcao', rotulo: 'Meus dados externos em construção (TI)', valor: 0 },
+          { chave: 'meus dados externos em construcao', rotulo: 'Meus dados externos em construção pela TI', valor: 0 },
           { chave: 'lancamentos pendentes', rotulo: 'Lançamentos pendentes no período', valor: 1 },
         ]}
       />,
@@ -77,7 +79,7 @@ describe('F11.3 — ResumoInicio (indicadores-resumo por perfil)', () => {
     esperarItens([
       ['Apontamentos dos meus tipos', '3'],
       ['Dashboards com meus apontamentos', '1'],
-      ['Meus dados externos em construção (TI)', '0'],
+      ['Meus dados externos em construção pela TI', '0'],
       ['Lançamentos pendentes no período', '1'],
     ])
     expect(screen.queryByText('Dashboards ativos')).not.toBeInTheDocument()

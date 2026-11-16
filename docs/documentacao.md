@@ -4,6 +4,7 @@
 
 | Data | Tags | Resumo |
 | --- | --- | --- |
+| [13/11/2026](#2026-11-13) | #faixas #dashboards #indicadores #preenchimento #fechamentos #inicio #login #cadastro #api #tipos #validacao #componente #navegacao #correcao #testes #documentacao | Contrato final da faixa geral (F8.12\*, A-18 resolvida), fases Preenchimento (F9), Fechamentos e imagens congeladas (F10.1–F10.7) e Início (F11) implementadas, pilha de diálogos, commits `797bc54` e `d499d3e` com push; depois, subabas por tipo no Preenchimento e blocos de meta pendente e dashboards em construção no Início (F11.6) |
 | [12/11/2026](#2026-11-12) | #faixas #dashboards #preenchimento #login #cadastro #api #tipos #validacao #componente #testes #documentacao | Faixa geral, situação ativa/inativa com motivo, exclusão com motivo, "Ver motivo", coluna "Ação" no histórico e alertas de faixas nos dashboards, pelo contrato proposto ao back-end (A-18); limite de tentativas no login (429) e commit `a9da8a5`; testes TDD da F9.1 (serviços do Preenchimento), sem implementação |
 | [11/11/2026](#2026-11-11) | #dados-externos #integracao #indicadores #dashboards #api #validacao #componente #correcao #refatoracao #testes #configuracao #agentes #documentacao | Meta via API fases 1 e 2 (entrada SOAP, avisos, finalidade, última consulta), testes em lotes de até 150, saída da integração por "chave: tipo" (com e depois sem mapeamento, contrato final do back-end), commits `6500740` e `288d6c5` e build validada |
 | [10/11/2026](#2026-11-10) | #dados-externos #integracao #indicadores #dashboards #apontamentos #cadastro #api #validacao #componente #layout #navegacao #configuracao #testes #documentacao | Duas builds validadas, decisões da integração, `TextoTruncado`, tabelas sem rolagem, build dividida e abas sob demanda, meta por filial com metas pendentes, meta via API pelo contrato final e commit `a2ab9cc` |
@@ -11,6 +12,397 @@
 | [06/11/2026](#2026-11-06) | #tipos #indicadores #dashboards #dados-externos #cadastro #api #validacao #componente #correcao #testes #configuracao #documentacao | Build validada, id da tarefa Bitrix em texto, adequação aos documentos novos do back-end (grupos nos tipos, exclusão de indicador só pelo Admin, tarefas Bitrix, identificador com - e .) e 67/67 requisitos implementados |
 | [05/11/2026](#2026-11-05) | #indicadores #dashboards #faixas #apontamentos #dados-externos #cadastro #api #validacao #componente #layout #correcao #testes #documentacao | Abas Indicadores (F6), Dashboards (F7) e Faixas (F8) em TDD, modais alinhadas ao protótipo, RF-54 alterado e correções contra a API real |
 | [04/11/2026](#2026-11-04) | #apontamentos #dados-externos #tipos #cadastro #api #validacao #componente #layout #refatoracao #correcao #testes #configuracao #documentacao | Aba Apontamentos (F4) revisada e commitada, aba Dados Externos (F5) implementada, hooks genéricos, MenuAcoes, correção do POST e testes mais rápidos |
+
+---
+
+<a id="2026-11-13"></a>
+## 13/11/2026
+
+**Tags:** #faixas #dashboards #indicadores #preenchimento #fechamentos #inicio #login #cadastro #api #tipos #validacao #componente #navegacao #correcao #testes #documentacao
+
+### Visão geral
+O dia teve oito pedidos do usuário, em sequência.
+
+**1. Documentos do back-end e fase Preenchimento.** O pedido foi: "verifique os documentos que o backend enviou e faça as mudanças necessárias, após terminar a implementação continue na fase de preenchimento". O back-end implementou a proposta da faixa geral de 12/11, com divergências, e enviou três documentos:
+- `RESPOSTA-faixa-geral-e-situacao.md`;
+- `FRONT-faixa-geral-e-situacao.md`;
+- `API (28).md`.
+
+O front foi adequado em TDD (F8.12\*), e a A-18 ficou resolvida. Em seguida, a fase F9 (Preenchimento) foi implementada por completo, de F9.1 a F9.12. A revisão de qualidade encontrou defeitos, que foram corrigidos em TDD, incluindo a pilha de diálogos (F1.8).
+
+**2. Commit da fase.** O pedido foi: "depois de terminar a fase realizar o commit das mudanças". O hook de pre-commit bloqueou duas vezes, por testes de integração que esgotavam o tempo sob carga. O usuário pediu "rodar novamente os testes sem fazer modificações neles", e o hook bloqueou de novo. A causa real estava no código: o "Editar metas" só consultava as metas depois de desenhar a tela inteira. O usuário pediu "corrigir o codigo da pagina". A correção entrou sem alterar testes nem configuração, e o commit `797bc54` foi aprovado na terceira tentativa.
+
+**3. Fase F10 (Fechamentos e imagens congeladas).** O pedido foi "ir para a proxima fase". Foram implementadas as atividades F10.1 a F10.7. A F10.8 continua bloqueada pela P-08.
+
+**4. Fase F11 (tela Início).** O pedido foi "começe a proxima fase". Foram implementadas as atividades F11.1 a F11.5.
+
+**5. Commit e fechamento.** O pedido foi: "assim que acabar, faça o commit e finalize o dia". O commit `d499d3e` tem 77 arquivos e foi aprovado pelo hook com 4733/4733 testes unitários e 717/717 de integração.
+
+Depois do commit `d499d3e`, 106 requisitos estavam `implementado` e o plano estava em 93% (125 de 135 atividades): F8, F9 e F11 em 100%, e F10 em 7 de 8. Os commits `a9da8a5`, `797bc54` e `d499d3e` foram enviados ao GitHub, e o origin/main está em `d499d3e`.
+
+**6. Erro e subabas na aba Preenchimento.** Com um print da aba, o pedido foi: "está dando este erro na aba de preenchimentos, e os preenchimentos estão de maneira diferentes do protótipo deveriam ser separados pelos tipos em subabas".
+- **Erro "Resposta inválida do servidor":** a causa provável é o formato real de `GET /api/ped/preenchimento/meses`, diferente do assumido na F9.1, porque a API (28) só descreve os campos, sem exemplo. O tipo Comercial com 0 apontamentos, enquanto o resumo mostra "0 de 10", indica que `GET /api/ped/preenchimento` também pode diferir. Foi pedido ao usuário o JSON real dessas rotas, copiado da aba Rede do navegador. Nenhum código foi alterado por causa do erro.
+- **Subabas por tipo:** tratadas como alteração de requisito em F9.2, F9.5, F9.6, F9.7 e F9.8, que passaram por `em-alteracao` e voltaram a `implementado`. O usuário reverteu a decisão anterior de mostrar as regiões empilhadas.
+
+**7. Blocos do Início.** Com um print do Início, o pedido foi: "colocar um bloco para indicadores (metas) e dashboards em construção". Perguntado, o usuário decidiu: formato de cards mais listas; meta pendente geral ou por filial; só para Admin e Validador. Foi criado o requisito F11.6 (atividade F11.6\*, não planejada).
+
+**8. Fechamento.** O pedido foi "finalize o dia".
+
+Ao fim do dia, 107 requisitos estão `implementado`. O trabalho dos pedidos 6 e 7 ainda não tem commit e entra no próximo, junto com os documentos de fechamento.
+
+### Implementações
+
+#### Documentos do back-end da faixa geral e API (28)
+- **Tags:** #faixas #api #documentacao
+- **Arquivos:** `docs/backend/RESPOSTA-faixa-geral-e-situacao.md`, `docs/backend/FRONT-faixa-geral-e-situacao.md`, `docs/backend/API (28).md`. O commit `797bc54` levou também `docs/propostas-backend/PROPOSTA-faixa-geral-e-situacao.md`, escrita em 12/11.
+- **Descrição:** o back-end aceitou a proposta A-18 e respondeu às três dúvidas da seção 9:
+  - **Restrição P-04 nas faixas:** já tinha sido retirada em 03/11, e Admin e Validador também gerenciam a faixa geral.
+  - **Cadastro da geral:** são aceitos `"filial": "todas"` e `geral: true`. Os dois juntos com uma filial específica dão `400`.
+  - **Motivo no `DELETE`:** o back lê o motivo do corpo JSON ou de `?motivo=`.
+
+  Divergências em relação à proposta:
+  - o padrão do filtro `situacao` é `todas`, e o front envia `ativas`;
+  - as datas vêm no formato `2026-11-12 14:05:00-04:00`;
+  - o `PUT .../situacao` responde só `mensagem` e `situacao`;
+  - `POST` e `PUT` não devolvem a tabela;
+  - `acao` vem sempre no histórico, com o valor extra `exclusao`;
+  - a mensagem de conflito não cita o dashboard;
+  - o filtro `problemas` não inclui os alertas de faixas, que ficam no filtro novo `problemas_faixa`;
+  - a faixa de dashboard excluído continua `ativa`.
+
+  A `API (28).md` é a fonte da F9.1.
+- **Motivação:** o back-end implementou a proposta da faixa geral de 12/11, com divergências que exigiam adequação do front.
+- **Como usar / observações técnicas:** a publicação de back e front deve ser conjunta, porque o `DELETE` passou a exigir motivo. Depois do deploy, vale uma chamada de verificação do `DELETE` com corpo. Se algum proxy descartar o corpo, a alternativa é `?motivo=`.
+
+#### Serviços do Preenchimento (F9.1)
+- **Tags:** #preenchimento #api #tipos
+- **Arquivos:** `src/services/preenchimentoService.ts`, `src/services/periodoService.ts`, `src/services/metasService.ts` (novos), `src/services/indicadoresService.ts`, `src/types/dominio.ts` (bloco "Preenchimento")
+- **Descrição:** os serviços cobrem as rotas:
+  - `GET /api/ped/preenchimento/meses`;
+  - `GET/PUT /api/ped/preenchimento`, com lançamento em lote tudo ou nada e erros por item;
+  - `GET /api/ped/apontamentos/{id}/historico`;
+  - `GET /api/ped/periodo`, `GET /api/ped/periodo/historico` e `POST /api/ped/periodo/abrir`;
+  - `GET/PUT /api/ped/metas`.
+
+  O `listarHistoricoMetas` ganhou o filtro `mesDeReferencia`. Os valores são enviados como número ou booleano. O mês vai na query como `AAAA-MM` e no corpo como `AAAA-MM-01`. Filial, mês e ano são validados localmente, e as listas são aceitas puras ou embrulhadas.
+- **Motivação:** primeira atividade da fase F9, pedida pelo usuário ("continue na fase de preenchimento"). Os testes TDD foram escritos em 12/11.
+- **Como usar / observações técnicas:** 172/172 testes do requisito. As dúvidas de contrato estão em *Dúvidas em aberto* do plano.
+
+#### Tela de Preenchimento (F9.2–F9.8)
+- **Tags:** #preenchimento #cadastro #validacao #componente
+- **Arquivos:** `src/pages/preenchimento/PreenchimentoPage.tsx`/`.css`, `usePreenchimento.ts`, `SeletorMesCompetencia.tsx`/`.css`, `CabecalhoMesPreenchimento.tsx`, `ListaApontamentosPreenchimento.tsx`/`.css`, `CampoValorApontamento.tsx`/`.css`, `DialogoCorrecaoApontamento.tsx`, `DialogoHistoricoApontamento.tsx`, `regrasPreenchimento.ts`
+- **Descrição:**
+  - **F9.2:** exige uma filial selecionada e pede a escolha quando o cabeçalho está em "Todas as filiais".
+  - **F9.3:** seletor dos 12 meses de competência:
+    - mês aberto, com pendentes;
+    - mês fechado, só consulta;
+    - mês futuro, desabilitado.
+
+    O seletor de ano funciona por setas ou digitação, de 2000 até o ano atual, e tem "Ir para o período aberto".
+  - **F9.4:** cabeçalho do mês com filial, situação, "X de Y apontamentos preenchidos" e quem abriu o mês, e quando.
+  - **F9.5:** apontamentos ativos agrupados por tipo, com contagem e busca em todos os tipos.
+  - **F9.6:** entrada de valores:
+    - Booleano com Sim/Não; clicar de novo desmarca;
+    - Numeral e Porcentagem com decimais com vírgula, sem negativos, e "%" na Porcentagem.
+
+    O lançamento é em lote, pelo botão "Salvar lançamentos".
+  - **F9.7:** correção com valor diferente e motivo obrigatório. O histórico do apontamento mostra data, ação, valor anterior, novo valor, usuário e motivo.
+  - **F9.8:** aviso de mês já congelado em imagens de dashboards.
+- **Motivação:** fase F9 do plano, pedida pelo usuário. As decisões têm estes motivos:
+  - os botões de período aparecem mesmo sem filial, porque o período é comum a todas as filiais;
+  - **busca local:** quem digita valores e depois busca não perde o que digitou. A busca pela API refaria a tela;
+  - **tipos em regiões, não em abas:** todos os apontamentos ficam visíveis de uma vez, o que ajuda a preencher o lote inteiro sem trocar de aba;
+  - **"Salvar lançamentos" em lote:** a API grava o lote com a regra "tudo ou nada" (`PUT /api/ped/preenchimento`). Um botão por linha faria uma chamada para cada apontamento;
+  - **clicar de novo em Sim/Não desmarca:** a revisão encontrou que um clique errado colocava o apontamento no lote sem ter como tirar. A decisão foi do orquestrador, com o padrão de botão alternável;
+  - **`?dashboard=` ignorado:** nenhum requisito define o que fazer com esse parâmetro.
+- **Como usar / observações técnicas:** a rota é `/preenchimento`. As baterias da revisão passaram com 4403 unitários e 621 de integração.
+
+#### Metas no Preenchimento (F9.9–F9.10)
+- **Tags:** #preenchimento #cadastro #validacao #componente
+- **Arquivos:** `src/pages/preenchimento/BotaoEditarMetas.tsx`, `AcoesMetasPreenchimento.tsx`, `DialogoEditarMetas.tsx`/`.css`, `useMetasPreenchimento.ts`, `DialogoHistoricoMetaPreenchimento.tsx`
+- **Descrição:**
+  - **Botão "Editar metas":** mostra a contagem de metas.
+  - **Janela de metas:** mostra filial, mês e situação. Tem filtro por tipo e compara a meta do cadastro com a meta vigente, com a etiqueta "Ajustada".
+  - **Regras do ajuste:** só no mês aberto, com valor maior que 0, diferente da vigente e com motivo.
+  - **Histórico de ajustes por indicador:** data, valor anterior, novo valor, usuário e motivo.
+- **Motivação:** fase F9 do plano, pedida pelo usuário. Decisão: o filtro de tipo é local e mantém os valores ocultos, porque o botão e a janela usam a mesma consulta e os valores digitados não se perdem ao filtrar.
+- **Como usar / observações técnicas:** os indicadores com meta via API não aparecem em `GET /api/ped/metas`, e o ajuste da meta deles devolve `403`.
+
+#### Abrir e reabrir período (F9.11–F9.12)
+- **Tags:** #preenchimento #validacao #componente
+- **Arquivos:** `src/pages/preenchimento/AcoesPeriodoPreenchimento.tsx`, `DialogoAbrirPeriodo.tsx`/`.css`, `DialogoHistoricoPeriodos.tsx`/`.css`, `src/sessao/permissoes.ts`
+- **Descrição:**
+  - **Abrir outro mês:** o Admin abre outro mês, com confirmação. O mês anterior passa a ser só consulta, e o sistema registra quem abriu e quando.
+  - **Reabrir mês passado:** a reabertura de um mês já fechado avisa que fechará o preenchimento do mês atual, porque só há um mês aberto por vez.
+  - **Histórico de períodos:** fica em um diálogo próprio.
+- **Motivação:** fase F9 do plano. Pelo RF-76, só o Admin abre período.
+- **Como usar / observações técnicas:** nova ação `abrir-periodo` em `permissoes.ts`, só para o Admin. A rota é `POST /api/ped/periodo/abrir`. Os botões de período aparecem mesmo sem filial selecionada.
+
+#### Serviços de fechamentos e imagens (F10.1)
+- **Tags:** #fechamentos #api #tipos
+- **Arquivos:** `src/services/fechamentosService.ts`, `src/services/imagensService.ts` (novos), `src/types/dominio.ts` (bloco F10.1)
+- **Descrição:** os serviços cobrem `GET /api/ped/fechamentos`, `GET .../{id}/previa`, `POST .../{id}/encerrar`, `GET /api/ped/imagens` e `GET /api/ped/imagens/{id}`.
+- **Motivação:** fase F10 do plano, pedida pelo usuário ("ir para a proxima fase").
+- **Como usar / observações técnicas:** 97 testes do requisito. Os riscos de contrato estão em *Dúvidas em aberto* do plano.
+
+#### Lista de fechamentos (F10.2)
+- **Tags:** #fechamentos #componente
+- **Arquivos:** `src/pages/fechamentos/FechamentosPage.tsx`/`.css`, `useFechamentos.ts`, `TabelaFechamentos.tsx`/`.css`
+- **Descrição:** a aba é para Admin e Validador, com todas as filiais. Lista os dashboards ativos por periodicidade e nome, com:
+  - vínculo, filiais e pendências;
+  - período e progresso;
+  - ação;
+  - etiquetas de problema e de falta de faixas.
+
+  Tem filtros e "Limpar filtros".
+- **Motivação:** fase F10 do plano.
+- **Como usar / observações técnicas:** a lista usa o `BarraFiltros` com filtros adicionais (ver *Modificações*). Decisão pendente do usuário: o menu das linhas já encerradas oferece "Pré-visualizar" e "Encerrar", mas o protótipo mostra "Ver imagens".
+
+#### Visualização de imagem (F10.3)
+- **Tags:** #fechamentos #componente
+- **Arquivos:** `src/pages/fechamentos/VisualizacaoImagem.tsx`/`.css`
+- **Descrição:** componente somente leitura, compartilhado entre a prévia e a consulta, para imagens de filial e de colaborador. Mostra:
+  - código, filial, período, dashboard e vínculo;
+  - colaborador e cargo, quando houver;
+  - Resultado Operacional, PED e pontuação;
+  - tabela por indicador e total;
+  - faixas, com a atingida destacada;
+  - data e usuário.
+
+  Filial sem meta aparece como "sem meta", e `meta: null` também é tratado como "sem meta".
+- **Motivação:** fase F10 do plano.
+- **Como usar / observações técnicas:** risco baixo: a meta da imagem aparece com 2 casas, sem unidade.
+
+#### Pré-visualização do fechamento (F10.4)
+- **Tags:** #fechamentos #componente
+- **Arquivos:** `src/pages/fechamentos/DialogoPreviaFechamento.tsx`/`.css`, `previaFechamento.ts`, `usePreviaFechamento.ts`, `AvisosFechamento.tsx`/`.css`
+- **Descrição:** a prévia permite:
+  - escolher a filial, com imagens, progresso, faixas e situação de encerrada;
+  - buscar o colaborador;
+  - ver a lista de imagens e navegar por "Imagem X de N · Filial F";
+  - ver os avisos de pendências e de falta de faixas;
+  - encerrar a partir dela.
+
+  Nada é gravado na prévia.
+- **Motivação:** fase F10 do plano. A confirmação aberta a partir da prévia fica empilhada sobre ela, pela pilha de diálogos.
+- **Como usar / observações técnicas:** o primeiro teste de `FechamentosPage.previa.integration.test.tsx` é instável sob carga e passa isolado (10/10).
+
+#### Encerramento com confirmação (F10.5)
+- **Tags:** #fechamentos #validacao #componente
+- **Arquivos:** `src/pages/fechamentos/DialogoEncerrarFechamento.tsx`/`.css`, `AvisosFechamento.tsx`, `FechamentosPage.tsx`
+- **Descrição:** a confirmação mostra o total e a quantidade por filial, informa que outros dashboards não são afetados e lista as filiais com pendências e sem faixas. Depois de encerrar, exibe o lote ENC-xxxxxx, e a lista e a consulta são recarregadas. A consulta é remontada e perde os filtros.
+- **Motivação:** fase F10 do plano. O `ConsultaImagens` não expõe uma forma de recarregar. Por isso, depois do encerramento, ele é remontado por `key`, para as imagens novas do lote aparecerem. Perder os filtros é um efeito colateral aceito, registrado como risco baixo.
+- **Como usar / observações técnicas:** pendente com o usuário: mostrar o aviso pela quantidade quando o resumo vem como número.
+
+#### Consulta retroativa de imagens (F10.6)
+- **Tags:** #fechamentos #componente
+- **Arquivos:** `src/pages/fechamentos/ConsultaImagens.tsx`/`.css`, `useConsultaImagens.ts`, `DialogoImagem.tsx`/`.css`
+- **Descrição:** a consulta fica na própria aba Fechamentos, abaixo da lista, para Admin e Validador, com todas as filiais. Mostra dashboard, colaborador, período, filial, data, usuário e PED. Tem filtro por período e busca, e a imagem abre num diálogo.
+- **Motivação:** fase F10 do plano. A posição dentro da aba segue o protótipo.
+- **Como usar / observações técnicas:** pendências de contrato: a linha da consulta não traz o cargo pedido pelo RF-84 nem o nome da filial, e falta a busca por cargo.
+
+#### Tipos de imagem (F10.7)
+- **Tags:** #fechamentos #testes
+- **Arquivos:** `src/pages/fechamentos/` (prévia, confirmação e consulta), `FechamentosPage.tiposImagem.integration.test.tsx`
+- **Descrição:** a prévia, a confirmação e a consulta seguem a regra A-07 do back-end:
+  - dashboard por filiais gera imagem de filial;
+  - dashboard por cargos ou colaboradores gera uma imagem por colaborador.
+- **Motivação:** fase F10 do plano e regra A-07 do back-end.
+- **Como usar / observações técnicas:** a imagem "Filial (sem colaborador vinculado)", prevista no documento, continua como divergência em aberto. A validação contra o servidor real não foi feita.
+
+#### Serviço da tela Início (F11.1)
+- **Tags:** #inicio #api #tipos
+- **Arquivos:** `src/services/inicioService.ts` (novo), `src/types/dominio.ts` (bloco "Tela Início")
+- **Descrição:** consulta `GET /api/ped/inicio` para a filial do cabeçalho.
+- **Motivação:** fase F11 do plano, pedida pelo usuário ("começe a proxima fase").
+- **Como usar / observações técnicas:** 42 testes do requisito.
+
+#### Tela Início (F11.2–F11.5)
+- **Tags:** #inicio #componente #navegacao
+- **Arquivos:** `src/pages/inicio/InicioPage.tsx`/`.css`, `useInicio.ts`, `AvisosInicio.tsx`/`.css`, `ResumoInicio.tsx`/`.css`, `PeriodosEmAberto.tsx`/`.css`, `UltimasAlteracoes.tsx`/`.css`
+- **Descrição:**
+  - **Avisos (F11.2):**
+    - do período aberto, que não aparece quando não há período aberto;
+    - de acesso: tipos e filiais para o Preenchedor, filiais restritas para os outros perfis.
+  - **Resumo por perfil (F11.3):** indicadores-resumo para Admin, Validador e Preenchedor.
+  - **Períodos em aberto (F11.4):** periodicidade, período atual e "X de Y lançamentos", com o botão "Preencher".
+  - **Últimas alterações (F11.5):** as 6 mais recentes, com ação, apontamento, competência, filial, valor anterior → novo, data e usuário.
+- **Motivação:** fase F11 do plano. Sobre as decisões tomadas:
+  - **textos dos avisos montados no front, sem exibir `aviso`/`mensagem` da API:** as mensagens da API chegam sem acentos;
+  - **"Preencher" vai para `/preenchimento` sem pré-selecionar filial ou dashboard:** o RF-10 do documento pede só o botão. O contrato fala "daquela filial", e isso ficou como risco médio para decisão do usuário;
+  - **valores das últimas alterações com 2 casas e sem "%":** a API não informa o tipo de valor do apontamento nas últimas alterações.
+- **Como usar / observações técnicas:** o "Preencher" sem pré-seleção é um risco médio, porque o contrato fala no preenchimento "daquela filial".
+
+#### Indicadores com meta pendente e dashboards em construção no Início (F11.6)
+- **Tags:** #inicio #indicadores #dashboards #componente #navegacao #testes
+- **Arquivos:** `src/pages/inicio/usePendenciasInicio.ts`, `PendenciasResumoInicio.tsx`, `IndicadoresMetaPendenteInicio.tsx`, `DashboardsConstrucaoInicio.tsx`, `PendenciasInicio.css` (novos); `InicioPage.tsx`/`.css` (alterados); testes `usePendenciasInicio.test.tsx`, `PendenciasResumoInicio.test.tsx`, `IndicadoresMetaPendenteInicio.test.tsx`, `DashboardsConstrucaoInicio.test.tsx`, `InicioPage.blocos.integration.test.tsx` e o auxiliar `src/test/inicioBlocosFalsos.ts` (novos); `requisitos.json` (F11.6)
+- **Descrição:**
+  - **Hook `usePendenciasInicio`:** só para Admin e Validador (perfil de `useSessao`); para os outros perfis, nenhuma consulta sai.
+    - Indicadores: une `GET /api/ped/indicadores-cadastro?situacao=meta` e `?situacao=meta_filial_pendente`, sem repetir o `id`, em ordem alfabética (pt-BR). É o mesmo critério dos filtros de meta pendente da aba Indicadores. A falha de qualquer das duas consultas deixa a lista vazia, com a mensagem de erro.
+    - Dashboards: `GET /api/ped/dashboards?situacao=construcao`, na ordem da API.
+    - As rotas não usam filial. As consultas saem ao montar a tela e não se repetem na troca de filial do cabeçalho.
+  - **Cards (`PendenciasResumoInicio`):** lista "Pendências do cadastro" na faixa de resumo, com "Indicadores com meta pendente" e "Dashboards em construção". A quantidade aparece em pt-BR, sem casas decimais. Durante a carga ou na falha, o card mostra "—".
+  - **Painel "Indicadores com meta pendente":** nome, "Tipos: ..." e "Filiais sem meta: ..." de cada indicador, com o link "Ver indicadores". Lista vazia: "Nenhum indicador com meta pendente.".
+  - **Painel "Dashboards em construção":** nome, periodicidade e tarefa do Bitrix de cada dashboard, com o link "Ver dashboards". Lista vazia: "Nenhum dashboard em construção.".
+  - Nos dois painéis, a falha aparece como texto simples, sem `role="alert"`, para não interromper o Início.
+  - **`InicioPage`:** os blocos ficam independentes do `GET /api/ped/inicio`. Eles continuam na tela durante a troca de filial e mesmo se o Início falhar. Os avisos ficam no topo, seguidos da faixa de resumo (`inicio-page__faixa`: resumo da API e cards de pendências) e da grade de painéis.
+- **Motivação:** pedido do usuário, com print do Início: "colocar um bloco para indicadores (metas) e dashboards em construção". As decisões do formato (cards mais listas), do critério (meta pendente geral ou por filial) e dos perfis (só Admin e Validador) foram do usuário.
+- **Como usar / observações técnicas:**
+  - Não exige mudança no back-end: usa rotas que já existem.
+  - Validação: 65 testes unitários; na integração, 129 de 131. As 2 falhas foram timeouts sob carga e passam quando rodadas isoladas.
+  - Risco: a primeira abertura do Início do admin ficou mais pesada (3 chamadas a mais) e pode esgotar o tempo de testes no hook de pre-commit.
+  - Em `InicioPage.css`, a regra `.inicio-page__faixa` foi repetida dentro do `@media (max-width: 900px)`, sem efeito visual.
+
+### Modificações
+
+#### Adequação ao contrato final da faixa geral e da situação (F8.12\*)
+- **Tags:** #faixas #dashboards #api #validacao #componente
+- **Arquivos:** `src/services/faixasService.ts`, `src/services/dashboardsService.ts`, `src/services/adaptadores.ts`, `src/pages/faixas/regrasFaixas.ts`, `DialogoHistoricoFaixas.tsx`, `ListaTabelasFaixas.tsx`, `FormularioTabelaFaixas.tsx`, `DialogoSituacaoTabelaFaixas.tsx`, `DialogoExcluirTabelaFaixas.tsx`, `FaixasPage.tsx`, `AvisoConflitoFaixas.tsx`/`.css` (novo), `src/pages/dashboards/useDashboards.ts`, `DashboardsPage.tsx`, `TabelaDashboards.tsx`
+- **Antes:** o front seguia o contrato proposto em 12/11 e tolerava a resposta antiga do servidor.
+- **Depois:**
+  - **Histórico:** tem a ação `exclusao` ("Exclusão"). As linhas de inativação, reativação e exclusão ficam sem "Ver faixas da versão".
+  - **Dashboard excluído:** a tabela de faixas dele fica sem Inativar/Reativar.
+  - **Conflito (400):** mostra a mensagem da API, a linha "Dashboard: {nome}" e a lista "Tabelas em conflito" (`conflitosDoErro`, `AvisoConflitoFaixas`).
+  - **Aba Dashboards:** ganhou o filtro "Com problemas de faixa" (`problemas_faixa`, dashboard ativo com alertas de faixas).
+
+  Já estavam atendidos, sem mudança:
+  - respostas de POST/PUT sem a tabela recarregam a lista;
+  - datas com `-04:00` são formatadas corretamente;
+  - `situacao=ativas` é enviada por padrão.
+- **Motivação:** o back-end implementou a proposta com divergências (A-18). O filtro "Com problemas de faixa" foi incluído porque o back passou a oferecê-lo. O usuário não respondeu se queria esse filtro.
+- **Impacto:** abas Faixas e Dashboards. Os requisitos F7.1, F7.2, F7.14, F8.1, F8.5, F8.7 e F8.8 foram reabertos e concluídos de novo, com 510/510 testes. A publicação deve ser conjunta com o back-end. A validação contra o servidor real depende do deploy.
+
+#### Pilha de diálogos (F1.8)
+- **Tags:** #componente #correcao
+- **Arquivos:** `src/components/Dialogo.tsx`, `src/components/Dialogo.empilhados.test.tsx`
+- **Antes:** cada diálogo aberto registrava o próprio listener de teclado. Com dois diálogos abertos, o Esc fechava os dois.
+- **Depois:** uma pilha de módulo (`pilhaDialogos`) e um único listener no `document` encaminham Esc e Tab/Shift+Tab só ao diálogo do topo. O `onFechar` é guardado em ref, para não reinscrever o diálogo a cada render.
+- **Motivação:** revisão da F9: o Esc no "Histórico de metas" também fechava "Editar metas".
+- **Impacto:** todos os diálogos do sistema. A prévia do fechamento usa a pilha na confirmação empilhada. O requisito F1.8 foi reaberto e concluído de novo.
+
+#### Correções da revisão da F9
+- **Tags:** #preenchimento #correcao
+- **Arquivos:** `src/pages/preenchimento/usePreenchimento.ts`, `ListaApontamentosPreenchimento.tsx`, `SeletorMesCompetencia.tsx`, `DialogoCorrecaoApontamento.tsx`, `AcoesPeriodoPreenchimento.tsx`, testes `usePreenchimento.corrida.test.tsx` e outros
+- **Antes:** a revisão do qualidade-testes encontrou estes defeitos:
+  - **corrida de filial durante a gravação (gravidade alta):** trocar a filial enquanto salvava afetava o resultado;
+  - **erro escondido pela busca:** um erro de validação podia ficar escondido pelo filtro;
+  - **seletor que sumia:** o seletor de mês e ano sumia depois de um erro;
+  - **metas desatualizadas:** as metas não eram consultadas de novo depois de abrir ou reabrir um mês;
+  - **correção fechando cedo:** a correção podia fechar durante o salvamento.
+- **Depois:**
+  - a gravação respeita a filial em que foi iniciada;
+  - em erro, a busca é limpa e o foco vai para o campo;
+  - o seletor continua disponível depois de um erro;
+  - as metas são consultadas de novo depois de abrir ou reabrir um período;
+  - a correção não fecha enquanto salva.
+- **Motivação:** defeitos apontados na revisão da F9, corrigidos em TDD.
+- **Impacto:** aba Preenchimento.
+
+#### Consulta antecipada das metas no Preenchimento
+- **Tags:** #preenchimento #correcao
+- **Arquivos:** `src/pages/preenchimento/usePreenchimento.ts`, `PreenchimentoPage.tsx`, `useMetasPreenchimento.ts`, `AcoesMetasPreenchimento.tsx`
+- **Antes:** o botão "Editar metas" só consultava as metas depois de desenhar a tela inteira, cerca de 250 ms a mais. Sob carga, os testes de integração esgotavam o tempo, e o hook de pre-commit bloqueou o commit três vezes.
+- **Depois:** o `usePreenchimento` recebe o callback opcional `onTelaRecebida`. Por ele, a página chama `anteciparMetasPreenchimento(filial, mês)` assim que a tela chega, em paralelo com a renderização. O `AcoesMetasPreenchimento` usa a resposta antecipada quando ela é da filial e do mês da tela.
+- **Motivação:** decisão do usuário. Ele pediu primeiro para "rodar novamente os testes sem fazer modificações neles" e depois para "corrigir o codigo da pagina", sem alterar testes nem configuração.
+- **Impacto:** a aba Preenchimento abre as metas mais cedo. Nenhum teste foi alterado. Com isso, o commit `797bc54` foi aprovado.
+
+#### `BarraFiltros` com filtros adicionais
+- **Tags:** #componente
+- **Arquivos:** `src/components/BarraFiltros.tsx`
+- **Antes:** a barra tinha só busca, seletor de situação, botões com contagem e "Limpar filtros".
+- **Depois:** ganhou as props opcionais:
+  - `children`: filtros do componente pai, exibidos logo após a busca;
+  - `filtrosAdicionaisAtivos`: faz o "Limpar filtros" considerar esses filtros.
+- **Motivação:** atender os filtros da lista de Fechamentos (F10.2), por exemplo o de periodicidade.
+- **Impacto:** compatível com os usos existentes, porque as props são opcionais.
+
+#### `Card` sem `<header>`
+- **Tags:** #componente #testes
+- **Arquivos:** `src/components/Card.tsx`
+- **Antes:** o cabeçalho do card era um `<header>`.
+- **Depois:** o cabeçalho é um `<div className="card__cabecalho">`.
+- **Motivação:** o Testing Library trata todo `<header>` como "banner", mesmo dentro de `<section>`, e isso multiplicava o papel nos testes. O banner da página deve ser só o cabeçalho do sistema.
+- **Impacto:** todas as telas que usam `Card`, sem mudança visual.
+
+#### Testes de F2.2, F2.3 e F2.5 adequados ao Início
+- **Tags:** #testes #inicio #login
+- **Arquivos:** `src/pages/login/LoginPage.integration.test.tsx`, `src/pages/login/LoginPage.limiteTentativas.integration.test.tsx`, `src/rotas.integration.test.tsx`, `src/sessao/SessaoProvider.integration.test.tsx`
+- **Antes:** os testes não simulavam `GET /api/ped/inicio` e esperavam só as chamadas de login e de acesso.
+- **Depois:** os testes simulam a rota com `rotaInicioFalsa`, e as verificações de chamadas filtram a consulta do Início.
+- **Motivação:** a tela Início passou a consultar `GET /api/ped/inicio` ao abrir (F11.1). Sem a rota simulada, a tela mostraria um alerta de erro.
+- **Impacto:** nenhuma mudança de comportamento.
+
+#### Correção nos auxiliares do teste da prévia
+- **Tags:** #testes #correcao #fechamentos
+- **Arquivos:** `src/pages/fechamentos/DialogoPreviaFechamento.test.tsx`
+- **Antes:** os auxiliares `tabela()` e `linhas()` procuravam sempre o diálogo de título "PED Comercial". Em 5 testes, porém, o diálogo aberto era o do "PED Gerentes", e nenhuma implementação conseguiria passar.
+- **Depois:** o gerador-testes corrigiu os auxiliares para buscar a prévia aberta, sem mudar a intenção dos testes.
+- **Motivação:** o defeito estava no próprio teste da prévia (F10.4) e impedia que qualquer implementação passasse nesses 5 testes.
+- **Impacto:** só testes.
+
+#### Commits `797bc54` e `d499d3e`
+- **Tags:** #testes #documentacao
+- **Arquivos:** 132 arquivos no `797bc54` e 77 no `d499d3e`
+- **Antes:** o trabalho da faixa geral e da F9.1 de 12/11 estava no disco, sem commit.
+- **Depois:**
+  - **`797bc54` (11:44):** F8.9\*–F8.12\*, F7.14\*, F9.1–F9.12 e F1.8, os documentos do back-end e o fechamento de 12/11. Foi aprovado na terceira tentativa do hook.
+  - **`d499d3e` (16:55):** F10.1–F10.7 e F11.1–F11.5. Foi aprovado com 4733/4733 unitários e 717/717 de integração. Os lotes de integração rodaram primeiro e sozinhos, para reduzir falhas por carga.
+- **Motivação:** pedidos do usuário ("realizar o commit das mudanças" e "faça o commit e finalize o dia").
+- **Impacto:** os commits foram enviados ao GitHub (ver "Push dos commits" abaixo).
+
+#### Push dos commits
+- **Tags:** #documentacao
+- **Arquivos:** nenhum arquivo alterado.
+- **Antes:** `a9da8a5`, `797bc54` e `d499d3e` estavam só no repositório local, e o origin estava em `288d6c5`.
+- **Depois:** os três commits foram enviados, e o origin/main está em `d499d3e`.
+- **Motivação:** pendência registrada no fechamento anterior do dia.
+- **Impacto:** o trabalho de 12/11 e de 13/11 até a F11.5 está no GitHub.
+
+#### Subabas por tipo na aba Preenchimento (F9.2, F9.5–F9.8)
+- **Tags:** #preenchimento #componente #navegacao #validacao #testes
+- **Arquivos:** `src/pages/preenchimento/ListaApontamentosPreenchimento.tsx`/`.css`, `PreenchimentoPage.tsx`; testes `ListaApontamentosPreenchimento.test.tsx`, `.lancamento.test.tsx`, `.correcao.test.tsx`, `.imagens.test.tsx`, `PreenchimentoPage.integration.test.tsx`, `.lista.integration.test.tsx`, `.lancamento.integration.test.tsx`, `.correcao.integration.test.tsx`, `.imagens.integration.test.tsx`; `requisitos.json`
+- **Antes:** cada tipo era uma região empilhada (`section` com o nome do tipo e "N apontamento(s)"). A busca filtrava as regiões.
+- **Depois:**
+  - **Abas WAI-ARIA:** `tablist` "Tipos de apontamento" com um `tab` "{tipo} {N}" por tipo, na ordem recebida, e a contagem em pílula. Só a aba selecionada tem `tabindex` 0. As setas → e ← (circulares), Home e End selecionam a aba e levam o foco a ela. Só o `tabpanel` da aba selecionada é preenchido; os outros ficam `hidden` e vazios.
+  - **Aba inicial:** a primeira com apontamentos ou, se nenhuma tiver, a primeira. A aba é guardada pelo id do tipo e se mantém na recarga do mesmo mês, depois de salvar ou corrigir.
+  - **Busca:** com texto, as abas somem, aparece o aviso "Buscando em todos os seus tipos de apontamento." e os encontrados de todos os tipos ficam numa lista única, cada um com a etiqueta do tipo. Limpar a busca volta à aba de antes.
+  - **Rascunhos:** ficam preservados ao trocar de aba, e os de abas não visíveis também são enviados em "Salvar lançamentos".
+  - **Erros:** se nenhum apontamento com erro está visível, a busca que o esconde é limpa e, se preciso, é selecionada a aba do primeiro com erro. Na recusa da API com erros por item, o `PreenchimentoPage` pede foco no primeiro apontamento com erro, na ordem da tela, e a lista seleciona a aba dele.
+- **Motivação:** pedido do usuário, com print da aba: a tela estava diferente do protótipo (`Main.dc.html`) e os preenchimentos "deveriam ser separados pelos tipos em subabas". O usuário reverteu a decisão anterior de mostrar as regiões empilhadas.
+- **Impacto:** aba Preenchimento. Os requisitos F9.2, F9.5, F9.6, F9.7 e F9.8 passaram por `em-alteracao` e voltaram a `implementado`. Os testes foram adequados pelo gerador-testes: saíram os testes de "N apontamento(s)" por região e entraram os de abas, rascunho em outra aba e erro em outra aba. Validação: 301 testes unitários e 105 de integração na pasta, typecheck e lint sem erros.
+
+#### Teste de F2.2 adequado aos blocos do Início
+- **Tags:** #testes #login #inicio
+- **Arquivos:** `src/pages/login/LoginPage.integration.test.tsx`, `requisitos.json` (histórico da F2.2)
+- **Antes:** o teste "login válido..." comparava todas as chamadas, exceto `/api/ped/inicio`.
+- **Depois:** o teste compara só as rotas de sessão (`/api/valida-usuario` e `/api/ped/acesso`), na mesma ordem.
+- **Motivação:** com a F11.6, o Início do admin passou a fazer mais 3 chamadas (duas de indicadores e uma de dashboards), que entravam na lista exata do teste.
+- **Impacto:** nenhuma mudança de comportamento no login. O requisito continua `implementado`.
+
+### Pendências
+- Erro "Resposta inválida do servidor" na aba Preenchimento: aguardando o usuário enviar o JSON real de `GET /api/ped/preenchimento/meses` e de `GET /api/ped/preenchimento`, copiado da aba Rede do navegador.
+- Rótulos do resumo do Início sem acento vindos da API ("construcao", "Lancamentos").
+- Risco de timeout do primeiro teste do Início sob carga, que pode bloquear o hook de pre-commit.
+- Commit do trabalho da tarde (subabas do Preenchimento e F11.6), junto com os documentos de fechamento.
+- Publicação conjunta com o back-end das faixas, com verificação do `DELETE` com corpo depois do deploy.
+- Confirmar com o usuário o filtro "Com problemas de faixa".
+- F10.8, bloqueada pela P-08.
+- F12.1 e F12.2 (acessibilidade e responsividade).
+- F1.18, F5.10 e F6.14\*.
+- O `scripts/lotes-testes.mjs` conta menos testes do que existem: os lotes reais chegam a 229.
+- O `Suspense` das rotas sob demanda atrasa cerca de 300 ms e deixa instável, sob carga, o primeiro teste de integração de cada arquivo.
+- Decisões pendentes da F10:
+  - menu das linhas já encerradas;
+  - aviso pela quantidade quando o resumo vem como número;
+  - teste instável da prévia.
+- Risco médio do "Preencher" do Início sem pré-seleção da filial.
+- Dúvidas de contrato da F9, da F10 e da F11, registradas no plano.
+- Dúvidas abertas ao usuário:
+  - limite de 100% na porcentagem;
+  - "1.500" e mais de 2 casas decimais;
+  - alerta de faixa com tipo desconhecido;
+  - Validador × imagens (API linha 688 × A-05).
+- Risco baixo da F10.5: a consulta de imagens perde os filtros depois de um encerramento.
 
 ---
 

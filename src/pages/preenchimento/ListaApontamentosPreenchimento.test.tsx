@@ -7,24 +7,32 @@ import {
   telaMesFechado,
   tiposPreenchimento,
 } from '../../test/preenchimentoTelaFalsos'
-import { usuarioRapido } from '../../test/usuario'
+import { usuarioRapido, type Usuario } from '../../test/usuario'
 import type { TipoPreenchimento } from '../../types/dominio'
 import { ListaApontamentosPreenchimento, type ListaApontamentosPreenchimentoProps } from './ListaApontamentosPreenchimento'
 
 /**
- * Lista dos apontamentos do mês (F9.5 — RF-64, RF-65, RNF-09).
- * - Uma região por tipo (nome acessível = nome do tipo), na ordem recebida, com a contagem
- *   "N apontamento(s)"; tipo sem apontamentos mostra "Nenhum apontamento ativo do tipo {tipo}.";
- *   sem tipos, "Nenhum apontamento ativo nos seus tipos.".
+ * Lista dos apontamentos do mês (F9.5 — RF-64, RF-65, RNF-09), em subabas por tipo, como no protótipo.
+ * - Subabas no padrão de abas do WAI-ARIA: `tablist` "Tipos de apontamento", um `tab` por tipo, na
+ *   ordem recebida, com o nome do tipo seguido da contagem (de `quantidade`; ex.: "Comercial 2"), e um
+ *   `tabpanel` (nome acessível = a aba) com os apontamentos do tipo selecionado; os dos outros tipos
+ *   ficam fora da árvore de acessibilidade.
+ * - Seleção inicial: a primeira aba com apontamentos (ou a primeira, se nenhuma tiver). Clique ou setas
+ *   (→/←, circulares) selecionam a aba e levam o foco a ela; só a aba selecionada fica na ordem do Tab
+ *   (tabindex 0; as demais, -1).
+ * - Tipo sem apontamentos: o painel mostra "Nenhum apontamento ativo do tipo {tipo}."; sem tipos,
+ *   "Nenhum apontamento ativo nos seus tipos." (sem abas).
  * - Cada apontamento é um `article` com o nome como nome acessível, mostrando o tipo de valor
  *   (Numeral, Porcentagem, Booleano), a situação (Pendente, Não lançado, Preenchido, Corrigido),
  *   "Indicadores: ..." (ou "Indicadores: não vinculado") e "Dashboards: {nome} ({periodicidade})"
  *   (ou "Dashboards: nenhum").
- * - Busca local "Buscar apontamento ou indicador" em todos os tipos: pelo nome do apontamento ou de um
- *   indicador, sem diferenciar acentos nem maiúsculas; tipos sem resultado somem e a contagem passa a
- *   ser a dos encontrados; sem resultado, "Nenhum apontamento encontrado para “{busca}”.".
+ * - Busca local "Buscar apontamento ou indicador" em todos os tipos (protótipo): com texto, as abas
+ *   somem, aparece "Buscando em todos os seus tipos de apontamento." e a lista mostra os encontrados de
+ *   todos os tipos, na ordem da tela, cada um com o nome do seu tipo; sem diferenciar acentos nem
+ *   maiúsculas; sem resultado, "Nenhum apontamento encontrado para “{busca}”.". Limpar a busca volta às
+ *   abas, com a mesma aba selecionada de antes.
  */
-describe('F9.5 — ListaApontamentosPreenchimento (apontamentos por tipo, com contagem e busca)', () => {
+describe('F9.5 — ListaApontamentosPreenchimento (subabas por tipo, com contagem e busca)', () => {
   function renderizar(props: Partial<ListaApontamentosPreenchimentoProps> = {}) {
     const completas: ListaApontamentosPreenchimentoProps = {
       tipos: tiposPreenchimento(),
@@ -40,50 +48,168 @@ describe('F9.5 — ListaApontamentosPreenchimento (apontamentos por tipo, com co
     return completas
   }
 
-  const regiao = (tipo: string) => screen.getByRole('region', { name: tipo })
+  const comecaCom = (inicio: string) => (nome: string) => nome.startsWith(inicio)
+  const abas = () => screen.getByRole('tablist', { name: 'Tipos de apontamento' })
+  const aba = (tipo: string) => within(abas()).getByRole('tab', { name: comecaCom(tipo) })
+  const painel = () => screen.getByRole('tabpanel')
   const linha = (nome: string) => screen.getByRole('article', { name: nome })
   const campoBusca = () => screen.getByLabelText('Buscar apontamento ou indicador')
+  const nomesDasLinhas = () => screen.getAllByRole('article').map((artigo) => within(artigo).getByRole('heading').textContent)
 
-  describe('agrupamento por tipo (RF-64)', () => {
-    it('uma região por tipo, na ordem recebida, com os apontamentos de cada um', () => {
+  async function selecionarAba(user: Usuario, tipo: string) {
+    await user.click(aba(tipo))
+  }
+
+  describe('subabas por tipo (RF-64)', () => {
+    it('um tablist "Tipos de apontamento" com uma aba por tipo, na ordem recebida, com o nome e a contagem', () => {
       renderizar()
 
-      expect(within(regiao('Comercial')).getAllByRole('article')).toHaveLength(2)
-      expect(within(regiao('Comercial')).getByRole('article', { name: 'Visitas a clientes' })).toBeInTheDocument()
-      expect(within(regiao('Comercial')).getByRole('article', { name: 'Vitrine montada' })).toBeInTheDocument()
-      expect(within(regiao('Financeiro')).getAllByRole('article')).toHaveLength(1)
-      expect(within(regiao('Financeiro')).getByRole('article', { name: 'Inadimplência' })).toBeInTheDocument()
-      // Comercial vem antes de Financeiro no documento.
-      expect(regiao('Comercial').compareDocumentPosition(regiao('Financeiro')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-      expect(screen.getAllByRole('article')).toHaveLength(3)
+      const todas = within(abas()).getAllByRole('tab')
+      expect(todas).toHaveLength(2)
+      expect(todas[0]).toHaveTextContent(/^Comercial\s*2$/)
+      expect(todas[1]).toHaveTextContent(/^Financeiro\s*1$/)
     })
 
-    it('cada tipo mostra a contagem: "2 apontamentos" e "1 apontamento"', () => {
-      renderizar()
-
-      expect(within(regiao('Comercial')).getByText('2 apontamentos')).toBeInTheDocument()
-      expect(within(regiao('Financeiro')).getByText('1 apontamento')).toBeInTheDocument()
-    })
-
-    it('a contagem vem de quantidade (informada pela API)', () => {
+    it('a contagem da aba vem de quantidade (informada pela API)', () => {
       const tipos: TipoPreenchimento[] = [{ id: 1, nome: 'Comercial', quantidade: 5, apontamentos: [APONTAMENTO_VISITAS] }]
       renderizar({ tipos })
 
-      expect(within(regiao('Comercial')).getByText('5 apontamentos')).toBeInTheDocument()
+      expect(aba('Comercial')).toHaveTextContent(/^Comercial\s*5$/)
     })
 
-    it('tipo sem apontamentos: "Nenhum apontamento ativo do tipo {tipo}."', () => {
+    it('a primeira aba começa selecionada e o painel mostra só os apontamentos dela', () => {
+      renderizar()
+
+      expect(aba('Comercial')).toHaveAttribute('aria-selected', 'true')
+      expect(aba('Financeiro')).toHaveAttribute('aria-selected', 'false')
+      expect(screen.getAllByRole('tabpanel')).toHaveLength(1)
+      expect(within(painel()).getAllByRole('article')).toHaveLength(2)
+      expect(within(painel()).getByRole('article', { name: 'Visitas a clientes' })).toBeInTheDocument()
+      expect(within(painel()).getByRole('article', { name: 'Vitrine montada' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Inadimplência' })).not.toBeInTheDocument()
+    })
+
+    it('o painel tem como nome acessível a aba selecionada', () => {
+      renderizar()
+
+      expect(screen.getByRole('tabpanel', { name: comecaCom('Comercial') })).toBeInTheDocument()
+    })
+
+    it('clicar em outra aba a seleciona e mostra só os apontamentos daquele tipo', async () => {
+      const user = usuarioRapido()
+      renderizar()
+
+      await selecionarAba(user, 'Financeiro')
+
+      expect(aba('Financeiro')).toHaveAttribute('aria-selected', 'true')
+      expect(aba('Comercial')).toHaveAttribute('aria-selected', 'false')
+      expect(screen.getByRole('tabpanel', { name: comecaCom('Financeiro') })).toBeInTheDocument()
+      expect(within(painel()).getAllByRole('article')).toHaveLength(1)
+      expect(within(painel()).getByRole('article', { name: 'Inadimplência' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Visitas a clientes' })).not.toBeInTheDocument()
+    })
+
+    it('fora da busca, a linha não repete o nome do tipo (a aba já informa)', () => {
+      renderizar()
+
+      expect(within(linha('Visitas a clientes')).queryByText('Comercial')).not.toBeInTheDocument()
+    })
+
+    it('a seleção inicial é a primeira aba com apontamentos (protótipo)', () => {
+      renderizar({ tipos: [{ id: 3, nome: 'Fiscal', quantidade: 0, apontamentos: [] }, ...tiposPreenchimento()] })
+
+      expect(aba('Fiscal')).toHaveAttribute('aria-selected', 'false')
+      expect(aba('Comercial')).toHaveAttribute('aria-selected', 'true')
+      expect(within(painel()).getAllByRole('article')).toHaveLength(2)
+    })
+
+    it('tipo sem apontamentos: aba com 0 e o painel mostra "Nenhum apontamento ativo do tipo {tipo}."', async () => {
+      const user = usuarioRapido()
       renderizar({ tipos: [...tiposPreenchimento(), { id: 3, nome: 'Fiscal', quantidade: 0, apontamentos: [] }] })
 
-      expect(within(regiao('Fiscal')).getByText('0 apontamentos')).toBeInTheDocument()
-      expect(within(regiao('Fiscal')).getByText('Nenhum apontamento ativo do tipo Fiscal.')).toBeInTheDocument()
+      expect(aba('Fiscal')).toHaveTextContent(/^Fiscal\s*0$/)
+      await selecionarAba(user, 'Fiscal')
+
+      expect(within(painel()).getByText('Nenhum apontamento ativo do tipo Fiscal.')).toBeInTheDocument()
+      expect(screen.queryByRole('article')).not.toBeInTheDocument()
     })
 
-    it('sem tipos: "Nenhum apontamento ativo nos seus tipos."', () => {
+    it('nenhum tipo com apontamentos: a primeira aba fica selecionada, com a mensagem do tipo', () => {
+      renderizar({
+        tipos: [
+          { id: 3, nome: 'Fiscal', quantidade: 0, apontamentos: [] },
+          { id: 4, nome: 'RH', quantidade: 0, apontamentos: [] },
+        ],
+      })
+
+      expect(aba('Fiscal')).toHaveAttribute('aria-selected', 'true')
+      expect(within(painel()).getByText('Nenhum apontamento ativo do tipo Fiscal.')).toBeInTheDocument()
+    })
+
+    it('sem tipos: "Nenhum apontamento ativo nos seus tipos.", sem abas', () => {
       renderizar({ tipos: [] })
 
       expect(screen.getByText('Nenhum apontamento ativo nos seus tipos.')).toBeInTheDocument()
+      expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
       expect(screen.queryByRole('article')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('teclado (padrão de abas do WAI-ARIA)', () => {
+    const tresTipos = (): TipoPreenchimento[] => [
+      ...tiposPreenchimento(),
+      { id: 3, nome: 'Fiscal', quantidade: 0, apontamentos: [] },
+    ]
+
+    it('só a aba selecionada fica na ordem do Tab (tabindex 0; as demais, -1)', async () => {
+      const user = usuarioRapido()
+      renderizar({ tipos: tresTipos() })
+
+      expect(aba('Comercial')).toHaveAttribute('tabindex', '0')
+      expect(aba('Financeiro')).toHaveAttribute('tabindex', '-1')
+      expect(aba('Fiscal')).toHaveAttribute('tabindex', '-1')
+
+      await selecionarAba(user, 'Financeiro')
+
+      expect(aba('Financeiro')).toHaveAttribute('tabindex', '0')
+      expect(aba('Comercial')).toHaveAttribute('tabindex', '-1')
+    })
+
+    it('seta para a direita seleciona a próxima aba e leva o foco a ela', async () => {
+      const user = usuarioRapido()
+      renderizar({ tipos: tresTipos() })
+      await selecionarAba(user, 'Comercial')
+
+      await user.keyboard('{ArrowRight}')
+
+      expect(aba('Financeiro')).toHaveFocus()
+      expect(aba('Financeiro')).toHaveAttribute('aria-selected', 'true')
+      expect(within(painel()).getByRole('article', { name: 'Inadimplência' })).toBeInTheDocument()
+    })
+
+    it('seta para a direita na última aba volta à primeira', async () => {
+      const user = usuarioRapido()
+      renderizar({ tipos: tresTipos() })
+      await selecionarAba(user, 'Fiscal')
+
+      await user.keyboard('{ArrowRight}')
+
+      expect(aba('Comercial')).toHaveFocus()
+      expect(aba('Comercial')).toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('seta para a esquerda na primeira aba vai à última; de novo, à anterior', async () => {
+      const user = usuarioRapido()
+      renderizar({ tipos: tresTipos() })
+      await selecionarAba(user, 'Comercial')
+
+      await user.keyboard('{ArrowLeft}')
+      expect(aba('Fiscal')).toHaveFocus()
+      expect(aba('Fiscal')).toHaveAttribute('aria-selected', 'true')
+
+      await user.keyboard('{ArrowLeft}')
+      expect(aba('Financeiro')).toHaveFocus()
+      expect(aba('Financeiro')).toHaveAttribute('aria-selected', 'true')
     })
   })
 
@@ -109,8 +235,10 @@ describe('F9.5 — ListaApontamentosPreenchimento (apontamentos por tipo, com co
       expect(within(vitrine).getByText('Dashboards: nenhum')).toBeInTheDocument()
     })
 
-    it('Porcentagem corrigida: "Corrigido" e o dashboard trimestral', () => {
+    it('Porcentagem corrigida (aba Financeiro): "Corrigido" e o dashboard trimestral', async () => {
+      const user = usuarioRapido()
       renderizar()
+      await selecionarAba(user, 'Financeiro')
 
       const inadimplencia = linha('Inadimplência')
       expect(within(inadimplencia).getByText('Porcentagem')).toBeInTheDocument()
@@ -171,27 +299,40 @@ describe('F9.5 — ListaApontamentosPreenchimento (apontamentos por tipo, com co
   })
 
   describe('busca em todos os tipos (RF-64, RNF-09)', () => {
-    it('busca pelo nome do apontamento, sem diferenciar maiúsculas: só os encontrados, com a contagem do tipo', async () => {
+    it('com texto na busca, as abas somem e aparece "Buscando em todos os seus tipos de apontamento."', async () => {
+      const user = usuarioRapido()
+      renderizar()
+
+      await user.type(campoBusca(), 'vitrine')
+
+      expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+      expect(screen.queryByRole('tab')).not.toBeInTheDocument()
+      expect(screen.getByText('Buscando em todos os seus tipos de apontamento.')).toBeInTheDocument()
+    })
+
+    it('sem busca, o aviso "Buscando em todos..." não aparece', () => {
+      renderizar()
+
+      expect(screen.queryByText('Buscando em todos os seus tipos de apontamento.')).not.toBeInTheDocument()
+    })
+
+    it('busca pelo nome do apontamento, sem diferenciar maiúsculas: só os encontrados', async () => {
       const user = usuarioRapido()
       renderizar()
 
       await user.type(campoBusca(), 'VITRINE')
 
-      expect(screen.getAllByRole('article')).toHaveLength(1)
-      expect(within(regiao('Comercial')).getByRole('article', { name: 'Vitrine montada' })).toBeInTheDocument()
-      expect(within(regiao('Comercial')).getByText('1 apontamento')).toBeInTheDocument()
-      expect(screen.queryByRole('region', { name: 'Financeiro' })).not.toBeInTheDocument()
+      expect(nomesDasLinhas()).toEqual(['Vitrine montada'])
     })
 
-    it('busca pelo nome de um indicador, sem diferenciar acentos', async () => {
+    it('encontra apontamento de outro tipo que não o da aba selecionada, sem diferenciar acentos', async () => {
       const user = usuarioRapido()
       renderizar()
+      expect(aba('Comercial')).toHaveAttribute('aria-selected', 'true')
 
       await user.type(campoBusca(), 'inadimplencia')
 
-      expect(screen.getAllByRole('article')).toHaveLength(1)
-      expect(within(regiao('Financeiro')).getByRole('article', { name: 'Inadimplência' })).toBeInTheDocument()
-      expect(screen.queryByRole('region', { name: 'Comercial' })).not.toBeInTheDocument()
+      expect(nomesDasLinhas()).toEqual(['Inadimplência'])
     })
 
     it('busca por indicador encontra o apontamento que o compõe ("cobertura" → Visitas a clientes)', async () => {
@@ -200,18 +341,19 @@ describe('F9.5 — ListaApontamentosPreenchimento (apontamentos por tipo, com co
 
       await user.type(campoBusca(), 'cobertura')
 
-      expect(screen.getAllByRole('article')).toHaveLength(1)
-      expect(linha('Visitas a clientes')).toBeInTheDocument()
+      expect(nomesDasLinhas()).toEqual(['Visitas a clientes'])
     })
 
-    it('procura em todos os tipos ao mesmo tempo', async () => {
+    it('procura em todos os tipos ao mesmo tempo, na ordem da tela, e cada linha mostra o nome do seu tipo', async () => {
       const user = usuarioRapido()
       renderizar()
 
       await user.type(campoBusca(), 'i')
 
-      expect(screen.getByRole('region', { name: 'Comercial' })).toBeInTheDocument()
-      expect(screen.getByRole('region', { name: 'Financeiro' })).toBeInTheDocument()
+      expect(nomesDasLinhas()).toEqual(['Visitas a clientes', 'Vitrine montada', 'Inadimplência'])
+      expect(within(linha('Visitas a clientes')).getByText('Comercial')).toBeInTheDocument()
+      expect(within(linha('Vitrine montada')).getByText('Comercial')).toBeInTheDocument()
+      expect(within(linha('Inadimplência')).getByText('Financeiro')).toBeInTheDocument()
     })
 
     it('sem resultado: "Nenhum apontamento encontrado para “{busca}”." e nenhuma linha', async () => {
@@ -224,16 +366,19 @@ describe('F9.5 — ListaApontamentosPreenchimento (apontamentos por tipo, com co
       expect(screen.queryByRole('article')).not.toBeInTheDocument()
     })
 
-    it('limpar a busca volta a mostrar todos os tipos e apontamentos', async () => {
+    it('limpar a busca volta às abas, com a mesma aba selecionada de antes', async () => {
       const user = usuarioRapido()
       renderizar()
+      await selecionarAba(user, 'Financeiro')
 
       await user.type(campoBusca(), 'vitrine')
       await user.clear(campoBusca())
 
-      expect(screen.getAllByRole('article')).toHaveLength(3)
-      expect(within(regiao('Comercial')).getByText('2 apontamentos')).toBeInTheDocument()
-      expect(screen.getByRole('region', { name: 'Financeiro' })).toBeInTheDocument()
+      expect(aba('Financeiro')).toHaveAttribute('aria-selected', 'true')
+      expect(aba('Financeiro')).toHaveTextContent(/^Financeiro\s*1$/)
+      expect(aba('Comercial')).toHaveTextContent(/^Comercial\s*2$/)
+      expect(nomesDasLinhas()).toEqual(['Inadimplência'])
+      expect(screen.queryByText('Buscando em todos os seus tipos de apontamento.')).not.toBeInTheDocument()
     })
   })
 })

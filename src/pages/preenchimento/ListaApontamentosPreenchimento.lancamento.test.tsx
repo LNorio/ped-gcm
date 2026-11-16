@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { APONTAMENTO_INADIMPLENCIA, APONTAMENTO_PEDIDOS, telaMesFechado, tiposPreenchimento } from '../../test/preenchimentoTelaFalsos'
 import { usuarioRapido } from '../../test/usuario'
-import type { TipoPreenchimento } from '../../types/dominio'
+import type { ApontamentoPreenchimento, TipoPreenchimento } from '../../types/dominio'
 import { ListaApontamentosPreenchimento, type ListaApontamentosPreenchimentoProps } from './ListaApontamentosPreenchimento'
 
 /**
@@ -12,6 +12,10 @@ import { ListaApontamentosPreenchimento, type ListaApontamentosPreenchimentoProp
  * - apontamento **com valor** não tem campo (o valor é lançado uma única vez; mudar é "Corrigir" — F9.7);
  * - `erros[id]` (validação local ou da API) aparece como alerta na linha do apontamento;
  * - fora do mês aberto (`editavel: false`), nenhum campo de valor.
+ * Subabas por tipo (alteração de 13/11/2026): os rascunhos de outra aba continuam no campo ao voltar a
+ * ela; um erro novo só em apontamentos de outras abas (ou oculto pela busca, que é limpa) seleciona a
+ * aba do primeiro apontamento com erro; `pedidoFoco` num apontamento de outra aba seleciona a aba dele
+ * e leva o foco ao campo.
  */
 describe('F9.6 — ListaApontamentosPreenchimento (campos de valor e erros por apontamento)', () => {
   function renderizar(props: Partial<ListaApontamentosPreenchimentoProps> = {}) {
@@ -30,12 +34,16 @@ describe('F9.6 — ListaApontamentosPreenchimento (campos de valor e erros por a
   }
 
   const linha = (nome: string) => screen.getByRole('article', { name: nome })
+  const aba = (tipo: string) =>
+    within(screen.getByRole('tablist', { name: 'Tipos de apontamento' })).getByRole('tab', { name: (nome) => nome.startsWith(tipo) })
 
-  it('mês editável: o apontamento booleano sem valor mostra Sim/Não; os com valor não têm campo', () => {
+  it('mês editável: o apontamento booleano sem valor mostra Sim/Não; os com valor não têm campo', async () => {
+    const user = usuarioRapido()
     renderizar()
 
     expect(within(linha('Vitrine montada')).getByRole('group', { name: 'Valor de Vitrine montada' })).toBeInTheDocument()
     expect(within(linha('Visitas a clientes')).queryByRole('textbox')).not.toBeInTheDocument()
+    await user.click(aba('Financeiro'))
     expect(within(linha('Inadimplência')).queryByRole('textbox')).not.toBeInTheDocument()
   })
 
@@ -113,7 +121,7 @@ describe('F9.6 — ListaApontamentosPreenchimento (campos de valor e erros por a
     ]
     const campoBusca = () => screen.getByLabelText('Buscar apontamento ou indicador')
 
-    it('ao receber erro de um apontamento escondido pela busca, a busca é limpa e o erro aparece na linha', async () => {
+    it('ao receber erro de um apontamento escondido pela busca, a busca é limpa, as abas voltam e o erro aparece na linha', async () => {
       const user = usuarioRapido()
       const props: ListaApontamentosPreenchimentoProps = {
         tipos: tiposComPedidos(),
@@ -132,8 +140,94 @@ describe('F9.6 — ListaApontamentosPreenchimento (campos de valor e erros por a
 
       expect(campoBusca()).toHaveValue('')
       expect(within(linha('Pedidos digitados')).getByRole('alert')).toHaveTextContent('O valor não pode ser negativo.')
-      expect(screen.getByRole('region', { name: 'Financeiro' })).toBeInTheDocument()
-      expect(screen.getAllByRole('article')).toHaveLength(4)
+      expect(aba('Comercial')).toHaveAttribute('aria-selected', 'true')
+      expect(aba('Financeiro')).toBeInTheDocument()
+      expect(screen.getAllByRole('article')).toHaveLength(3)
+    })
+  })
+
+  // Alteração de 13/11/2026 (subabas por tipo, como no protótipo): erro ou foco num apontamento de outra aba.
+  describe('subabas: rascunhos, erros e foco em apontamentos de outra aba', () => {
+    const RENEGOCIADOS: ApontamentoPreenchimento = { ...APONTAMENTO_PEDIDOS, id: 12, nome: 'Títulos renegociados' }
+    const tiposComPendenteNoFinanceiro = (): TipoPreenchimento[] => [
+      tiposPreenchimento()[0],
+      { id: 2, nome: 'Financeiro', quantidade: 2, apontamentos: [APONTAMENTO_INADIMPLENCIA, RENEGOCIADOS] },
+    ]
+    const propsBase = (): ListaApontamentosPreenchimentoProps => ({
+      tipos: tiposComPendenteNoFinanceiro(),
+      editavel: true,
+      rascunhos: {},
+      onAlterarRascunho: vi.fn(),
+      erros: {},
+      onCorrigir: vi.fn(),
+      onVerHistorico: vi.fn(),
+    })
+    const campoRenegociados = () => within(linha('Títulos renegociados')).getByRole('textbox', { name: 'Valor de Títulos renegociados' })
+
+    it('o rascunho de outra aba aparece no campo ao voltar para ela', async () => {
+      const user = usuarioRapido()
+      render(<ListaApontamentosPreenchimento {...propsBase()} rascunhos={{ [RENEGOCIADOS.id]: '3' }} />)
+
+      await user.click(aba('Financeiro'))
+      expect(campoRenegociados()).toHaveValue('3')
+      await user.click(aba('Comercial'))
+      expect(screen.queryByRole('article', { name: 'Títulos renegociados' })).not.toBeInTheDocument()
+      await user.click(aba('Financeiro'))
+
+      expect(campoRenegociados()).toHaveValue('3')
+    })
+
+    it('erro novo só num apontamento de outra aba: a aba dele é selecionada e o erro aparece na linha', () => {
+      const props = propsBase()
+      const { rerender } = render(<ListaApontamentosPreenchimento {...props} />)
+      expect(aba('Comercial')).toHaveAttribute('aria-selected', 'true')
+
+      rerender(<ListaApontamentosPreenchimento {...props} erros={{ [RENEGOCIADOS.id]: 'Apontamento desativado.' }} />)
+
+      expect(aba('Financeiro')).toHaveAttribute('aria-selected', 'true')
+      expect(aba('Comercial')).toHaveAttribute('aria-selected', 'false')
+      expect(within(linha('Títulos renegociados')).getByRole('alert')).toHaveTextContent('Apontamento desativado.')
+    })
+
+    it('erro num apontamento da aba atual: a aba selecionada continua a mesma', () => {
+      const props = propsBase()
+      const { rerender } = render(<ListaApontamentosPreenchimento {...props} />)
+
+      rerender(<ListaApontamentosPreenchimento {...props} erros={{ 7: 'Apontamento desativado.' }} />)
+
+      expect(aba('Comercial')).toHaveAttribute('aria-selected', 'true')
+      expect(within(linha('Vitrine montada')).getByRole('alert')).toHaveTextContent('Apontamento desativado.')
+    })
+
+    it('pedido de foco num apontamento de outra aba: seleciona a aba e leva o foco ao campo dele', () => {
+      const props = propsBase()
+      const { rerender } = render(<ListaApontamentosPreenchimento {...props} rascunhos={{ [RENEGOCIADOS.id]: '-5' }} />)
+
+      rerender(
+        <ListaApontamentosPreenchimento
+          {...props}
+          rascunhos={{ [RENEGOCIADOS.id]: '-5' }}
+          erros={{ [RENEGOCIADOS.id]: 'O valor não pode ser negativo.' }}
+          pedidoFoco={{ id: RENEGOCIADOS.id }}
+        />,
+      )
+
+      expect(aba('Financeiro')).toHaveAttribute('aria-selected', 'true')
+      expect(campoRenegociados()).toHaveFocus()
+      expect(campoRenegociados()).toHaveValue('-5')
+    })
+
+    it('erro de um apontamento de outra aba, oculto pela busca: a busca é limpa e a aba dele é selecionada', async () => {
+      const user = usuarioRapido()
+      const props = propsBase()
+      const { rerender } = render(<ListaApontamentosPreenchimento {...props} />)
+      await user.type(screen.getByLabelText('Buscar apontamento ou indicador'), 'Vitrine')
+
+      rerender(<ListaApontamentosPreenchimento {...props} erros={{ [RENEGOCIADOS.id]: 'Apontamento desativado.' }} />)
+
+      expect(screen.getByLabelText('Buscar apontamento ou indicador')).toHaveValue('')
+      expect(aba('Financeiro')).toHaveAttribute('aria-selected', 'true')
+      expect(within(linha('Títulos renegociados')).getByRole('alert')).toHaveTextContent('Apontamento desativado.')
     })
   })
 })

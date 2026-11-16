@@ -124,7 +124,9 @@ describe('F9.2 — Aba Preenchimento: filial obrigatória (integração: /preenc
     const query = getsDe(chamadas, ROTA_PREENCHIMENTO)[0].url.searchParams
     expect(query.has('dashboard')).toBe(false)
     expect(query.has('mes_de_referencia')).toBe(false)
-    expect(await screen.findAllByRole('article')).toHaveLength(3)
+    // Subabas por tipo (alteração de 13/11/2026): só os 2 apontamentos da primeira aba (Comercial) aparecem.
+    expect(await screen.findAllByRole('article')).toHaveLength(2)
+    expect(screen.getByRole('tablist', { name: 'Tipos de apontamento' })).toBeInTheDocument()
   })
 
   it('erro ao carregar: alerta com a mensagem e "Tentar novamente" carrega a tela', async () => {
