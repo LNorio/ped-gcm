@@ -98,6 +98,9 @@ function paraFilial(item: unknown): Filial {
 
 function paraPeriodoAberto(valor: unknown): PeriodoAbertoInicio | null {
   if (valor === undefined || valor === null) return null
+  // Sem mês aberto para preenchimento, o back-end manda o objeto com "mes de referencia": null (guia do
+  // Início, 3.1): equivale a não haver período aberto.
+  if (ehObjeto(valor) && (valor['mes de referencia'] === null || valor['mes de referencia'] === undefined)) return null
   if (
     !ehObjeto(valor) ||
     !ehTexto(valor['mes de referencia']) ||

@@ -8,13 +8,23 @@
  * "{X} de {Y} lançamentos" e o link "Preencher {dashboard}" para `/preenchimento`. Trocar a filial do
  * cabeçalho atualiza a lista e o progresso.
  *
+ * Alteração de 17/11/2026 (`docs/backend/FRONT-tela-inicio (1).md`, 3.1 e 3.4): sem mês aberto para
+ * preenchimento (`"periodo aberto"` null ou com `"mes de referencia": null`), o link "Preencher apontamentos
+ * do período" não aparece depois de o Início carregar (o aviso "Nenhum período aberto para preenchimento."
+ * é da F11.2).
+ *
  * A rota é carregada sob demanda: os testes esperam a lista com `findBy*` (timeout padrão do projeto).
  */
 import { screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { limparToken } from '../../services/sessao'
-import { simularApi } from '../../test/apiFalsa'
-import { rotasDoInicio } from '../../test/inicioFalsos'
+import { respostaJson, simularApi } from '../../test/apiFalsa'
+import {
+  PERIODO_SEM_MES_ABERTO_API,
+  inicioAdminApi,
+  inicioPreenchedorApi,
+  rotasDoInicio,
+} from '../../test/inicioFalsos'
 import { renderizarApp } from '../../test/renderizarApp'
 import { usuarioRapido } from '../../test/usuario'
 
@@ -141,6 +151,39 @@ describe('F11.4 — Períodos em aberto e "Preencher" no Início (integração)'
 
       expect(await screen.findByRole('heading', { level: 1, name: 'Preenchimento' })).toBeInTheDocument()
       expect(roteador.state.location.pathname).toBe('/preenchimento')
+    })
+  })
+  describe('sem mês aberto para preenchimento (alteração de 17/11/2026)', () => {
+    it.each([
+      ['"periodo aberto" null', null],
+      ['"mes de referencia" null', PERIODO_SEM_MES_ABERTO_API],
+    ])('Admin, %s: o link "Preencher apontamentos do período" não aparece', async (_caso, periodo) => {
+      simularApi(
+        fetchFalso,
+        rotasDoInicio('admin', { 'GET /api/ped/inicio': () => respostaJson(inicioAdminApi({ 'periodo aberto': periodo })) }),
+      )
+      await abrirInicio('PED Comercial')
+
+      expect(screen.queryByRole('link', { name: 'Preencher apontamentos do período' })).not.toBeInTheDocument()
+    })
+
+    it('Preenchedor sem mês aberto: o link "Preencher apontamentos do período" também não aparece', async () => {
+      simularApi(
+        fetchFalso,
+        rotasDoInicio('preenchedor', {
+          'GET /api/ped/inicio': () => respostaJson(inicioPreenchedorApi({ 'periodo aberto': PERIODO_SEM_MES_ABERTO_API })),
+        }),
+      )
+      await abrirInicio('PED Comercial')
+
+      expect(screen.queryByRole('link', { name: 'Preencher apontamentos do período' })).not.toBeInTheDocument()
+    })
+
+    it('com mês aberto, o link continua (Admin)', async () => {
+      simularApi(fetchFalso, rotasDoInicio('admin'))
+      await abrirInicio('PED Comercial')
+
+      expect(screen.getByRole('link', { name: 'Preencher apontamentos do período' })).toHaveAttribute('href', '/preenchimento')
     })
   })
 })

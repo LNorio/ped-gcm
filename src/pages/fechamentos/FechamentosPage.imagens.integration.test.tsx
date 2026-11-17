@@ -21,6 +21,7 @@ import {
   rotuloVisualizarImagem,
   tituloDialogoImagem,
 } from '../../test/consultaImagensFalsos'
+import { adicionarRotasPdf, simularUrlsDeObjeto, tituloPdf } from '../../test/pdfFalsos'
 import { renderizarApp } from '../../test/renderizarApp'
 import { usuarioRapido } from '../../test/usuario'
 
@@ -33,7 +34,8 @@ const SECAO_LISTA_FECHAMENTOS = 'Encerrar período por dashboard'
  * RF-84, RN-18, A-05, A-07). A consulta é a seção "Imagens congeladas — consulta retroativa", abaixo da
  * seção "Encerrar período por dashboard" da F10.2 (como no protótipo); não há rota própria. A filial vem do cabeçalho: "Todas as
  * filiais" consulta todas; uma filial consulta só ela. Filtros por período, tipo e busca vão à API.
- * "Visualizar imagem {código}" abre o diálogo com a imagem completa (`GET /api/ped/imagens/{id}`).
+ * "Visualizar imagem {código}" abre o diálogo com a imagem em PDF (`GET /api/ped/imagens/{id}/pdf`; alteração de
+ * 17/11/2026, F10.10: o PDF gerado pelo back-end substitui o detalhe em JSON e a `VisualizacaoImagem`).
  */
 describe('F10.6 — Consulta retroativa de imagens (integração: aba Fechamentos)', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
@@ -44,6 +46,7 @@ describe('F10.6 — Consulta retroativa de imagens (integração: aba Fechamento
     sessionStorage.setItem('ped.token', 'token-salvo')
     vi.stubEnv('VITE_API_URL', undefined)
     fetchFalso = vi.spyOn(globalThis, 'fetch')
+    simularUrlsDeObjeto()
   })
 
   afterEach(() => {
@@ -54,7 +57,7 @@ describe('F10.6 — Consulta retroativa de imagens (integração: aba Fechamento
   /** Admin e Validador acessam Fechamentos com todas as filiais (A-05). */
   function simularSessao(perfil: 'admin' | 'validador', rotasExtras: Record<string, RotaFalsa> = {}) {
     const acesso = acessoApi({ perfil, 'todas as filiais': true, filiais: FILIAIS_API })
-    const api = criarApiConsultaImagensFalsa()
+    const api = adicionarRotasPdf(criarApiConsultaImagensFalsa())
     return simularApi(fetchFalso, {
       'GET /api/ped/acesso': () => respostaJson(acesso),
       ...api.rotas,
@@ -176,7 +179,7 @@ describe('F10.6 — Consulta retroativa de imagens (integração: aba Fechamento
     expect(codigosNaConsulta()).toEqual([])
   })
 
-  it('"Visualizar imagem" abre o diálogo com a imagem completa (GET /api/ped/imagens/{id}) e "Fechar" volta à consulta', async () => {
+  it('"Visualizar imagem" abre o diálogo com o PDF da imagem (GET /api/ped/imagens/{id}/pdf) e "Fechar" volta à consulta', async () => {
     const user = usuarioRapido()
     const chamadas = simularSessao('admin')
     await abrirTela()
@@ -184,8 +187,8 @@ describe('F10.6 — Consulta retroativa de imagens (integração: aba Fechamento
     await user.click(within(regiao()).getByRole('button', { name: rotuloVisualizarImagem('IMG-000003') }))
 
     const dialogo = await screen.findByRole('dialog', { name: tituloDialogoImagem('IMG-000003') })
-    expect(await within(dialogo).findByRole('region', { name: 'Imagem IMG-000003' })).toBeInTheDocument()
-    const detalhe = chamadas.filter((c) => c.metodo === 'GET' && c.caminho === `${ROTA}/3`)
+    expect(await within(dialogo).findByTitle(tituloPdf('100', 'Ana Souza'))).toBeInTheDocument()
+    const detalhe = chamadas.filter((c) => c.metodo === 'GET' && c.caminho === `${ROTA}/3/pdf`)
     expect(detalhe).toHaveLength(1)
     expect(cabecalhoDaChamada(detalhe[0], 'Authorization')).toBe('Bearer token-salvo')
 
@@ -203,15 +206,15 @@ describe('F10.6 — Consulta retroativa de imagens (integração: aba Fechamento
     await user.click(within(regiao()).getByRole('button', { name: rotuloVisualizarImagem('IMG-000002') }))
 
     const dialogo = await screen.findByRole('dialog', { name: tituloDialogoImagem('IMG-000002') })
-    expect(await within(dialogo).findByRole('region', { name: 'Imagem IMG-000002' })).toBeInTheDocument()
+    expect(await within(dialogo).findByTitle(tituloPdf('101'))).toBeInTheDocument()
   })
 
   it('erro ao abrir a imagem: alerta no diálogo e "Tentar novamente" mostra a imagem', async () => {
     const user = usuarioRapido()
     let falhar = true
-    const api = criarApiConsultaImagensFalsa()
+    const api = adicionarRotasPdf(criarApiConsultaImagensFalsa())
     simularSessao('admin', {
-      [`GET ${ROTA}/3`]: (init, url) => (falhar ? respostaErro(500) : api.rotas[`GET ${ROTA}/3`](init, url)),
+      [`GET ${ROTA}/3/pdf`]: (init, url) => (falhar ? respostaErro(500) : api.rotas[`GET ${ROTA}/3/pdf`](init, url)),
     })
     await abrirTela()
     await user.click(within(regiao()).getByRole('button', { name: rotuloVisualizarImagem('IMG-000003') }))
@@ -222,7 +225,7 @@ describe('F10.6 — Consulta retroativa de imagens (integração: aba Fechamento
     falhar = false
     await user.click(within(dialogo).getByRole('button', { name: 'Tentar novamente' }))
 
-    expect(await within(dialogo).findByRole('region', { name: 'Imagem IMG-000003' })).toBeInTheDocument()
+    expect(await within(dialogo).findByTitle(tituloPdf('100', 'Ana Souza'))).toBeInTheDocument()
   })
 
   it('erro na consulta: alerta na seção e "Tentar novamente" carrega as imagens', async () => {
@@ -259,7 +262,7 @@ describe('F10.6 — Consulta retroativa de imagens (integração: aba Fechamento
     await user.selectOptions(filtroTipo(), 'Filial')
     await waitFor(() => expect(codigosNaConsulta()).toHaveLength(2))
     await user.click(within(regiao()).getByRole('button', { name: rotuloVisualizarImagem('IMG-000001') }))
-    await within(await screen.findByRole('dialog')).findByRole('region', { name: 'Imagem IMG-000001' })
+    await within(await screen.findByRole('dialog')).findByTitle(tituloPdf('100'))
 
     const imagens = chamadas.filter((c) => c.caminho.startsWith(ROTA))
     expect(imagens.length).toBeGreaterThan(0)

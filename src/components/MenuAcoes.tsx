@@ -15,6 +15,13 @@ export interface MenuAcoesProps {
   /** Nome acessível do gatilho (ex.: "Ações do dado externo Faturamento"). */
   rotulo: string
   itens: ItemMenuAcoes[]
+  /**
+   * Texto visível dentro do gatilho, ao lado do ícone (ex.: "Exportar"). O nome acessível continua
+   * sendo `rotulo`. Sem ele, o gatilho mostra só o ícone de três pontos.
+   */
+  rotuloVisivel?: string
+  /** Desabilita o gatilho; se passar a `true` com o menu aberto, o menu fecha sem selecionar nada. */
+  desabilitado?: boolean
 }
 
 /** Função que fecha o menu aberto no momento (um menu aberto por vez no documento). */
@@ -28,13 +35,21 @@ const ESPACO_GATILHO = 4
  * (`role="menu"`). O menu usa `position: fixed`, calculado a partir do gatilho, para não ser
  * cortado pelo quadro de rolagem da Tabela.
  */
-export function MenuAcoes({ rotulo, itens }: MenuAcoesProps) {
+export function MenuAcoes({ rotulo, itens, rotuloVisivel, desabilitado = false }: MenuAcoesProps) {
   const [aberto, setAberto] = useState(false)
   const [posicao, setPosicao] = useState<CSSProperties>({})
   const wrapperRef = useRef<HTMLDivElement>(null)
   const gatilhoRef = useRef<HTMLButtonElement>(null)
   const itensRef = useRef<(HTMLButtonElement | null)[]>([])
   const idMenu = useId()
+
+  const [desabilitadoAnterior, setDesabilitadoAnterior] = useState(desabilitado)
+
+  // Desabilitado com o menu aberto: fecha sem selecionar (ajuste de estado durante a renderização).
+  if (desabilitado !== desabilitadoAnterior) {
+    setDesabilitadoAnterior(desabilitado)
+    if (desabilitado) setAberto(false)
+  }
 
   const fechar = useCallback(() => setAberto(false), [])
 
@@ -84,6 +99,7 @@ export function MenuAcoes({ rotulo, itens }: MenuAcoesProps) {
   if (itens.length === 0) return null
 
   function abrir() {
+    if (desabilitado) return
     calcularPosicao()
     setAberto(true)
   }
@@ -138,15 +154,17 @@ export function MenuAcoes({ rotulo, itens }: MenuAcoesProps) {
     <div className="menu-acoes" ref={wrapperRef}>
       <Botao
         ref={gatilhoRef}
-        variante="link"
+        variante={rotuloVisivel ? 'contorno' : 'link'}
         tamanho="pequeno"
-        className="menu-acoes__gatilho"
+        className={rotuloVisivel ? 'menu-acoes__gatilho menu-acoes__gatilho--com-texto' : 'menu-acoes__gatilho'}
+        disabled={desabilitado}
         aria-label={rotulo}
         aria-haspopup="menu"
-        aria-expanded={aberto}
-        aria-controls={aberto ? idMenu : undefined}
+        aria-expanded={aberto && !desabilitado}
+        aria-controls={aberto && !desabilitado ? idMenu : undefined}
         onClick={() => (aberto ? setAberto(false) : abrir())}
       >
+        {rotuloVisivel ? <span className="menu-acoes__texto">{rotuloVisivel}</span> : null}
         <svg
           width="18"
           height="18"
@@ -160,7 +178,7 @@ export function MenuAcoes({ rotulo, itens }: MenuAcoesProps) {
           <circle cx="12" cy="19" r="2" />
         </svg>
       </Botao>
-      {aberto ? (
+      {aberto && !desabilitado ? (
         <div
           id={idMenu}
           role="menu"

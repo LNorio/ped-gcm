@@ -53,3 +53,30 @@
   font-weight: 600;
   text-align: center;
 }
+
+/* Linha do progresso com o "Exportar" (F10.10) à direita. */
+.dialogo-previa__topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.dialogo-previa__topo > .dialogo-previa__progresso {
+  margin: 0;
+}
+
+.dialogo-previa__topo > .exportar-imagens {
+  flex: 0 1 auto;
+  max-width: 24rem;
+  margin-left: auto;
+}
+
+/* PDF da imagem exibida (F10.10), embutido (VisualizadorPdf.css). */
+.dialogo-previa__pdf {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}

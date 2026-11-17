@@ -4,6 +4,8 @@
 
 | Data | Tags | Resumo |
 | --- | --- | --- |
+| [17/11/2026](#2026-11-17) | #fechamentos #inicio #login #api #componente #layout #correcao #testes #documentacao | Imagens em PDF gerado pelo back-end e "Exportar" (PDF ou ZIP) na prévia e nas imagens congeladas (F10.10), limite de uso 429, ZIP sem limite com aviso da quantidade e dica de tempo limite, encerramento pelo mês aberto com aviso das filiais sem composição do DRG, Início sem mês aberto, dropdown pesquisável `SelectPesquisavel` (F1.20) na prévia e duas builds validadas, sem commit |
+| [16/11/2026](#2026-11-16) | #inicio #preenchimento #fechamentos #login #navegacao #api #componente #layout #correcao #testes #documentacao | Abertura mais rápida do Início (pré-carga e pré-consulta, F11.7\*) com a expiração da sessão e o StrictMode corrigidos, rótulos do resumo com acento, Preenchimento (F9.13\*) e Fechamentos (F10.9\*) no formato real do back-end, "Editar metas" mais larga, commits `c8a7988` e `2a105f6` com push e build validada após estabilizar dois testes |
 | [13/11/2026](#2026-11-13) | #faixas #dashboards #indicadores #preenchimento #fechamentos #inicio #login #cadastro #api #tipos #validacao #componente #navegacao #correcao #testes #documentacao | Contrato final da faixa geral (F8.12\*, A-18 resolvida), fases Preenchimento (F9), Fechamentos e imagens congeladas (F10.1–F10.7) e Início (F11) implementadas, pilha de diálogos, commits `797bc54` e `d499d3e` com push; depois, subabas por tipo no Preenchimento e blocos de meta pendente e dashboards em construção no Início (F11.6) |
 | [12/11/2026](#2026-11-12) | #faixas #dashboards #preenchimento #login #cadastro #api #tipos #validacao #componente #testes #documentacao | Faixa geral, situação ativa/inativa com motivo, exclusão com motivo, "Ver motivo", coluna "Ação" no histórico e alertas de faixas nos dashboards, pelo contrato proposto ao back-end (A-18); limite de tentativas no login (429) e commit `a9da8a5`; testes TDD da F9.1 (serviços do Preenchimento), sem implementação |
 | [11/11/2026](#2026-11-11) | #dados-externos #integracao #indicadores #dashboards #api #validacao #componente #correcao #refatoracao #testes #configuracao #agentes #documentacao | Meta via API fases 1 e 2 (entrada SOAP, avisos, finalidade, última consulta), testes em lotes de até 150, saída da integração por "chave: tipo" (com e depois sem mapeamento, contrato final do back-end), commits `6500740` e `288d6c5` e build validada |
@@ -12,6 +14,470 @@
 | [06/11/2026](#2026-11-06) | #tipos #indicadores #dashboards #dados-externos #cadastro #api #validacao #componente #correcao #testes #configuracao #documentacao | Build validada, id da tarefa Bitrix em texto, adequação aos documentos novos do back-end (grupos nos tipos, exclusão de indicador só pelo Admin, tarefas Bitrix, identificador com - e .) e 67/67 requisitos implementados |
 | [05/11/2026](#2026-11-05) | #indicadores #dashboards #faixas #apontamentos #dados-externos #cadastro #api #validacao #componente #layout #correcao #testes #documentacao | Abas Indicadores (F6), Dashboards (F7) e Faixas (F8) em TDD, modais alinhadas ao protótipo, RF-54 alterado e correções contra a API real |
 | [04/11/2026](#2026-11-04) | #apontamentos #dados-externos #tipos #cadastro #api #validacao #componente #layout #refatoracao #correcao #testes #configuracao #documentacao | Aba Apontamentos (F4) revisada e commitada, aba Dados Externos (F5) implementada, hooks genéricos, MenuAcoes, correção do POST e testes mais rápidos |
+
+---
+
+<a id="2026-11-17"></a>
+## 17/11/2026
+
+**Tags:** #fechamentos #inicio #login #api #componente #layout #correcao #testes #documentacao
+
+### Visão geral
+O dia teve nove frentes de trabalho, todas sem commit. Os arquivos foram alterados depois do `2a105f6`.
+
+**1. PDF na pré-visualização e exportação (F10.10, novo).** O usuário pediu: "a pré-visualização na aba de fechamento está divergente do protótipo, precisa apresentar de fato as imagens em PDF para visualização dos valores e ter um botão para exportar os PDFs com opção para exportar um único PDF ou todos de uma única vez". Ele decidiu quatro pontos:
+- o back-end gera o PDF, sem dependência nova no front e com o documento igual para todos;
+- "todos" é um ZIP com um PDF por imagem;
+- vale para a prévia e para as imagens congeladas;
+- o PDF fica embutido no lugar da imagem montada.
+
+O front escreveu a proposta `docs/backend/PROPOSTA-pdf-imagens.md` (A-19), que o back-end respondeu no mesmo dia.
+
+**2. Documentos novos do back-end.** O pedido foi "leia os novos arquivos do backend e faça as alterações necessárias". Os documentos foram API (29), FRONT-pdf-zip, FRONT-pdf-fechamento, FRONT-fechamentos-e-imagens e FRONT-tela-inicio (1). Mudanças no front:
+- limites de 20 PDFs/min e 5 ZIPs/min (429);
+- o encerramento passou a congelar o período do mês aberto para preenchimento;
+- aviso das filiais sem composição do Resultado Operacional (DRG);
+- o Início aceita `mes de referencia` nulo.
+
+**3. ZIP sem limite e aviso da quantidade.** O usuário pediu ao back-end que tirasse o limite de imagens por ZIP. O front passou a informar quantas imagens serão geradas e que, dependendo da quantidade, a renderização e a montagem do ZIP podem demorar.
+
+**4. Dropdown pesquisável.** O usuário mandou um print com 60 colaboradores e pediu para trocar a lista "Imagens da filial" por um dropdown pesquisável e retirar o campo de busca por colaborador.
+
+**5. Mudança de rumo no dropdown.** Pedido: "dentro do dropdown colocar uma barra de pesquisa e não deixar o campo de colaborador editável".
+
+**6. Modificações geradas pelo back-end.** Só o FRONT-pdf-zip (1).md mudou; API (30) e os demais são idênticos às versões anteriores. Esse documento confirma:
+- ZIP sem limite em produção;
+- geração síncrona, de cerca de 0,11 s por PDF;
+- corte do Apache em cerca de 60 s, o que dá uns 500 PDFs.
+
+O front ganhou uma dica para quando o ZIP falha por tempo.
+
+**7. "O dropdown quebrou".** Era um problema do servidor de desenvolvimento do usuário, sem defeito no código.
+
+**8. Layout da prévia.** O usuário pediu, em dois momentos, ajustes de posição do "Exportar" e do aviso da quantidade.
+
+**9. Builds.** Duas builds foram validadas. A última teve 5103 testes unitários, 777 de integração e carga com p99 de 149 ms, com 109/109 requisitos `implementado`.
+
+**Decisões e alternativas descartadas:**
+- **Geração do PDF no front:** descartada, porque exigiria dependência nova e o PDF sairia diferente em cada navegador.
+- **Limite de 500, 100 ou 50 imagens por ZIP:** descartado a pedido do usuário.
+- **Tabela de imagens na prévia:** descartada em favor do dropdown.
+- **Dropdown com campo editável:** descartado em favor do gatilho com busca interna.
+
+Ao fim do dia, o plano está em 93% (139 de 149 atividades). Os requisitos novos são F1.20 e F10.10, ambos `implementado`.
+
+### Implementações
+
+#### Download de arquivos pela API e serviços de PDF e ZIP (F10.10a\*)
+- **Tags:** #fechamentos #api #testes
+- **Arquivos:** `src/services/api.ts`, `src/services/fechamentosService.ts`, `src/services/imagensService.ts` (alterados); `src/utils/baixarArquivo.ts` (novo); auxiliar `src/test/pdfFalsos.ts` (novo); testes `src/services/api.arquivo.test.ts`, `fechamentosService.pdf.test.ts`, `imagensService.pdf.test.ts` e `src/utils/baixarArquivo.test.ts` (novos)
+- **Descrição:**
+  - **`api.ts`:**
+    - a montagem da requisição saiu de `apiFetch` para a função interna `executarRequisicao`, que trata URL base, query, Bearer, corpo, `signal`, erros, 401 e falha de rede. O `apiFetch` continua igual para quem o usa;
+    - `apiFetchArquivo(caminho, nomeReserva, opcoes)` pede `Accept: */*`, lê o sucesso como `Blob` (nunca como JSON) e devolve `ArquivoBaixado { blob, nomeArquivo }`;
+    - `nomeDoArquivo(contentDisposition)` lê o nome do arquivo. `filename*=UTF-8''...` (decodificado) tem prioridade sobre `filename=`, com ou sem aspas. Sem nome, devolve `null` e vale o `nomeReserva`.
+  - **`fechamentosService`:**
+    - `obterPdfPrevia(id, chave)`: `GET /api/ped/fechamentos/{id}/previa/pdf?chave=`, com reserva `previa-{id}-{chave com ":" trocado por "-"}.pdf`;
+    - `obterZipPrevia(id)`: `GET .../previa/zip`, com reserva `previa-{id}.zip`.
+  - **`imagensService`:**
+    - `obterPdfImagem(id)`: `GET /api/ped/imagens/{id}/pdf`, com reserva `imagem-{id}.pdf`;
+    - `obterZipImagens(filtros)`: `GET /api/ped/imagens/zip`, com os mesmos filtros de `listarImagens` (função `queryDosFiltros`, extraída), com reserva `imagens.zip`.
+  - Todas as funções aceitam `signal` para cancelamento e são só GET; nada é gravado.
+  - **`baixarArquivo(arquivo)`:** cria a URL de objeto do Blob, clica num `<a download>` fora do documento e libera a URL logo depois.
+- **Motivação:** pedido do usuário. A prévia estava divergente do protótipo e precisava mostrar as imagens em PDF e exportá-las, uma ou todas. Por decisão do usuário, o PDF é gerado pelo back-end, sem dependência nova no front e com o documento igual para todos.
+- **Como usar / observações técnicas:**
+  - nenhuma dependência nova;
+  - as rotas foram propostas em `docs/backend/PROPOSTA-pdf-imagens.md` (A-19) e publicadas pelo back-end no mesmo dia (`FRONT-pdf-zip.md`, `FRONT-pdf-fechamento.md`, `API (29).md`, seção "PDF do fechamento");
+  - o `Content-Disposition` foi exposto no CORS.
+
+#### PDF embutido e botão "Exportar" (F10.10b\*)
+- **Tags:** #fechamentos #componente #testes
+- **Arquivos:** `src/pages/fechamentos/usePdfImagem.ts`, `VisualizadorPdf.tsx`, `VisualizadorPdf.css`, `ExportarImagens.tsx` e `ExportarImagens.css` (novos); testes `DialogoPreviaFechamento.pdf.test.tsx`, `DialogoImagem.exportar.test.tsx` e `FechamentosPage.pdf.integration.test.tsx` (novos)
+- **Descrição:**
+  - **`usePdfImagem(chave, carregar)`:**
+    - pede o PDF da `chave` (ex.: `1|filial:101`); `null` não pede nada;
+    - trocar a chave cancela o pedido anterior (`AbortController`), libera a URL de objeto anterior e descarta a resposta atrasada sem criar URL;
+    - devolve `url`, `arquivo` (reaproveitado pelo "PDF desta imagem"), `carregando`, `erro`, `aguardandoLimite` e `tentarNovamente`;
+    - `tituloPdfImagem(filial, colaborador)` monta "PDF da imagem — Filial {código} · {colaborador}".
+  - **`VisualizadorPdf`:** `iframe` com a URL do Blob, que usa o visualizador do próprio navegador. Mostra o estado "Gerando PDF…" e, em erro, o alerta com "Tentar novamente".
+  - **`ExportarImagens`:**
+    - botão "Exportar" com os itens "PDF desta imagem" e "Todas as imagens (ZIP)". O gatilho é o `MenuAcoes` com texto visível;
+    - o gatilho fica desabilitado durante a exportação e devolve o foco ao terminar;
+    - em erro, mostra o alerta com a mensagem do back-end e não baixa nada. A próxima exportação limpa o alerta;
+    - desmontar o componente cancela a exportação.
+  - O "Exportar" e o PDF entram na prévia (`DialogoPreviaFechamento`) e no diálogo da imagem congelada (`DialogoImagem`). Nesse diálogo, o ZIP usa os filtros aplicados da consulta (`useConsultaImagens.filtrosAplicados`: filial do cabeçalho, período, tipo e a busca já aplicada), para exportar exatamente o que a consulta lista.
+- **Motivação:** pedido do usuário (item 1 da visão geral). O PDF fica embutido no lugar da imagem montada, e o "Exportar" permite um único PDF ou todos de uma vez.
+- **Como usar / observações técnicas:**
+  - na revisão apareceu um defeito: com a navegação A→B→A antes de chegar o PDF de B, o PDF de A aparecia quebrado, porque a URL já tinha sido revogada. A limpeza do efeito agora descarta o estado do pedido, e há teste de cobertura para o caso;
+  - a `VisualizacaoImagem` (F10.3) não é mais usada pelas telas, só pelos próprios testes. O `obterImagem` (detalhe em JSON) deixou de ser chamado pelo `DialogoImagem`.
+
+#### Limite de uso (429) no PDF e na exportação (F10.11\*)
+- **Tags:** #fechamentos #login #api #componente #testes
+- **Arquivos:** `src/hooks/useBloqueioLimite.ts` (novo); `src/components/EstadoCarga.tsx`, `src/services/api.ts`, `src/pages/login/LoginPage.tsx` (alterados); testes `src/pages/fechamentos/ExportarImagens.limite.test.tsx` e `VisualizadorPdf.limite.test.tsx` (novos, com relógio falso) e dois casos em `FechamentosPage.pdf.integration.test.tsx`
+- **Descrição:**
+  - **`useBloqueioLimite()`:** devolve `{ bloqueado, registrarFalha }`. `registrarFalha(falha)` só bloqueia em `ApiError` 429, pelo `tentarNovamenteEm` do servidor ou pelos 60 s padrão, e devolve `true`. O bloqueio acaba sozinho, sem nova tentativa automática. Um novo 429 troca o temporizador, e desmontar o componente limpa o temporizador.
+  - No `ExportarImagens`, o 429 mostra o alerta e desabilita o gatilho, valendo para os dois itens. No `usePdfImagem`, `aguardandoLimite` desabilita o "Tentar novamente".
+  - `EstadoCarga` ganhou a prop `tentarNovamenteDesabilitado`, com padrão `false`.
+  - `SEGUNDOS_BLOQUEIO_PADRAO = 60` saiu do `LoginPage` e passou a ser exportado de `api.ts`. O login (F2.10\*) continua igual.
+- **Motivação:** resposta do back-end de 17/11/2026 (A-19), com os limites de 20 PDFs/min e 5 ZIPs/min.
+- **Como usar / observações técnicas:** decisão assumida no padrão, a confirmar com o usuário: não há contagem regressiva visível do tempo restante.
+
+#### Aviso da quantidade de imagens e ZIP sem limite (F10.13\*)
+- **Tags:** #fechamentos #componente #testes
+- **Arquivos:** `src/pages/fechamentos/AvisoQuantidadeImagens.tsx` (novo), `previaFechamento.ts` (`textoQuantidadeImagens`), `ExportarImagens.tsx`, `DialogoImagem.tsx`, `ConsultaImagens.tsx`, `DialogoPreviaFechamento.tsx`; testes `AvisoQuantidadeImagens.test.tsx` e `ExportarImagens.montandoZip.test.tsx` (novos)
+- **Descrição:**
+  - **`AvisoQuantidadeImagens`:** aviso informativo com "Serão geradas N imagens em PDF." (ponto de milhar em pt-BR; no singular, "Será gerada 1 imagem em PDF.") e "Dependendo da quantidade de imagens, a exibição dos PDFs em tela e a montagem do ZIP com todas elas podem levar algum tempo.". Com 0 imagens, não mostra nada.
+  - Na prévia, a quantidade é o total de imagens da prévia. No diálogo da imagem congelada, são as imagens da consulta filtrada (`imagens.length`, prop `quantidade`).
+  - Durante a montagem do ZIP, o `ExportarImagens` mostra o status "Montando o ZIP com N imagens…".
+  - O limite de imagens por ZIP deixou de ser regra do front. Um 400 do ZIP continua aparecendo pela `mensagem` do servidor.
+- **Motivação:** o usuário pediu ao back-end que tirasse o limite de imagens por ZIP (antes era 100 em produção, e o API (29) citava padrão de 50). Pediu também que o front informe a quantidade e o possível tempo de demora. A retirada foi confirmada pelo `FRONT-pdf-zip (1).md`.
+
+#### Lista de seleção com busca `SelectPesquisavel` (F1.20, novo) e combobox "Imagem" na prévia (F10.14\*)
+- **Tags:** #componente #fechamentos #layout #testes
+- **Arquivos:** `src/components/SelectPesquisavel.tsx`, `SelectPesquisavel.css` (novos), `src/pages/fechamentos/DialogoPreviaFechamento.tsx`; testes `src/components/SelectPesquisavel.test.tsx` (novo), `DialogoPreviaFechamento.test.tsx`, `DialogoPreviaFechamento.pdf.test.tsx`, `FechamentosPage.previa.integration.test.tsx` e `FechamentosPage.tiposImagem.integration.test.tsx`
+- **Descrição:**
+  - **Componente controlado e genérico:** `OpcaoSelectPesquisavel { valor, rotulo, descricao?, desabilitado? }` e as props `rotulo`, `opcoes`, `valor`, `onSelecionar`, `placeholder`, `textoVazio` (padrão "Nenhuma opção encontrada."), `rotuloBusca`, `id` e `className`.
+  - **Busca:** procura no rótulo e na descrição, sem diferenciar acentos e maiúsculas (`normalizarBusca`), e mantém a ordem original.
+  - **Teclado:** ↓/↑ (pulando as opções desabilitadas), Enter, Esc e Tab, além do clique fora. O Esc com a lista aberta não fecha o `Dialogo` em volta.
+  - **Posição:** a lista usa `position: fixed` e abre para cima quando falta espaço abaixo.
+  - **Prévia:** o combobox "Imagem" lista as imagens da filial escolhida. Cada opção tem como rótulo o colaborador ou "Imagem da filial" e como descrição "{cargo} · {PED} · {pontuação}"; a imagem de filial não tem cargo. O combobox fica sincronizado com a navegação "Imagem X de N" e com a troca de filial. O texto vazio é "Nenhum colaborador encontrado.".
+- **Motivação:** pedido do usuário, com um print de 60 colaboradores. A tabela de imagens ocupava a tela e empurrava o PDF.
+- **Como usar / observações técnicas:** o componente foi registrado na fundação (F1.20\* no plano), por sugestão do plano aceita pelo orquestrador. A F10.14\* ficou só com a aplicação na prévia. Próxima atividade sugerida: F1.18, avaliar unir o `SeletorBusca` ao `SelectPesquisavel`.
+
+#### Dica quando o ZIP falha por tempo (F10.16\*)
+- **Tags:** #fechamentos #api #testes
+- **Arquivos:** `src/pages/fechamentos/ExportarImagens.tsx`, `DialogoImagem.tsx`, `DialogoPreviaFechamento.tsx`; teste `ExportarImagens.tempoZip.test.tsx` (novo)
+- **Descrição:**
+  - Só no ZIP, quando a falha tem status 0, 502, 503 ou 504, o alerta mostra três textos, nesta ordem:
+    - a mensagem do erro;
+    - "A montagem do ZIP pode ter excedido o tempo limite do servidor." (`TEXTO_ZIP_TEMPO`);
+    - a dica recebida em `dicaFalhaZip`.
+  - Dicas:
+    - consulta de imagens congeladas: "Use os filtros da consulta para reduzir a quantidade de imagens.";
+    - prévia: "Tente novamente ou exporte os PDFs das imagens individualmente.".
+  - O PDF avulso com esses status mostra só a mensagem.
+- **Motivação:** o `docs/backend/FRONT-pdf-zip (1).md` informa o ZIP sem limite em produção, a geração síncrona de cerca de 0,11 s por PDF e o corte do Apache em cerca de 60 s (uns 500 PDFs). O documento pede para sugerir filtrar quando houver erro de rede.
+- **Como usar / observações técnicas:** continua o risco de ZIPs acima de cerca de 500 PDFs falharem. Não há solução definida para volumes maiores.
+
+#### Proposta e documentos do back-end
+- **Tags:** #documentacao #api #fechamentos #inicio
+- **Arquivos:** `docs/backend/PROPOSTA-pdf-imagens.md` (novo, do front); `docs/backend/API (29).md`, `API (30).md`, `FRONT-pdf-zip.md`, `FRONT-pdf-zip (1).md`, `FRONT-pdf-fechamento.md`, `FRONT-pdf-fechamento (1).md`, `FRONT-fechamentos-e-imagens.md`, `FRONT-fechamentos-e-imagens (1).md`, `FRONT-tela-inicio (1).md` e `FRONT-tela-inicio (2).md` (novos, do back-end)
+- **Descrição:**
+  - **Proposta:** pede quatro rotas GET para Admin e Validador (PDF e ZIP da prévia, PDF e ZIP das imagens congeladas), com o nome do arquivo no `Content-Disposition`. No topo, registra a resposta do back-end.
+  - **Divergências da resposta em relação à proposta:**
+    - limite de 100 imagens por ZIP, depois retirado;
+    - 20 PDFs/min e 5 ZIPs/min;
+    - o Validador vê todas as filiais, o que resolve a dúvida A-05 × API (28);
+    - a prévia é recalculada a cada pedido;
+    - a fonte é Helvetica;
+    - a geração é síncrona.
+- **Motivação:** as rotas de PDF e ZIP não existiam no back-end, e o usuário decidiu que o PDF é gerado lá.
+- **Como usar / observações técnicas:** A-19 foi resolvida. Itens dos documentos novos que já estavam cobertos, sem mudança no front: RF-70 (imagens congeladas por apontamento), telas vazias do Preenchimento, período encerrado no Início e leitura do 429.
+
+### Modificações
+
+#### `MenuAcoes` com texto visível e estado desabilitado (F1.16)
+- **Tags:** #componente #testes
+- **Arquivos:** `src/components/MenuAcoes.tsx`, `MenuAcoes.css`; testes `MenuAcoes.test.tsx` e `src/pages/fechamentos/DialogoImagem.exportar.test.tsx`
+- **Antes:** o gatilho era só o ícone de três pontos. O `ExportarImagens` mostrava o texto "Exportar" ao lado do ícone, fora do botão, e clicar nesse texto não abria o menu. Para desabilitar, usava um `<fieldset disabled>`.
+- **Depois:**
+  - **`rotuloVisivel`:** coloca o texto dentro do gatilho, antes do ícone, com a variante de contorno e a classe `menu-acoes__gatilho--com-texto`. O nome acessível continua sendo `rotulo`;
+  - **`desabilitado`:** desabilita o gatilho. Se passar a `true` com o menu aberto, o menu fecha sem selecionar nada;
+  - o "Exportar" aparece uma única vez, dentro do botão.
+- **Motivação:** o "Exportar" do F10.10 precisava de gatilho com texto visível e de estado desabilitado durante a exportação. As props eliminam o contorno com `fieldset` e o texto que não era clicável.
+- **Impacto:** a mudança é compatível e os usos atuais do `MenuAcoes` não mudam. F1.16 passou por reaberta e foi concluída de novo, com 30/30 testes.
+
+#### Pré-visualização com PDF e dropdown no lugar da imagem montada e da tabela (F10.4, F10.7)
+- **Tags:** #fechamentos #componente #layout #testes
+- **Arquivos:** `src/pages/fechamentos/DialogoPreviaFechamento.tsx`, `DialogoPreviaFechamento.css`; testes `DialogoPreviaFechamento.test.tsx`, `FechamentosPage.previa.integration.test.tsx` e `FechamentosPage.tiposImagem.integration.test.tsx`
+- **Antes:** a prévia mostrava a tabela "Imagens da filial {código}", com Colaborador, Cargo, PED, Pontuação e as ações "Visualizar"/"Exibindo". Tinha também o campo "Buscar colaborador ou cargo", quando havia imagens de colaborador, e a imagem montada na tela (`VisualizacaoImagem`).
+- **Depois:**
+  - combobox "Imagem" (`SelectPesquisavel`) e o PDF da imagem atual embutido (`VisualizadorPdf`);
+  - o estado das imagens foi para o hook interno `useImagensPrevia`, que cuida do agrupamento por filial, da posição e do PDF atual;
+  - o "Exportar" pede o PDF da imagem exibida (reaproveita o arquivo já carregado) ou o ZIP da prévia.
+- **Motivação:** pedido do usuário para mostrar as imagens em PDF (item 1 da visão geral) e trocar a tabela por um dropdown pesquisável, porque a tabela ocupava a tela e empurrava o PDF (item 4).
+- **Impacto:** prévia da aba Fechamentos. Os testes da tabela e do campo de busca foram removidos porque esse comportamento deixou de ser requisito. Os testes de tipos de imagem passaram a abrir o combobox "Imagem" de cada filial. F10.4 e F10.7 passaram por `em-alteracao` e voltaram a `implementado`.
+
+#### Diálogo da imagem congelada com PDF (F10.6)
+- **Tags:** #fechamentos #api #componente #testes
+- **Arquivos:** `src/pages/fechamentos/DialogoImagem.tsx`, `DialogoImagem.css`, `ConsultaImagens.tsx`, `useConsultaImagens.ts`; testes `DialogoImagem.test.tsx`, `ConsultaImagens.test.tsx` e `FechamentosPage.imagens.integration.test.tsx`
+- **Antes:** ao abrir, o diálogo consultava o detalhe em JSON (`GET /api/ped/imagens/{id}`) e mostrava a `VisualizacaoImagem`.
+- **Depois:**
+  - o diálogo mostra o PDF de `GET /api/ped/imagens/{id}/pdf`, embutido;
+  - acima do PDF ficam o aviso da quantidade e o "Exportar". O "PDF desta imagem" usa a reserva `{código}.pdf`, e "Todas as imagens (ZIP)" usa os filtros da consulta;
+  - o diálogo ganhou as props `filtros` e `quantidade`;
+  - o conteúdo continua recriado a cada imagem (`key` pelo id).
+- **Motivação:** pedido do usuário. As imagens congeladas também têm PDF e exportação.
+- **Impacto:** consulta retroativa de imagens. F10.6 passou por `em-alteracao` e voltou a `implementado`.
+
+#### Encerramento pelo mês aberto e filiais sem composição do DRG (F10.1, F10.5, F10.12\*)
+- **Tags:** #fechamentos #api #testes
+- **Arquivos:** `src/services/fechamentosService.ts`, `src/types/dominio.ts`, `src/pages/fechamentos/previaFechamento.ts`, `DialogoEncerrarFechamento.tsx`, `DialogoEncerrarFechamento.css`, `FechamentosPage.tsx`, `FechamentosPage.css`; auxiliar `src/test/fechamentosFalsos.ts`; testes `fechamentosService.test.ts`, `DialogoEncerrarFechamento.test.tsx` e `FechamentosPage.encerramento.integration.test.tsx`
+- **Antes:** a confirmação não dizia qual período seria congelado. O resultado do encerramento não trazia as filiais sem composição.
+- **Depois:**
+  - **Confirmação:** mostra "Serão congeladas as imagens do período {período}, que contém o mês aberto para preenchimento." (`textoPeriodoCongelado`), tanto pelo menu quanto pela prévia. O texto não aparece no bloqueio.
+  - **Serviço:** `ResultadoEncerramento` ganhou `filiaisSemComposicao: string[]`, lido de `resumo."filiais sem composicao"`. Números viram texto e itens inválidos são ignorados. Campo ausente, `null` ou fora do formato vira `[]`.
+  - **Página:** depois de encerrar, mostra o alerta "Filiais encerradas sem a composição do Resultado Operacional (DRG): {códigos}." (`avisoFiliaisSemComposicao`). O alerta vale só para o último encerramento: some com `[]` e é trocado no encerramento seguinte.
+- **Motivação:** `docs/backend/FRONT-fechamentos-e-imagens.md` (mudanças do back-end de 16/11). O encerramento passou a usar o mês aberto para preenchimento, e não mais a data de hoje, e o back-end passou a informar as filiais sem composição do DRG.
+- **Impacto:** encerramento na aba Fechamentos. F10.1 (114/114) e F10.5 foram concluídos de novo. Decisão assumida no padrão, a confirmar: o aviso vale até o próximo encerramento.
+
+#### Início sem mês aberto (F11.1, F11.2, F11.4, F11.8\*)
+- **Tags:** #inicio #api #correcao #testes
+- **Arquivos:** `src/services/inicioService.ts`, `src/pages/inicio/AvisosInicio.tsx`, `InicioPage.tsx`; auxiliar `src/test/inicioFalsos.ts` (`PERIODO_SEM_MES_ABERTO_API`); testes `inicioService.test.ts`, `AvisosInicio.test.tsx`, `InicioPage.avisos.integration.test.tsx` e `InicioPage.periodos.integration.test.tsx`
+- **Antes:** com `"periodo aberto": { "mes de referencia": null }`, o Início não carregava e mostrava "Resposta inválida do servidor". Sem período aberto, o aviso do período não aparecia.
+- **Depois:**
+  - **Serviço:** `mes de referencia` nulo ou ausente equivale a `periodoAberto: null`.
+  - **Avisos:** sem período aberto, aparece "Nenhum período aberto para preenchimento.".
+  - **Página:** depois de o Início carregar sem mês aberto, o link "Preencher apontamentos do período" não aparece.
+- **Motivação:** mudanças do back-end de 16/11 (`docs/backend/FRONT-tela-inicio (1).md`).
+- **Impacto:** Início de todos os perfis. F11.1 (63/63), F11.2 (18/18) e F11.4 (18/18) foram concluídos de novo. Decisão assumida no padrão, a confirmar: os links "Preencher {dashboard}" dos períodos em aberto continuam sem mês aberto.
+
+#### Gatilho não editável e busca dentro do dropdown (F1.20, F10.15\*)
+- **Tags:** #componente #fechamentos #testes
+- **Arquivos:** `src/components/SelectPesquisavel.tsx`, `SelectPesquisavel.css`, `src/pages/fechamentos/DialogoPreviaFechamento.tsx`; testes `SelectPesquisavel.test.tsx`, `DialogoPreviaFechamento.test.tsx`, `FechamentosPage.tiposImagem.integration.test.tsx`
+- **Antes:** o gatilho do `SelectPesquisavel` era um campo de texto editável, em que digitar filtrava a lista.
+- **Depois:**
+  - o gatilho é um `<button role="combobox">` com `aria-haspopup="listbox"`, nomeado pelo rótulo (`aria-labelledby`), que só mostra a opção escolhida ou o placeholder;
+  - abre com clique, Enter, Espaço, ↓ ou ↑; receber o foco não abre;
+  - aberto, mostra no topo uma barra `<input type="search">` (prop `rotuloBusca`, padrão "Pesquisar"), que recebe o foco e começa vazia;
+  - Enter, Esc e clique devolvem o foco ao gatilho;
+  - na prévia, a barra usa `rotuloBusca="Buscar colaborador ou cargo"`.
+- **Motivação:** mudança de rumo pedida pelo usuário depois de ver o dropdown: "dentro do dropdown colocar uma barra de pesquisa e não deixar o campo de colaborador editável". O campo fechado deve se comportar como um select comum.
+- **Impacto:** `SelectPesquisavel` e prévia. Nos testes, o valor exibido passou a ser conferido pelo texto do botão (`toHaveTextContent`) em vez de `toHaveValue`. F1.20, F10.4 e F10.7 passaram por `em-alteracao` e voltaram a `implementado`.
+
+#### Layout da prévia: "Exportar" ao lado do progresso e aviso da quantidade (F10.10)
+- **Tags:** #fechamentos #layout #testes
+- **Arquivos:** `src/pages/fechamentos/DialogoPreviaFechamento.tsx`, `DialogoPreviaFechamento.css`; teste `DialogoPreviaFechamento.pdf.test.tsx`
+- **Antes:** o "Exportar" ficava mais abaixo, junto da imagem. O aviso da quantidade só aparecia depois de a prévia ser calculada.
+- **Depois:**
+  - **"Exportar":** fica na linha do "Progresso de lançamentos" (`dialogo-previa__topo`, flex, com o "Exportar" à direita).
+  - **Aviso da quantidade:** ocupa a largura total da modal.
+  - **Durante o cálculo da prévia:** junto de "Calculando as imagens...", o aviso usa a estimativa `unidadesDeImagem − unidadesEncerradas` da linha do fechamento. Ele não aparece em caso de erro e, quando a prévia chega, passa a usar o total real.
+- **Motivação:** pedidos do usuário em dois momentos. Primeiro, subir o Exportar. Depois, "colocar o botão de exportar do lado da mensagem de progresso e colocar a mensagem da geração pegando a largura total da modal, deixar a mensagem à mostra também enquanto carrega as imagens".
+- **Impacto:** prévia da aba Fechamentos. F10.10 passou por `em-alteracao` e voltou a `implementado`.
+
+#### Correção do "dropdown quebrado" no servidor de desenvolvimento
+- **Tags:** #correcao #componente
+- **Arquivos:** `src/components/SelectPesquisavel.css` (regravado, sem mudança de conteúdo)
+- **Antes:** no `npm run dev` do usuário, o dropdown aparecia sem estilo. O Vite tinha lido o CSS do `SelectPesquisavel` no instante em que o arquivo era regravado e ficou servindo o arquivo vazio. A build tinha o CSS correto.
+- **Depois:** o arquivo foi regravado, o servidor de desenvolvimento recarregou o CSS e o dropdown voltou ao normal.
+- **Motivação:** relato do usuário: "o dropdown quebrou".
+- **Impacto:** nenhum outro CSS foi afetado e não houve defeito no código.
+
+#### Builds validadas
+- **Tags:** #testes
+- **Arquivos:** nenhum arquivo de `src/`; saída em `dist/`
+- **Antes:** a última build era a de 16/11, com 5626/5626 testes.
+- **Depois:** duas builds foram validadas hoje. A última teve 5103 testes unitários e 777 de integração aprovados, carga com p99 de 149 ms e 109/109 requisitos `implementado`.
+- **Motivação:** pedidas pelo usuário ("gere uma nova build"), para ter o sistema com as mudanças do dia pronto para uso: a primeira após o dropdown com busca interna e a dica de tempo do ZIP; a segunda após o ajuste do layout da prévia (Exportar ao lado do progresso e aviso durante o cálculo).
+- **Impacto:** nenhuma mudança de comportamento.
+
+### Pendências
+- **Prévia com dados reais:** as imagens não são separadas por filial (aparece "Filial · 60 imagens", sem código), porque o front não encontra o código da filial nas imagens da prévia. Aguardando o usuário enviar o JSON real de `GET /api/ped/fechamentos/{id}/previa`.
+- **Decisões assumidas no padrão, a confirmar com o usuário:**
+  - sem contagem regressiva no bloqueio do 429 (F10.11\*);
+  - o aviso de filiais sem composição vale até o próximo encerramento (F10.12\*);
+  - os links "Preencher {dashboard}" continuam sem mês aberto (F11.8\*).
+- **Risco:** um ZIP acima de cerca de 500 PDFs pode falhar por tempo no Apache; o front só mostra a dica.
+- **Validação contra o servidor real:** PDF, ZIP, 429, encerramento pelo mês aberto e aviso de filiais sem composição.
+- **Commit:** o trabalho do dia e os dois testes estabilizados em 16/11 estão sem commit, depois do `2a105f6`.
+- **Próximas atividades:** F1.18 (avaliar unir o `SeletorBusca` ao `SelectPesquisavel`), F12.1, F12.2, F5.10 e F6.14\*. A F10.8 continua bloqueada (P-08).
+
+---
+
+<a id="2026-11-16"></a>
+## 16/11/2026
+
+**Tags:** #inicio #preenchimento #fechamentos #login #navegacao #api #componente #layout #correcao #testes #documentacao
+
+### Visão geral
+O dia teve nove pedidos do usuário. Parte deles veio na mesma sessão, logo depois do fechamento de 13/11. O trabalho de 13/11 já registrado (subabas do Preenchimento e blocos do Início, F11.6) só entrou em commit hoje, no `c8a7988`.
+
+**1. Performance da tela Início (F11, F2.5).** A abertura do Início estava lenta. Foram feitas a pré-carga da rota, o aviso de acesso obtido, a pré-consulta do Início e a expiração adiada da sessão (atividade F11.7\*). Na revisão apareceram dois problemas, corrigidos em TDD: a expiração adiada podia ficar presa e o `sair()` não a zerava; e o `<StrictMode>` fazia um GET em duplicidade.
+
+**2. Rótulos do resumo com acento.** O back-end manda os rótulos sem acento. O usuário decidiu: "o front troca".
+
+**3. Preenchimento com o formato real das respostas (F9.13\*).** O usuário enviou os JSONs reais de `preenchimento?filial=100`, de metas e de meses. Duas diferenças causavam "Resposta inválida do servidor": nos meses, `mes` vem como data; nas metas, `composicao` vem como lista de textos. A correção foi feita em TDD, com testes de contrato sobre os exemplos reais.
+
+**4. Modal "Editar metas" (F9.9).** O usuário pediu, em dois momentos, para aumentar a modal e retirar colunas, e depois para aumentar mais a largura até sumir a barra de rolagem lateral.
+
+**5. "Me mostre o que ainda está faltando".** Foram apresentados o andamento do plano e as atividades pendentes e bloqueadas.
+
+**6. Commit `c8a7988`.** Inclui os itens 1 a 4, as subabas e os blocos de 13/11 e o fechamento de 13/11.
+
+**7. Erro na aba Fechamentos com o servidor respondendo certo (F10.9\*, não planejada).** O `GET /api/ped/fechamentos` manda "indicadores com problema" e "unidades sem tabela de faixas" como números (contagens), e o front esperava listas. A correção foi feita em TDD e entrou no commit `2a105f6`.
+
+**8. Envio ao GitHub** de `c8a7988` e `2a105f6`.
+
+**9. Build do sistema.** A 1ª tentativa não foi realizada: falhou um teste instável e a carga passou do limite. O usuário pediu "ajuste o teste e tente novamente". Com dois testes estabilizados, a 2ª tentativa gerou a build.
+
+Ao fim do dia, o plano está em 93% (129 de 139 atividades).
+
+### Implementações
+
+#### Pré-carga do chunk do Início (F11.7\*)
+- **Tags:** #inicio #navegacao #testes
+- **Arquivos:** `src/utils/preCarga.ts` e `src/utils/preCarga.test.ts` (novos); `src/rotas.tsx` (alterado)
+- **Descrição:**
+  - `preCarregar(importar)` inicia o `import()` na hora e devolve `carregar()`, para usar no `lazy`, e `carregado()`, que devolve o módulo se ele já chegou ou `null`.
+  - Se o módulo já chegou, `carregar()` devolve uma promessa cujo `then` entrega o módulo de forma síncrona, inclusive em `then` encadeados. Assim o `lazy` resolve na primeira renderização, sem o "Carregando..." do `Suspense` e sem a espera mínima do React ao revelar o conteúdo.
+  - Se o módulo ainda está chegando, devolve a mesma promessa, sem baixar duas vezes. Se a pré-carga falhou, tenta de novo, e a falha da nova tentativa segue para o `errorElement` da rota.
+  - Em `rotas.tsx`, o chunk do Início é pré-carregado quando o módulo de rotas é avaliado, em paralelo com `GET /api/ped/acesso`. O Início continua num chunk próprio; as outras abas só são baixadas ao abrir.
+- **Motivação:** abertura lenta do Início.
+- **Como usar / observações técnicas:** os testes unitários diretos de `preCarga.ts` foram criados como cobertura complementar (import chamado uma vez, `then` síncrono depois da carga, falha sem rejeição não tratada, nova tentativa após falha).
+
+#### Aviso de acesso obtido e pré-consulta do Início (F11.7\*)
+- **Tags:** #inicio #login #api #navegacao #testes
+- **Arquivos:** `src/sessao/acessoObtido.ts`, `src/pages/inicio/consultasInicio.ts` e os testes `acessoObtido.test.ts`, `consultasInicio.test.ts` e `src/rotas.antecipacao.test.tsx` (novos); `src/sessao/SessaoProvider.tsx`, `src/rotas.tsx`, `src/pages/inicio/InicioPage.tsx`, `useInicio.ts` e `usePendenciasInicio.ts` (alterados)
+- **Descrição:**
+  - **`acessoObtido`:** `ouvirAcessoObtido(ouvinte)` devolve a função que cancela a escuta. `avisarAcessoObtido({ acesso, filialSelecionada })` avisa os ouvintes. Um ouvinte com falha não impede os outros nem derruba a sessão.
+  - **`SessaoProvider`:** ao obter o acesso (restauração ou login) de um usuário com perfil, avisa `acessoObtido` antes de aplicar o estado autenticado.
+  - **`AntecipacaoDaRota` (`rotas.tsx`):** enquanto a sessão salva é restaurada (`estado === 'carregando'`), ouve o acesso das rotas abertas que têm `handle.aoObterAcesso` e as chama quando o acesso chega, antes de a tela renderizar. Não renderiza nada. O Início usa `HANDLE_INICIO`, que chama `preConsultarInicio` se o chunk já chegou; se não chegou, a página consulta ao montar.
+  - **`consultasInicio.ts`:** reúne as consultas usadas por `useInicio` e `usePendenciasInicio` (`consultarInicio`, `consultarIndicadoresComMetaPendente`, `consultarDashboardsEmConstrucao`) e os auxiliares `codigoDaFilial` e `vePendencias`. `preConsultarInicio` dispara as mesmas consultas antes de a página montar; para o Preenchedor, não dispara as pendências.
+  - **Uso único:** cada pré-consulta vale uma única vez, para a montagem seguinte com o mesmo acesso e a mesma filial. Trocar de filial, "Tentar novamente" ou voltar ao Início depois consultam normalmente.
+  - **Hooks:** se a resposta já chegou, `useInicio` sai com os dados na primeira renderização; se não, aguarda a mesma promessa, sem novo GET. `usePendenciasInicio` faz o mesmo.
+  - A antecipação não reage em rota sem `handle.aoObterAcesso` (`/tipos`, `/login`), no login por formulário, sem sessão nem a avisos depois de autenticada.
+- **Motivação:** abertura lenta do Início.
+- **Como usar / observações técnicas:**
+  - `InicioPage.tsx` reexporta `preConsultarInicio` (com `oxlint-disable-next-line react/only-export-components`), para que `rotas.tsx` a chame pelo chunk já pré-carregado.
+  - Outras rotas podem antecipar as próprias consultas pelo mesmo `handle.aoObterAcesso`.
+  - A cobertura de `acessoObtido`, `consultasInicio` e `AntecipacaoDaRota` foi criada como cobertura complementar, com os testes verdes sobre o código.
+
+#### Expiração adiada da sessão (F2.5)
+- **Tags:** #login #inicio #testes
+- **Arquivos:** `src/sessao/SessaoProvider.tsx`; testes `src/sessao/SessaoProvider.expiracaoAdiada.test.tsx` (novo)
+- **Descrição:**
+  - Como as consultas antecipadas saem antes de a sessão autenticada aparecer, um 401 delas pode chegar nesse intervalo.
+  - Nesse caso, o `SessaoProvider` marca a expiração como adiada (`autenticacaoPendente` e `expiracaoAdiada`) e a aplica logo depois que a sessão autenticada é exibida.
+  - O usuário vê o fluxo de sempre: a tela abre e volta ao login com o aviso de sessão expirada, sem acesso, filial ou token em memória.
+  - Um novo login depois disso permanece autenticado.
+- **Motivação:** necessária para a pré-consulta do Início (abertura lenta do Início).
+- **Como usar / observações técnicas:** a função `expirar(atual)` concentra a volta ao anônimo com a mensagem padrão do 401.
+
+#### Rótulos do resumo do Início com acento (F11.1, F11.3)
+- **Tags:** #inicio #api #testes
+- **Arquivos:** `src/types/dominio.ts` (`ROTULOS_RESUMO_INICIO`), `src/services/inicioService.ts`; testes `src/services/inicioService.rotulos.test.ts` (novo), `inicioService.test.ts`, `ResumoInicio.test.tsx` e `InicioPage.resumo.integration.test.tsx`
+- **Descrição:**
+  - A tabela `ROTULOS_RESUMO_INICIO` tem as 9 chaves do contrato e o texto correto em pt-BR. Exemplos: "dados externos em construcao" → "Dados externos em construção pela TI"; "lancamentos pendentes" → "Lançamentos pendentes no período".
+  - `paraItemResumo` troca o `rotulo` recebido pelo da tabela quando a `chave` é conhecida (`Object.hasOwn`, sem chaves de propriedade herdada). Chave desconhecida mantém o rótulo da API.
+- **Motivação:** o servidor real manda os rótulos sem acento ("construcao", "Lancamentos"), e o back-end não vai corrigir na origem. Decisão do usuário: "o front troca".
+- **Impacto:** resumo do Início de todos os perfis. Fecha a pendência de 13/11 sobre os rótulos sem acento.
+
+#### Exemplos reais do back-end
+- **Tags:** #documentacao #testes #api
+- **Arquivos:** `docs/backend/exemplos-reais/preenchimento-meses.json`, `preenchimento.json`, `metas.json` (no `c8a7988`), `fechamentos.json` e `imagens.json` (no `2a105f6`); testes de contrato `src/services/preenchimentoService.exemplosReais.test.ts`, `metasService.exemplosReais.test.ts`, `fechamentosService.exemplosReais.test.ts`, `src/pages/preenchimento/PreenchimentoPage.exemplosReais.integration.test.tsx` e `src/pages/fechamentos/FechamentosPage.exemplosReais.integration.test.tsx`
+- **Descrição:** respostas reais do servidor, copiadas pelo usuário. `preenchimento.json` e `metas.json` foram resumidos. Os testes de contrato carregam esses arquivos e exigem que os serviços e as telas os aceitem.
+- **Motivação:** a F9.1 e a F10.1 assumiram formatos que a API (28) não documenta, e as telas mostravam "Resposta inválida do servidor" contra o servidor real.
+- **Como usar / observações técnicas:** novos exemplos reais devem ser salvos na mesma pasta e ganhar testes de contrato.
+
+### Modificações
+
+#### Correção da expiração adiada presa e do `sair()` (F2.5)
+- **Tags:** #login #correcao #testes
+- **Arquivos:** `src/sessao/SessaoProvider.tsx`; testes `src/sessao/SessaoProvider.reentrada.test.tsx` (novo, 4 testes, vermelhos até a correção)
+- **Antes:**
+  - a marca de autenticação pendente só voltava a `false` quando o estado mudava para "autenticado";
+  - num novo login com a sessão já autenticada (sem sair antes) ou em dois logins concorrentes, a marca ficava presa e todo 401 seguinte era adiado para sempre: o token era apagado, mas a tela continuava autenticada com os dados do usuário;
+  - `sair()` não zerava a expiração adiada, que derrubava o próximo login logo depois de ele aparecer.
+- **Depois:**
+  - o estado `versaoAutenticacao` muda a cada sessão autenticada aplicada, e os efeitos rodam a cada novo login, mesmo com o estado já "autenticado";
+  - a marca pendente é zerada num `useLayoutEffect`, síncrono ao commit, para que um 401 logo depois encerre a sessão na hora;
+  - `sair()` zera as duas marcas.
+- **Motivação:** problema encontrado na revisão de 16/11, de gravidade média (a sessão podia deixar de expirar). Corrigido em TDD.
+- **Impacto:** sessão e login. O requisito F2.5 passou por `em-alteracao` e voltou a `implementado`, sem mudança de regra.
+
+#### Correção do GET duplicado no `<StrictMode>` (F11.1, F11.6\*)
+- **Tags:** #inicio #correcao #testes
+- **Arquivos:** `src/pages/inicio/useInicio.ts`, `usePendenciasInicio.ts`; testes `useInicio.strictMode.test.tsx` e `usePendenciasInicio.strictMode.test.tsx` (novos, 2 testes cada, vermelhos até a correção)
+- **Antes:** o efeito consumia e liberava a pré-consulta na primeira execução. Na re-execução do `<StrictMode>` (`main.tsx`), achava a referência nula e consultava de novo: `GET /api/ped/inicio` e as consultas de indicadores e dashboards saíam duplicadas na primeira abertura.
+- **Depois:** a pré-consulta é lida uma vez, na montagem (`useState`). Uma referência mantém a pré-consulta válida enquanto o efeito só rodou com a chave dela, inclusive na re-execução do StrictMode. A primeira consulta com outra chave a descarta.
+- **Motivação:** problema encontrado na revisão de 16/11, de gravidade baixa (GET duplicado). Corrigido em TDD.
+- **Impacto:** Início. F11.1 e F11.6 passaram por `em-alteracao` e voltaram a `implementado`.
+
+#### Preenchimento adequado ao formato real das respostas (F9.13\*)
+- **Tags:** #preenchimento #api #correcao #testes
+- **Arquivos:** `src/services/preenchimentoService.ts`, `metasService.ts`, `src/types/dominio.ts`, `src/pages/preenchimento/PreenchimentoPage.tsx`, `ListaApontamentosPreenchimento.tsx`; auxiliares `src/test/preenchimentoFalsos.ts`, `periodoFalsos.ts`, `metasPreenchimentoFalsos.ts`; testes dos serviços e das telas do Preenchimento
+- **Antes:**
+  - meses: o mês vinha em `"mes de referencia"` ou em `mes` numérico;
+  - metas: `composicao` era um objeto `{ tipo, itens }` (`ComposicaoIndicador`).
+
+  Contra o servidor real, a aba mostrava "Resposta inválida do servidor".
+- **Depois:**
+  - **Meses:** aceita o envelope real `{ filial, ano, "periodo aberto", meses }`, com os campos extras ignorados. `mes` em texto `AAAA-MM` ou `AAAA-MM-DD`, e o ano sai da própria data. Os formatos antigos continuam aceitos. Mês fora de 01–12 ou texto fora do formato rejeita a resposta.
+  - **Metas:** `IndicadorMetaPreenchimento.composicao` passou a ser `string[]`, com os nomes. São aceitos lista de textos (formato real), lista de `{ nome }` ou `{ tipo, itens }`; outro formato vira `[]`. `filial`, `"mes de referencia"` e `quantidade` do envelope são tolerados.
+  - **Tela:** na recusa do lote pela API, o foco vai ao primeiro apontamento com erro, na ordem da tela, e a lista seleciona a aba dele. A recarga do mesmo mês, depois de salvar ou corrigir, mantém a subaba selecionada.
+  - Um defeito de teste foi corrigido em `PreenchimentoPage.exemplosReais.integration.test.tsx`: a verificação passou para "Indicadores: Indicadores de Financeiro", o formato exigido pelos outros testes.
+- **Motivação:** o usuário enviou os JSONs reais de `preenchimento?filial=100`, metas e meses. As diferenças de `mes` e `composicao` causavam "Resposta inválida do servidor". Fecha a pendência de 13/11.
+- **Impacto:** aba Preenchimento. F9.1, F9.3, F9.6, F9.7, F9.8, F9.9 e F9.12 foram reabertos e concluídos de novo; F9 está em 100% (13/13).
+
+#### Janela "Editar metas" mais larga e com menos colunas (F9.9)
+- **Tags:** #preenchimento #componente #layout #testes
+- **Arquivos:** `src/pages/preenchimento/DialogoEditarMetas.tsx`, `DialogoEditarMetas.css`; testes `DialogoEditarMetas.test.tsx` e `PreenchimentoPage.metas.integration.test.tsx`
+- **Antes:** a janela usava a variante `dialogo--largo` (800px) e tinha as colunas Indicador, Tipos, Composição, Meta do cadastro (com a origem "Meta da filial"/"Meta geral"), Meta vigente, Nova meta e Motivo.
+- **Depois:**
+  - colunas Indicador (com "Ajustada" e "Histórico de {nome}"), Meta vigente e, no mês editável, Nova meta e Motivo. O filtro por tipo continua;
+  - classe `dialogo-editar-metas` com `max-width: 1040px`; em telas menores, o `Dialogo` ocupa a largura disponível;
+  - o campo de meta passou de `min-width` 140px para 160px.
+- **Motivação:** pedidos do usuário em dois momentos: "aumentar o tamanho da modal, retirar a coluna de tipos, composição e meta do cadastro" e, depois, aumentar mais a largura para sumir a barra de rolagem lateral. As colunas Nova meta e Motivo não cabiam sem rolagem horizontal.
+- **Impacto:** "Editar metas" do Preenchimento. As verificações das colunas Tipos, Composição e Meta do cadastro foram removidas dos testes, porque deixaram de ser requisito.
+
+#### Fechamentos adequados ao formato real de `GET /api/ped/fechamentos` (F10.9\*)
+- **Tags:** #fechamentos #api #componente #correcao #testes
+- **Arquivos:** `src/types/dominio.ts`, `src/services/adaptadores.ts`, `src/services/fechamentosService.ts`, `src/pages/fechamentos/TabelaFechamentos.tsx`; auxiliar `src/test/fechamentosFalsos.ts`; testes `adaptadores.test.ts`, `fechamentosService.test.ts`, `fechamentosService.exemplosReais.test.ts` (novo), `TabelaFechamentos.test.tsx`, `useFechamentos.test.tsx`, `FechamentosPage.integration.test.tsx` e `FechamentosPage.exemplosReais.integration.test.tsx` (novo); `docs/backend/exemplos-reais/fechamentos.json` e `imagens.json`
+- **Antes:** "indicadores com problema" e "unidades sem tabela de faixas" eram lidos como listas. Com o servidor respondendo certo, a aba mostrava "Resposta inválida do servidor", porque esses campos chegam como números.
+- **Depois:**
+  - o serviço aceita número (formato real, inclusive em texto decimal canônico) ou lista (formato antigo); outro tipo rejeita a resposta;
+  - `Fechamento` ganhou `quantidadeIndicadoresComProblema` e `quantidadeUnidadesSemTabelaDeFaixas`. As listas continuam e ficam vazias quando chega só o número;
+  - etiquetas da tabela: "N indicador(es) com problema" e "Sem tabela de faixas: N unidade(s)"; com lista, "filial X" ou "filiais X, Y";
+  - nenhuma etiqueta quando o valor é 0;
+  - o exemplo `imagens.json` (`[]`) já era aceito.
+- **Motivação:** pedido do usuário: erro na aba Fechamentos com o servidor respondendo certo. Decisão: aceitar contagens numéricas junto com listas, para compatibilidade.
+- **Impacto:** aba Fechamentos. F1.3, F10.1, F10.2, F10.4, F10.5 e F10.7 foram concluídos de novo. Atividade não planejada. Ficou o risco na prévia (ver Pendências).
+
+#### Commits `c8a7988` e `2a105f6` e push
+- **Tags:** #testes #documentacao
+- **Arquivos:** 69 arquivos no `c8a7988` e 17 no `2a105f6`
+- **Antes:** as subabas e os blocos de 13/11 e o trabalho da manhã estavam no disco, sem commit; o origin/main estava em `d499d3e`.
+- **Depois:**
+  - **`c8a7988` (11:38):** Preenchimento em subabas e no formato real (F9.5, F9.13\*), Início com blocos, rótulos com acento e performance (F11.3, F11.6\*, F11.7\*, F2.5), exemplos reais e o fechamento de 13/11;
+  - **`2a105f6` (14:51):** F10.9\* com os exemplos reais de fechamentos e imagens;
+  - os dois commits foram enviados ao GitHub.
+- **Motivação:** pedidos do usuário (commit e envio ao GitHub).
+- **Impacto:** fecha as pendências de 13/11 sobre o commit do trabalho da tarde.
+
+#### Build validada e testes instáveis estabilizados
+- **Tags:** #testes
+- **Arquivos:** `src/sessao/SessaoProvider.expiracaoAdiada.test.tsx`, `src/rotas.antecipacao.test.tsx`, `requisitos.json` (histórico de F2.3 e F2.5); sem commit
+- **Antes:**
+  - a 1ª tentativa de build não foi realizada;
+  - `SessaoProvider.expiracaoAdiada` (F2.5) falhou sob carga: a lista de estados exibidos é registrada num efeito passivo e ainda não tinha o último "anonimo";
+  - o teste de carga deu p99 de 532 ms, acima do limite de 500 ms, com a máquina carregada logo após 25 min de testes;
+  - em `rotas.antecipacao` (F2.3), sob carga, o título do Início aparecia antes do efeito que cancela a escuta de `AntecipacaoDaRota`, e o aviso do teste chegava com a escuta ativa.
+- **Depois:**
+  - `SessaoProvider.expiracaoAdiada.test.tsx`: os casos "na restauração" e "no login" esperam, dentro de `waitFor`, que o último estado seja "anonimo" e que a sequência apareça em ordem (subsequência, auxiliares `exibiuNaOrdem` e `esperarEstadosExibidos`). Continuam obrigatórios a sessão autenticada exibida, a mensagem de sessão expirada e nenhum dado em memória;
+  - `rotas.antecipacao.test.tsx`: `await act(async () => {})` depois de o Início aparecer e antes do aviso;
+  - 2ª tentativa: build realizada, com 5626/5626 testes, carga p99 de 118 ms e saída em `dist/`.
+- **Motivação:** pedido do usuário: "ajuste o teste e tente novamente". Decisão: tratar os testes instáveis no teste e não no código, porque o comportamento estava correto. O requisito não mudou e nada em `src/` fora dos testes foi alterado.
+- **Impacto:** nenhuma mudança de comportamento. F2.3 e F2.5 continuam `implementado`.
+- **Observações técnicas:** decidiu-se que, no commit, os lotes de integração rodam primeiro e sozinhos, e um lote que falhar sob carga é reexecutado com a máquina livre. O `scripts/lotes-testes.mjs` subestima testes parametrizados (`it.each`): lotes reais chegaram a 225 testes.
+
+### Pendências
+- Commit dos dois testes estabilizados e do `requisitos.json`.
+- JSON real de `GET /api/ped/fechamentos/{id}/previa`: há o risco de os avisos de pendências e de falta de faixas sumirem se vierem só números.
+- Decisões em aberto com o usuário:
+  - filtro "Com problemas de faixa";
+  - menu das linhas fechadas;
+  - pré-seleção da filial em "Preencher";
+  - texto do Validador;
+  - limite de 100% e decimais.
+- Perguntas ao back-end:
+  - acesso do Validador às imagens;
+  - cargo e nome da filial nas imagens;
+  - mês seguinte ao aberto vindo como "fechado";
+  - JSON do histórico do apontamento;
+  - deploy conjunto das faixas.
+- Contagem do `scripts/lotes-testes.mjs` com `it.each`.
+- Próximas atividades: F1.18, F5.10, F6.14\*, F12.1 e F12.2. A F10.8 está bloqueada (P-08).
 
 ---
 

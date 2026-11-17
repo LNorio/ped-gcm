@@ -5,7 +5,10 @@
  * - `GET  /api/ped/fechamentos?periodicidade=&situacao=&busca=` lista (`todas` e busca vazia omitidas;
  *   lista pura ou `{ fechamentos }`; cada linha pelo adaptador `paraFechamento` da F1.3);
  * - `GET  /api/ped/fechamentos/{id}/previa`   prévia do encerramento (um GET, nada é gravado);
- * - `POST /api/ped/fechamentos/{id}/encerrar` encerramento, sem corpo.
+ * - `POST /api/ped/fechamentos/{id}/encerrar` encerramento, sem corpo;
+ * - `GET  /api/ped/fechamentos/{id}/previa/pdf?chave=` PDF de uma imagem da prévia e
+ *   `GET  /api/ped/fechamentos/{id}/previa/zip` ZIP da prévia — F10.10, contrato proposto em
+ *   `docs/backend/PROPOSTA-pdf-imagens.md` (só GET: nada é gravado).
  *
  * Formatos aceitos onde o contrato não detalha (ver `src/test/fechamentosFalsos.ts`):
  * - "indicadores com problema" e "unidades sem tabela de faixas" da lista como contagem (número ou texto
@@ -39,7 +42,7 @@ import {
   TIPOS_VINCULO,
 } from '../types/dominio'
 import { type FechamentoApi, paraFechamento } from './adaptadores'
-import { ApiError, MENSAGEM_RESPOSTA_INVALIDA, apiFetch } from './api'
+import { ApiError, type ArquivoBaixado, MENSAGEM_RESPOSTA_INVALIDA, apiFetch, apiFetchArquivo } from './api'
 import { paraDashboardDaImagem, paraImagemCongelada, paraPeriodoDaImagem } from './imagensService'
 
 const ROTA_FECHAMENTOS = '/ped/fechamentos'
@@ -271,9 +274,32 @@ function codigoDaImagem(item: unknown): string | null {
   return null
 }
 
+/**
+ * `resumo."filiais sem composicao"` do encerramento: códigos em texto ou número (números viram texto);
+ * ausente ou fora do formato → `[]`; itens que não são texto nem número são ignorados.
+ */
+function filiaisSemComposicao(resumo: unknown): string[] {
+  if (!ehObjeto(resumo)) return []
+  const valor = resumo['filiais sem composicao']
+  if (!Array.isArray(valor)) return []
+  return valor.flatMap((item: unknown) => {
+    if (typeof item === 'string') return item.trim() === '' ? [] : [item]
+    if (typeof item === 'number' && Number.isFinite(item)) return [String(item)]
+    return []
+  })
+}
+
 function paraResultadoEncerramento(resposta: unknown): ResultadoEncerramento {
   if (!ehObjeto(resposta)) {
-    return { mensagem: null, lote: null, periodo: null, imagensGeradas: 0, codigosDasImagens: [], resumo: resumoVazio(0) }
+    return {
+      mensagem: null,
+      lote: null,
+      periodo: null,
+      imagensGeradas: 0,
+      codigosDasImagens: [],
+      resumo: resumoVazio(0),
+      filiaisSemComposicao: [],
+    }
   }
   const geradas = resposta['imagens geradas']
   let imagensGeradas = 0
@@ -291,6 +317,7 @@ function paraResultadoEncerramento(resposta: unknown): ResultadoEncerramento {
     imagensGeradas,
     codigosDasImagens,
     resumo: paraResumo(resposta.resumo, 0, false),
+    filiaisSemComposicao: filiaisSemComposicao(resposta.resumo),
   }
 }
 
@@ -314,6 +341,28 @@ export async function listarFechamentos(filtros: FiltrosFechamentos = {}): Promi
 export async function obterPreviaFechamento(id: number): Promise<PreviaFechamento> {
   const resposta = await apiFetch<unknown>(`${ROTA_FECHAMENTOS}/${id}/previa`)
   return paraPrevia(resposta)
+}
+
+/** Opções dos downloads da prévia (F10.10): nome usado se o back-end não informar um, e cancelamento. */
+export interface OpcoesArquivoPrevia {
+  nomeReserva?: string
+  signal?: AbortSignal
+}
+
+/**
+ * PDF de uma imagem da prévia (F10.10): `GET .../previa/pdf?chave={chave}`.
+ * Reserva: `previa-{id}-{chave com ":" trocado por "-"}.pdf`.
+ */
+export function obterPdfPrevia(id: number, chave: string, opcoes: OpcoesArquivoPrevia = {}): Promise<ArquivoBaixado> {
+  const reserva = opcoes.nomeReserva ?? `previa-${id}-${chave.replaceAll(':', '-')}.pdf`
+  return apiFetchArquivo(`${ROTA_FECHAMENTOS}/${id}/previa/pdf`, reserva, { query: { chave }, signal: opcoes.signal })
+}
+
+/** ZIP da prévia, com um PDF por imagem (F10.10): `GET .../previa/zip`. Reserva: `previa-{id}.zip`. */
+export function obterZipPrevia(id: number, opcoes: OpcoesArquivoPrevia = {}): Promise<ArquivoBaixado> {
+  return apiFetchArquivo(`${ROTA_FECHAMENTOS}/${id}/previa/zip`, opcoes.nomeReserva ?? `previa-${id}.zip`, {
+    signal: opcoes.signal,
+  })
 }
 
 /**

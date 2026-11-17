@@ -2,7 +2,7 @@
  * Cliente HTTP central da API PED (INT-01, RNF-08).
  *
  * - URL base lida de `VITE_API_URL` (ausente ou vazia → `/api`, atendido pelo proxy do Vite).
- * - Sempre pede JSON; serializa corpos objeto como JSON.
+ * - `apiFetch` pede JSON; `apiFetchArquivo` baixa arquivos (Blob). Serializa corpos objeto como JSON.
  * - Envia `Authorization: Bearer <token>` quando há token na sessão (`sessao.ts`).
  * - Converte respostas de erro e falhas de rede em `ApiError` com mensagem em pt-BR.
  * - Em 401 de requisição autenticada, dispara `EVENTO_SESSAO_EXPIRADA` em `window`.
@@ -144,6 +144,12 @@ function extrairMensagem(dados: unknown, status: number): string {
   return mensagemPadraoPorStatus(status)
 }
 
+/**
+ * Espera padrão, em segundos, quando a API responde 429 sem informar o tempo (`tentarNovamenteEm`):
+ * usada no login (F2.2) e na exportação/PDF das imagens (F10.10).
+ */
+export const SEGUNDOS_BLOQUEIO_PADRAO = 60
+
 /** Campo do corpo de erro com o tempo de espera, em segundos (ex.: 429 do login). */
 const CAMPO_SEGUNDOS_ESPERA = 'segundos para tentar novamente'
 
@@ -171,14 +177,15 @@ function notificarSessaoExpirada(): void {
 }
 
 /**
- * Executa uma chamada à API e devolve o JSON da resposta tipado como `T`.
- * Lança `ApiError` em respostas de erro (status >= 400) e em falhas de rede (status 0).
+ * Executa a requisição (URL base, query, Bearer, corpo, `signal`) e devolve a resposta 2xx.
+ * Lança `ApiError` em respostas de erro (status >= 400) e em falhas de rede (status 0); em 401 de
+ * requisição autenticada, dispara `EVENTO_SESSAO_EXPIRADA`. Base de `apiFetch` e `apiFetchArquivo`.
  */
-export async function apiFetch<T = unknown>(caminho: string, opcoes: ApiOpcoes = {}): Promise<T> {
+async function executarRequisicao(caminho: string, opcoes: ApiOpcoes, aceitar: string): Promise<Response> {
   const { method = 'GET', body, query, headers: cabecalhosExtras, signal } = opcoes
 
   const headers = new Headers(cabecalhosExtras)
-  headers.set('Accept', 'application/json')
+  headers.set('Accept', aceitar)
 
   const token = obterToken()
   if (token) headers.set('Authorization', `Bearer ${token}`)
@@ -202,7 +209,74 @@ export async function apiFetch<T = unknown>(caminho: string, opcoes: ApiOpcoes =
     throw new ApiError(response.status, mensagem, dados, extrairTentarNovamenteEm(dados, response))
   }
 
+  return response
+}
+
+/**
+ * Executa uma chamada à API e devolve o JSON da resposta tipado como `T`.
+ * Lança `ApiError` em respostas de erro (status >= 400) e em falhas de rede (status 0).
+ */
+export async function apiFetch<T = unknown>(caminho: string, opcoes: ApiOpcoes = {}): Promise<T> {
+  const response = await executarRequisicao(caminho, opcoes, 'application/json')
   return (await lerCorpoSucesso(response)) as T
+}
+
+/** Arquivo baixado da API (F10.10): conteúdo binário e nome para salvar/exibir. */
+export interface ArquivoBaixado {
+  blob: Blob
+  nomeArquivo: string
+}
+
+function decodificarNome(valor: string): string | null {
+  try {
+    return decodeURIComponent(valor)
+  } catch {
+    return null
+  }
+}
+
+function semAspas(valor: string): string {
+  const texto = valor.trim()
+  return texto.length >= 2 && texto.startsWith('"') && texto.endsWith('"') ? texto.slice(1, -1) : texto
+}
+
+/**
+ * Nome do arquivo de um cabeçalho `Content-Disposition` (F10.10): `filename*=UTF-8''...` (decodificado)
+ * tem prioridade sobre `filename=`; aceita o nome com ou sem aspas. Sem nome → `null`.
+ */
+export function nomeDoArquivo(contentDisposition: string | null | undefined): string | null {
+  if (!contentDisposition) return null
+
+  const estendido = /filename\*\s*=\s*([^;]+)/i.exec(contentDisposition)
+  if (estendido) {
+    const valor = semAspas(estendido[1])
+    const separador = valor.indexOf("''")
+    const nome = decodificarNome(separador >= 0 ? valor.slice(separador + 2) : valor)
+    if (nome && nome.trim() !== '') return nome
+  }
+
+  const simples = /(?:^|;)\s*filename\s*=\s*("[^"]*"|[^;]*)/i.exec(contentDisposition)
+  if (simples) {
+    const nome = semAspas(simples[1])
+    if (nome.trim() !== '') return nome
+  }
+
+  return null
+}
+
+/**
+ * Baixa um arquivo da API (PDF, ZIP) com a mesma URL base, query, Bearer e `signal` de `apiFetch`.
+ * O sucesso é lido como `Blob` (nunca como JSON); o nome vem do `Content-Disposition` ou, sem ele,
+ * de `nomeReserva`. Erros como em `apiFetch`.
+ */
+export async function apiFetchArquivo(
+  caminho: string,
+  nomeReserva: string,
+  opcoes: ApiOpcoes = {},
+): Promise<ArquivoBaixado> {
+  const response = await executarRequisicao(caminho, opcoes, '*/*')
+  const blob = await response.blob()
+  return { blob, nomeArquivo: nomeDoArquivo(response.headers.get('Content-Disposition')) ?? nomeReserva }
 }
 
 /**

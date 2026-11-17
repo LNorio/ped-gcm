@@ -1,0 +1,22 @@
+/*
+ * Exportação das imagens (F10.10): botão "Exportar" (MenuAcoes com texto visível); o alerta de erro
+ * fica logo abaixo.
+ */
+
+.exportar-imagens {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.exportar-imagens__status {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--cor-texto-secundario, inherit);
+}
+
+.exportar-imagens .aviso {
+  align-self: stretch;
+}

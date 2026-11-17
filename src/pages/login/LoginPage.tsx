@@ -17,7 +17,7 @@ import { Campo } from '../../components/Campo'
 import { Etiqueta } from '../../components/Etiqueta'
 import { Marca } from '../../components/Marca'
 import { Rodape } from '../../components/Rodape'
-import { ApiError } from '../../services/api'
+import { ApiError, SEGUNDOS_BLOQUEIO_PADRAO } from '../../services/api'
 import { useSessao } from '../../sessao/SessaoProvider'
 import './LoginPage.css'
 
@@ -41,9 +41,6 @@ function IconeOlho({ aberto }: { aberto: boolean }) {
     </svg>
   )
 }
-
-/** Bloqueio usado quando a API responde 429 sem informar o tempo de espera. */
-const SEGUNDOS_BLOQUEIO_PADRAO = 60
 
 function segundosRestantes(fim: number): number {
   return Math.ceil((fim - Date.now()) / 1000)

@@ -5,7 +5,9 @@
  * `docs/backend/FRONT-PED-mudancas (1).md`, item 8 (`tipo` e "id colaborador"):
  * - `GET /api/ped/imagens?filial=&periodo=&dashboard=&tipo=&id_colaborador=&busca=` consulta retroativa
  *   (filial/tipo `todas` e textos vazios omitidos; lista pura ou `{ imagens }`);
- * - `GET /api/ped/imagens/{id}` detalhe (na raiz ou em `{ imagem }`).
+ * - `GET /api/ped/imagens/{id}` detalhe (na raiz ou em `{ imagem }`);
+ * - `GET /api/ped/imagens/{id}/pdf` PDF da imagem e `GET /api/ped/imagens/zip` ZIP com um PDF por imagem
+ *   (mesmos filtros da consulta) — F10.10, contrato proposto em `docs/backend/PROPOSTA-pdf-imagens.md`.
  * Não existe rota para alterar ou excluir imagem (RN-18): o serviço só lê.
  *
  * `paraImagemCongelada` converte o conteúdo da imagem (RF-83) e é usado também nas imagens da prévia
@@ -44,7 +46,7 @@ import {
   type TipoImagem,
   type UnidadeDaImagem,
 } from '../types/dominio'
-import { ApiError, MENSAGEM_RESPOSTA_INVALIDA, apiFetch } from './api'
+import { ApiError, type ArquivoBaixado, MENSAGEM_RESPOSTA_INVALIDA, type ValorQuery, apiFetch, apiFetchArquivo } from './api'
 
 const ROTA_IMAGENS = '/ped/imagens'
 
@@ -382,19 +384,28 @@ function textoDoFiltro(valor: string | undefined): string | undefined {
   return valor !== undefined && valor.trim() !== '' ? valor : undefined
 }
 
+/** Query da consulta retroativa (filial/tipo `todas` e textos vazios omitidos), usada também no ZIP. */
+function queryDosFiltros(filtros: FiltrosImagens): Record<string, ValorQuery> {
+  const filial = textoDoFiltro(filtros.filial)
+  return {
+    filial: filial !== undefined && filial.trim().toLowerCase() !== 'todas' ? filial.trim() : undefined,
+    periodo: textoDoFiltro(filtros.periodo),
+    dashboard: filtros.dashboard,
+    tipo: filtros.tipo === 'todas' ? undefined : filtros.tipo,
+    id_colaborador: filtros.idColaborador,
+    busca: textoDoFiltro(filtros.busca),
+  }
+}
+
+/** Opções dos downloads (F10.10): nome usado se o back-end não informar um, e cancelamento. */
+export interface OpcoesArquivoImagem {
+  nomeReserva?: string
+  signal?: AbortSignal
+}
+
 /** Consulta retroativa das imagens congeladas (RF-84), na ordem da API. */
 export async function listarImagens(filtros: FiltrosImagens = {}): Promise<ImagemDaConsulta[]> {
-  const filial = textoDoFiltro(filtros.filial)
-  const resposta = await apiFetch<unknown>(ROTA_IMAGENS, {
-    query: {
-      filial: filial !== undefined && filial.trim().toLowerCase() !== 'todas' ? filial.trim() : undefined,
-      periodo: textoDoFiltro(filtros.periodo),
-      dashboard: filtros.dashboard,
-      tipo: filtros.tipo === 'todas' ? undefined : filtros.tipo,
-      id_colaborador: filtros.idColaborador,
-      busca: textoDoFiltro(filtros.busca),
-    },
-  })
+  const resposta = await apiFetch<unknown>(ROTA_IMAGENS, { query: queryDosFiltros(filtros) })
   return listaDaResposta(resposta, 'imagens').map(paraImagemDaConsulta)
 }
 
@@ -407,4 +418,20 @@ export async function obterImagem(id: number): Promise<ImagemCongelada> {
     return paraImagemCongelada(resposta.imagem)
   }
   return paraImagemCongelada(resposta)
+}
+
+/** PDF de uma imagem congelada (F10.10): `GET /api/ped/imagens/{id}/pdf`. Reserva: `imagem-{id}.pdf`. */
+export function obterPdfImagem(id: number, opcoes: OpcoesArquivoImagem = {}): Promise<ArquivoBaixado> {
+  return apiFetchArquivo(`${ROTA_IMAGENS}/${id}/pdf`, opcoes.nomeReserva ?? `imagem-${id}.pdf`, { signal: opcoes.signal })
+}
+
+/**
+ * ZIP com um PDF por imagem (F10.10): `GET /api/ped/imagens/zip` com os mesmos filtros de `listarImagens`,
+ * para exportar exatamente o que a consulta lista. Reserva: `imagens.zip`.
+ */
+export function obterZipImagens(filtros: FiltrosImagens = {}, opcoes: OpcoesArquivoImagem = {}): Promise<ArquivoBaixado> {
+  return apiFetchArquivo(`${ROTA_IMAGENS}/zip`, opcoes.nomeReserva ?? 'imagens.zip', {
+    query: queryDosFiltros(filtros),
+    signal: opcoes.signal,
+  })
 }

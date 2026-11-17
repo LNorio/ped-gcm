@@ -21,6 +21,18 @@
   background-color: var(--cor-fundo-neutro);
 }
 
+/* Gatilho com texto visível: botão de contorno pequeno, com o texto antes do ícone. */
+.menu-acoes__gatilho--com-texto {
+  gap: 0.25rem;
+  padding: 0 0.5rem 0 0.75rem;
+  color: var(--cor-primaria);
+}
+
+.menu-acoes__gatilho--com-texto:hover:not(:disabled),
+.menu-acoes__gatilho--com-texto[aria-expanded='true'] {
+  background-color: #f1f6fb;
+}
+
 .menu-acoes__menu {
   position: fixed;
   z-index: 40;

@@ -1,0 +1,165 @@
+/*
+ * F1.20 — SelectPesquisavel: select com barra de pesquisa dentro do dropdown. O gatilho é um botão
+ * que reaproveita `.campo`, `.campo__rotulo` e `.campo__controle` (Campo.css), com a mesma altura,
+ * borda, seta e foco do Select. O painel usa `position: fixed` com coordenadas calculadas a partir
+ * do gatilho (como o MenuAcoes), para não ser cortado pelo `overflow` do corpo dos diálogos, e fica
+ * acima deles (z-index 55). A barra de pesquisa fica fixa no topo; só a lista rola.
+ */
+
+.select-pesquisavel__entrada {
+  position: relative;
+}
+
+.select-pesquisavel__gatilho {
+  display: flex;
+  align-items: center;
+  padding-right: 2.25rem;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.select-pesquisavel__valor {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.select-pesquisavel__valor--vazio {
+  color: var(--cor-texto-suave);
+}
+
+/* Seta decorativa, no mesmo lugar e cor da seta do Select */
+.select-pesquisavel__seta {
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  transform: translateY(-50%);
+  color: var(--cor-texto-secundario);
+  pointer-events: none;
+}
+
+.select-pesquisavel__gatilho[aria-expanded='true'] + .select-pesquisavel__seta {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.select-pesquisavel__painel {
+  position: fixed;
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  min-width: 12rem;
+  max-width: calc(100vw - 1rem);
+  max-height: 20rem;
+  overflow: hidden;
+  background-color: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra-card);
+}
+
+/* Barra de pesquisa no topo, separada da lista por borda; lupa decorativa à esquerda */
+.select-pesquisavel__busca {
+  position: relative;
+  flex: none;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.select-pesquisavel__busca::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 1.125rem;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cg fill='none' stroke='%236B7785' stroke-width='1.6' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='4.5'/%3E%3Cpath d='M10.5 10.5L14 14'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+.select-pesquisavel__campo-busca {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 0.625rem 0 2rem;
+  border: 1px solid var(--cor-borda-controle);
+  border-radius: var(--raio);
+  background-color: var(--cor-superficie);
+  color: var(--cor-texto);
+  font: inherit;
+  font-size: 0.9375rem;
+}
+
+.select-pesquisavel__campo-busca::placeholder {
+  color: var(--cor-texto-suave);
+  opacity: 1;
+}
+
+.select-pesquisavel__rolagem {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.select-pesquisavel__lista {
+  margin: 0;
+  padding: 0.25rem 0;
+  list-style: none;
+}
+
+.select-pesquisavel__lista:empty {
+  display: none;
+}
+
+.select-pesquisavel__opcao {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-height: 40px;
+  justify-content: center;
+  padding: 0.4375rem 0.75rem;
+  color: var(--cor-texto);
+  font-size: 0.9375rem;
+  line-height: 1.35;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+/* Destaque da opção ativa (teclado ou mouse): fundo neutro e filete na cor primária */
+.select-pesquisavel__opcao--destaque {
+  background-color: var(--cor-fundo-neutro);
+  box-shadow: inset 3px 0 0 var(--cor-primaria);
+}
+
+.select-pesquisavel__opcao[aria-selected='true'] .select-pesquisavel__rotulo {
+  font-weight: 600;
+  color: var(--cor-primaria);
+}
+
+.select-pesquisavel__opcao[aria-disabled='true'] {
+  color: var(--cor-texto-suave);
+  cursor: not-allowed;
+}
+
+.select-pesquisavel__descricao {
+  font-size: 0.8125rem;
+  color: var(--cor-texto-suave);
+}
+
+.select-pesquisavel__vazio {
+  margin: 0;
+  padding: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--cor-texto-suave);
+}
+
+@media (forced-colors: active) {
+  .select-pesquisavel__opcao--destaque {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}

@@ -5,7 +5,7 @@ import './AvisosInicio.css'
 
 export interface AvisosInicioProps {
   perfil: Perfil
-  /** Mês aberto para preenchimento (RF-06); `null` = sem aviso do período. */
+  /** Mês aberto para preenchimento (RF-06); `null` = sem mês aberto ("Nenhum período aberto para preenchimento."). */
   periodoAberto: PeriodoAbertoInicio | null
   /** Acesso restrito (RF-07); a API manda `null` para Admin e Validador. */
   avisoDeAcesso: AvisoDeAcessoInicio | null
@@ -32,13 +32,17 @@ function textoAvisoAcesso(perfil: Perfil, aviso: AvisoDeAcessoInicio): string {
     : `Seu usuário tem acesso somente às filiais ${filiais}.`
 }
 
-/** Avisos do Início (F11.2 — RF-06, RF-07): período aberto e, quando houver, acesso restrito. */
-export function AvisosInicio({ perfil, periodoAberto, avisoDeAcesso }: AvisosInicioProps) {
-  if (periodoAberto === null && avisoDeAcesso === null) return null
+/** Aviso do Início sem mês aberto para preenchimento (RF-06). */
+const TEXTO_SEM_PERIODO_ABERTO = 'Nenhum período aberto para preenchimento.'
 
+/**
+ * Avisos do Início (F11.2 — RF-06, RF-07): período aberto (ou "Nenhum período aberto para
+ * preenchimento.") e, quando houver, acesso restrito.
+ */
+export function AvisosInicio({ perfil, periodoAberto, avisoDeAcesso }: AvisosInicioProps) {
   return (
     <div className="avisos-inicio">
-      {periodoAberto ? <Aviso>{textoAvisoPeriodo(periodoAberto)}</Aviso> : null}
+      <Aviso>{periodoAberto ? textoAvisoPeriodo(periodoAberto) : TEXTO_SEM_PERIODO_ABERTO}</Aviso>
       {avisoDeAcesso ? <Aviso tipo="alerta">{textoAvisoAcesso(perfil, avisoDeAcesso)}</Aviso> : null}
     </div>
   )

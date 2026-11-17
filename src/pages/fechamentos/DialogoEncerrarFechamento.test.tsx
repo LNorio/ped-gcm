@@ -29,6 +29,8 @@ const AVISO_SEM_FAIXAS = (filiais: string) =>
   `Filiais sem tabela de faixas: ${filiais}. As imagens dessas filiais ficarão sem pontuação.`
 const OUTROS_DASHBOARDS = 'Os outros dashboards não são afetados: cada dashboard é encerrado individualmente.'
 const BLOQUEIO_TODAS_ENCERRADAS = 'Todas as unidades deste dashboard já foram encerradas no período atual.'
+const PERIODO_CONGELADO = (periodo: string) =>
+  `Serão congeladas as imagens do período ${periodo}, que contém o mês aberto para preenchimento.`
 
 /**
  * Encerramento manual com confirmação (F10.5 — RF-77, RF-81, RF-82, RNF-07). O diálogo monta a
@@ -42,6 +44,10 @@ const BLOQUEIO_TODAS_ENCERRADAS = 'Todas as unidades deste dashboard já foram e
  * - diálogo "Encerrar {nome} — {período atual}"; enquanto consulta a prévia, "Calculando as imagens...";
  * - "Total de imagens a gerar: {N} (uma por filial|uma por colaborador)" e a lista "Imagens por filial",
  *   com "Filial {código} - {nome}: {n} imagem(ns)" em ordem de código;
+ * - "Serão congeladas as imagens do período {período atual}, que contém o mês aberto para preenchimento."
+ *   (alteração de 17/11/2026: desde 16/11 o período atual dos fechamentos é o que contém o mês aberto para
+ *   preenchimento, e não o da data de hoje — `docs/backend/FRONT-fechamentos-e-imagens.md`; o período é o
+ *   `periodoAtual` do fechamento, o mesmo do título); só na confirmação (não no bloqueio sem imagens);
  * - "Os outros dashboards não são afetados: cada dashboard é encerrado individualmente.";
  * - os avisos de filiais com pendências e sem tabela de faixas (os mesmos textos da prévia);
  * - "Cancelar" (e Esc) chama `onCancelar`; "Encerrar e gerar {N} imagem(ns)" encerra (desabilitado
@@ -168,6 +174,42 @@ describe('F10.5 — DialogoEncerrarFechamento (encerramento manual com confirma�
       expect(await within(dialogo()).findByRole('alert')).toHaveTextContent(MENSAGEM_DASHBOARD_NAO_ATIVO)
       expect(within(dialogo()).queryByRole('button', { name: /^Encerrar e gerar/ })).not.toBeInTheDocument()
       expect(within(dialogo()).getByRole('button', { name: 'Cancelar' })).toBeInTheDocument()
+    })
+  })
+
+  describe('período congelado: o que contém o mês aberto para preenchimento (alteração de 17/11/2026)', () => {
+    it('a confirmação informa o período atual do dashboard que será congelado (PED Comercial, 4º tri/2026)', async () => {
+      const previa = await previaDominio()
+      renderizar({ previa })
+
+      expect(within(dialogo()).getByText(PERIODO_CONGELADO('4º tri/2026'))).toBeInTheDocument()
+    })
+
+    it('dashboard mensal: o período do mês aberto (PED Gerentes, 11/2026)', async () => {
+      const previa = await previaDominio(previaGerentesApi(), 2)
+      renderizar({ fechamento: GERENTES, previa })
+
+      expect(within(dialogo('Encerrar PED Gerentes — 11/2026')).getByText(PERIODO_CONGELADO('11/2026'))).toBeInTheDocument()
+    })
+
+    it('aberto pelo menu (sem prévia), o texto aparece com o resumo, depois de calcular as imagens', async () => {
+      renderizar()
+
+      expect(within(dialogo()).queryByText(PERIODO_CONGELADO('4º tri/2026'))).not.toBeInTheDocument()
+      expect(await within(dialogo()).findByText(PERIODO_CONGELADO('4º tri/2026'))).toBeInTheDocument()
+    })
+
+    it('sem imagens a gerar (bloqueio), o texto do período congelado não aparece', async () => {
+      const api: PreviaFechamentoApiFalsa = {
+        ...previaComercialApi(),
+        resumo: { ...previaComercialApi().resumo, 'imagens a gerar': 0, 'unidades ja encerradas': 3 },
+        imagens: [],
+      }
+      const previa = await previaDominio(api)
+      renderizar({ previa })
+
+      expect(within(dialogo()).getByText(BLOQUEIO_TODAS_ENCERRADAS)).toBeInTheDocument()
+      expect(within(dialogo()).queryByText(/^Serão congeladas as imagens do período/)).not.toBeInTheDocument()
     })
   })
 

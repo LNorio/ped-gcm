@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { TEXTO_AVISO_PERIODO } from '../../test/inicioFalsos'
+import { TEXTO_AVISO_PERIODO, TEXTO_SEM_PERIODO_ABERTO } from '../../test/inicioFalsos'
 import type { AvisoDeAcessoInicio, PeriodoAbertoInicio } from '../../types/dominio'
 import { AvisosInicio } from './AvisosInicio'
 
@@ -29,7 +29,9 @@ const textos = () => screen.queryAllByRole('note').map((nota) => nota.textConten
  * Props: `{ perfil: Perfil; periodoAberto: PeriodoAbertoInicio | null; avisoDeAcesso: AvisoDeAcessoInicio | null }`.
  * Cada aviso é uma nota (`Aviso`, `role="note"`), nesta ordem:
  * 1. período aberto (RF-06): "Período aberto para preenchimento: {MM/AAAA}. Apenas um período fica aberto
- *    por vez." — sem período aberto (`null`), esse aviso não aparece;
+ *    por vez." — sem período aberto (`null`: sem o objeto ou com `"mes de referencia": null`), no lugar dele
+ *    aparece "Nenhum período aberto para preenchimento." (alteração de 17/11/2026, `docs/backend/FRONT-tela-inicio
+ *    (1).md`, 3.1: "avise o usuário"; antes não aparecia nada);
  * 2. acesso (RF-07), só quando `avisoDeAcesso` não é `null` (a API manda `null` para Admin e Validador):
  *    - Preenchedor: "Perfil Preenchedor: você visualiza e solicita apenas dados dos tipos {tipos}, somente na
  *      filial {filial}." ("somente nas filiais {f1}, {f2}" com mais de uma; sem filiais, termina nos tipos);
@@ -53,11 +55,17 @@ describe('F11.2 — AvisosInicio (período aberto e acesso)', () => {
       expect(textos()).toEqual(['Período aberto para preenchimento: 01/2027. Apenas um período fica aberto por vez.'])
     })
 
-    it('sem período aberto (null): não mostra o aviso do período', () => {
+    it('sem período aberto (null): no lugar do aviso do período, "Nenhum período aberto para preenchimento."', () => {
       render(<AvisosInicio perfil="admin" periodoAberto={null} avisoDeAcesso={null} />)
 
       expect(screen.queryByText(/Período aberto para preenchimento/)).not.toBeInTheDocument()
-      expect(textos()).toEqual([])
+      expect(textos()).toEqual([TEXTO_SEM_PERIODO_ABERTO])
+    })
+
+    it('com período aberto, o aviso "Nenhum período aberto" não aparece', () => {
+      render(<AvisosInicio perfil="admin" periodoAberto={PERIODO_OUTUBRO} avisoDeAcesso={null} />)
+
+      expect(screen.queryByText(TEXTO_SEM_PERIODO_ABERTO)).not.toBeInTheDocument()
     })
   })
 
@@ -123,10 +131,11 @@ describe('F11.2 — AvisosInicio (período aberto e acesso)', () => {
       expect(textos()[1]).toBe('Seu usuário tem acesso somente às filiais 100 - MATRIZ, 101 - CAMPO GRANDE.')
     })
 
-    it('o aviso de acesso aparece mesmo sem período aberto', () => {
+    it('o aviso de acesso aparece mesmo sem período aberto, depois do aviso "Nenhum período aberto"', () => {
       render(<AvisosInicio perfil="preenchedor" periodoAberto={null} avisoDeAcesso={avisoPreenchedor()} />)
 
       expect(textos()).toEqual([
+        TEXTO_SEM_PERIODO_ABERTO,
         'Perfil Preenchedor: você visualiza e solicita apenas dados dos tipos Comercial, Logística, somente na filial 101 - CAMPO GRANDE.',
       ])
     })

@@ -206,12 +206,21 @@ export interface PreviaFechamentoApiFalsa {
   imagens: ImagemPreviaApiFalsa[]
 }
 
+/**
+ * Resumo do encerramento: o da prévia mais `"filiais sem composicao"` (códigos das filiais congeladas sem a
+ * composição do Resultado Operacional do DRG; `[]` quando todas têm; só o encerramento traz o campo),
+ * `docs/backend/FRONT-pdf-fechamento.md` (17/11/2026).
+ */
+export type ResumoEncerramentoApiFalso = ResumoFechamentoApiFalso & {
+  'filiais sem composicao'?: Array<string | number>
+}
+
 export interface EncerramentoApiFalso {
   mensagem: string
   lote: string
   periodo: string
   'imagens geradas': number
-  resumo: ResumoFechamentoApiFalso
+  resumo: ResumoEncerramentoApiFalso
 }
 
 // ---------------------------------------------------------------------------
@@ -663,14 +672,34 @@ export function previaGerentesApi(): PreviaFechamentoApiFalsa {
   }
 }
 
-/** Resposta do encerramento (`POST .../encerrar`). */
+/** Linha que o back-end acrescenta a `resumo.avisos` do encerramento quando há filiais sem composição. */
+export function avisoFiliaisSemComposicaoApi(filiais: Array<string | number>): string {
+  return `Filiais encerradas sem a composicao do Resultado Operacional (DRG): ${filiais.join(', ')}.`
+}
+
+/**
+ * Resumo do encerramento com `"filiais sem composicao"` e, quando a lista não está vazia, a linha a mais em
+ * `avisos` (como o back-end faz desde 17/11/2026).
+ */
+export function resumoEncerramentoApi(
+  resumo: ResumoFechamentoApiFalso,
+  filiaisSemComposicao: Array<string | number> = [],
+): ResumoEncerramentoApiFalso {
+  return {
+    ...resumo,
+    'filiais sem composicao': filiaisSemComposicao,
+    avisos: filiaisSemComposicao.length > 0 ? [...resumo.avisos, avisoFiliaisSemComposicaoApi(filiaisSemComposicao)] : resumo.avisos,
+  }
+}
+
+/** Resposta do encerramento (`POST .../encerrar`); por padrão, todas as filiais com composição (`[]`). */
 export function respostaEncerramentoApi(sobrescrever: Partial<EncerramentoApiFalso> = {}): EncerramentoApiFalso {
   return {
     mensagem: MENSAGEM_ENCERRAMENTO,
     lote: 'ENC-000003',
     periodo: '4º tri/2026',
     'imagens geradas': 2,
-    resumo: resumoComercialApi(),
+    resumo: resumoEncerramentoApi(resumoComercialApi()),
     ...sobrescrever,
   }
 }
@@ -741,6 +770,11 @@ export interface OpcoesApiFechamentosFalsa {
   usuario?: string
   /** Data gravada nas imagens geradas pelo encerramento. */
   geradoEm?: string
+  /**
+   * `"filiais sem composicao"` devolvido no encerramento de cada dashboard (por id); ausente = `[]`.
+   * Com filiais, `resumo.avisos` ganha a linha `avisoFiliaisSemComposicaoApi`.
+   */
+  filiaisSemComposicao?: Record<number, Array<string | number>>
 }
 
 /**
@@ -750,7 +784,8 @@ export interface OpcoesApiFechamentosFalsa {
  *   e já encerrados: sem imagens a gerar); id desconhecido = `404`;
  * - `POST /api/ped/fechamentos/{id}/encerrar`: grava as imagens da prévia com código `IMG-` e lote
  *   `ENC-` sequenciais (a partir de `IMG-000005` e `ENC-000003`), marca o período como encerrado e
- *   responde `{ mensagem, lote, periodo, "imagens geradas", resumo }`; sem imagens a gerar = `400`
+ *   responde `{ mensagem, lote, periodo, "imagens geradas", resumo }` (resumo com `"filiais sem composicao"`,
+ *   de `opcoes.filiaisSemComposicao`); sem imagens a gerar = `400`
  *   (`MENSAGEM_TODAS_ENCERRADAS`); os outros dashboards não mudam (RF-81);
  * - `GET /api/ped/imagens` (filtros de `filtrarImagensApi`, mais recentes primeiro) e
  *   `GET /api/ped/imagens/{id}` (`404` se não existir).
@@ -819,7 +854,12 @@ export function criarApiFechamentosFalsa(opcoes: OpcoesApiFechamentosFalsa = {})
       )
       registrarRotasDeImagem(novas)
       return respostaJson(
-        respostaEncerramentoApi({ lote, periodo: previa.periodo.codigo, 'imagens geradas': novas.length, resumo: previa.resumo }),
+        respostaEncerramentoApi({
+          lote,
+          periodo: previa.periodo.codigo,
+          'imagens geradas': novas.length,
+          resumo: resumoEncerramentoApi(previa.resumo, opcoes.filiaisSemComposicao?.[id] ?? []),
+        }),
       )
     }
   }

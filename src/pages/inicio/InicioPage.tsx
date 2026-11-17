@@ -23,7 +23,8 @@ export { preConsultarInicio } from './consultasInicio'
  * Aba "Início" (F11 — RF-06 a RF-11): avisos do período e de acesso, indicadores-resumo, link para o
  * preenchimento, períodos em aberto e últimas alterações, tudo de `GET /api/ped/inicio` pela filial do
  * cabeçalho. O título fica sempre visível; durante a carga, "Carregando o Início..." é anunciado e, em
- * erro, aparece o alerta com "Tentar novamente".
+ * erro, aparece o alerta com "Tentar novamente". Carregado o Início sem mês aberto para preenchimento,
+ * o link "Preencher apontamentos do período" não aparece.
  *
  * F11.6: para Admin e Validador, a faixa de resumo ganha os cards "Pendências do cadastro" e os painéis
  * ganham "Indicadores com meta pendente" e "Dashboards em construção" (`usePendenciasInicio`, sem filial).
@@ -34,14 +35,18 @@ export function InicioPage() {
   const { inicio, carregando, erro, recarregar } = useInicio()
   const pendencias = usePendenciasInicio()
   const quantidade = (itens: readonly unknown[] | null) => (itens === null ? null : itens.length)
+  // Sem mês aberto para preenchimento (só depois de o Início carregar), o link do preenchimento some.
+  const semPeriodoAberto = inicio !== null && inicio.periodoAberto === null
 
   return (
     <div className="inicio-page">
       <div className="inicio-page__cabecalho">
         <h1>{ROTULOS_ABA['inicio']}</h1>
-        <Link to={CAMINHOS.preenchimento} className="botao foco-anel botao--primario inicio-page__preencher">
-          Preencher apontamentos do período
-        </Link>
+        {semPeriodoAberto ? null : (
+          <Link to={CAMINHOS.preenchimento} className="botao foco-anel botao--primario inicio-page__preencher">
+            Preencher apontamentos do período
+          </Link>
+        )}
       </div>
 
       <EstadoCarga

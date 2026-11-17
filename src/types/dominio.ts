@@ -1065,6 +1065,11 @@ export interface ResultadoEncerramento {
   imagensGeradas: number
   codigosDasImagens: string[]
   resumo: ResumoFechamento
+  /**
+   * Filiais encerradas sem a composição do Resultado Operacional (DRG), de `resumo."filiais sem composicao"`
+   * (só o encerramento traz o campo); `[]` quando todas têm composição ou o campo não veio.
+   */
+  filiaisSemComposicao: string[]
 }
 
 // ---------------------------------------------------------------------------

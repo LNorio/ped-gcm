@@ -3,7 +3,9 @@
  *
  * Com a resposta de `GET /api/ped/inicio`, o Início mostra o aviso do período aberto (todos os perfis) e,
  * quando a API manda o "aviso de acesso" (Preenchedor), o aviso com os tipos e as filiais. Para o Admin e
- * o Validador o "aviso de acesso" vem `null` e não há aviso de acesso.
+ * o Validador o "aviso de acesso" vem `null` e não há aviso de acesso. Sem mês aberto (`"periodo aberto"` null
+ * ou com `"mes de referencia": null`), o Início avisa "Nenhum período aberto para preenchimento." (alteração
+ * de 17/11/2026, `docs/backend/FRONT-tela-inicio (1).md`, 3.1).
  *
  * A rota é carregada sob demanda: os testes esperam os avisos com `findBy*` (timeout padrão do projeto).
  */
@@ -13,7 +15,9 @@ import { limparToken } from '../../services/sessao'
 import { respostaJson, simularApi } from '../../test/apiFalsa'
 import {
   AVISO_ACESSO_PREENCHEDOR_API,
+  PERIODO_SEM_MES_ABERTO_API,
   TEXTO_AVISO_PERIODO,
+  TEXTO_SEM_PERIODO_ABERTO,
   TEXTO_AVISO_PREENCHEDOR,
   inicioPreenchedorApi,
   rotasDoInicio,
@@ -94,14 +98,26 @@ describe('F11.2 — Avisos do Início (integração: período aberto e acesso)',
     })
   })
 
-  it('sem período aberto (null): não mostra o aviso do período', async () => {
+  it.each([
+    ['"periodo aberto" null', null],
+    ['"mes de referencia" null', PERIODO_SEM_MES_ABERTO_API],
+  ])('sem período aberto (%s): avisa "Nenhum período aberto para preenchimento." no lugar do aviso do período', async (_caso, periodo) => {
     simularApi(
       fetchFalso,
-      rotasDoInicio('preenchedor', { [`GET ${ROTA}`]: () => respostaJson(inicioPreenchedorApi({ 'periodo aberto': null })) }),
+      rotasDoInicio('preenchedor', { [`GET ${ROTA}`]: () => respostaJson(inicioPreenchedorApi({ 'periodo aberto': periodo })) }),
     )
     renderizarApp('/')
 
     expect(await screen.findByText(TEXTO_AVISO_PREENCHEDOR)).toBeInTheDocument()
+    expect(screen.getByText(TEXTO_SEM_PERIODO_ABERTO)).toBeInTheDocument()
     expect(screen.queryByText(/Período aberto para preenchimento/)).not.toBeInTheDocument()
+  })
+
+  it('com período aberto, o aviso "Nenhum período aberto" não aparece', async () => {
+    simularApi(fetchFalso, rotasDoInicio('admin'))
+    renderizarApp('/')
+
+    expect(await screen.findByText(TEXTO_AVISO_PERIODO)).toBeInTheDocument()
+    expect(screen.queryByText(TEXTO_SEM_PERIODO_ABERTO)).not.toBeInTheDocument()
   })
 })

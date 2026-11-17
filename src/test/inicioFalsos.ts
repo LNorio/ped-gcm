@@ -40,7 +40,8 @@ export interface FilialInicioApiFalsa {
 }
 
 export interface PeriodoAbertoInicioApiFalso {
-  'mes de referencia': string
+  /** `null` = nenhum mês aberto para preenchimento (`docs/backend/FRONT-tela-inicio (1).md`, 3.1). */
+  'mes de referencia': string | null
   'aberto por': string | null
   'aberto em': string | null
   aviso: string | null
@@ -109,6 +110,17 @@ export const PERIODO_ABERTO_API: PeriodoAbertoInicioApiFalso = {
 
 /** Texto do aviso do período aberto (RF-06) para outubro de 2026. */
 export const TEXTO_AVISO_PERIODO = 'Período aberto para preenchimento: 10/2026. Apenas um período fica aberto por vez.'
+
+/** `"periodo aberto"` sem mês aberto: o objeto vem com `"mes de referencia": null`. */
+export const PERIODO_SEM_MES_ABERTO_API: PeriodoAbertoInicioApiFalso = {
+  'mes de referencia': null,
+  'aberto por': null,
+  'aberto em': null,
+  aviso: 'Somente um periodo fica aberto por vez.',
+}
+
+/** Aviso do Início quando não há mês aberto para preenchimento (RF-06, alteração de 17/11/2026). */
+export const TEXTO_SEM_PERIODO_ABERTO = 'Nenhum período aberto para preenchimento.'
 
 /** Texto do aviso de acesso do Preenchedor de `inicioPreenchedorApi` (RF-07). */
 export const TEXTO_AVISO_PREENCHEDOR =

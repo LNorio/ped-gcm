@@ -9,7 +9,10 @@ import {
   MOTIVO_SEM_FAIXA,
   fechamentosApi,
   previaComercialApi,
+  avisoFiliaisSemComposicaoApi,
   respostaEncerramentoApi,
+  resumoComercialApi,
+  resumoEncerramentoApi,
   resumoNumericoApi,
 } from '../test/fechamentosFalsos'
 import type { Fechamento, ImagemCongelada, PreviaFechamento, ResultadoEncerramento, ResumoFechamento } from '../types/dominio'
@@ -141,7 +144,12 @@ const IMAGEM_PREVIA_101: ImagemCongelada = {
  *   (lista pura ou `{ fechamentos }`; cada linha pelo adaptador `paraFechamento` da F1.3);
  * - `obterPreviaFechamento(id)` → `GET /api/ped/fechamentos/{id}/previa` (nada é gravado);
  * - `encerrarFechamento(id)` → `POST /api/ped/fechamentos/{id}/encerrar`, sem corpo; regra
- *   "2xx = gravado".
+ *   "2xx = gravado". Desde 17/11/2026 (`docs/backend/FRONT-pdf-fechamento.md`; `API (29).md`, "Prévia e
+ *   encerramento"), o `resumo` do encerramento traz `"filiais sem composicao"` (códigos em texto ou
+ *   número; `[]` quando todas têm composição; só o encerramento traz o campo): vai para
+ *   `ResultadoEncerramento.filiaisSemComposicao: string[]` (números viram texto; ausente ou fora do
+ *   formato = `[]`; itens que não são texto nem número são ignorados). `ResumoFechamento` não muda: a
+ *   linha a mais em `resumo.avisos` continua em `resumo.avisos`, como veio.
  * Erros HTTP e de rede chegam como `ApiError` sem alteração; leituras 2xx fora do formato viram
  * `ApiError(200, MENSAGEM_RESPOSTA_INVALIDA)`.
  */
@@ -508,7 +516,49 @@ describe('F10.1 — Serviço dos fechamentos: lista, prévia e encerramento (RF-
         imagensGeradas: 2,
         codigosDasImagens: [],
         resumo: RESUMO_COMERCIAL,
+        filiaisSemComposicao: [],
       })
+    })
+
+    it('"filiais sem composicao" (texto ou número) vira filiaisSemComposicao em texto; a linha a mais fica em resumo.avisos', async () => {
+      simularApi(fetchFalso, {
+        [`POST ${ROTA}/1/encerrar`]: () =>
+          respostaJson(respostaEncerramentoApi({ resumo: resumoEncerramentoApi(resumoComercialApi(), ['100', 101]) }), 201),
+      })
+
+      const resultado = await encerrarFechamento(1)
+
+      expect(resultado.filiaisSemComposicao).toEqual(['100', '101'])
+      expect(resultado.resumo).toEqual<ResumoFechamento>({
+        ...RESUMO_COMERCIAL,
+        avisos: [...RESUMO_COMERCIAL.avisos, avisoFiliaisSemComposicaoApi(['100', 101])],
+      })
+      expect(resultado.resumo).not.toHaveProperty('filiaisSemComposicao')
+    })
+
+    it.each([
+      ['ausente (resposta anterior a 17/11)', undefined],
+      ['lista vazia', []],
+      ['fora do formato (texto)', 'nenhuma'],
+      ['null', null],
+    ])('"filiais sem composicao" %s vira []', async (_caso, valor) => {
+      const resumo: Record<string, unknown> = { ...resumoComercialApi() }
+      if (valor !== undefined) resumo['filiais sem composicao'] = valor
+      simularApi(fetchFalso, { [`POST ${ROTA}/1/encerrar`]: () => respostaJson({ ...respostaEncerramentoApi(), resumo }, 201) })
+
+      const resultado = await encerrarFechamento(1)
+
+      expect(resultado.filiaisSemComposicao).toEqual([])
+      expect(resultado.resumo).toEqual(RESUMO_COMERCIAL)
+    })
+
+    it('itens de "filiais sem composicao" que não são texto nem número são ignorados', async () => {
+      simularApi(fetchFalso, {
+        [`POST ${ROTA}/1/encerrar`]: () =>
+          respostaJson({ ...respostaEncerramentoApi(), resumo: { ...resumoComercialApi(), 'filiais sem composicao': ['100', null, { filial: 1 }, 102] } }, 201),
+      })
+
+      await expect(encerrarFechamento(1)).resolves.toMatchObject({ filiaisSemComposicao: ['100', '102'] })
     })
 
     it('resumo só com contagens numéricas vira as quantidades sem códigos', async () => {
@@ -550,7 +600,14 @@ describe('F10.1 — Serviço dos fechamentos: lista, prévia e encerramento (RF-
 
       const resultado = await encerrarFechamento(1)
 
-      expect(resultado).toMatchObject({ lote: null, periodo: null, imagensGeradas: 0, codigosDasImagens: [], resumo: RESUMO_VAZIO })
+      expect(resultado).toMatchObject({
+        lote: null,
+        periodo: null,
+        imagensGeradas: 0,
+        codigosDasImagens: [],
+        resumo: RESUMO_VAZIO,
+        filiaisSemComposicao: [],
+      })
       expect(resultado.mensagem === null || resultado.mensagem === MENSAGEM_ENCERRAMENTO).toBe(true)
     })
 

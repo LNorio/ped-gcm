@@ -13,7 +13,9 @@ import {
 import {
   MENSAGEM_DASHBOARD_NAO_ATIVO,
   MENSAGEM_TODAS_ENCERRADAS,
+  avisoFiliaisSemComposicaoApi,
   criarApiFechamentosFalsa,
+  type OpcoesApiFechamentosFalsa,
 } from '../../test/fechamentosFalsos'
 import { escolherAcao } from '../../test/menuAcoes'
 import { ITEM_ENCERRAR, ITEM_PRE_VISUALIZAR, rotuloAcoesFechamento } from '../../test/previaFalsos'
@@ -23,6 +25,9 @@ import { usuarioRapido, type Usuario } from '../../test/usuario'
 const TITULO_CONFIRMACAO = 'Encerrar PED Comercial — 4º tri/2026'
 const TITULO_PREVIA = 'Pré-visualização — PED Comercial · 4º tri/2026'
 const NOTIFICACAO_SUCESSO = 'Período 4º tri/2026 encerrado. Lote ENC-000003: 2 imagens geradas.'
+const PERIODO_CONGELADO = 'Serão congeladas as imagens do período 4º tri/2026, que contém o mês aberto para preenchimento.'
+const AVISO_SEM_COMPOSICAO = (filiais: string) =>
+  `Filiais encerradas sem a composição do Resultado Operacional (DRG): ${filiais}.`
 
 /**
  * Encerramento manual com confirmação na aba Fechamentos (F10.5 — RF-77, RF-81, RF-82, RNF-07). Fluxo
@@ -37,6 +42,16 @@ const NOTIFICACAO_SUCESSO = 'Período 4º tri/2026 encerrado. Lote ENC-000003: 2
  * - Sucesso: os diálogos fecham, a notificação "Período {período} encerrado. Lote {ENC}: {N} imagens
  *   geradas." aparece e a lista é recarregada (`GET /api/ped/fechamentos`), com o período encerrado.
  * - Erro `400`: a mensagem da API aparece dentro do diálogo, que continua aberto.
+ *
+ * Alteração de 17/11/2026 (resposta do back-end à `PROPOSTA-pdf-imagens` e mudanças de 16/11;
+ * `docs/backend/FRONT-fechamentos-e-imagens.md` e `FRONT-pdf-fechamento.md`):
+ * - a confirmação informa o período congelado: "Serão congeladas as imagens do período {período atual},
+ *   que contém o mês aberto para preenchimento.";
+ * - o encerramento devolve `resumo."filiais sem composicao"`; com filiais na lista, depois de encerrar a
+ *   página mostra, além da notificação de sucesso, o aviso (nota, `role="note"`, fora da notificação)
+ *   "Filiais encerradas sem a composição do Resultado Operacional (DRG): {f1}, {f2}." (texto do front, com
+ *   acento; a linha sem acento de `resumo.avisos` não é exibida); lista vazia = sem aviso; o aviso é do
+ *   último encerramento (um novo encerramento sem filiais o remove).
  *
  * Sessão: Admin (ou Validador) com todas as filiais.
  */
@@ -56,9 +71,13 @@ describe('F10.5 — Encerramento manual com confirmação (integração: /fecham
     vi.restoreAllMocks()
   })
 
-  function simularSessao(perfil: 'admin' | 'validador' = 'admin', rotasExtras: Record<string, RotaFalsa> = {}) {
+  function simularSessao(
+    perfil: 'admin' | 'validador' = 'admin',
+    rotasExtras: Record<string, RotaFalsa> = {},
+    opcoes: OpcoesApiFechamentosFalsa = {},
+  ) {
     const acesso = acessoApi({ perfil, 'todas as filiais': true, filiais: FILIAIS_API })
-    const api = criarApiFechamentosFalsa()
+    const api = criarApiFechamentosFalsa(opcoes)
     const chamadas = simularApi(fetchFalso, {
       'GET /api/ped/acesso': () => respostaJson(acesso),
       ...api.rotas,
@@ -192,6 +211,64 @@ describe('F10.5 — Encerramento manual com confirmação (integração: /fecham
 
       expect(await screen.findByText('Período 4º tri/2026 encerrado.')).toBeInTheDocument()
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    })
+  })
+
+  describe('período do mês aberto e filiais sem composição (alteração de 17/11/2026)', () => {
+    it('a confirmação informa o período que será congelado (o que contém o mês aberto para preenchimento)', async () => {
+      const user = usuarioRapido()
+      simularSessao()
+      await abrirTela()
+
+      const confirmacao = await abrirConfirmacaoPeloMenu(user)
+
+      expect(within(confirmacao).getByText(PERIODO_CONGELADO)).toBeInTheDocument()
+    })
+
+    it('com filiais sem composição, depois de encerrar mostra o aviso com os códigos, além da notificação', async () => {
+      const user = usuarioRapido()
+      simularSessao('admin', {}, { filiaisSemComposicao: { 1: ['101', 102] } })
+      await abrirTela()
+      const confirmacao = await abrirConfirmacaoPeloMenu(user)
+
+      await user.click(within(confirmacao).getByRole('button', { name: 'Encerrar e gerar 2 imagens' }))
+
+      expect(await screen.findByText(NOTIFICACAO_SUCESSO)).toBeInTheDocument()
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      const aviso = await screen.findByText(AVISO_SEM_COMPOSICAO('101, 102'))
+      expect(aviso.closest('[role="note"]')).not.toBeNull()
+      expect(aviso.closest('[role="status"]')).toBeNull()
+      expect(screen.queryByText(avisoFiliaisSemComposicaoApi(['101', 102]))).not.toBeInTheDocument()
+    })
+
+    it('sem filiais sem composição ([]), só a notificação: nenhum aviso de composição', async () => {
+      const user = usuarioRapido()
+      simularSessao()
+      await abrirTela()
+      const confirmacao = await abrirConfirmacaoPeloMenu(user)
+
+      await user.click(within(confirmacao).getByRole('button', { name: 'Encerrar e gerar 2 imagens' }))
+
+      expect(await screen.findByText(NOTIFICACAO_SUCESSO)).toBeInTheDocument()
+      await waitFor(() => expect(within(linha('PED Comercial')).getByText('Encerrado')).toBeInTheDocument())
+      expect(screen.queryByText(/sem a composição do Resultado Operacional/)).not.toBeInTheDocument()
+    })
+
+    it('o aviso é do último encerramento: encerrar outro dashboard sem filiais sem composição o remove', async () => {
+      const user = usuarioRapido()
+      simularSessao('admin', {}, { filiaisSemComposicao: { 1: ['101'] } })
+      await abrirTela()
+      const confirmacao = await abrirConfirmacaoPeloMenu(user)
+      await user.click(within(confirmacao).getByRole('button', { name: 'Encerrar e gerar 2 imagens' }))
+      expect(await screen.findByText(AVISO_SEM_COMPOSICAO('101'))).toBeInTheDocument()
+      await waitFor(() => expect(within(linha('PED Comercial')).getByText('Encerrado')).toBeInTheDocument())
+
+      await escolherAcao(user, rotuloAcoesFechamento('PED Gerentes'), ITEM_ENCERRAR)
+      const confirmacaoGerentes = await screen.findByRole('dialog', { name: 'Encerrar PED Gerentes — 11/2026' })
+      await user.click(await within(confirmacaoGerentes).findByRole('button', { name: 'Encerrar e gerar 2 imagens' }))
+
+      expect(await screen.findByText('Período 11/2026 encerrado. Lote ENC-000004: 2 imagens geradas.')).toBeInTheDocument()
+      await waitFor(() => expect(screen.queryByText(AVISO_SEM_COMPOSICAO('101'))).not.toBeInTheDocument())
     })
   })
 

@@ -5,7 +5,8 @@
  * A confirmação é montada a partir do resumo da prévia: a recebida em `previa` (vinda da
  * pré-visualização) ou, sem ela, uma consulta própria a `obterPreviaFechamento(fechamento.id)` (aberto
  * pelo menu da linha). Mostra o total de imagens a gerar (uma por filial ou por colaborador), as imagens
- * por filial, que os outros dashboards não são afetados e os avisos de pendências e de falta de faixas.
+ * por filial, o período congelado (o atual, que contém o mês aberto para preenchimento), que os outros
+ * dashboards não são afetados e os avisos de pendências e de falta de faixas.
  * Confirmar faz um único `encerrarFechamento(fechamento.id)`; sucesso chama `onEncerrado(resultado)` e
  * erro fica no diálogo, que continua aberto. Sem imagens a gerar, explica o motivo e oferece só "Entendi".
  */
@@ -26,6 +27,7 @@ import {
   rotuloEncerrar,
   rotuloFilial,
   textoImagens,
+  textoPeriodoCongelado,
 } from './previaFechamento'
 import { usePreviaFechamento } from './usePreviaFechamento'
 import './DialogoEncerrarFechamento.css'
@@ -113,6 +115,7 @@ export function DialogoEncerrarFechamento({
               </li>
             ))}
           </ul>
+          <p className="dialogo-encerrar__periodo">{textoPeriodoCongelado(fechamento.periodoAtual)}</p>
           <p className="dialogo-encerrar__outros">{TEXTO_OUTROS_DASHBOARDS}</p>
           <AvisosFechamento resumo={previa.resumo} />
           {erroEncerrar ? <Aviso tipo="erro">{erroEncerrar}</Aviso> : null}

@@ -13,6 +13,11 @@
   margin: 0;
 }
 
+/* Aviso do último encerramento (filiais sem a composição do Resultado Operacional — F10.5). */
+.fechamentos-page__aviso-composicao {
+  margin: 0;
+}
+
 .fechamentos-page__card {
   overflow: hidden;
 }

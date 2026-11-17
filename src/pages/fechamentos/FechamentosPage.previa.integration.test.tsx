@@ -12,6 +12,7 @@ import {
 } from '../../test/apiFalsa'
 import { MENSAGEM_DASHBOARD_NAO_ATIVO, criarApiFechamentosFalsa } from '../../test/fechamentosFalsos'
 import { escolherAcao } from '../../test/menuAcoes'
+import { adicionarRotasPdf, simularUrlsDeObjeto, tituloPdf } from '../../test/pdfFalsos'
 import {
   ITEM_ENCERRAR,
   ITEM_PRE_VISUALIZAR,
@@ -26,20 +27,24 @@ const TITULO_GERENTES = 'Pré-visualização — PED Gerentes · 11/2026'
 
 /**
  * Pré-visualização das imagens na aba Fechamentos (F10.4 — RF-80). Fluxo completo: página (F10.2) +
- * `MenuAcoes` da linha + `DialogoPreviaFechamento` + `VisualizacaoImagem` (F10.3) + serviço
- * (`obterPreviaFechamento`), só a rede simulada (`criarApiFechamentosFalsa`).
+ * `MenuAcoes` da linha + `DialogoPreviaFechamento` + serviço (`obterPreviaFechamento` e, desde a alteração
+ * de 17/11/2026 — F10.10 —, `obterPdfPrevia`), só a rede simulada (`criarApiFechamentosFalsa` com as rotas de
+ * PDF de `adicionarRotasPdf`).
  *
  * - Cada linha da tabela de fechamentos tem o menu "Ações do fechamento {nome}" com "Pré-visualizar
  *   imagens"; o item abre o diálogo "Pré-visualização — {nome} · {período atual}", que consulta
  *   `GET /api/ped/fechamentos/{id}/previa` e não grava nada.
- * - A prévia permite escolher a filial (combobox "Filial"), o colaborador (busca "Buscar colaborador ou
- *   cargo" e a tabela "Imagens da filial {código}") e navegar por todas as imagens ("Imagem X de N ·
- *   Filial F"), com os avisos de pendências e de falta de faixas.
+ * - A prévia permite escolher a filial (combobox "Filial"), a imagem/colaborador pela lista pesquisável
+ *   "Imagem" (`SelectPesquisavel`, F1.20 — alteração de 17/11/2026, no lugar da busca "Buscar colaborador ou
+ *   cargo" e da tabela "Imagens da filial {código}"; o gatilho é um botão não editável e a busca "Buscar
+ *   colaborador ou cargo" fica dentro do dropdown aberto) e navegar por todas as imagens
+ *   ("Imagem X de N · Filial F"), com os avisos de pendências e de falta de faixas.
  * - "Encerrar e gerar {N} imagens" abre a confirmação do encerramento (F10.5) com o resumo da própria
  *   prévia, sem nova consulta.
  *
- * O conteúdo da imagem (F10.3) não é verificado aqui: só que a região "Imagem (prévia)" mostra a filial
- * ou o colaborador da imagem escolhida. Sessão: Admin (ou Validador) com todas as filiais.
+ * A imagem exibida é o PDF embutido gerado pelo back-end (F10.10, no lugar da `VisualizacaoImagem`): aqui só
+ * se verifica que o PDF exibido (título "PDF da imagem — Filial {código}[ · {colaborador}]") é o da filial ou
+ * do colaborador escolhido. Sessão: Admin (ou Validador) com todas as filiais.
  */
 describe('F10.4 — Pré-visualização das imagens (integração: /fechamentos)', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
@@ -50,6 +55,7 @@ describe('F10.4 — Pré-visualização das imagens (integração: /fechamentos)
     sessionStorage.setItem('ped.token', 'token-salvo')
     vi.stubEnv('VITE_API_URL', undefined)
     fetchFalso = vi.spyOn(globalThis, 'fetch')
+    simularUrlsDeObjeto()
   })
 
   afterEach(() => {
@@ -59,11 +65,12 @@ describe('F10.4 — Pré-visualização das imagens (integração: /fechamentos)
 
   function simularSessao(perfil: 'admin' | 'validador' = 'admin', rotasExtras: Record<string, RotaFalsa> = {}) {
     const acesso = acessoApi({ perfil, 'todas as filiais': true, filiais: FILIAIS_API })
-    const api = criarApiFechamentosFalsa()
+    const api = adicionarRotasPdf(criarApiFechamentosFalsa())
+    // As rotas extras entram no próprio back-end falso: o PDF da prévia lê a prévia substituída.
+    Object.assign(api.rotas, rotasExtras)
     const chamadas = simularApi(fetchFalso, {
       'GET /api/ped/acesso': () => respostaJson(acesso),
       ...api.rotas,
-      ...rotasExtras,
     })
     return { chamadas, api }
   }
@@ -73,8 +80,9 @@ describe('F10.4 — Pré-visualização das imagens (integração: /fechamentos)
   const gravacoes = (chamadas: ChamadaRegistrada[]) =>
     chamadas.filter((c) => c.metodo !== 'GET' && c.caminho.startsWith('/api/ped/'))
 
-  /** Região da `VisualizacaoImagem` (F10.3) para a imagem da prévia, que ainda não tem código. */
-  const imagemExibida = (dialogo: HTMLElement) => within(dialogo).getByRole('region', { name: 'Imagem (prévia)' })
+  /** PDF embutido da imagem exibida (F10.10), pelo título acessível. */
+  const pdfExibido = (dialogo: HTMLElement, filial: string, colaborador?: string) =>
+    within(dialogo).findByTitle(tituloPdf(filial, colaborador))
 
   async function abrirTela() {
     renderizarApp('/fechamentos')
@@ -157,9 +165,9 @@ describe('F10.4 — Pré-visualização das imagens (integração: /fechamentos)
     await user.click(within(dialogo).getByRole('button', { name: 'Próxima imagem' }))
 
     expect(within(dialogo).getByText('Imagem 2 de 2 · Filial 102')).toBeInTheDocument()
-    expect(within(imagemExibida(dialogo)).getByText('102 - DOURADOS')).toBeInTheDocument()
+    expect(await pdfExibido(dialogo, '102')).toBeInTheDocument()
     expect(within(dialogo).getByRole('combobox', { name: 'Filial' })).toHaveValue('102')
-    expect(within(dialogo).getByRole('table', { name: 'Imagens da filial 102' })).toBeInTheDocument()
+    expect(within(dialogo).getByRole('combobox', { name: 'Imagem' })).toHaveTextContent('Imagem da filial')
 
     await user.selectOptions(within(dialogo).getByRole('combobox', { name: 'Filial' }), '101')
 
@@ -167,31 +175,58 @@ describe('F10.4 — Pré-visualização das imagens (integração: /fechamentos)
     expect(gravacoes(chamadas)).toHaveLength(0)
   })
 
-  it('escolhe o colaborador da filial pela busca e pela lista (vínculo por cargos)', async () => {
+  it('escolhe o colaborador da filial buscando na barra de pesquisa do dropdown "Imagem" (vínculo por cargos)', async () => {
     const user = usuarioRapido()
     simularSessao('admin', {
       'GET /api/ped/fechamentos/2/previa': () => respostaJson(previaGerentesComEquipeApi()),
     })
     await abrirTela()
     const dialogo = await abrirPrevia(user, 'PED Gerentes', TITULO_GERENTES)
-    const tabela = () => within(dialogo).getByRole('table', { name: 'Imagens da filial 100' })
-    const nomes = () =>
-      within(tabela())
-        .getAllByRole('row')
-        .slice(1)
-        .map((linha) => within(linha).getAllByRole('cell')[0].textContent?.trim())
+    const imagem = () => within(dialogo).getByRole('combobox', { name: 'Imagem' })
+    const opcoes = () => within(within(dialogo).getByRole('listbox')).getAllByRole('option')
+    const busca = () => within(dialogo).getByRole('searchbox', { name: 'Buscar colaborador ou cargo' })
 
     expect(within(dialogo).getByText('3 nesta filial · 4 no total')).toBeInTheDocument()
+    expect(imagem().tagName).toBe('BUTTON')
+    expect(imagem()).toHaveTextContent('Ana Souza')
+    expect(within(dialogo).queryByRole('table', { name: /^Imagens da filial/ })).not.toBeInTheDocument()
+    expect(within(dialogo).queryByRole('searchbox', { name: 'Buscar colaborador ou cargo' })).not.toBeInTheDocument()
 
-    await user.type(within(dialogo).getByRole('searchbox', { name: 'Buscar colaborador ou cargo' }), 'subgerente')
-    expect(nomes()).toEqual(['Bruno Lima'])
+    await user.click(imagem())
+    expect(opcoes()).toHaveLength(3)
+    expect(busca()).toHaveFocus()
+    await user.type(busca(), 'subgerente')
+    expect(opcoes()).toHaveLength(1)
+    expect(opcoes()[0]).toHaveTextContent('Bruno Lima')
+    expect(opcoes()[0]).toHaveTextContent('Subgerente')
 
-    const linhaBruno = within(tabela()).getAllByRole('row')[1]
-    await user.click(within(linhaBruno).getByRole('button', { name: 'Visualizar' }))
+    await user.click(opcoes()[0])
 
     expect(within(dialogo).getByText('Imagem 2 de 4 · Filial 100')).toBeInTheDocument()
-    expect(within(within(tabela()).getAllByRole('row')[1]).getByText('Exibindo')).toBeInTheDocument()
-    expect(within(imagemExibida(dialogo)).getByText('Bruno Lima')).toBeInTheDocument()
+    expect(imagem()).toHaveTextContent('Bruno Lima')
+    expect(imagem()).not.toHaveTextContent('Ana Souza')
+    expect(within(dialogo).queryByRole('listbox')).not.toBeInTheDocument()
+    expect(within(dialogo).queryByRole('searchbox', { name: 'Buscar colaborador ou cargo' })).not.toBeInTheDocument()
+    expect(await pdfExibido(dialogo, '100', 'Bruno Lima')).toBeInTheDocument()
+  })
+
+  it('Esc com a lista "Imagem" aberta fecha só a lista; a pré-visualização continua aberta', async () => {
+    const user = usuarioRapido()
+    simularSessao('admin', {
+      'GET /api/ped/fechamentos/2/previa': () => respostaJson(previaGerentesComEquipeApi()),
+    })
+    await abrirTela()
+    const dialogo = await abrirPrevia(user, 'PED Gerentes', TITULO_GERENTES)
+
+    await user.click(within(dialogo).getByRole('combobox', { name: 'Imagem' }))
+    expect(within(dialogo).getByRole('listbox')).toBeInTheDocument()
+    await user.type(within(dialogo).getByRole('searchbox', { name: 'Buscar colaborador ou cargo' }), 'bruno')
+    await user.keyboard('{Escape}')
+
+    expect(within(dialogo).queryByRole('listbox')).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: TITULO_GERENTES })).toBeInTheDocument()
+    expect(within(dialogo).getByRole('combobox', { name: 'Imagem' })).toHaveTextContent('Ana Souza')
+    expect(within(dialogo).getByRole('combobox', { name: 'Imagem' })).toHaveFocus()
   })
 
   it('"Fechar pré-visualização" fecha o diálogo sem gravar nada', async () => {

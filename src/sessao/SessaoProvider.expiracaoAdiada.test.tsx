@@ -53,6 +53,28 @@ const nome = () => screen.getByRole('status', { name: 'Nome' })
 const erro = () => screen.getByRole('status', { name: 'Erro' })
 const filial = () => screen.getByRole('status', { name: 'Filial' })
 
+/**
+ * Confere que `esperados` aparece, nesta ordem, dentro dos estados exibidos (subsequência). Os estados
+ * são registrados num efeito passivo, que o React pode executar um pouco depois de a tela mudar; por
+ * isso a lista é conferida dentro de `waitFor`, sem exigir a igualdade exata.
+ */
+function exibiuNaOrdem(esperados: EstadoSessao[]): boolean {
+  let indice = 0
+  for (const exibido of estadosExibidos) {
+    if (exibido === esperados[indice]) indice += 1
+    if (indice === esperados.length) return true
+  }
+  return indice === esperados.length
+}
+
+/** Espera o último estado exibido ser `final`, passando antes, na ordem, por `anteriores`. */
+async function esperarEstadosExibidos(anteriores: EstadoSessao[], final: EstadoSessao) {
+  await waitFor(() => {
+    expect(estadosExibidos.at(-1)).toBe(final)
+    expect(exibiuNaOrdem([...anteriores, final]), `estados exibidos: ${JSON.stringify(estadosExibidos)}`).toBe(true)
+  })
+}
+
 /** Simula o 401 de uma consulta antecipada que chega antes de a sessão autenticada ser exibida. */
 function expirarAoObterAcesso(vezes = 1) {
   let restantes = vezes
@@ -122,7 +144,8 @@ describe('F2.5 — Sessão expirada adiada (401 de consulta antecipada antes de 
     renderizar()
 
     await waitFor(() => expect(estado()).toHaveTextContent('anonimo'))
-    expect(estadosExibidos).toEqual(['carregando', 'autenticado', 'anonimo'])
+    // A sessão autenticada chegou a ser exibida antes de expirar.
+    await esperarEstadosExibidos(['carregando', 'autenticado'], 'anonimo')
     expect(erro()).toHaveTextContent(MENSAGEM_SESSAO_EXPIRADA)
     expect(nome()).toHaveTextContent('')
     expect(filial()).toHaveTextContent('')
@@ -142,8 +165,9 @@ describe('F2.5 — Sessão expirada adiada (401 de consulta antecipada antes de 
     await user.click(screen.getByRole('button', { name: 'Entrar' }))
 
     await waitFor(() => expect(erro()).toHaveTextContent(MENSAGEM_SESSAO_EXPIRADA))
-    expect(estado()).toHaveTextContent('anonimo')
-    expect(estadosExibidos).toEqual(['anonimo', 'autenticado', 'anonimo'])
+    await waitFor(() => expect(estado()).toHaveTextContent('anonimo'))
+    // A sessão autenticada chegou a ser exibida antes de expirar.
+    await esperarEstadosExibidos(['anonimo', 'autenticado'], 'anonimo')
     expect(nome()).toHaveTextContent('')
     expect(filial()).toHaveTextContent('')
     expect(obterToken()).toBeNull()

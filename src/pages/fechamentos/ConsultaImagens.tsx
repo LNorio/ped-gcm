@@ -1,7 +1,7 @@
 /**
  * Consulta retroativa das imagens congeladas (F10.6 — RF-84, RN-18), na aba Fechamentos, abaixo da lista
  * de dashboards. Lista as imagens da filial do cabeçalho com filtros de busca, período e tipo; cada linha
- * abre o `DialogoImagem`. Somente leitura: nenhuma ação de alterar ou excluir.
+ * abre o `DialogoImagem` (PDF da imagem e exportação com os filtros aplicados). Somente leitura: nenhuma ação de alterar ou excluir.
  */
 import { useState } from 'react'
 import { BarraFiltros } from '../../components/BarraFiltros'
@@ -51,6 +51,7 @@ export function ConsultaImagens() {
     total,
     periodos,
     filtros,
+    filtrosAplicados,
     filtrosAtivos,
     definirFiltro,
     setBusca,
@@ -155,7 +156,7 @@ export function ConsultaImagens() {
         />
       ) : null}
 
-      <DialogoImagem imagem={aberta} onFechar={() => setAberta(null)} />
+      <DialogoImagem imagem={aberta} onFechar={() => setAberta(null)} filtros={filtrosAplicados} quantidade={imagens.length} />
     </Card>
   )
 }

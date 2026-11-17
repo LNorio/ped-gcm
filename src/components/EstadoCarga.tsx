@@ -12,20 +12,28 @@ export interface EstadoCargaProps {
   erro: string | null
   /** Chamado ao clicar em "Tentar novamente". */
   onTentarNovamente: () => void
+  /** Desabilita "Tentar novamente" (ex.: espera pelo limite de uso do back-end, `429`). Padrão: `false`. */
+  tentarNovamenteDesabilitado?: boolean
 }
 
 /**
  * Estado de carga de uma consulta: anuncia o carregamento em uma região ARIA live (sempre no DOM)
  * e, em caso de erro, mostra o alerta com a ação "Tentar novamente".
  */
-export function EstadoCarga({ carregando, mensagemCarregando, erro, onTentarNovamente }: EstadoCargaProps) {
+export function EstadoCarga({
+  carregando,
+  mensagemCarregando,
+  erro,
+  onTentarNovamente,
+  tentarNovamenteDesabilitado = false,
+}: EstadoCargaProps) {
   return (
     <div className="estado-carga">
       <RegiaoStatus mensagem={carregando ? mensagemCarregando : null} />
       {erro ? (
         <div className="estado-carga__erro">
           <Aviso tipo="erro">{erro}</Aviso>
-          <Botao type="button" variante="contorno" onClick={onTentarNovamente} disabled={carregando}>
+          <Botao type="button" variante="contorno" onClick={onTentarNovamente} disabled={carregando || tentarNovamenteDesabilitado}>
             Tentar novamente
           </Botao>
         </div>

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { usuarioRapido } from '../test/usuario'
 import { MenuAcoes, type ItemMenuAcoes } from './MenuAcoes'
@@ -243,6 +243,137 @@ describe('F1.16 — MenuAcoes (menu de ações por linha)', () => {
       expect(desativar).not.toHaveBeenCalled()
       expect(screen.queryByRole('menu')).not.toBeInTheDocument()
       expect(gatilho()).toHaveFocus()
+    })
+  })
+
+  describe('rótulo visível (rotuloVisivel)', () => {
+    it('com "rotuloVisivel", o gatilho mostra o texto e é nomeado por ele quando "rotulo" é o mesmo texto', () => {
+      render(<MenuAcoes rotulo="Exportar" rotuloVisivel="Exportar" itens={criarItens().itens} />)
+
+      const botao = screen.getByRole('button', { name: 'Exportar' })
+      expect(botao).toHaveTextContent('Exportar')
+      expect(botao).toHaveAttribute('aria-haspopup', 'menu')
+      expect(botao).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    it('o texto visível aparece uma única vez e fica dentro do próprio gatilho', () => {
+      render(<MenuAcoes rotulo="Exportar" rotuloVisivel="Exportar" itens={criarItens().itens} />)
+
+      const textos = screen.getAllByText('Exportar')
+      expect(textos).toHaveLength(1)
+      expect(screen.getByRole('button', { name: 'Exportar' })).toContainElement(textos[0])
+    })
+
+    it('clicar no texto visível abre o menu, com o foco no primeiro item', async () => {
+      const user = usuarioRapido()
+      render(<MenuAcoes rotulo="Exportar" rotuloVisivel="Exportar" itens={criarItens().itens} />)
+
+      await user.click(screen.getByText('Exportar'))
+
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Exportar' })).toHaveAttribute('aria-expanded', 'true')
+      expect(item('Ver detalhes')).toHaveFocus()
+    })
+
+    it('com "rotulo" diferente do texto visível, o nome acessível continua sendo o "rotulo"', () => {
+      render(<MenuAcoes rotulo="Exportar imagens" rotuloVisivel="Exportar" itens={criarItens().itens} />)
+
+      const botao = screen.getByRole('button', { name: 'Exportar imagens' })
+      expect(botao).toHaveTextContent('Exportar')
+      expect(screen.queryByRole('button', { name: 'Exportar' })).not.toBeInTheDocument()
+    })
+
+    it('com "rotuloVisivel", selecionar um item chama o onSelecionar e devolve o foco ao gatilho', async () => {
+      const user = usuarioRapido()
+      const { itens, desativar } = criarItens()
+      render(<MenuAcoes rotulo="Exportar" rotuloVisivel="Exportar" itens={itens} />)
+
+      await user.click(screen.getByText('Exportar'))
+      await user.click(item('Desativar'))
+
+      expect(desativar).toHaveBeenCalledTimes(1)
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Exportar' })).toHaveFocus()
+    })
+  })
+
+  describe('desabilitado', () => {
+    it('com "desabilitado", o gatilho fica disabled', () => {
+      render(<MenuAcoes rotulo={ROTULO} itens={criarItens().itens} desabilitado />)
+
+      expect(gatilho()).toBeDisabled()
+    })
+
+    it('com "desabilitado={false}", o gatilho fica habilitado e abre normalmente', async () => {
+      const user = usuarioRapido()
+      render(<MenuAcoes rotulo={ROTULO} itens={criarItens().itens} desabilitado={false} />)
+
+      expect(gatilho()).toBeEnabled()
+      await user.click(gatilho())
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+    })
+
+    it('desabilitado, o clique não abre o menu', async () => {
+      const user = usuarioRapido()
+      render(<MenuAcoes rotulo={ROTULO} itens={criarItens().itens} desabilitado />)
+
+      await user.click(gatilho())
+
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+      expect(gatilho()).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    it('desabilitado com "rotuloVisivel", clicar no texto não abre o menu', async () => {
+      const user = usuarioRapido()
+      render(<MenuAcoes rotulo="Exportar" rotuloVisivel="Exportar" itens={criarItens().itens} desabilitado />)
+
+      expect(screen.getByRole('button', { name: 'Exportar' })).toBeDisabled()
+      await user.click(screen.getByText('Exportar'))
+
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    })
+
+    it('desabilitado, o teclado (Enter e espaço no gatilho) não abre o menu', async () => {
+      const user = usuarioRapido()
+      render(<MenuAcoes rotulo={ROTULO} itens={criarItens().itens} desabilitado />)
+
+      gatilho().focus()
+      await user.keyboard('{Enter}')
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+
+      gatilho().focus()
+      await user.keyboard(' ')
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    })
+
+    it('se "desabilitado" passa a true com o menu aberto, o menu fecha sem selecionar nada', async () => {
+      const user = usuarioRapido()
+      const { itens, verDetalhes, desativar, excluir } = criarItens()
+      const { rerender } = render(<MenuAcoes rotulo={ROTULO} itens={itens} />)
+      await user.click(gatilho())
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+
+      rerender(<MenuAcoes rotulo={ROTULO} itens={itens} desabilitado />)
+
+      await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
+      expect(gatilho()).toBeDisabled()
+      expect(gatilho()).toHaveAttribute('aria-expanded', 'false')
+      expect(verDetalhes).not.toHaveBeenCalled()
+      expect(desativar).not.toHaveBeenCalled()
+      expect(excluir).not.toHaveBeenCalled()
+    })
+
+    it('ao voltar a habilitado, o menu abre de novo, com o foco no primeiro item', async () => {
+      const user = usuarioRapido()
+      const { itens } = criarItens()
+      const { rerender } = render(<MenuAcoes rotulo={ROTULO} itens={itens} desabilitado />)
+
+      rerender(<MenuAcoes rotulo={ROTULO} itens={itens} desabilitado={false} />)
+      expect(gatilho()).toBeEnabled()
+      await user.click(gatilho())
+
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+      expect(item('Ver detalhes')).toHaveFocus()
     })
   })
 

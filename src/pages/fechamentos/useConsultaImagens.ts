@@ -15,7 +15,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mensagemDeErro } from '../../services/api'
-import { listarImagens } from '../../services/imagensService'
+import { listarImagens, type FiltrosImagens } from '../../services/imagensService'
 import { useSessao } from '../../sessao/SessaoProvider'
 import type { ImagemDaConsulta, TipoImagem } from '../../types/dominio'
 
@@ -41,6 +41,11 @@ export interface UseConsultaImagensResultado {
   /** Períodos distintos das imagens da filial (sem os filtros), na ordem da resposta. */
   periodos: string[]
   filtros: FiltrosConsultaImagens
+  /**
+   * Filtros da última consulta disparada (filial do cabeçalho, período, tipo e a busca já aplicada, sem a
+   * digitação em espera), para exportar exatamente o que a consulta lista (F10.10).
+   */
+  filtrosAplicados: FiltrosImagens
   /** Algum filtro diferente do padrão. */
   filtrosAtivos: boolean
   definirFiltro: <K extends 'periodo' | 'tipo'>(chave: K, valor: FiltrosConsultaImagens[K]) => void
@@ -194,6 +199,10 @@ export function useConsultaImagens(): UseConsultaImagensResultado {
   }, [cancelarEspera])
 
   const periodos = useMemo(() => periodosDistintos(base.imagens), [base.imagens])
+  const filtrosAplicados = useMemo<FiltrosImagens>(
+    () => ({ filial: codigoFilial ?? 'todas', periodo, tipo, busca: buscaAplicada }),
+    [codigoFilial, periodo, tipo, buscaAplicada],
+  )
 
   const filtrosAtivos = filtros.periodo !== '' || filtros.tipo !== 'todas' || filtros.busca !== ''
   const erro = filtrosAplicadosAtivos ? (base.erro ?? filtrada.erro) : base.erro
@@ -206,6 +215,7 @@ export function useConsultaImagens(): UseConsultaImagensResultado {
     total: base.imagens.length,
     periodos,
     filtros,
+    filtrosAplicados,
     filtrosAtivos,
     definirFiltro,
     setBusca,

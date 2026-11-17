@@ -21,6 +21,16 @@ export const TEXTO_SEM_IMAGENS_A_GERAR =
 
 export const TEXTO_OUTROS_DASHBOARDS = 'Os outros dashboards não são afetados: cada dashboard é encerrado individualmente.'
 
+/** Período congelado pelo encerramento: o atual do dashboard, que contém o mês aberto para preenchimento. */
+export function textoPeriodoCongelado(periodo: string): string {
+  return `Serão congeladas as imagens do período ${periodo}, que contém o mês aberto para preenchimento.`
+}
+
+/** Aviso da página depois de encerrar com filiais sem a composição do Resultado Operacional (DRG). */
+export function avisoFiliaisSemComposicao(filiais: string[]): string {
+  return `Filiais encerradas sem a composição do Resultado Operacional (DRG): ${filiais.join(', ')}.`
+}
+
 export const TEXTO_TODAS_ENCERRADAS = 'Todas as unidades deste dashboard já foram encerradas no período atual.'
 
 export function avisoPendencias(filiais: string[]): string {
@@ -84,4 +94,10 @@ export function rotuloFilial(codigo: string, nome: string | null): string {
 export function previaPorColaborador(previa: PreviaFechamento, tipoVinculoFiliais: boolean): boolean {
   if (previa.imagens.length > 0) return previa.imagens.some((imagem) => imagem.tipo === 'colaborador')
   return !tipoVinculoFiliais
+}
+/** "Serão geradas 1.234 imagens em PDF." (singular: "Será gerada 1 imagem em PDF."). */
+export function textoQuantidadeImagens(quantidade: number): string {
+  return quantidade === 1
+    ? 'Será gerada 1 imagem em PDF.'
+    : `Serão geradas ${quantidade.toLocaleString('pt-BR')} imagens em PDF.`
 }

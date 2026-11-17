@@ -2,72 +2,46 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MENSAGEM_SEM_CONEXAO, mensagemPadraoPorStatus } from '../../services/api'
 import { definirToken, limparToken } from '../../services/sessao'
-import { respostaErro, respostaJson, simularApi, type ChamadaRegistrada, type RotaFalsa } from '../../test/apiFalsa'
+import { respostaErro, simularApi, type ChamadaRegistrada, type RotaFalsa } from '../../test/apiFalsa'
 import { adiado, tituloDialogoImagem } from '../../test/consultaImagensFalsos'
-import { IMAGEM_COMERCIAL_100_API, IMAGEM_GERENTES_ANA_API } from '../../test/fechamentosFalsos'
+import {
+  LINHA_IMAGEM_ANA,
+  LINHA_IMAGEM_COMERCIAL_100,
+  TEXTO_GERANDO_PDF,
+  TIPO_PDF,
+  conteudoPdfImagem,
+  respostaArquivo,
+  simularUrlsDeObjeto,
+  tituloPdf,
+  urlDoPdf,
+} from '../../test/pdfFalsos'
 import { usuarioRapido } from '../../test/usuario'
-import type { ImagemCongelada, ImagemDaConsulta } from '../../types/dominio'
 import { DialogoImagem } from './DialogoImagem'
 
-// A visualização é da F10.3 (testes próprios): aqui só se confere que ela recebe a imagem consultada.
-const visualizacao = vi.hoisted(() => vi.fn())
-vi.mock('./VisualizacaoImagem', () => ({
-  VisualizacaoImagem: (props: { imagem: ImagemCongelada }) => {
-    visualizacao(props)
-    return <section aria-label={`Imagem ${props.imagem.codigo ?? ''}`} />
-  },
-}))
-
-const LINHA_ANA: ImagemDaConsulta = {
-  id: 3,
-  codigo: 'IMG-000003',
-  lote: 'ENC-000002',
-  tipo: 'colaborador',
-  idColaborador: 11,
-  idDashboard: 2,
-  dashboard: 'PED Gerentes',
-  periodo: '10/2026',
-  filial: '100',
-  nomeFilial: 'MATRIZ',
-  colaborador: 'Ana Souza',
-  cargo: 'Gerente de Loja',
-  geradoEm: '2026-11-01 09:00:00-04:00',
-  usuario: 'admin',
-  pedPercentual: 20,
-  pontuacao: 150,
-}
-
-const LINHA_COMERCIAL_100: ImagemDaConsulta = {
-  ...LINHA_ANA,
-  id: 1,
-  codigo: 'IMG-000001',
-  lote: 'ENC-000001',
-  tipo: 'filial',
-  idColaborador: null,
-  idDashboard: 1,
-  dashboard: 'PED Comercial',
-  periodo: '3º tri/2026',
-  colaborador: null,
-  cargo: null,
-  geradoEm: '2026-09-30 18:00:00-04:00',
-  usuario: 'Ana Costa',
-  pedPercentual: 99.99,
-  pontuacao: 8839.12,
-}
+const LINHA_ANA = LINHA_IMAGEM_ANA
+const LINHA_COMERCIAL_100 = LINHA_IMAGEM_COMERCIAL_100
 
 /**
  * F10.6 — Diálogo de uma imagem da consulta retroativa (`src/pages/fechamentos/DialogoImagem.tsx`; RF-84, RN-18).
  *
- * Props: `{ imagem: ImagemDaConsulta | null; onFechar: () => void }`.
+ * Alteração de 17/11/2026 (F10.10): a imagem congelada passa a ser mostrada **em PDF**, gerado pelo
+ * back-end (`obterPdfImagem(imagem.id)` → `GET /api/ped/imagens/{id}/pdf`), embutido no diálogo
+ * (`iframe`/`object` com a URL de objeto do Blob), no lugar da `VisualizacaoImagem` e da consulta do
+ * detalhe (`GET /api/ped/imagens/{id}` deixa de ser chamado pelo diálogo).
+ *
+ * Props: `{ imagem: ImagemDaConsulta | null; onFechar: () => void; filtros?: FiltrosImagens }` (`filtros`:
+ * os da consulta, usados pela exportação em ZIP — ver `DialogoImagem.exportar.test.tsx`).
  * - `imagem` null: não renderiza nada nem consulta;
- * - aberto: diálogo "Imagem congelada {código}"; consulta `obterImagem(imagem.id)` (`GET /api/ped/imagens/{id}`),
- *   anuncia "Carregando imagem..." e mostra a `VisualizacaoImagem` (F10.3) com a imagem consultada;
+ * - aberto: diálogo "Imagem congelada {código}"; pede o PDF, anuncia "Gerando PDF…" e mostra o PDF com o
+ *   título "PDF da imagem — Filial {código}[ · {colaborador}]";
  * - erro: alerta com a mensagem dentro do diálogo e "Tentar novamente";
- * - trocar a imagem consulta a nova; só a resposta mais recente é aplicada;
- * - "Fechar" e Esc chamam `onFechar`; a imagem é somente leitura (só GET; sem alterar ou excluir).
+ * - trocar a imagem pede o PDF da nova (só a resposta mais recente vale) e libera a URL anterior
+ *   (`URL.revokeObjectURL`), também ao fechar;
+ * - "Fechar" e Esc chamam `onFechar`; somente leitura (só GET; sem alterar ou excluir).
  */
-describe('F10.6 — DialogoImagem (visualizar imagem congelada)', () => {
+describe('F10.6 — DialogoImagem (visualizar imagem congelada em PDF)', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
+  let urls: ReturnType<typeof simularUrlsDeObjeto>
 
   beforeEach(() => {
     sessionStorage.clear()
@@ -75,7 +49,7 @@ describe('F10.6 — DialogoImagem (visualizar imagem congelada)', () => {
     definirToken('token-123')
     vi.stubEnv('VITE_API_URL', undefined)
     fetchFalso = vi.spyOn(globalThis, 'fetch')
-    visualizacao.mockClear()
+    urls = simularUrlsDeObjeto()
   })
 
   afterEach(() => {
@@ -84,17 +58,23 @@ describe('F10.6 — DialogoImagem (visualizar imagem congelada)', () => {
     limparToken()
   })
 
+  const pdfDe = (codigo: string): RotaFalsa => () => respostaArquivo(conteudoPdfImagem(codigo), TIPO_PDF, `${codigo}.pdf`)
+
   function simular(rotas: Record<string, RotaFalsa> = {}) {
     return simularApi(fetchFalso, {
-      'GET /api/ped/imagens/1': () => respostaJson(IMAGEM_COMERCIAL_100_API),
-      'GET /api/ped/imagens/3': () => respostaJson(IMAGEM_GERENTES_ANA_API),
+      'GET /api/ped/imagens/1/pdf': pdfDe('IMG-000001'),
+      'GET /api/ped/imagens/3/pdf': pdfDe('IMG-000003'),
       ...rotas,
     })
   }
 
+  const getsPdf = (chamadas: ChamadaRegistrada[], id: number) =>
+    chamadas.filter((c) => c.metodo === 'GET' && c.caminho === `/api/ped/imagens/${id}/pdf`)
   const getsDetalhe = (chamadas: ChamadaRegistrada[], id: number) =>
     chamadas.filter((c) => c.metodo === 'GET' && c.caminho === `/api/ped/imagens/${id}`)
-  const ultimaImagemVisualizada = () => (visualizacao.mock.calls.at(-1)?.[0] as { imagem: ImagemCongelada } | undefined)?.imagem
+
+  const TITULO_PDF_ANA = tituloPdf('100', 'Ana Souza')
+  const TITULO_PDF_COMERCIAL = tituloPdf('100')
 
   it('sem imagem (null): não mostra diálogo e não consulta a API', async () => {
     const chamadas = simular()
@@ -106,62 +86,65 @@ describe('F10.6 — DialogoImagem (visualizar imagem congelada)', () => {
     expect(chamadas).toHaveLength(0)
   })
 
-  it('com imagem: diálogo "Imagem congelada {código}", um GET do detalhe e a visualização com a imagem consultada', async () => {
+  it('com imagem: diálogo "Imagem congelada {código}", um GET do PDF e o PDF embutido com título acessível', async () => {
     const chamadas = simular()
 
     render(<DialogoImagem imagem={LINHA_ANA} onFechar={vi.fn()} />)
 
     const dialogo = screen.getByRole('dialog', { name: tituloDialogoImagem('IMG-000003') })
-    expect(await within(dialogo).findByRole('region', { name: 'Imagem IMG-000003' })).toBeInTheDocument()
-    expect(getsDetalhe(chamadas, 3)).toHaveLength(1)
-    expect(ultimaImagemVisualizada()).toMatchObject({ id: 3, codigo: 'IMG-000003', tipo: 'colaborador', idColaborador: 11 })
+    const pdf = await within(dialogo).findByTitle(TITULO_PDF_ANA)
+    expect(['IFRAME', 'OBJECT']).toContain(pdf.tagName)
+    expect(urlDoPdf(pdf)).toBe(urls.criadas.at(-1)!.url)
+    expect(getsPdf(chamadas, 3)).toHaveLength(1)
+    // O detalhe em JSON e a visualização com os valores na tela (F10.3) não são mais usados aqui.
+    expect(getsDetalhe(chamadas, 3)).toHaveLength(0)
+    expect(within(dialogo).queryByRole('region', { name: 'Imagem IMG-000003' })).not.toBeInTheDocument()
   })
 
-  it('enquanto consulta, anuncia "Carregando imagem..." e ainda não mostra a visualização', async () => {
+  it('enquanto pede o PDF, anuncia "Gerando PDF…" e ainda não mostra o PDF', async () => {
     const lenta = adiado<void>()
-    simular({ 'GET /api/ped/imagens/3': () => lenta.promessa.then(() => respostaJson(IMAGEM_GERENTES_ANA_API)) })
+    simular({ 'GET /api/ped/imagens/3/pdf': (init, url) => lenta.promessa.then(() => pdfDe('IMG-000003')(init, url)) })
 
     render(<DialogoImagem imagem={LINHA_ANA} onFechar={vi.fn()} />)
 
     const dialogo = screen.getByRole('dialog', { name: tituloDialogoImagem('IMG-000003') })
-    expect(await within(dialogo).findByText('Carregando imagem...')).toBeInTheDocument()
-    expect(within(dialogo).queryByRole('region', { name: 'Imagem IMG-000003' })).not.toBeInTheDocument()
+    expect(await within(dialogo).findByText(TEXTO_GERANDO_PDF)).toBeInTheDocument()
+    expect(within(dialogo).queryByTitle(TITULO_PDF_ANA)).not.toBeInTheDocument()
 
     lenta.resolver()
 
-    expect(await within(dialogo).findByRole('region', { name: 'Imagem IMG-000003' })).toBeInTheDocument()
-    expect(within(dialogo).queryByText('Carregando imagem...')).not.toBeInTheDocument()
+    expect(await within(dialogo).findByTitle(TITULO_PDF_ANA)).toBeInTheDocument()
+    expect(within(dialogo).queryByText(TEXTO_GERANDO_PDF)).not.toBeInTheDocument()
   })
 
-  it('imagem de filial também é consultada e visualizada', async () => {
+  it('imagem de filial: PDF com o título só da filial', async () => {
     const chamadas = simular()
 
     render(<DialogoImagem imagem={LINHA_COMERCIAL_100} onFechar={vi.fn()} />)
 
     const dialogo = screen.getByRole('dialog', { name: tituloDialogoImagem('IMG-000001') })
-    expect(await within(dialogo).findByRole('region', { name: 'Imagem IMG-000001' })).toBeInTheDocument()
-    expect(getsDetalhe(chamadas, 1)).toHaveLength(1)
-    expect(ultimaImagemVisualizada()).toMatchObject({ id: 1, codigo: 'IMG-000001', tipo: 'filial', idColaborador: null })
+    expect(await within(dialogo).findByTitle(TITULO_PDF_COMERCIAL)).toBeInTheDocument()
+    expect(getsPdf(chamadas, 1)).toHaveLength(1)
   })
 
-  it('erro HTTP: alerta com a mensagem no diálogo; "Tentar novamente" consulta de novo e mostra a imagem', async () => {
+  it('erro HTTP: alerta com a mensagem no diálogo; "Tentar novamente" pede de novo e mostra o PDF', async () => {
     const user = usuarioRapido()
     let falhar = true
     const chamadas = simular({
-      'GET /api/ped/imagens/3': () => (falhar ? respostaErro(500) : respostaJson(IMAGEM_GERENTES_ANA_API)),
+      'GET /api/ped/imagens/3/pdf': (init, url) => (falhar ? respostaErro(500) : pdfDe('IMG-000003')(init, url)),
     })
     render(<DialogoImagem imagem={LINHA_ANA} onFechar={vi.fn()} />)
     const dialogo = screen.getByRole('dialog', { name: tituloDialogoImagem('IMG-000003') })
 
     expect(await within(dialogo).findByRole('alert')).toHaveTextContent(mensagemPadraoPorStatus(500))
-    expect(within(dialogo).queryByRole('region', { name: 'Imagem IMG-000003' })).not.toBeInTheDocument()
+    expect(within(dialogo).queryByTitle(TITULO_PDF_ANA)).not.toBeInTheDocument()
 
     falhar = false
     await user.click(within(dialogo).getByRole('button', { name: 'Tentar novamente' }))
 
-    expect(await within(dialogo).findByRole('region', { name: 'Imagem IMG-000003' })).toBeInTheDocument()
+    expect(await within(dialogo).findByTitle(TITULO_PDF_ANA)).toBeInTheDocument()
     expect(within(dialogo).queryByRole('alert')).not.toBeInTheDocument()
-    expect(getsDetalhe(chamadas, 3)).toHaveLength(2)
+    expect(getsPdf(chamadas, 3)).toHaveLength(2)
   })
 
   it('falha de rede: alerta com a mensagem de sem conexão', async () => {
@@ -173,43 +156,68 @@ describe('F10.6 — DialogoImagem (visualizar imagem congelada)', () => {
     expect(await within(dialogo).findByRole('alert')).toHaveTextContent(MENSAGEM_SEM_CONEXAO)
   })
 
-  it('imagem inexistente (404): alerta com a mensagem do servidor', async () => {
-    simular({ 'GET /api/ped/imagens/3': () => respostaErro(404, 'recurso nao encontrado') })
+  it.each([
+    [404, 'recurso nao encontrado'],
+    [403, 'o validador so ve imagens da propria filial'],
+  ])('erro %i: alerta com a mensagem do servidor, sem PDF', async (status, mensagem) => {
+    simular({ 'GET /api/ped/imagens/3/pdf': () => respostaErro(status, mensagem) })
 
     render(<DialogoImagem imagem={LINHA_ANA} onFechar={vi.fn()} />)
 
     const dialogo = screen.getByRole('dialog', { name: tituloDialogoImagem('IMG-000003') })
-    expect(await within(dialogo).findByRole('alert')).not.toBeEmptyDOMElement()
-    expect(within(dialogo).queryByRole('region', { name: 'Imagem IMG-000003' })).not.toBeInTheDocument()
+    expect(await within(dialogo).findByRole('alert')).toHaveTextContent(mensagem)
+    expect(within(dialogo).queryByTitle(TITULO_PDF_ANA)).not.toBeInTheDocument()
   })
 
-  it('trocar a imagem consulta a nova e mostra o título e a visualização dela', async () => {
+  it('trocar a imagem pede o PDF da nova, mostra o título dela e libera a URL anterior', async () => {
     const chamadas = simular()
     const { rerender } = render(<DialogoImagem imagem={LINHA_ANA} onFechar={vi.fn()} />)
-    expect(await screen.findByRole('region', { name: 'Imagem IMG-000003' })).toBeInTheDocument()
+    const anterior = urlDoPdf(await screen.findByTitle(TITULO_PDF_ANA))
 
     rerender(<DialogoImagem imagem={LINHA_COMERCIAL_100} onFechar={vi.fn()} />)
 
     const dialogo = screen.getByRole('dialog', { name: tituloDialogoImagem('IMG-000001') })
-    expect(await within(dialogo).findByRole('region', { name: 'Imagem IMG-000001' })).toBeInTheDocument()
-    expect(within(dialogo).queryByRole('region', { name: 'Imagem IMG-000003' })).not.toBeInTheDocument()
-    expect(getsDetalhe(chamadas, 1)).toHaveLength(1)
+    const pdf = await within(dialogo).findByTitle(TITULO_PDF_COMERCIAL)
+    expect(within(dialogo).queryByTitle(TITULO_PDF_ANA)).not.toBeInTheDocument()
+    expect(getsPdf(chamadas, 1)).toHaveLength(1)
+    await waitFor(() => expect(urls.revogadas).toContain(anterior))
+    expect(urls.revogadas).not.toContain(urlDoPdf(pdf))
   })
 
-  it('só a resposta da imagem mais recente é aplicada (resposta lenta da anterior é descartada)', async () => {
+  it('só a resposta da imagem mais recente é aplicada (PDF lento da anterior é descartado, sem URL vazada)', async () => {
     const lenta = adiado<void>()
-    simular({ 'GET /api/ped/imagens/3': () => lenta.promessa.then(() => respostaJson(IMAGEM_GERENTES_ANA_API)) })
+    simular({ 'GET /api/ped/imagens/3/pdf': (init, url) => lenta.promessa.then(() => pdfDe('IMG-000003')(init, url)) })
     const { rerender } = render(<DialogoImagem imagem={LINHA_ANA} onFechar={vi.fn()} />)
 
     rerender(<DialogoImagem imagem={LINHA_COMERCIAL_100} onFechar={vi.fn()} />)
-    expect(await screen.findByRole('region', { name: 'Imagem IMG-000001' })).toBeInTheDocument()
+    const pdf = await screen.findByTitle(TITULO_PDF_COMERCIAL)
 
     lenta.resolver()
     await new Promise((r) => setTimeout(r, 20))
 
-    expect(screen.getByRole('region', { name: 'Imagem IMG-000001' })).toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: 'Imagem IMG-000003' })).not.toBeInTheDocument()
-    expect(ultimaImagemVisualizada()).toMatchObject({ codigo: 'IMG-000001' })
+    expect(screen.getByTitle(TITULO_PDF_COMERCIAL)).toBe(pdf)
+    expect(screen.queryByTitle(TITULO_PDF_ANA)).not.toBeInTheDocument()
+    const exibida = urlDoPdf(pdf)
+    expect(urls.revogadas).not.toContain(exibida)
+    for (const { url } of urls.criadas.filter((c) => c.url !== exibida)) expect(urls.revogadas).toContain(url)
+  })
+
+  it('ao fechar (imagem null ou desmontar), libera a URL do PDF exibido', async () => {
+    simular()
+    const { rerender, unmount } = render(<DialogoImagem imagem={LINHA_ANA} onFechar={vi.fn()} />)
+    const primeira = urlDoPdf(await screen.findByTitle(TITULO_PDF_ANA))
+
+    rerender(<DialogoImagem imagem={null} onFechar={vi.fn()} />)
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await waitFor(() => expect(urls.revogadas).toContain(primeira))
+
+    rerender(<DialogoImagem imagem={LINHA_COMERCIAL_100} onFechar={vi.fn()} />)
+    const segunda = urlDoPdf(await screen.findByTitle(TITULO_PDF_COMERCIAL))
+
+    unmount()
+
+    expect(urls.revogadas).toContain(segunda)
   })
 
   it('"Fechar" e Esc chamam onFechar', async () => {
@@ -218,7 +226,7 @@ describe('F10.6 — DialogoImagem (visualizar imagem congelada)', () => {
     const onFechar = vi.fn()
     render(<DialogoImagem imagem={LINHA_ANA} onFechar={onFechar} />)
     const dialogo = screen.getByRole('dialog', { name: tituloDialogoImagem('IMG-000003') })
-    await within(dialogo).findByRole('region', { name: 'Imagem IMG-000003' })
+    await within(dialogo).findByTitle(TITULO_PDF_ANA)
 
     await user.click(within(dialogo).getByRole('button', { name: 'Fechar' }))
     expect(onFechar).toHaveBeenCalledTimes(1)
@@ -231,7 +239,7 @@ describe('F10.6 — DialogoImagem (visualizar imagem congelada)', () => {
     const chamadas = simular()
     render(<DialogoImagem imagem={LINHA_ANA} onFechar={vi.fn()} />)
     const dialogo = screen.getByRole('dialog', { name: tituloDialogoImagem('IMG-000003') })
-    await within(dialogo).findByRole('region', { name: 'Imagem IMG-000003' })
+    await within(dialogo).findByTitle(TITULO_PDF_ANA)
 
     await waitFor(() => expect(chamadas.length).toBeGreaterThan(0))
     expect(chamadas.every((c) => c.metodo === 'GET')).toBe(true)

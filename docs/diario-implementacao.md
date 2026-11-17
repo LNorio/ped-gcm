@@ -1,5 +1,113 @@
 # Diário de Implementação — PED
 
+## 17/11/2026
+
+**Resumo:** A aba Fechamentos passou a mostrar as imagens em PDF gerado pelo back-end, na prévia e nas imagens congeladas, com o botão "Exportar" (PDF desta imagem ou todas em ZIP) (F10.10, novo). O front foi adequado aos documentos novos do back-end: limite de uso (429), encerramento pelo mês aberto, filiais sem composição do DRG e Início sem mês aberto. A lista de imagens da prévia virou um dropdown pesquisável reutilizável (`SelectPesquisavel`, F1.20, novo). Duas builds foram validadas, com 109/109 requisitos `implementado`. Todo o trabalho do dia está sem commit (depois do `2a105f6`). Plano em 93% (139/149).
+
+### Implementações
+- Download de arquivos pela API (F10.10a\*):
+  - `apiFetchArquivo` e `nomeDoArquivo` em `api.ts` (Blob e nome do `Content-Disposition`);
+  - `obterPdfPrevia`/`obterZipPrevia` e `obterPdfImagem`/`obterZipImagens`;
+  - utilitário `baixarArquivo`.
+- PDF embutido e "Exportar" (F10.10b\*): `usePdfImagem`, `VisualizadorPdf` e `ExportarImagens` (menu "PDF desta imagem" / "Todas as imagens (ZIP)"), na prévia e no diálogo da imagem congelada. O ZIP da consulta usa os filtros aplicados.
+- Limite de uso 429 (F10.11\*):
+  - hook `useBloqueioLimite`: bloqueia o "Exportar" e o "Tentar novamente" do PDF pelo tempo do servidor (60 s padrão);
+  - `EstadoCarga` com `tentarNovamenteDesabilitado`.
+- Aviso da quantidade de imagens (F10.13\*): `AvisoQuantidadeImagens` ("Serão geradas N imagens em PDF." e o aviso de demora) e o status "Montando o ZIP com N imagens…". O ZIP não tem mais limite no front.
+- Componente reutilizável `SelectPesquisavel` (F1.20, novo) e combobox "Imagem" na prévia (F10.14\*).
+- Dica quando o ZIP falha por rede ou tempo (status 0/502/503/504) (F10.16\*), com texto de dica diferente na consulta e na prévia.
+- Proposta ao back-end `docs/backend/PROPOSTA-pdf-imagens.md` (A-19), respondida no mesmo dia. Documentos novos do back-end registrados: API (29) e (30), FRONT-pdf-zip, FRONT-pdf-fechamento, FRONT-fechamentos-e-imagens e FRONT-tela-inicio.
+
+### Modificações
+- `MenuAcoes` com as props `rotuloVisivel` e `desabilitado` (F1.16).
+- Prévia (F10.4, F10.7):
+  - o PDF ocupa o lugar da `VisualizacaoImagem`;
+  - a tabela "Imagens da filial" e o campo "Buscar colaborador ou cargo" saíram, substituídos pelo dropdown "Imagem".
+- Diálogo da imagem congelada (F10.6): o PDF ocupa o lugar do detalhe JSON (`GET /imagens/{id}`), com o "Exportar".
+- Encerramento (F10.1, F10.5, F10.12\*):
+  - a confirmação mostra o período congelado, que contém o mês aberto;
+  - depois de encerrar, aparece o aviso das filiais sem composição do Resultado Operacional (DRG).
+- Início sem mês aberto (F11.1, F11.2, F11.4, F11.8\*): "Nenhum período aberto para preenchimento." no lugar de "Resposta inválida do servidor", e o botão "Preencher apontamentos do período" fica escondido.
+- Mudança de rumo no `SelectPesquisavel` (F1.20, F10.15\*): o gatilho virou um botão não editável, e a barra "Buscar colaborador ou cargo" fica dentro da lista aberta.
+- Layout da prévia:
+  - "Exportar" na linha do "Progresso de lançamentos";
+  - aviso da quantidade em largura total;
+  - durante o cálculo da prévia, o aviso usa a estimativa `unidadesDeImagem − unidadesEncerradas`.
+- Correção do "dropdown quebrado": o `npm run dev` servia o CSS do `SelectPesquisavel` vazio. O arquivo foi regravado.
+- Duas builds validadas. A última teve 5103 unitários, 777 de integração e carga com p99 de 149 ms.
+
+### Pendências
+- Prévia com dados reais: aparece "Filial · 60 imagens", sem o código da filial. Aguardando o JSON real de `GET /fechamentos/{id}/previa`.
+- Confirmar três decisões padrão:
+  - sem contagem regressiva no 429;
+  - aviso de filiais sem composição até o próximo encerramento;
+  - links "Preencher {dashboard}" mantidos sem mês aberto.
+- Risco: um ZIP acima de cerca de 500 PDFs pode falhar por tempo; o front só mostra a dica.
+- Validação contra o servidor real: PDF, ZIP, 429 e encerramento pelo mês aberto.
+- Commit do trabalho do dia e dos testes estabilizados em 16/11.
+- Próximas atividades: F1.18 (avaliar unir o `SeletorBusca` ao `SelectPesquisavel`), F12.1, F12.2, F5.10 e F6.14\*.
+
+---
+
+## 16/11/2026
+
+**Resumo:** A abertura do Início ficou mais rápida, com pré-carga da rota e pré-consulta (F11.7\*). O resumo do Início passou a mostrar os rótulos com acento. O Preenchimento (F9.13\*) e os Fechamentos (F10.9\*) foram adequados ao formato real das respostas do back-end, o que acabou com o erro "Resposta inválida do servidor". A janela "Editar metas" ficou mais larga e com menos colunas. Foram feitos os commits `c8a7988` e `2a105f6`, enviados ao GitHub. A build foi gerada na segunda tentativa, depois de estabilizar dois testes instáveis. Plano em 93% (129/139).
+
+### Implementações
+- Pré-carga do chunk do Início na carga do app (`src/utils/preCarga.ts`), para que o `lazy` resolva sem suspender (F11.7\*).
+- Aviso de acesso obtido (`src/sessao/acessoObtido.ts`), disparado pelo `SessaoProvider` antes de aplicar a sessão autenticada.
+- `AntecipacaoDaRota` em `rotas.tsx` (`handle.aoObterAcesso`) e pré-consulta do Início (`src/pages/inicio/consultasInicio.ts`):
+  - `GET /api/ped/inicio` e, para Admin e Validador, as pendências do cadastro saem em paralelo com a renderização do layout;
+  - `useInicio` e `usePendenciasInicio` reaproveitam a pré-consulta, sem novo GET.
+- Expiração adiada no `SessaoProvider` (F2.5): o 401 de uma consulta antecipada só encerra a sessão depois que a sessão autenticada aparece.
+- Rótulos do resumo do Início com acento pelo front (`ROTULOS_RESUMO_INICIO`, pela `chave`) (F11.1, F11.3).
+- Exemplos reais do back-end em `docs/backend/exemplos-reais/`: `preenchimento-meses.json`, `preenchimento.json`, `metas.json`, `fechamentos.json` e `imagens.json`, com testes de contrato sobre eles.
+
+### Modificações
+- Correções da expiração adiada (F2.5, em TDD):
+  - a expiração podia ficar presa num novo login sem sair ou em logins concorrentes;
+  - `sair()` não zerava a expiração adiada.
+
+  Agora o provider usa `versaoAutenticacao` e `useLayoutEffect`.
+- Correção do GET duplicado no `<StrictMode>` em `useInicio` e `usePendenciasInicio` (TDD).
+- Preenchimento com o formato real das respostas (F9.13\*): `mes` como data `AAAA-MM-DD` nos meses e `composicao` como lista de textos nas metas. F9.1, F9.3, F9.6–F9.9 e F9.12 foram reabertos e concluídos de novo.
+- "Editar metas" (F9.9):
+  - saíram as colunas Tipos, Composição e Meta do cadastro;
+  - a janela ficou mais larga (`dialogo-editar-metas`, max-width de 1040px), sem rolagem horizontal.
+- Foco no primeiro apontamento com erro quando a API recusa o lote; a recarga do mesmo mês mantém a subaba.
+- Fechamentos com o formato real de `GET /api/ped/fechamentos` (F10.9\*, não planejada):
+  - "indicadores com problema" e "unidades sem tabela de faixas" aceitos como número ou lista;
+  - etiquetas por contagem, e nenhuma etiqueta quando o valor é 0.
+
+  F1.3, F10.1, F10.2, F10.4, F10.5 e F10.7 foram concluídos de novo.
+- Commits `c8a7988` (11:38, 69 arquivos, com o fechamento de 13/11) e `2a105f6` (14:51, 17 arquivos), enviados ao GitHub.
+- Build:
+  - 1ª tentativa não realizada: falhou o teste instável `SessaoProvider.expiracaoAdiada` e a carga deu p99 de 532 ms;
+  - 2ª tentativa realizada: 5626/5626 testes, p99 de 118 ms e saída em `dist/`.
+- Testes instáveis estabilizados, sem mudança de requisito nem de `src/`:
+  - `SessaoProvider.expiracaoAdiada.test.tsx` (F2.5): espera o estado final em `waitFor` e confere a subsequência;
+  - `rotas.antecipacao.test.tsx` (F2.3): `act` antes do aviso.
+
+### Pendências
+- Commit dos dois testes estabilizados e do `requisitos.json`.
+- JSON real de `GET /api/ped/fechamentos/{id}/previa`: há o risco de os avisos de pendências e de falta de faixas sumirem se vierem só números.
+- Decisões em aberto:
+  - filtro "Com problemas de faixa";
+  - menu das linhas fechadas;
+  - pré-seleção da filial em "Preencher";
+  - texto do Validador;
+  - limite de 100% e decimais.
+- Perguntas ao back-end:
+  - acesso do Validador às imagens;
+  - cargo e nome da filial nas imagens;
+  - mês seguinte ao aberto vindo como "fechado";
+  - JSON do histórico do apontamento;
+  - deploy conjunto das faixas.
+- O `scripts/lotes-testes.mjs` subestima os testes parametrizados (`it.each`): lotes reais chegaram a 225 testes.
+- Próximas atividades: F1.18, F5.10, F6.14\*, F12.1 e F12.2. A F10.8 está bloqueada.
+
+---
+
 ## 13/11/2026
 
 **Resumo:** O front foi adequado ao contrato final da faixa geral e da situação enviado pelo back-end (F8.12\*, A-18 resolvida). Foram implementadas por completo as fases Preenchimento (F9), Fechamentos e imagens congeladas (F10.1–F10.7) e Início (F11). Foram feitos dois commits, `797bc54` e `d499d3e`, enviados ao GitHub junto com o `a9da8a5`. Depois do push, a aba Preenchimento passou a separar os tipos em subabas, como no protótipo, e o Início ganhou os blocos de indicadores com meta pendente e de dashboards em construção (F11.6). Esse trabalho ainda não tem commit. Ao fim do dia, 107 requisitos estão `implementado`.

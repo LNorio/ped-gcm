@@ -10,10 +10,13 @@
  * - os diálogos da prévia (F10.4) e do encerramento (F10.5), guiados por `fechamentoEmPrevia` e
  *   `fechamentoAEncerrar`. A confirmação aberta pela prévia recebe a prévia já consultada (sem novo
  *   GET) e fica por cima dela; ao encerrar, os dois fecham, a lista e a consulta são recarregadas;
- * - a `Notificacao` da página (`setNotificacao`).
+ * - a `Notificacao` da página (`setNotificacao`) e, depois de um encerramento com filiais sem a
+ *   composição do Resultado Operacional (DRG), um `Aviso` (nota) com os códigos, que vale só para o
+ *   último encerramento.
  */
 import { useState } from 'react'
 import { BarraFiltros, type OpcaoSituacao } from '../../components/BarraFiltros'
+import { Aviso } from '../../components/Aviso'
 import { Card } from '../../components/Card'
 import { EstadoCarga } from '../../components/EstadoCarga'
 import { Notificacao } from '../../components/Notificacao'
@@ -30,7 +33,7 @@ import {
 import { ConsultaImagens } from './ConsultaImagens'
 import { DialogoEncerrarFechamento } from './DialogoEncerrarFechamento'
 import { DialogoPreviaFechamento } from './DialogoPreviaFechamento'
-import { textoImagens } from './previaFechamento'
+import { avisoFiliaisSemComposicao, textoImagens } from './previaFechamento'
 import { TabelaFechamentos } from './TabelaFechamentos'
 import {
   FILTROS_PADRAO,
@@ -90,6 +93,8 @@ export function FechamentosPage() {
   /** Prévia já consultada, repassada à confirmação aberta a partir da prévia (sem novo GET). */
   const [previaAEncerrar, setPreviaAEncerrar] = useState<PreviaFechamento | null>(null)
   const [notificacao, setNotificacao] = useState<string | null>(null)
+  /** Filiais do último encerramento sem a composição do Resultado Operacional (DRG). */
+  const [filiaisSemComposicao, setFiliaisSemComposicao] = useState<string[]>([])
   /** Incrementada após um encerramento para remontar a consulta das imagens com as imagens novas. */
   const [versaoConsulta, setVersaoConsulta] = useState(0)
 
@@ -113,6 +118,7 @@ export function FechamentosPage() {
     setPreviaAEncerrar(null)
     setFechamentoEmPrevia(null)
     setNotificacao(mensagemEncerramento(resultado, fechamento))
+    setFiliaisSemComposicao(resultado.filiaisSemComposicao)
     setVersaoConsulta((versao) => versao + 1)
     void recarregar()
   }
@@ -126,6 +132,12 @@ export function FechamentosPage() {
   return (
     <div className="fechamentos-page">
       <h1>Fechamentos</h1>
+
+      {filiaisSemComposicao.length > 0 ? (
+        <Aviso tipo="alerta" className="fechamentos-page__aviso-composicao">
+          {avisoFiliaisSemComposicao(filiaisSemComposicao)}
+        </Aviso>
+      ) : null}
 
       <Card titulo={TITULO_SECAO} semPadding className="fechamentos-page__card">
         <BarraFiltros

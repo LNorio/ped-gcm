@@ -96,6 +96,10 @@ describe('F2.3 — Antecipação das consultas da rota aberta (AntecipacaoDaRota
     renderizarApp('/')
     await screen.findByRole('heading', { level: 1, name: 'Início' })
     expect(preConsultarInicioEspiao).toHaveBeenCalledTimes(1)
+    // A tela pode aparecer antes de o React executar os efeitos da sessão autenticada (sob carga, eles
+    // ficam pendentes por um instante); conclui o que estiver pendente para que o aviso chegue de fato
+    // depois de a sessão estar autenticada.
+    await act(async () => {})
 
     act(() => {
       avisarAcessoObtido({ acesso: acessoFalso(), filialSelecionada: FILIAIS[1] })

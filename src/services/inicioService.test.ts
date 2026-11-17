@@ -3,6 +3,7 @@ import { cabecalhoDaChamada, respostaErro, respostaJson, simularApi } from '../t
 import {
   MENSAGEM_FILIAL_INEXISTENTE,
   PERIODO_COMERCIAL_API,
+  PERIODO_SEM_MES_ABERTO_API,
   ULTIMAS_ADMIN_API,
   inicioAdminApi,
   inicioPreenchedorApi,
@@ -59,7 +60,8 @@ const INICIO_PREENCHEDOR: Inicio = {
  *
  * Conversão para o domínio (`Inicio` em `src/types/dominio.ts`): `perfil`; `filiais` → `Filial[]`
  * (`empresa: null`, código em texto); `"periodo aberto"` → `{ mesDeReferencia, abertoPor, abertoEm, aviso }`
- * ou `null`; `"aviso de acesso"` → `{ tipo, mensagem, tipos, filiais }` ou `null`; `resumo` na ordem da API, com o rótulo
+ * ou `null` (também quando o objeto vem com `"mes de referencia": null`, sem mês aberto — alteração de
+ * 17/11/2026, `docs/backend/FRONT-tela-inicio (1).md`, 3.1); `"aviso de acesso"` → `{ tipo, mensagem, tipos, filiais }` ou `null`; `resumo` na ordem da API, com o rótulo
  * pela `chave` (`ROTULOS_RESUMO_INICIO`; chave desconhecida mantém o `rotulo` da API — ver `inicioService.rotulos.test.ts`);
  * `"periodos em aberto"` → `{ id, nome, periodicidade, periodoAtual, periodoEncerrado, filiaisAbertas,
  * progresso }`; `"ultimas alteracoes"` → `{ acao, apontamento, competencia, filial, valorAnterior,
@@ -179,6 +181,17 @@ describe('F11.1 — Serviço da tela Início (GET /api/ped/inicio)', () => {
       const inicio = await obterInicio()
 
       expect(inicio.periodoAberto).toBeNull()
+    })
+
+    it('"mes de referencia" null (objeto sem mês aberto) vira período aberto null, sem resposta inválida', async () => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}`]: () => respostaJson(inicioAdminApi({ 'periodo aberto': PERIODO_SEM_MES_ABERTO_API })),
+      })
+
+      const inicio = await obterInicio()
+
+      expect(inicio.periodoAberto).toBeNull()
+      expect(inicio.periodosEmAberto.length).toBeGreaterThan(0)
     })
 
     it('filial numérica (na lista de filiais e nas alterações) vira texto', async () => {

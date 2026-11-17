@@ -19,14 +19,12 @@ import {
 } from '../../test/consultaImagensFalsos'
 import { FILIAIS, acessoFalso } from '../../test/sessaoFalsa'
 import { usuarioRapido } from '../../test/usuario'
-import type { ImagemCongelada } from '../../types/dominio'
+import { adicionarRotasPdf, simularUrlsDeObjeto, tituloPdf } from '../../test/pdfFalsos'
 import { formatarDataHora, formatarPercentual } from '../../utils/formato'
 import { ConsultaImagens } from './ConsultaImagens'
 
-// A visualização da imagem é da F10.3 e tem testes próprios: aqui só importa que ela recebe a imagem.
-vi.mock('./VisualizacaoImagem', () => ({
-  VisualizacaoImagem: ({ imagem }: { imagem: ImagemCongelada }) => <section aria-label={`Imagem ${imagem.codigo ?? ''}`} />,
-}))
+// O diálogo mostra a imagem em PDF (F10.6 com a alteração da F10.10, 17/11/2026): aqui só importa que
+// ele abre e pede o PDF da imagem escolhida; o PDF e a exportação têm testes próprios.
 
 const ROTA = '/api/ped/imagens'
 
@@ -55,6 +53,7 @@ describe('F10.6 — ConsultaImagens (consulta retroativa de imagens congeladas)'
     definirToken('token-123')
     vi.stubEnv('VITE_API_URL', undefined)
     fetchFalso = vi.spyOn(globalThis, 'fetch')
+    simularUrlsDeObjeto()
     sessao = { acesso: admin(), filialSelecionada: 'todas' }
   })
 
@@ -65,7 +64,7 @@ describe('F10.6 — ConsultaImagens (consulta retroativa de imagens congeladas)'
   })
 
   function simular(rotas: Record<string, RotaFalsa> = {}, linhasCompletas = true) {
-    const api = criarApiConsultaImagensFalsa({ linhasCompletas })
+    const api = adicionarRotasPdf(criarApiConsultaImagensFalsa({ linhasCompletas }))
     return simularApi(fetchFalso, { ...api.rotas, ...rotas })
   }
 
@@ -334,7 +333,7 @@ describe('F10.6 — ConsultaImagens (consulta retroativa de imagens congeladas)'
   })
 
   describe('visualizar (RF-84)', () => {
-    it('"Visualizar imagem {código}" abre o diálogo da imagem, que consulta o detalhe e mostra a visualização', async () => {
+    it('"Visualizar imagem {código}" abre o diálogo da imagem, que pede e mostra o PDF da imagem', async () => {
       const user = usuarioRapido()
       const chamadas = simular()
       await abrir()
@@ -342,8 +341,8 @@ describe('F10.6 — ConsultaImagens (consulta retroativa de imagens congeladas)'
       await user.click(screen.getByRole('button', { name: rotuloVisualizarImagem('IMG-000003') }))
 
       const dialogo = await screen.findByRole('dialog', { name: tituloDialogoImagem('IMG-000003') })
-      expect(await within(dialogo).findByRole('region', { name: 'Imagem IMG-000003' })).toBeInTheDocument()
-      expect(chamadas.filter((c) => c.metodo === 'GET' && c.caminho === `${ROTA}/3`)).toHaveLength(1)
+      expect(await within(dialogo).findByTitle(tituloPdf('100', 'Ana Souza'))).toBeInTheDocument()
+      expect(chamadas.filter((c) => c.metodo === 'GET' && c.caminho === `${ROTA}/3/pdf`)).toHaveLength(1)
     })
 
     it('"Fechar" fecha o diálogo; outra imagem abre o diálogo dela', async () => {
@@ -360,7 +359,7 @@ describe('F10.6 — ConsultaImagens (consulta retroativa de imagens congeladas)'
       await user.click(screen.getByRole('button', { name: rotuloVisualizarImagem('IMG-000001') }))
 
       const outro = await screen.findByRole('dialog', { name: tituloDialogoImagem('IMG-000001') })
-      expect(await within(outro).findByRole('region', { name: 'Imagem IMG-000001' })).toBeInTheDocument()
+      expect(await within(outro).findByTitle(tituloPdf('100'))).toBeInTheDocument()
     })
   })
 })

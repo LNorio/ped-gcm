@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { limparToken, definirToken } from '../../services/sessao'
-import type { ImagemCongelada, PreviaFechamento } from '../../types/dominio'
+import type { PreviaFechamento } from '../../types/dominio'
 import { respostaErro, respostaJson, simularApi, type ChamadaRegistrada, type RotaFalsa } from '../../test/apiFalsa'
 import {
   FECHAMENTO_COMERCIAL_API,
@@ -11,18 +11,17 @@ import {
   previaComercialApi,
   type PreviaFechamentoApiFalsa,
 } from '../../test/fechamentosFalsos'
+import {
+  TIPO_PDF,
+  conteudoPdfPrevia,
+  nomePdfPrevia,
+  respostaArquivo,
+  simularUrlsDeObjeto,
+  tituloPdf,
+} from '../../test/pdfFalsos'
 import { carregarFechamentoDominio, previaGerentesComEquipeApi } from '../../test/previaFalsos'
 import { usuarioRapido } from '../../test/usuario'
 import { DialogoPreviaFechamento, type DialogoPreviaFechamentoProps } from './DialogoPreviaFechamento'
-
-// A visualização da imagem (F10.3) tem testes próprios: aqui só se verifica qual imagem ela recebe.
-vi.mock('./VisualizacaoImagem', () => ({
-  VisualizacaoImagem: ({ imagem }: { imagem: ImagemCongelada }) => (
-    <section aria-label="Visualização da imagem">
-      <p>{imagem.chave}</p>
-    </section>
-  ),
-}))
 
 const COMERCIAL = carregarFechamentoDominio(FECHAMENTO_COMERCIAL_API)
 const GERENTES = carregarFechamentoDominio(FECHAMENTO_GERENTES_API)
@@ -48,13 +47,21 @@ const AVISO_SEM_FAIXAS = (filiais: string) =>
  *   de faixas]"; no vínculo por filiais, as filiais vinculadas sem imagem na prévia aparecem como
  *   "Filial {código} · já encerrada" (desabilitadas). Começa na primeira filial com imagens;
  * - "{N} nesta filial · {T} no total";
- * - tabela "Imagens da filial {código}" (Colaborador, Cargo, PED, Pontuação, Ações): imagem de filial →
- *   "Imagem da filial" e "—"; PED "99,99%"; pontuação "8.839,12" ou "Sem pontuação"; na linha exibida,
- *   "Exibindo"; nas outras, o botão "Visualizar";
- * - busca "Buscar colaborador ou cargo" (só quando a prévia tem imagens de colaborador), sem diferenciar
- *   acentos e maiúsculas; sem resultado, "Nenhum colaborador encontrado.";
- * - `VisualizacaoImagem` com a imagem exibida; navegação "Imagem X de N · Filial F" com "Imagem anterior"
- *   e "Próxima imagem" (desabilitados nas pontas), passando de uma filial para a outra;
+ * - lista pesquisável "Imagem" (`SelectPesquisavel`, F1.20 — alteração de 17/11/2026, no lugar da tabela
+ *   "Imagens da filial {código}" e do campo "Buscar colaborador ou cargo", que deixaram de existir): uma
+ *   opção por imagem da filial escolhida, na ordem da navegação; rótulo = colaborador (imagem de filial:
+ *   "Imagem da filial"); descrição = "{cargo} · {PED} · {pontuação}" (imagem de filial, sem o cargo:
+ *   "{PED} · {pontuação}"); PED "99,99%"; pontuação "8.839,12" ou "Sem pontuação"; o gatilho (botão
+ *   combobox não editável — alteração de 17/11/2026) mostra a imagem exibida e acompanha a navegação e a
+ *   troca de filial; escolher uma opção exibe aquela imagem; a busca fica dentro do dropdown aberto, no
+ *   searchbox "Buscar colaborador ou cargo" (rotuloBusca), e encontra por colaborador ou cargo, sem
+ *   diferenciar acentos e maiúsculas; sem resultado, "Nenhum colaborador encontrado."; Esc com a lista
+ *   aberta fecha só a lista;
+ * - a imagem exibida é o PDF embutido da imagem (F10.10, alteração de 17/11/2026, no lugar da
+ *   `VisualizacaoImagem`), identificado aqui pelo título "PDF da imagem — Filial {código}[ · {colaborador}]";
+ *   carregamento, erros e exportação do PDF ficam em `DialogoPreviaFechamento.pdf.test.tsx`;
+ * - navegação "Imagem X de N · Filial F" com "Imagem anterior" e "Próxima imagem" (desabilitados nas
+ *   pontas), passando de uma filial para a outra;
  * - avisos de pendências e de falta de faixas (textos acima), a partir do `resumo`;
  * - "Encerrar e gerar {N} imagem(ns)" chama `onEncerrar(previa)`; sem imagens a gerar, o botão não
  *   aparece e o diálogo mostra "Nenhuma imagem a gerar: todas as unidades deste dashboard já foram
@@ -70,6 +77,7 @@ describe('F10.4 — DialogoPreviaFechamento (pré-visualização das imagens —
     definirToken('token-123')
     vi.stubEnv('VITE_API_URL', undefined)
     fetchFalso = vi.spyOn(globalThis, 'fetch')
+    simularUrlsDeObjeto()
   })
 
   afterEach(() => {
@@ -86,6 +94,10 @@ describe('F10.4 — DialogoPreviaFechamento (pré-visualização das imagens —
     const rotasPrevia: Record<string, RotaFalsa> = {}
     for (const [id, previa] of Object.entries(previas)) {
       rotasPrevia[`GET /api/ped/fechamentos/${id}/previa`] = () => respostaJson(previa)
+      rotasPrevia[`GET /api/ped/fechamentos/${id}/previa/pdf`] = (_init, url) => {
+        const chave = url.searchParams.get('chave') ?? ''
+        return respostaArquivo(conteudoPdfPrevia(Number(id), chave), TIPO_PDF, nomePdfPrevia(Number(id), chave))
+      }
     }
     const chamadas = simularApi(fetchFalso, { ...rotasPrevia, ...rotas })
     const onFechar = props.onFechar ?? vi.fn()
@@ -103,16 +115,30 @@ describe('F10.4 — DialogoPreviaFechamento (pré-visualização das imagens —
       .map((opcao) => opcao.textContent)
   /** Diálogo de prévia aberto, qualquer que seja o dashboard (o título exato é conferido em `esperarPrevia`). */
   const dialogoAberto = () => screen.getByRole('dialog', { name: /^Pré-visualização — / })
-  const tabela = (codigo: string) => within(dialogoAberto()).getByRole('table', { name: `Imagens da filial ${codigo}` })
-  const linhas = (codigo: string) => within(tabela(codigo)).getAllByRole('row').slice(1)
-  const celulas = (codigo: string) =>
-    linhas(codigo).map((linha) =>
-      within(linha)
-        .getAllByRole('cell')
-        .map((celula) => celula.textContent?.trim()),
-    )
-  const linhaDe = (codigo: string, texto: string) => linhas(codigo).find((linha) => within(linha).queryByText(texto))!
-  const visualizacao = () => within(dialogo()).getByRole('region', { name: 'Visualização da imagem' })
+  /** Gatilho (botão combobox, não editável) da lista pesquisável "Imagem" (SelectPesquisavel, F1.20). */
+  const imagem = () => within(dialogoAberto()).getByRole('combobox', { name: 'Imagem' })
+  /** Barra de pesquisa dentro do dropdown "Imagem" aberto. */
+  const buscaImagem = () => within(dialogoAberto()).getByRole('searchbox', { name: 'Buscar colaborador ou cargo' })
+  /** Abre a lista "Imagem" (clique no gatilho) e devolve o listbox. */
+  async function abrirImagens(user: ReturnType<typeof usuarioRapido>) {
+    await user.click(imagem())
+    return within(dialogoAberto()).getByRole('listbox')
+  }
+  const opcoesImagem = () => within(within(dialogoAberto()).getByRole('listbox')).queryAllByRole('option')
+  const opcaoImagem = (rotulo: string) => opcoesImagem().find((opcao) => (opcao.textContent ?? '').includes(rotulo))!
+  /** Nomes (dentre os informados) que aparecem nas opções da lista aberta, na ordem das opções. */
+  const nomesNasOpcoes = (nomes: string[]) =>
+    opcoesImagem()
+      .map((opcao) => nomes.find((nome) => (opcao.textContent ?? '').includes(nome)))
+      .filter((nome): nome is string => nome !== undefined)
+  /** A tabela e a busca de colaborador deixaram de existir (alteração de 17/11/2026). */
+  const semTabelaNemBusca = () => {
+    expect(within(dialogoAberto()).queryByRole('table', { name: /^Imagens da filial/ })).not.toBeInTheDocument()
+    expect(within(dialogoAberto()).queryByRole('searchbox', { name: 'Buscar colaborador ou cargo' })).not.toBeInTheDocument()
+    expect(within(dialogoAberto()).queryByRole('button', { name: 'Visualizar' })).not.toBeInTheDocument()
+  }
+  /** PDF embutido da imagem exibida (F10.10), pelo título acessível. */
+  const pdfExibido = (titulo: string, escopo: HTMLElement = dialogoAberto()) => within(escopo).findByTitle(titulo)
   const naoGets = (chamadas: ChamadaRegistrada[]) => chamadas.filter((c) => c.metodo !== 'GET')
 
   async function esperarPrevia(nome?: string) {
@@ -180,7 +206,7 @@ describe('F10.4 — DialogoPreviaFechamento (pré-visualização das imagens —
 
       expect(filial()).toHaveValue('101')
       expect(within(dialogo()).getByText('1 nesta filial · 2 no total')).toBeInTheDocument()
-      expect(tabela('101')).toBeInTheDocument()
+      expect(imagem()).toHaveTextContent('Imagem da filial')
     })
 
     it('ao trocar a filial, mostra a lista e a primeira imagem da filial escolhida', async () => {
@@ -190,9 +216,10 @@ describe('F10.4 — DialogoPreviaFechamento (pré-visualização das imagens —
 
       await user.selectOptions(filial(), '102')
 
-      expect(tabela('102')).toBeInTheDocument()
-      expect(within(dialogo()).queryByRole('table', { name: 'Imagens da filial 101' })).not.toBeInTheDocument()
-      expect(within(visualizacao()).getByText('filial:102')).toBeInTheDocument()
+      expect(await pdfExibido(tituloPdf('102'))).toBeInTheDocument()
+      await abrirImagens(user)
+      expect(opcoesImagem()).toHaveLength(1)
+      expect(opcaoImagem('Imagem da filial')).toHaveTextContent('0,00% · Sem pontuação')
       expect(within(dialogo()).getByText('Imagem 2 de 2 · Filial 102')).toBeInTheDocument()
     })
 
@@ -212,95 +239,203 @@ describe('F10.4 — DialogoPreviaFechamento (pré-visualização das imagens —
     })
   })
 
-  describe('lista de imagens da filial', () => {
-    it('mostra colaborador, cargo, PED e pontuação de cada imagem (imagem de filial: "Imagem da filial" e "—")', async () => {
-      const user = usuarioRapido()
-      renderizar()
-      await esperarPrevia()
-
-      const cabecalhos = within(tabela('101'))
-        .getAllByRole('columnheader')
-        .map((c) => c.textContent?.trim())
-      expect(cabecalhos).toEqual(['Colaborador', 'Cargo', 'PED', 'Pontuação', 'Ações'])
-      expect(celulas('101')).toEqual([['Imagem da filial', '—', '99,99%', '8.839,12', 'Exibindo']])
-
-      await user.selectOptions(filial(), '102')
-      expect(celulas('102')).toEqual([['Imagem da filial', '—', '0,00%', 'Sem pontuação', 'Exibindo']])
-    })
-
-    it('vínculo por cargos: uma linha por colaborador, com nome e cargo; a exibida tem "Exibindo" e as outras "Visualizar"', async () => {
+  describe('lista pesquisável "Imagem" (no lugar da tabela e da busca — alteração de 17/11/2026)', () => {
+    it('não há mais a tabela "Imagens da filial", o botão "Visualizar" nem o campo "Buscar colaborador ou cargo"', async () => {
       renderizar({ fechamento: GERENTES }, { 2: previaGerentesComEquipeApi() })
       await esperarPrevia('Pré-visualização — PED Gerentes · 11/2026')
 
-      expect(celulas('100')).toEqual([
-        ['Ana Souza', 'Gerente de Loja', '20,00%', '150,00', 'Exibindo'],
-        ['Bruno Lima', 'Subgerente', '35,50%', '266,25', 'Visualizar'],
-        ['Márcia Lopes', 'Gerente de Loja', '12,00%', '90,00', 'Visualizar'],
-      ])
-      expect(within(linhaDe('100', 'Bruno Lima')).getByRole('button', { name: 'Visualizar' })).toBeInTheDocument()
-      expect(within(linhaDe('100', 'Ana Souza')).queryByRole('button', { name: 'Visualizar' })).not.toBeInTheDocument()
+      expect(imagem()).toBeInTheDocument()
+      semTabelaNemBusca()
     })
 
-    it('"Visualizar" exibe a imagem da linha e atualiza a posição', async () => {
+    it('o campo "Imagem" não é editável: é um botão que mostra a imagem exibida; a busca só existe com o dropdown aberto', async () => {
+      const user = usuarioRapido()
+      renderizar({ fechamento: GERENTES }, { 2: previaGerentesComEquipeApi() })
+      await esperarPrevia('Pré-visualização — PED Gerentes · 11/2026')
+
+      expect(imagem().tagName).toBe('BUTTON')
+      expect(imagem()).toHaveAttribute('aria-expanded', 'false')
+      expect(imagem()).toHaveTextContent('Ana Souza')
+      expect(within(dialogoAberto()).queryByRole('textbox')).not.toBeInTheDocument()
+      expect(within(dialogoAberto()).queryByRole('searchbox')).not.toBeInTheDocument()
+
+      await abrirImagens(user)
+
+      expect(imagem()).toHaveAttribute('aria-expanded', 'true')
+      expect(buscaImagem()).toHaveFocus()
+      expect(buscaImagem()).toHaveValue('')
+      expect(buscaImagem()).toHaveAttribute('placeholder', 'Buscar colaborador ou cargo')
+
+      await user.keyboard('{Escape}')
+      expect(within(dialogoAberto()).queryByRole('searchbox')).not.toBeInTheDocument()
+      expect(imagem()).toHaveFocus()
+    })
+
+    it('imagem de filial: rótulo "Imagem da filial" e descrição com PED e pontuação (ou "Sem pontuação")', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await esperarPrevia()
+      semTabelaNemBusca()
+
+      expect(imagem()).toHaveTextContent('Imagem da filial')
+      await abrirImagens(user)
+      expect(opcoesImagem()).toHaveLength(1)
+      expect(opcaoImagem('Imagem da filial')).toHaveTextContent('99,99% · 8.839,12')
+      await user.keyboard('{Escape}')
+
+      await user.selectOptions(filial(), '102')
+      await abrirImagens(user)
+      expect(opcoesImagem()).toHaveLength(1)
+      expect(opcaoImagem('Imagem da filial')).toHaveTextContent('0,00% · Sem pontuação')
+    })
+
+    it('vínculo por cargos: uma opção por colaborador da filial, na ordem da navegação, com cargo, PED e pontuação', async () => {
+      const user = usuarioRapido()
+      renderizar({ fechamento: GERENTES }, { 2: previaGerentesComEquipeApi() })
+      await esperarPrevia('Pré-visualização — PED Gerentes · 11/2026')
+
+      expect(imagem()).toHaveTextContent('Ana Souza')
+      await abrirImagens(user)
+
+      expect(opcoesImagem()).toHaveLength(3)
+      expect(nomesNasOpcoes(['Ana Souza', 'Bruno Lima', 'Márcia Lopes'])).toEqual(['Ana Souza', 'Bruno Lima', 'Márcia Lopes'])
+      expect(opcaoImagem('Ana Souza')).toHaveTextContent('Gerente de Loja · 20,00% · 150,00')
+      expect(opcaoImagem('Bruno Lima')).toHaveTextContent('Subgerente · 35,50% · 266,25')
+      expect(opcaoImagem('Márcia Lopes')).toHaveTextContent('Gerente de Loja · 12,00% · 90,00')
+      // A imagem exibida é a opção selecionada.
+      expect(opcaoImagem('Ana Souza')).toHaveAttribute('aria-selected', 'true')
+      expect(opcaoImagem('Bruno Lima')).not.toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('escolher uma opção (clique) exibe aquela imagem, atualiza a posição e o valor da lista', async () => {
       const user = usuarioRapido()
       renderizar({ fechamento: GERENTES }, { 2: previaGerentesComEquipeApi() })
       await esperarPrevia('Pré-visualização — PED Gerentes · 11/2026')
       const atual = dialogo('Pré-visualização — PED Gerentes · 11/2026')
 
-      expect(within(within(atual).getByRole('region', { name: 'Visualização da imagem' })).getByText('colaborador:11')).toBeInTheDocument()
+      expect(await pdfExibido(tituloPdf('100', 'Ana Souza'), atual)).toBeInTheDocument()
 
-      await user.click(within(linhaDe('100', 'Márcia Lopes')).getByRole('button', { name: 'Visualizar' }))
+      await abrirImagens(user)
+      await user.click(opcaoImagem('Márcia Lopes'))
 
-      expect(within(within(atual).getByRole('region', { name: 'Visualização da imagem' })).getByText('colaborador:16')).toBeInTheDocument()
+      expect(await pdfExibido(tituloPdf('100', 'Márcia Lopes'), atual)).toBeInTheDocument()
       expect(within(atual).getByText('Imagem 3 de 4 · Filial 100')).toBeInTheDocument()
-      expect(within(linhaDe('100', 'Márcia Lopes')).getByText('Exibindo')).toBeInTheDocument()
-      expect(within(linhaDe('100', 'Ana Souza')).getByRole('button', { name: 'Visualizar' })).toBeInTheDocument()
+      expect(imagem()).toHaveTextContent('Márcia Lopes')
+      expect(within(atual).queryByRole('listbox')).not.toBeInTheDocument()
+
+      await abrirImagens(user)
+      expect(opcaoImagem('Márcia Lopes')).toHaveAttribute('aria-selected', 'true')
+      expect(opcaoImagem('Ana Souza')).not.toHaveAttribute('aria-selected', 'true')
+    })
+
+    it('a escolha também funciona pelo teclado (↓ e Enter)', async () => {
+      const user = usuarioRapido()
+      renderizar({ fechamento: GERENTES }, { 2: previaGerentesComEquipeApi() })
+      await esperarPrevia('Pré-visualização — PED Gerentes · 11/2026')
+      const atual = dialogo('Pré-visualização — PED Gerentes · 11/2026')
+
+      await abrirImagens(user)
+      await user.keyboard('{ArrowDown}{Enter}')
+
+      expect(await pdfExibido(tituloPdf('100', 'Bruno Lima'), atual)).toBeInTheDocument()
+      expect(within(atual).getByText('Imagem 2 de 4 · Filial 100')).toBeInTheDocument()
+      expect(imagem()).toHaveTextContent('Bruno Lima')
+    })
+
+    it('Esc com a lista aberta fecha só a lista, sem fechar a pré-visualização', async () => {
+      const user = usuarioRapido()
+      const { onFechar } = renderizar({ fechamento: GERENTES }, { 2: previaGerentesComEquipeApi() })
+      await esperarPrevia('Pré-visualização — PED Gerentes · 11/2026')
+
+      await abrirImagens(user)
+      await user.keyboard('{Escape}')
+
+      expect(within(dialogoAberto()).queryByRole('listbox')).not.toBeInTheDocument()
+      expect(onFechar).not.toHaveBeenCalled()
+      expect(imagem()).toHaveTextContent('Ana Souza')
     })
   })
 
-  describe('busca de colaborador (nome ou cargo)', () => {
+  describe('busca de colaborador (nome ou cargo) na barra de pesquisa do dropdown "Imagem"', () => {
+    const NOMES = ['Ana Souza', 'Bruno Lima', 'Márcia Lopes']
+
     async function abrirGerentes() {
       const user = usuarioRapido()
       renderizar({ fechamento: GERENTES }, { 2: previaGerentesComEquipeApi() })
       await esperarPrevia('Pré-visualização — PED Gerentes · 11/2026')
-      const busca = within(dialogo('Pré-visualização — PED Gerentes · 11/2026')).getByRole('searchbox', {
-        name: 'Buscar colaborador ou cargo',
-      })
-      return { user, busca }
+      await abrirImagens(user)
+      return { user }
     }
 
-    const nomesNaLista = () => linhas('100').map((linha) => within(linha).getAllByRole('cell')[0].textContent?.trim())
-
     it('filtra pelo nome, sem diferenciar acentos e maiúsculas', async () => {
-      const { user, busca } = await abrirGerentes()
+      const { user } = await abrirGerentes()
 
-      await user.type(busca, 'MARCIA')
+      await user.type(buscaImagem(), 'MARCIA')
 
-      expect(nomesNaLista()).toEqual(['Márcia Lopes'])
+      expect(opcoesImagem()).toHaveLength(1)
+      expect(nomesNasOpcoes(NOMES)).toEqual(['Márcia Lopes'])
     })
 
     it('filtra pelo cargo', async () => {
-      const { user, busca } = await abrirGerentes()
+      const { user } = await abrirGerentes()
 
-      await user.type(busca, 'subgerente')
+      await user.type(buscaImagem(), 'subgerente')
 
-      expect(nomesNaLista()).toEqual(['Bruno Lima'])
+      expect(opcoesImagem()).toHaveLength(1)
+      expect(nomesNasOpcoes(NOMES)).toEqual(['Bruno Lima'])
     })
 
     it('sem resultado, mostra "Nenhum colaborador encontrado."; limpar a busca devolve a lista inteira', async () => {
-      const { user, busca } = await abrirGerentes()
+      const { user } = await abrirGerentes()
 
-      await user.type(busca, 'zzz')
+      await user.type(buscaImagem(), 'zzz')
       expect(within(dialogo('Pré-visualização — PED Gerentes · 11/2026')).getByText('Nenhum colaborador encontrado.')).toBeInTheDocument()
 
-      await user.clear(busca)
-      expect(nomesNaLista()).toEqual(['Ana Souza', 'Bruno Lima', 'Márcia Lopes'])
+      await user.clear(buscaImagem())
+      expect(nomesNasOpcoes(NOMES)).toEqual(NOMES)
     })
 
-    it('a busca não aparece quando a prévia só tem imagens de filial', async () => {
+    it('buscar sem escolher (e sair com Esc) não troca a imagem exibida', async () => {
+      const { user } = await abrirGerentes()
+      const atual = dialogo('Pré-visualização — PED Gerentes · 11/2026')
+
+      await user.type(buscaImagem(), 'bruno')
+      await user.keyboard('{Escape}')
+
+      expect(imagem()).toHaveTextContent('Ana Souza')
+      expect(imagem()).not.toHaveTextContent('Bruno Lima')
+      expect(within(atual).getByText('Imagem 1 de 4 · Filial 100')).toBeInTheDocument()
+      expect(await pdfExibido(tituloPdf('100', 'Ana Souza'), atual)).toBeInTheDocument()
+    })
+
+    it('buscar e escolher com Enter exibe a imagem encontrada', async () => {
+      const { user } = await abrirGerentes()
+      const atual = dialogo('Pré-visualização — PED Gerentes · 11/2026')
+
+      await user.type(buscaImagem(), 'marcia{Enter}')
+
+      expect(await pdfExibido(tituloPdf('100', 'Márcia Lopes'), atual)).toBeInTheDocument()
+      expect(within(atual).getByText('Imagem 3 de 4 · Filial 100')).toBeInTheDocument()
+      expect(imagem()).toHaveTextContent('Márcia Lopes')
+      expect(imagem()).toHaveFocus()
+    })
+
+    it('a barra de pesquisa começa vazia a cada abertura do dropdown', async () => {
+      const { user } = await abrirGerentes()
+
+      await user.type(buscaImagem(), 'bruno')
+      await user.keyboard('{Escape}')
+      await abrirImagens(user)
+
+      expect(buscaImagem()).toHaveValue('')
+      expect(nomesNasOpcoes(NOMES)).toEqual(NOMES)
+    })
+
+    it('com só imagens de filial, a lista "Imagem" existe, sem o campo de busca fora do dropdown', async () => {
       renderizar()
       await esperarPrevia()
 
+      expect(imagem()).toBeInTheDocument()
       expect(within(dialogo()).queryByRole('searchbox', { name: 'Buscar colaborador ou cargo' })).not.toBeInTheDocument()
     })
   })
@@ -312,15 +447,15 @@ describe('F10.4 — DialogoPreviaFechamento (pré-visualização das imagens —
       await esperarPrevia()
 
       expect(within(dialogo()).getByText('Imagem 1 de 2 · Filial 101')).toBeInTheDocument()
-      expect(within(visualizacao()).getByText('filial:101')).toBeInTheDocument()
+      expect(await pdfExibido(tituloPdf('101'))).toBeInTheDocument()
       expect(within(dialogo()).getByRole('button', { name: 'Imagem anterior' })).toBeDisabled()
 
       await user.click(within(dialogo()).getByRole('button', { name: 'Próxima imagem' }))
 
       expect(within(dialogo()).getByText('Imagem 2 de 2 · Filial 102')).toBeInTheDocument()
-      expect(within(visualizacao()).getByText('filial:102')).toBeInTheDocument()
+      expect(await pdfExibido(tituloPdf('102'))).toBeInTheDocument()
       expect(filial()).toHaveValue('102')
-      expect(tabela('102')).toBeInTheDocument()
+      expect(imagem()).toHaveTextContent('Imagem da filial')
       expect(within(dialogo()).getByRole('button', { name: 'Próxima imagem' })).toBeDisabled()
 
       await user.click(within(dialogo()).getByRole('button', { name: 'Imagem anterior' }))
@@ -338,12 +473,18 @@ describe('F10.4 — DialogoPreviaFechamento (pré-visualização das imagens —
 
       await user.click(proxima())
       expect(within(atual).getByText('Imagem 2 de 4 · Filial 100')).toBeInTheDocument()
+      expect(imagem()).toHaveTextContent('Bruno Lima')
+      expect(imagem()).not.toHaveTextContent('Ana Souza')
       await user.click(proxima())
+      expect(imagem()).toHaveTextContent('Márcia Lopes')
+      expect(imagem()).not.toHaveTextContent('Bruno Lima')
       await user.click(proxima())
 
       expect(within(atual).getByText('Imagem 4 de 4 · Filial 102')).toBeInTheDocument()
       expect(within(atual).getByRole('combobox', { name: 'Filial' })).toHaveValue('102')
-      expect(within(within(atual).getByRole('region', { name: 'Visualização da imagem' })).getByText('colaborador:14')).toBeInTheDocument()
+      expect(await pdfExibido(tituloPdf('102', 'Diego Rocha'), atual)).toBeInTheDocument()
+      // A lista "Imagem" acompanha a troca de filial pela navegação.
+      expect(imagem()).toHaveTextContent('Diego Rocha')
       expect(proxima()).toBeDisabled()
     })
   })
