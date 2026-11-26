@@ -98,6 +98,14 @@ export function formatarNumero(valor: ValorNumero, casas = 2): string {
   }).format(valor)
 }
 
+/**
+ * Formata contagens com ponto de milhar e sem casas decimais (`1.500`, F12.2 — RNF-03).
+ * null, undefined e NaN devolvem texto vazio.
+ */
+export function formatarInteiro(valor: ValorNumero): string {
+  return formatarNumero(valor, 0)
+}
+
 /** Formata valor em reais (`R$ 1.234,50`). Nulo devolve texto vazio. */
 export function formatarMoeda(valor: ValorNumero): string {
   if (!numeroValido(valor)) return ''

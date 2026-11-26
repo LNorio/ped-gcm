@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
+import { Dialogo } from '../../components/Dialogo'
 import { CARGOS_VINCULO, COLABORADORES_VINCULO, FILIAIS_VINCULO } from '../../test/dashboardsFalsos'
 import { type Usuario, usuarioRapido } from '../../test/usuario'
 import type { VinculoFormulario } from './regrasDashboard'
@@ -374,5 +375,189 @@ describe('F7.5 — SecaoVinculo: filiais, cargos ou colaboradores e resumo de im
     )
 
     expect(screen.getByText('Selecione ao menos uma filial.')).toBeInTheDocument()
+  })
+
+  describe('fechar o dropdown de itens (alteração de 18/11/2026: clique fora e Esc, como qualquer lista suspensa)', () => {
+    it('clicar fora do dropdown (no rótulo "Vincular dashboard a") fecha a lista de cargos', async () => {
+      const user = usuarioRapido()
+      renderizar({ tipo: 'cargos', itens: [] })
+      await abrir(user, 'Selecionar cargo de colaboradores', 'Cargos vinculados')
+
+      await user.click(screen.getByText('Vincular dashboard a'))
+
+      expect(screen.queryByRole('listbox', { name: 'Cargos vinculados' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Selecionar cargo de colaboradores' })).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    it('com a lista de filiais aberta, clicar em "Remover {filial}" (fora do dropdown) remove a filial e fecha a lista', async () => {
+      const user = usuarioRapido()
+      const { onChange } = renderizar({ tipo: 'filiais', itens: ['100', '101'] })
+      await abrir(user, 'Selecionar filial', 'Filiais vinculadas')
+
+      await user.click(within(screen.getByRole('list', { name: 'Filiais escolhidas' })).getByRole('button', { name: 'Remover 100 - MATRIZ' }))
+
+      expect(onChange).toHaveBeenLastCalledWith({ tipo: 'filiais', itens: ['101'] })
+      expect(screen.queryByRole('listbox', { name: 'Filiais vinculadas' })).not.toBeInTheDocument()
+    })
+
+    it('clicar na busca ou escolher um item não fecha a lista', async () => {
+      const user = usuarioRapido()
+      renderizar({ tipo: 'cargos', itens: [] })
+      const lista = await abrir(user, 'Selecionar cargo de colaboradores', 'Cargos vinculados')
+
+      await user.click(screen.getByRole('searchbox', { name: 'Buscar cargo' }))
+      await user.click(within(lista).getAllByRole('option')[0])
+
+      expect(listaAtual('Cargos vinculados')).toBeInTheDocument()
+    })
+
+    it('Esc na busca fecha a lista e devolve o foco ao botão do dropdown', async () => {
+      const user = usuarioRapido()
+      renderizar({ tipo: 'colaboradores', itens: [] })
+      await abrir(user, 'Selecionar colaborador', 'Colaboradores vinculados')
+      await user.click(screen.getByRole('searchbox', { name: 'Buscar colaborador' }))
+
+      await user.keyboard('{Escape}')
+
+      expect(screen.queryByRole('listbox', { name: 'Colaboradores vinculados' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Selecionar colaborador' })).toHaveFocus()
+    })
+
+    it('com a lista de itens aberta, abrir o tipo de vínculo deixa só o painel do tipo aberto', async () => {
+      const user = usuarioRapido()
+      renderizar({ tipo: 'cargos', itens: [] })
+      await abrir(user, 'Selecionar cargo de colaboradores', 'Cargos vinculados')
+
+      await user.click(botaoTipo())
+
+      expect(listaTipos()).toBeInTheDocument()
+      expect(screen.queryByRole('listbox', { name: 'Cargos vinculados' })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('fechar o dropdown "Vincular dashboard a" (alteração de 18/11/2026: clique fora e Esc, como qualquer lista suspensa)', () => {
+    it('com o tipo de vínculo aberto, clicar fora (no rótulo do campo de itens) fecha a lista sem mudar o tipo', async () => {
+      const user = usuarioRapido()
+      const { onChange } = renderizar({ tipo: 'cargos', itens: [] })
+      await user.click(botaoTipo())
+      expect(listaTipos()).toBeInTheDocument()
+
+      await user.click(screen.getByText('Cargos vinculados'))
+
+      expect(screen.queryByRole('listbox', { name: 'Tipo de vínculo do dashboard' })).not.toBeInTheDocument()
+      expect(botaoTipo()).toHaveAttribute('aria-expanded', 'false')
+      expect(botaoTipo()).toHaveTextContent('Cargos de colaboradores')
+      expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it('clicar dentro da lista de tipos (fora das opções) não a fecha', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await user.click(botaoTipo())
+
+      await user.click(listaTipos())
+
+      expect(listaTipos()).toBeInTheDocument()
+      expect(botaoTipo()).toHaveAttribute('aria-expanded', 'true')
+    })
+
+    it('escolher um tipo continua fechando a lista e trocando o tipo', async () => {
+      const user = usuarioRapido()
+      const { onChange } = renderizar()
+      await user.click(botaoTipo())
+
+      await user.click(opcao(listaTipos(), 'Filiais'))
+
+      expect(screen.queryByRole('listbox', { name: 'Tipo de vínculo do dashboard' })).not.toBeInTheDocument()
+      expect(onChange).toHaveBeenLastCalledWith({ tipo: 'filiais', itens: [] })
+    })
+
+    it('Esc com a lista de tipos aberta (foco no botão) a fecha e mantém o foco no botão', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await user.click(botaoTipo())
+
+      await user.keyboard('{Escape}')
+
+      expect(screen.queryByRole('listbox', { name: 'Tipo de vínculo do dashboard' })).not.toBeInTheDocument()
+      expect(botaoTipo()).toHaveFocus()
+    })
+
+    it('Esc com o foco numa opção de tipo fecha a lista, devolve o foco ao botão e não troca o tipo', async () => {
+      const user = usuarioRapido()
+      const { onChange } = renderizar()
+      await user.click(botaoTipo())
+      opcao(listaTipos(), 'Filiais').focus()
+
+      await user.keyboard('{Escape}')
+
+      expect(screen.queryByRole('listbox', { name: 'Tipo de vínculo do dashboard' })).not.toBeInTheDocument()
+      expect(botaoTipo()).toHaveFocus()
+      expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it('dentro de um Dialogo, o Esc com a lista de tipos aberta fecha só a lista; com ela fechada, o Esc fecha o diálogo', async () => {
+      const user = usuarioRapido()
+      const fecharDialogo = vi.fn<() => void>()
+      render(
+        <Dialogo aberto titulo="Novo dashboard" onFechar={fecharDialogo}>
+          <Controlado inicial={{ tipo: 'cargos', itens: [] }} onChange={vi.fn()} />
+        </Dialogo>,
+      )
+      await user.click(botaoTipo())
+
+      await user.keyboard('{Escape}')
+
+      expect(screen.queryByRole('listbox', { name: 'Tipo de vínculo do dashboard' })).not.toBeInTheDocument()
+      expect(fecharDialogo).not.toHaveBeenCalled()
+
+      await user.keyboard('{Escape}')
+
+      expect(fecharDialogo).toHaveBeenCalledTimes(1)
+    })
+
+    it('dentro de um Dialogo, clicar no título fecha a lista de tipos sem fechar o diálogo', async () => {
+      const user = usuarioRapido()
+      const fecharDialogo = vi.fn<() => void>()
+      render(
+        <Dialogo aberto titulo="Novo dashboard" onFechar={fecharDialogo}>
+          <Controlado inicial={{ tipo: 'cargos', itens: [] }} onChange={vi.fn()} />
+        </Dialogo>,
+      )
+      await user.click(botaoTipo())
+
+      await user.click(screen.getByRole('heading', { name: 'Novo dashboard' }))
+
+      expect(screen.queryByRole('listbox', { name: 'Tipo de vínculo do dashboard' })).not.toBeInTheDocument()
+      expect(fecharDialogo).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('busca limpa ao fechar por clique fora ou Esc (alteração de 18/11/2026)', () => {
+    it('cargos: digitar na busca, clicar fora e reabrir mostra a busca vazia e todas as opções', async () => {
+      const user = usuarioRapido()
+      renderizar({ tipo: 'cargos', itens: [] })
+      const lista = await abrir(user, 'Selecionar cargo de colaboradores', 'Cargos vinculados')
+      const total = within(lista).getAllByRole('option').length
+      await user.type(screen.getByRole('searchbox', { name: 'Buscar cargo' }), 'zzz')
+
+      await user.click(screen.getByText('Vincular dashboard a'))
+      await user.click(screen.getByRole('button', { name: 'Selecionar cargo de colaboradores' }))
+
+      expect(screen.getByRole('searchbox', { name: 'Buscar cargo' })).toHaveValue('')
+      expect(within(listaAtual('Cargos vinculados')).getAllByRole('option')).toHaveLength(total)
+    })
+
+    it('colaboradores: digitar na busca, Esc e reabrir mostra a busca vazia', async () => {
+      const user = usuarioRapido()
+      renderizar({ tipo: 'colaboradores', itens: [] })
+      await abrir(user, 'Selecionar colaborador', 'Colaboradores vinculados')
+      await user.type(screen.getByRole('searchbox', { name: 'Buscar colaborador' }), 'zzz')
+
+      await user.keyboard('{Escape}')
+      await user.click(screen.getByRole('button', { name: 'Selecionar colaborador' }))
+
+      expect(screen.getByRole('searchbox', { name: 'Buscar colaborador' })).toHaveValue('')
+    })
   })
 })

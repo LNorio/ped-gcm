@@ -24,8 +24,11 @@
   --cor-texto-suave: #56636F;
   --cor-borda: #D9E1EA;
   --cor-borda-suave: #E3E9EF;
-  /* Borda de controles interativos (inputs, chips, seletor segmentado) */
-  --cor-borda-controle: #bfcad6;
+  /* Borda de controles interativos (inputs, chips, seletor segmentado): 3,43:1 sobre o branco */
+  --cor-borda-controle: #808c99;
+  /* Bordas dos botões contorno e perigo: 3:1 ou mais sobre o branco (RNF-05) */
+  --cor-borda-contorno: #6b8fb5;
+  --cor-borda-perigo: #cf6a5e;
   /* Fundo neutro de pílulas de contagem, etiquetas neutras e divisórias de linhas */
   --cor-fundo-neutro: #edf1f5;
   /* Rótulos de seção em caixa alta (cabeçalhos de tabela, legendas, rótulos de filtros) */
@@ -41,12 +44,15 @@
   --cor-fundo-sobre-primaria: rgba(255, 255, 255, 0.14);
   --cor-fundo-sobre-primaria-forte: rgba(255, 255, 255, 0.22);
   --cor-fundo-sobre-primaria-leve: rgba(255, 255, 255, 0.06);
-  --anel-foco-sobre-primaria: 0 0 0 3px rgba(255, 255, 255, 0.45);
+  /* Anel de foco branco sólido sobre o azul: 6,24:1 sobre a primária (RNF-05) */
+  --anel-foco-sobre-primaria: 0 0 0 3px #fff;
   /* Filete escuro no topo do cabeçalho (protótipo) */
   --cor-filete-cabecalho: #2b3540;
 
   /* Estados */
   --cor-sucesso: #2E8A57;
+  /* Texto de sucesso (texto pequeno): 7,23:1 sobre o branco; --cor-sucesso fica para bordas e ícones */
+  --cor-sucesso-texto: #1b6340;
   --cor-alerta: #B7791F;
   --cor-perigo: #C0392B;
   --cor-perigo-escura: #8A2A20;
@@ -64,7 +70,13 @@
   --raio-cartao: 12px;
   --sombra-card: 0 12px 28px rgba(0, 30, 60, 0.18);
   --sombra-modal: 0 14px 34px rgba(0, 30, 60, 0.2);
-  --anel-foco: 0 0 0 3px rgba(0, 98, 175, 0.35);
+  /*
+   * Anel de foco sólido sobre fundo claro (RNF-05): filete branco e anel na cor primária
+   * (6,24:1 sobre o branco); o filete branco separa o anel de botões preenchidos de azul.
+   */
+  --anel-foco: 0 0 0 2px #fff, 0 0 0 4px var(--cor-primaria);
+  /* Anel interno para controles com fundo primário (ex.: opção ativa do seletor de situação) */
+  --anel-foco-interno-sobre-primaria: inset 0 0 0 2px #fff, inset 0 0 0 4px var(--cor-primaria-escura);
 
   /* Gradiente de fundo da tela de login */
   --gradiente-login: linear-gradient(160deg, #004F8F 0%, var(--cor-primaria) 55%, var(--cor-primaria-clara) 100%);
@@ -142,9 +154,12 @@ svg {
 /*
  * Foco por anel (box-shadow) para controles com borda arredondada própria: botões e chips.
  * Substitui o outline padrão, que não acompanha o raio da borda.
+ * O outline transparente não aparece no modo normal, mas o navegador o pinta no modo de alto
+ * contraste (forced-colors), que descarta o box-shadow.
  */
 .foco-anel:focus-visible {
-  outline: none;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
   box-shadow: var(--anel-foco);
 }
 

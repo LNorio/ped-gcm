@@ -2,9 +2,13 @@
  * Tela Início no formato da API (chaves com espaço), para os testes da F11 (RF-06 a RF-11).
  * Ver `docs/backend/API (28).md`, seção "Cadastro e Preenchimento — fase 9: tela Início".
  *
- * `GET /api/ped/inicio` devolve tudo numa chamada só. O Admin pode informar `?filial=<código>` (omitir
- * ou `todas` = todas as filiais; código inexistente = `404`); os demais perfis usam sempre a própria
- * filial (o parâmetro é ignorado pela API).
+ * `GET /api/ped/inicio` devolve tudo numa chamada só. Desde a resposta do back-end de 25/11/2026 (D6,
+ * `docs/backend/FRONT-resposta-verificacao-swagger-2026-11-25.md`), **todos os perfis** podem informar
+ * `?filial=<código>` dentro do próprio escopo (Admin e Validador: todas; os demais: a própria mais a
+ * abrangência). Omitir ou `todas` = todas as filiais; código inexistente = `404`; filial fora do escopo =
+ * `403` "voce nao tem acesso a esta filial"; sem filial e sem abrangência = `403` "usuario sem filial
+ * definida". As rotas simuladas abaixo (`rotaInicioFalsa`) continuam devolvendo a mesma resposta ao
+ * Validador e ao Preenchedor qualquer que seja a filial; os testes do escopo simulam a rota à parte.
  *
  * Respostas (`criarApiInicioFalsa`):
  * - **Admin, todas as filiais** (`inicioAdminApi`): aviso de acesso `null`; resumo com os 5 indicadores do
@@ -73,6 +77,11 @@ export interface PeriodoEmAbertoApiFalso {
 export interface UltimaAlteracaoApiFalsa {
   acao: 'lancamento' | 'correcao'
   apontamento: string
+  /**
+   * Tipo de valor do apontamento (Swagger de 25/11/2026, `"tipo de valor"`: o mesmo rótulo de
+   * `GET /ped/apontamentos` — `Porcentagem`, `Numeral` ou `Booleano`). Ausente nas constantes antigas.
+   */
+  'tipo de valor'?: string | null
   competencia: string
   filial: string | number
   'valor anterior': number | boolean | null
@@ -322,6 +331,25 @@ export function inicioPreenchedorApi(sobrescrever: Partial<InicioApiFalso> = {})
 }
 
 export const MENSAGEM_FILIAL_INEXISTENTE = 'Filial nao encontrada.'
+
+/** `403` de `GET /api/ped/inicio?filial=` com filial fora do escopo do usuário (D6, 25/11/2026). */
+export const MENSAGEM_FILIAL_FORA_DO_ESCOPO = 'voce nao tem acesso a esta filial'
+
+/** `403` de `GET /api/ped/inicio` para usuário sem filial e sem abrangência (D6, 25/11/2026). */
+export const MENSAGEM_SEM_FILIAL_DEFINIDA = 'usuario sem filial definida'
+
+/**
+ * Últimas alterações com `"tipo de valor"` (Swagger de 25/11/2026, F12.12*), da mais recente para a mais
+ * antiga: correção de porcentagem (5 → 6,5), lançamento de porcentagem sem anterior (12,5), correção
+ * numeral (1.234,5 → 1.300), correção booleana (Não → Sim) e lançamento numeral sem valor novo.
+ */
+export const ULTIMAS_COM_TIPO_DE_VALOR_API: UltimaAlteracaoApiFalsa[] = [
+  { ...ULTIMAS_ADMIN_API[0], 'tipo de valor': 'Porcentagem' },
+  { ...ULTIMAS_ADMIN_API[3], 'tipo de valor': 'Porcentagem', 'valor novo': 12.5 },
+  { ...ULTIMAS_ADMIN_API[1], acao: 'correcao', 'tipo de valor': 'Numeral', 'valor anterior': 1234.5, 'valor novo': 1300 },
+  { ...ULTIMAS_ADMIN_API[2], 'tipo de valor': 'Booleano' },
+  { ...ULTIMAS_ADMIN_API[4], 'tipo de valor': 'Numeral', 'valor novo': null },
+]
 
 /**
  * Rota `GET /api/ped/inicio` simulada para o perfil informado. O Admin responde pela `?filial=`:

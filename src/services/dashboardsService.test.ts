@@ -402,8 +402,8 @@ describe('F7.1 — Serviço de dashboards: listagem, detalhe, prévia, cadastro 
         formulaDePontuacao: 'Soma ponderada dos atingimentos, limitada a 120% por indicador.',
         observacaoParaTi: null,
         indicadores: [
-          { id: 1, nome: 'Cobertura de visitas', pontosBase: 40, ativo: true, problema: null },
-          { id: 3, nome: 'Faturamento líquido mensal', pontosBase: 60, ativo: true, problema: null },
+          { id: 1, nome: 'Cobertura de visitas', pontosBase: 40, calculoNoPeriodo: 'media', ativo: true, problema: null },
+          { id: 3, nome: 'Faturamento líquido mensal', pontosBase: 60, calculoNoPeriodo: 'soma', ativo: true, problema: null },
         ],
         periodo: { codigo: '4º tri/2026', inicio: '2026-10-01', fim: '2026-12-31' },
       })
@@ -416,8 +416,8 @@ describe('F7.1 — Serviço de dashboards: listagem, detalhe, prévia, cadastro 
 
       expect(detalhe.pontuacaoBaseMaxima).toBe(90.5)
       expect(detalhe.indicadores).toEqual([
-        { id: 2, nome: 'Rotinas financeiras em dia', pontosBase: 50.5, ativo: true, problema: null },
-        { id: 5, nome: 'Capacitação', pontosBase: 40, ativo: false, problema: 'Indicador inativo' },
+        { id: 2, nome: 'Rotinas financeiras em dia', pontosBase: 50.5, calculoNoPeriodo: 'ultimo', ativo: true, problema: null },
+        { id: 5, nome: 'Capacitação', pontosBase: 40, calculoNoPeriodo: 'soma', ativo: false, problema: 'Indicador inativo' },
       ])
     })
 
@@ -442,8 +442,9 @@ describe('F7.1 — Serviço de dashboards: listagem, detalhe, prévia, cadastro 
       expect(convertido.indicadorBaseDaFaixa).toBe(3)
       expect(convertido.observacaoParaTi).toBe('Usar a mesma régua do PED Comercial.')
       expect(convertido.indicadores).toEqual([
-        { id: 3, nome: 'Faturamento líquido mensal', pontosBase: 30, ativo: true, problema: null },
-        { id: 6, nome: 'Custo de frete por entrega', pontosBase: 20, ativo: true, problema: 'Todos os apontamentos estão desativados' },
+        // F7.15: sem "calculo do periodo" (dashboard mensal), calculoNoPeriodo é null.
+        { id: 3, nome: 'Faturamento líquido mensal', pontosBase: 30, calculoNoPeriodo: null, ativo: true, problema: null },
+        { id: 6, nome: 'Custo de frete por entrega', pontosBase: 20, calculoNoPeriodo: null, ativo: true, problema: 'Todos os apontamentos estão desativados' },
       ])
     })
 

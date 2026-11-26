@@ -65,7 +65,7 @@ function ConteudoHistorico({ apontamento, filial, mesDeReferencia }: Omit<Dialog
     { chave: 'anterior', titulo: 'Valor anterior', render: ({ item }) => valor(item.valorAnterior) },
     { chave: 'novo', titulo: 'Valor novo', render: ({ item }) => valor(item.valorNovo) },
     { chave: 'usuario', titulo: 'Usuário', render: ({ item }) => item.usuario?.trim() || SEM_VALOR },
-    { chave: 'motivo', titulo: 'Motivo', render: ({ item }) => item.motivo?.trim() || SEM_VALOR },
+    { chave: 'motivo', titulo: 'Motivo', render: ({ item }) => item.motivo?.trim() || SEM_VALOR, quebrar: true },
   ]
 
   return (

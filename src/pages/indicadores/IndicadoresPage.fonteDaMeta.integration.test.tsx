@@ -48,7 +48,9 @@ import { type Usuario, colar, usuarioRapido } from '../../test/usuario'
  * - `"meta via api".integracao === false` (fase 1): aviso "A consulta desta fonte ainda não está
  *   disponível. ..." na fonte `integracao`, sem bloquear o envio.
  * - 400 do back-end: a mensagem aparece no alerta do diálogo.
- * - Filtro "Integração pendente (TI)" só para o Admin (`situacao=integracao_pendente`).
+ * - Filtro "Integração pendente (TI)" para Admin e Validador (`situacao=integracao_pendente`); desde
+ *   19/11/2026 (CONTRAPROPOSTA-alertas-menu.md, ajuste 2) o Validador também vê o filtro e o sinal
+ *   "Com alertas" da aba Indicadores pela integração pendente, sem as ações de integração.
  * - Admin, fonte `dado_externo`: "Ver integração do dado externo" abre a modal da integração em modo
  *   leitura ("Integração do dado externo", só "Fechar"), sem gravar nada.
  */
@@ -86,6 +88,8 @@ describe('F6.11 — Fonte da meta via API (integração: /indicadores)', () => {
     /** `"id bitrix"` da tarefa devolvida no POST da fonte integracao pelo Validador (padrão 4600). */
     idTarefa?: number | null
     aoCriar?: () => Response
+    /** Lista inicial dos indicadores (padrão: `indicadoresComFonteDaMetaApi()`). */
+    lista?: () => IndicadorApiFalso[]
   }
 
   function simular(opcoes: Opcoes = {}) {
@@ -94,7 +98,7 @@ describe('F6.11 — Fonte da meta via API (integração: /indicadores)', () => {
     const idTarefa = opcoes.idTarefa === undefined ? 4600 : opcoes.idTarefa
     const acesso = acessoApi({ perfil, tipos: TIPOS_DO_USUARIO_API, 'todas as filiais': true, filiais: FILIAIS_API })
     const dados = (): DadoComFornecimento[] => dadosExternosApi().map((dado) => ({ ...dado, 'fornece meta': fornecem.has(dado.id) }))
-    let lista = indicadoresComFonteDaMetaApi()
+    let lista = opcoes.lista ? opcoes.lista() : indicadoresComFonteDaMetaApi()
     return simularApi(fetchFalso, {
       'GET /api/ped/acesso': () => respostaJson(acesso),
       [`GET ${ROTA}`]: rotaListarIndicadoresComFonteDaMeta(() => lista, opcoes.metaViaApi),
@@ -403,12 +407,72 @@ describe('F6.11 — Fonte da meta via API (integração: /indicadores)', () => {
       expect(within(tabela()).getByText('Faturamento com meta da TI')).toBeInTheDocument()
     })
 
-    it('Validador: o filtro não oferece "Integração pendente (TI)"', async () => {
-      simular({ perfil: 'validador' })
+    it('Validador: filtro "Integração pendente (TI)" por último; escolher consulta situacao=integracao_pendente e mostra só os pendentes da fonte integracao, sem as ações de integração', async () => {
+      const user = usuarioRapido()
+      const chamadas = simular({ perfil: 'validador' })
       await abrirTela()
 
       const opcoes = within(screen.getByRole('listbox', { name: 'Situação' })).getAllByRole('option')
-      expect(opcoes.map((opcao) => opcao.textContent)).not.toContain('Integração pendente (TI)')
+      expect(opcoes.map((opcao) => opcao.textContent)).toEqual([
+        'Todas',
+        'Ativos',
+        'Inativos',
+        'Aguardando meta',
+        'Meta pendente por filial',
+        'Com problemas',
+        'Integração pendente (TI)',
+      ])
+
+      await user.click(opcoes[opcoes.length - 1])
+
+      await waitFor(() =>
+        expect(chamadas.filter((c) => c.metodo === 'GET' && c.caminho === ROTA).at(-1)?.url.searchParams.get('situacao')).toBe(
+          'integracao_pendente',
+        ),
+      )
+      await waitFor(() => expect(within(tabela()).queryByText('Margem com meta da TI')).not.toBeInTheDocument())
+      expect(within(linha('Faturamento com meta da TI')).getByText('Integração pendente (TI)')).toBeInTheDocument()
+      const itens = await itensDoMenuAcoes(user, rotuloAcoesIndicador('Faturamento com meta da TI'))
+      expect(itens).not.toContain('Preencher integração')
+      expect(itens).not.toContain('Configurações')
+    })
+  })
+
+  describe('sinal no menu pela integração pendente', () => {
+    const linkIndicadores = () => within(screen.getByRole('navigation', { name: 'Abas' })).getByRole('link', { name: /^Indicadores/ })
+    /** Só os indicadores com a integração da meta pendente (nenhum outro alerta da aba). */
+    const soPendentes = () =>
+      indicadoresComFonteDaMetaApi().filter(
+        (i) =>
+          i.ativo &&
+          i['fonte da meta'] === 'integracao' &&
+          i['situacao da meta via api'] === 'integracao_pendente' &&
+          !i['meta a definir'] &&
+          !i['componentes desativados'],
+      )
+    /** Nenhum indicador com a integração pendente (nem outros alertas). */
+    const semPendentes = () =>
+      indicadoresComFonteDaMetaApi().filter(
+        (i) => i['situacao da meta via api'] !== 'integracao_pendente' && !i['meta a definir'] && !i['componentes desativados'],
+      )
+
+    it.each(['admin', 'validador'] as const)(
+      '%s: com indicador de integração pendente (e nenhum outro alerta), a aba "Indicadores" ganha "Com alertas", sem aviso no topo',
+      async (perfil) => {
+        expect(soPendentes().length).toBeGreaterThan(0)
+        simular({ perfil, lista: soPendentes })
+        await abrirTela()
+
+        await waitFor(() => expect(within(linkIndicadores()).getByRole('img', { name: 'Com alertas' })).toBeInTheDocument())
+        expect(screen.queryByRole('note')).not.toBeInTheDocument()
+      },
+    )
+
+    it('Validador: sem indicador de integração pendente (nem outros alertas), a aba não ganha o marcador', async () => {
+      simular({ perfil: 'validador', lista: semPendentes })
+      await abrirTela()
+
+      expect(within(linkIndicadores()).queryByRole('img', { name: 'Com alertas' })).not.toBeInTheDocument()
     })
   })
 

@@ -125,6 +125,8 @@ describe('F7.6 — Dashboard com indicadores de meta via API (integração: /das
     const indicadores = d.getByRole('group', { name: 'Indicadores vinculados' })
     await abrirEEscolher(user, indicadores, 'Selecionar indicador', 'Indicadores', indicador)
     await user.type(d.getByRole('textbox', { name: `Pontos base de ${indicador} neste dashboard` }), '100')
+    // F7.15: semestral exige o cálculo no período de cada indicador.
+    await user.selectOptions(d.getByRole('combobox', { name: `Cálculo no período de ${indicador}` }), 'Somar')
     await user.selectOptions(d.getByRole('combobox', { name: 'Indicador base da faixa' }), indicador)
     await colar(user, d.getByRole('textbox', { name: 'Fórmula de pontuação' }), 'Pontos base × atingimento.')
 

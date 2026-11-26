@@ -33,8 +33,8 @@ const GERENTES: DetalheDashboard = {
   formulaDePontuacao: 'Atingimento médio ponderado pelos pontos base.',
   observacaoParaTi: 'Usar a mesma régua do PED Comercial.',
   indicadores: [
-    { id: 3, nome: 'Faturamento líquido mensal', pontosBase: 30, ativo: true, problema: null },
-    { id: 6, nome: 'Custo de frete por entrega', pontosBase: 20, ativo: true, problema: 'Todos os apontamentos estão desativados' },
+    { id: 3, nome: 'Faturamento líquido mensal', pontosBase: 30, calculoNoPeriodo: null, ativo: true, problema: null },
+    { id: 6, nome: 'Custo de frete por entrega', pontosBase: 20, calculoNoPeriodo: null, ativo: true, problema: 'Todos os apontamentos estão desativados' },
   ],
   periodo: { codigo: '11/2026', inicio: '2026-11-01', fim: '2026-11-30' },
 }
@@ -50,8 +50,9 @@ const SUPERVISORES: DetalheDashboard = {
   formulaDePontuacao: 'Pontos base × atingimento, sem limite.',
   observacaoParaTi: null,
   indicadores: [
-    { id: 1, nome: 'Cobertura de visitas', pontosBase: 70, ativo: true, problema: null },
-    { id: 8, nome: 'Vendas por zona', pontosBase: 50, ativo: true, problema: null },
+    // F7.15: semestral — o cálculo no período gravado de cada indicador (sem ele, salvar seria barrado).
+    { id: 1, nome: 'Cobertura de visitas', pontosBase: 70, calculoNoPeriodo: 'media', ativo: true, problema: null },
+    { id: 8, nome: 'Vendas por zona', pontosBase: 50, calculoNoPeriodo: 'soma', ativo: true, problema: null },
   ],
   periodo: null,
 }
@@ -70,9 +71,9 @@ const TESTE_FILIAL: DetalheDashboard = {
   formulaDePontuacao: 'teste indicador',
   observacaoParaTi: 'teste',
   indicadores: [
-    { id: 3, nome: 'teste 2', pontosBase: 50, ativo: true, problema: null },
-    { id: 1, nome: 'teste indicador', pontosBase: 30, ativo: true, problema: null },
-    { id: 4, nome: 'testes', pontosBase: 20, ativo: true, problema: null },
+    { id: 3, nome: 'teste 2', pontosBase: 50, calculoNoPeriodo: null, ativo: true, problema: null },
+    { id: 1, nome: 'teste indicador', pontosBase: 30, calculoNoPeriodo: null, ativo: true, problema: null },
+    { id: 4, nome: 'testes', pontosBase: 20, calculoNoPeriodo: null, ativo: true, problema: null },
   ],
   periodo: { codigo: '11/2026', inicio: '2026-11-01', fim: '2026-11-30' },
 }

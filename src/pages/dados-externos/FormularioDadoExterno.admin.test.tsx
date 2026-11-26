@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import { type Usuario, colar, usuarioRapido } from '../../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import { TIPOS_DO_USUARIO_API } from '../../test/apontamentosFalsos'
-import { identificadoresApi } from '../../test/dadosExternosFalsos'
+import { identificadoresColeta } from '../../test/dadosExternosFalsos'
 import type { NovoDadoExterno } from '../../types/dominio'
 import { FormularioDadoExterno, type FormularioDadoExternoProps } from './FormularioDadoExterno'
 
@@ -13,7 +13,7 @@ describe('F5.5 — FormularioDadoExterno variante Admin: identificador da consul
       <FormularioDadoExterno
         tipos={TIPOS_DO_USUARIO_API}
         variante="admin"
-        identificadores={props.identificadores ?? identificadoresApi()}
+        identificadores={props.identificadores ?? identificadoresColeta()}
         salvando={false}
         erro={null}
         onSalvar={onSalvar}
@@ -231,10 +231,10 @@ describe('F5.5 — FormularioDadoExterno variante Admin: identificador da consul
 
       const grupo = sugestoes()!
       expect(within(grupo).getAllByRole('button').map((botao) => botao.textContent)).toEqual([
-        'FATURAMENTO — usado por 1 dado(s)',
-        'COBERTURA — usado por 1 dado(s)',
-        'VOLUME_VENDAS — usado por 2 dado(s)',
-        'NOVOS_CLIENTES — usado por 0 dado(s)',
+        'FATURAMENTO — usado por 1 dado',
+        'COBERTURA — usado por 1 dado',
+        'VOLUME_VENDAS — usado por 2 dados',
+        'NOVOS_CLIENTES — usado por 0 dados',
       ])
     })
 
@@ -245,7 +245,7 @@ describe('F5.5 — FormularioDadoExterno variante Admin: identificador da consul
       await user.type(identificador(), 'vol')
 
       expect(within(sugestoes()!).getAllByRole('button').map((botao) => botao.textContent)).toEqual([
-        'VOLUME_VENDAS — usado por 2 dado(s)',
+        'VOLUME_VENDAS — usado por 2 dados',
       ])
     })
 
@@ -254,7 +254,7 @@ describe('F5.5 — FormularioDadoExterno variante Admin: identificador da consul
       const { onSalvar } = renderizar()
       await preencherComuns(user)
 
-      await user.click(within(sugestoes()!).getByRole('button', { name: 'NOVOS_CLIENTES — usado por 0 dado(s)' }))
+      await user.click(within(sugestoes()!).getByRole('button', { name: 'NOVOS_CLIENTES — usado por 0 dados' }))
       expect(identificador()).toHaveValue('NOVOS_CLIENTES')
 
       await user.click(salvar())
@@ -266,7 +266,7 @@ describe('F5.5 — FormularioDadoExterno variante Admin: identificador da consul
       const { onSalvar } = renderizar({ identificadores: [{ identificador: 'vendas líq-2', quantidade: 1 }] })
       await preencherComuns(user)
 
-      await user.click(within(sugestoes()!).getByRole('button', { name: /usado por 1 dado\(s\)/ }))
+      await user.click(within(sugestoes()!).getByRole('button', { name: /usado por 1 dado$/ }))
       expect(identificador()).toHaveValue('VENDASLQ-2')
 
       await user.click(salvar())

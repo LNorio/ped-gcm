@@ -212,4 +212,40 @@ describe('F3.5 — Edição dos vínculos de um tipo (integração: /tipos com A
     expect(screen.getByRole('alert')).toHaveTextContent(MENSAGEM_SESSAO_EXPIRADA)
     expect(obterToken()).toBeNull()
   })
+
+  describe('dropdowns de vínculo fecham ao clicar fora e com Esc (alteração de 18/11/2026)', () => {
+    it('com "Selecionar usuário" aberto, clicar no título do diálogo fecha a lista e o diálogo continua aberto', async () => {
+      const user = usuarioRapido()
+      simularSessao('admin')
+      await abrirTipos()
+      const dialogo = await abrirEdicao(user, 'Financeiro')
+      const campo = within(dialogo).getByRole('group', { name: 'Usuários vinculados' })
+      const botao = within(campo).getByRole('button', { name: 'Selecionar usuário' })
+      await user.click(botao)
+      expect(within(campo).getByRole('listbox')).toBeInTheDocument()
+
+      await user.click(within(dialogo).getByRole('heading', { name: 'Editar grupos do tipo Financeiro' }))
+
+      expect(within(campo).queryByRole('listbox')).not.toBeInTheDocument()
+      expect(botao).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.getByRole('dialog', { name: 'Editar grupos do tipo Financeiro' })).toBeInTheDocument()
+    })
+
+    it('Esc na busca "Buscar grupo" fecha só a lista: o diálogo continua aberto e o foco volta a "Selecionar grupo"', async () => {
+      const user = usuarioRapido()
+      simularSessao('validador')
+      await abrirTipos()
+      const dialogo = await abrirEdicao(user, 'Marketing')
+      const campo = within(dialogo).getByRole('group', { name: 'Grupos vinculados' })
+      const botao = within(campo).getByRole('button', { name: 'Selecionar grupo' })
+      await user.click(botao)
+      await user.click(within(campo).getByRole('searchbox', { name: 'Buscar grupo' }))
+
+      await user.keyboard('{Escape}')
+
+      expect(within(campo).queryByRole('listbox')).not.toBeInTheDocument()
+      expect(screen.getByRole('dialog', { name: 'Editar grupos do tipo Marketing' })).toBeInTheDocument()
+      expect(botao).toHaveFocus()
+    })
+  })
 })

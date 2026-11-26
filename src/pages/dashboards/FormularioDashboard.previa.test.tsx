@@ -38,9 +38,10 @@ const ESPERADO: DadosDashboard = {
   pontuacaoBaseMaxima: 120,
   tipoVinculo: 'colaboradores',
   itensVinculados: [16, 11],
+  // F7.15: dashboard semestral — cada indicador leva o cálculo no período.
   indicadores: [
-    { idIndicador: 1, pontosBase: 70 },
-    { idIndicador: 8, pontosBase: 50 },
+    { idIndicador: 1, pontosBase: 70, calculoNoPeriodo: 'media' },
+    { idIndicador: 8, pontosBase: 50, calculoNoPeriodo: 'soma' },
   ],
   indicadorBaseDaFaixa: 1,
   formulaDePontuacao: 'Pontos base × atingimento, sem limite.',
@@ -107,8 +108,9 @@ describe('F7.7 — FormularioDashboard: tarefa de construção sempre visível e
   }
 
   /**
-   * Preenche um cadastro válido, na ordem da tela: por colaboradores (Fábio Nunes e Ana Souza), 70 + 50 = 120 pontos e
-   * o indicador base escolhido entre os vinculados (só depois de vincular os indicadores).
+   * Preenche um cadastro válido, na ordem da tela: por colaboradores (Fábio Nunes e Ana Souza), 70 + 50 = 120 pontos, o
+   * cálculo no período de cada indicador (semestral — F7.15) e o indicador base escolhido entre os vinculados (só depois
+   * de vincular os indicadores).
    */
   async function preencherTudo(user: Usuario, textoNome = '  PED Supervisores  ') {
     await colar(user, nome(), textoNome)
@@ -121,6 +123,8 @@ describe('F7.7 — FormularioDashboard: tarefa de construção sempre visível e
     await abrirEEscolher(user, grupoIndicadores(), 'Selecionar indicador', 'Indicadores', 'Vendas por zona')
     await user.type(screen.getByRole('textbox', { name: 'Pontos base de Cobertura de visitas neste dashboard' }), '70')
     await user.type(screen.getByRole('textbox', { name: 'Pontos base de Vendas por zona neste dashboard' }), '50')
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Cálculo no período de Cobertura de visitas' }), 'Fazer a média')
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Cálculo no período de Vendas por zona' }), 'Somar')
     await user.selectOptions(indicadorBase(), 'Cobertura de visitas')
     await colar(user, screen.getByRole('textbox', { name: 'Fórmula de pontuação' }), 'Pontos base × atingimento, sem limite.')
     await colar(user, observacao(), 'Prioridade alta.')
@@ -271,7 +275,7 @@ describe('F7.7 — FormularioDashboard: tarefa de construção sempre visível e
       await waitFor(() => expect(onPrevia).toHaveBeenCalledTimes(2))
       expect(onPrevia).toHaveBeenLastCalledWith({
         ...ESPERADO,
-        indicadores: [{ idIndicador: 8, pontosBase: 120 }],
+        indicadores: [{ idIndicador: 8, pontosBase: 120, calculoNoPeriodo: 'soma' }],
         indicadorBaseDaFaixa: 8,
       })
     })

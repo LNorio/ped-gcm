@@ -192,7 +192,7 @@ describe('F10.6 — ConsultaImagens (consulta retroativa de imagens congeladas)'
       await abrir()
 
       expect(codigosNaTabela()).toEqual(['IMG-000002'])
-      expect(await within(regiao()).findByText('1 de 1 imagens')).toBeInTheDocument()
+      expect(await within(regiao()).findByText('1 de 1 imagem')).toBeInTheDocument()
       for (const chamada of getsImagens(chamadas)) expect(chamada.url.searchParams.get('filial')).toBe('101')
     })
   })

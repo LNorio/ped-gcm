@@ -5,13 +5,18 @@
  * - `GET /api/ped/inicio?filial=` tudo o que a tela precisa, numa chamada só.
  *
  * A filial do cabeçalho (RF-01) vai em `?filial=<código>`; `undefined`, `null`, vazia ou `todas` não entram
- * na query (todas as filiais). Só o Admin escolhe; os demais perfis têm o parâmetro ignorado pela API.
+ * na query (todas as filiais). Todos os perfis podem pedir uma filial, dentro do próprio escopo (resposta do
+ * back-end de 25/11/2026, D6): Admin e Validador veem todas; os demais, a própria filial mais a abrangência.
+ * Fora do escopo, a API responde `403` "voce nao tem acesso a esta filial"; sem filial e sem abrangência,
+ * `403` "usuario sem filial definida" (chegam como `ApiError`).
  *
  * Conversão (ver `src/test/inicioFalsos.ts`):
  * - `filial` numérica (na lista de filiais e nas alterações) vira texto; `empresa` fica `null`;
  * - `"periodo aberto"` e `"aviso de acesso"` podem ser `null`; no aviso, `tipos`/`filiais` ausentes viram `[]`;
  * - listas ausentes (`filiais`, `resumo`, `"periodos em aberto"`, `"ultimas alteracoes"`) viram `[]`;
- * - `periodicidade` sem diferenciar maiúsculas; valores das alterações: número, booleano ou `null`.
+ * - `periodicidade` sem diferenciar maiúsculas; valores das alterações: número, booleano ou `null`;
+ * - `"tipo de valor"` das alterações como `paraTipoValor` (qualquer caixa, sem espaços nas pontas); ausente,
+ *   `null`, desconhecido ou não-texto vira `null` sem rejeitar a resposta.
  *
  * Respostas 2xx fora do formato esperado viram `ApiError(200, MENSAGEM_RESPOSTA_INVALIDA)`; um único item
  * inválido rejeita a resposta inteira. Erros HTTP e de rede chegam como `ApiError` (ver `api.ts`).
@@ -28,6 +33,8 @@ import {
   type PeriodoAbertoInicio,
   ROTULOS_RESUMO_INICIO,
   type PeriodoEmAbertoInicio,
+  TIPOS_VALOR,
+  type TipoValor,
   type UltimaAlteracaoInicio,
   type ValorLancamento,
 } from '../types/dominio'
@@ -85,6 +92,13 @@ function valorAlteracao(valor: unknown): ValorLancamento | null {
   if (valor === undefined || valor === null) return null
   if (ehNumero(valor) || ehBooleano(valor)) return valor
   throw respostaInvalida()
+}
+
+/** `"tipo de valor"` como `paraTipoValor`; ausente, `null`, desconhecido ou não-texto → `null` (não rejeita). */
+function tipoValorOuNulo(valor: unknown): TipoValor | null {
+  if (!ehTexto(valor)) return null
+  const normalizado = valor.trim().toLowerCase()
+  return TIPOS_VALOR.find((tipo) => tipo === normalizado) ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -182,6 +196,7 @@ function paraUltimaAlteracao(item: unknown): UltimaAlteracaoInicio {
     valorNovo: valorAlteracao(item['valor novo']),
     data: item.data,
     usuario: textoOuNulo(item.usuario),
+    tipoValor: tipoValorOuNulo(item['tipo de valor']),
   }
 }
 

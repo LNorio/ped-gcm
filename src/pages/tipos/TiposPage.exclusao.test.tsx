@@ -12,7 +12,7 @@ import type { Perfil } from '../../types/dominio'
 import { TiposPage } from './TiposPage'
 
 const IMPACTO_LOGISTICA = 'O tipo Logística será removido. Esta ação não pode ser desfeita.'
-const BLOQUEIO_MARKETING = 'Este tipo possui 3 apontamento(s) vinculado(s) e não pode ser excluído.'
+const BLOQUEIO_MARKETING = 'Este tipo possui 3 apontamentos vinculados e não pode ser excluído.'
 
 describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
@@ -183,7 +183,7 @@ describe('F3.3 — Exclusão de tipo personalizado (TiposPage)', () => {
 
       expect(
         within(screen.getByRole('dialog')).getByText(
-          'Este tipo possui 1 apontamento(s) vinculado(s) e não pode ser excluído.',
+          'Este tipo possui 1 apontamento vinculado e não pode ser excluído.',
         ),
       ).toBeInTheDocument()
     })

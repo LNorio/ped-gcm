@@ -21,6 +21,18 @@ export const CAMINHOS = {
   fechamentos: '/fechamentos',
 } as const
 
+/**
+ * Página pública com a documentação para o back-end (F2.13). Fica fora de `CAMINHOS` (login, sem acesso
+ * e abas, verificado pelos testes de F2.3) e do menu de abas.
+ */
+export const CAMINHO_BACKEND = '/backend'
+
+/**
+ * Página pública com o diário de implementação e a documentação do projeto (F2.14). Como o
+ * `/backend`, fica fora de `CAMINHOS` e do menu de abas.
+ */
+export const CAMINHO_RESUMO = '/resumo'
+
 /** Caminho de cada aba do menu. */
 export const CAMINHO_DA_ABA: Readonly<Record<Aba, string>> = {
   inicio: CAMINHOS.inicio,

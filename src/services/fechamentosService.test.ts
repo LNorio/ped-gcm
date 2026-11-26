@@ -366,6 +366,8 @@ describe('F10.1 — Serviço dos fechamentos: lista, prévia e encerramento (RF-
         periodo: { codigo: '4º tri/2026', inicio: '2026-10-01', fim: '2026-12-31' },
         resumo: RESUMO_COMERCIAL,
         imagens: [IMAGEM_PREVIA_101, expect.objectContaining({ chave: 'filial:102' }) as ImagemCongelada],
+        // Sem resumo."progresso por filial" na resposta: lista vazia (resposta de 25/11/2026).
+        progressoPorFilial: [],
       })
     })
 
@@ -463,6 +465,7 @@ describe('F10.1 — Serviço dos fechamentos: lista, prévia e encerramento (RF-
         periodo: null,
         resumo: RESUMO_VAZIO,
         imagens: [],
+        progressoPorFilial: [],
       })
     })
 

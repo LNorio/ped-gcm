@@ -115,7 +115,7 @@ export function DadosExternosPage() {
     alterarSituacao,
     excluir,
   } = useDadosExternos()
-  const { acesso } = useSessao()
+  const { acesso, recarregarAcesso } = useSessao()
   const { podeAcao } = usePermissoes()
   const podeCadastrarAtivo = podeAcao('cadastrar-dado-externo-ativo')
   const podeConcluir = podeAcao('concluir-dado-externo')
@@ -220,6 +220,8 @@ export function DadosExternosPage() {
     setErroCadastro(null)
     setCadastroAberto(true)
     if (podeCadastrarAtivo) carregarIdentificadores()
+    // Relê o acesso para o campo Tipo trazer tipos criados ou vinculados depois do login.
+    void recarregarAcesso()
   }
 
   function fecharCadastro() {

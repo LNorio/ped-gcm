@@ -56,6 +56,16 @@ function textoFaixas(quantidade: number | null): string {
   return `${quantidade} ${quantidade === 1 ? 'faixa' : 'faixas'}`
 }
 
+/** Rótulo da versão ("vN"); sem versão, "—". */
+function textoVersao(versao: number | null): string {
+  return versao === null ? SEM_VALOR : `v${versao}`
+}
+
+/** A linha oferece "Ver faixas da versão": ação com faixas próprias e versão informada. */
+function temFaixasParaConsultar(versao: VersaoFaixas): versao is VersaoFaixas & { versao: number } {
+  return versao.versao !== null && linhaTemFaixasDaVersao(versao.acao)
+}
+
 function ConteudoHistorico({ tabela }: { tabela: TabelaFaixas }) {
   const [tentativa, setTentativa] = useState(0)
   const [estado, setEstado] = useState<EstadoConsulta | null>(null)
@@ -105,7 +115,7 @@ function ConteudoHistorico({ tabela }: { tabela: TabelaFaixas }) {
   }
 
   function detalhesDaVersao({ versao }: LinhaHistorico) {
-    if (!linhaTemFaixasDaVersao(versao.acao)) return null
+    if (!temFaixasParaConsultar(versao)) return null
     const faixas = faixasPorVersao.get(versao.versao)
     if (faixas === undefined || faixas.estado === 'carregando') {
       return <RegiaoStatus mensagem={`Carregando faixas da versão v${versao.versao}...`} />
@@ -127,7 +137,7 @@ function ConteudoHistorico({ tabela }: { tabela: TabelaFaixas }) {
       titulo: 'Versão',
       render: ({ versao }) => (
         <span className="dialogo-historico-faixas__versao">
-          <span>{`v${versao.versao}`}</span>
+          <span>{textoVersao(versao.versao)}</span>
           {versao.vigente ? <Etiqueta tom="sucesso">Vigente</Etiqueta> : null}
         </span>
       ),
@@ -135,7 +145,7 @@ function ConteudoHistorico({ tabela }: { tabela: TabelaFaixas }) {
     ...(temAcao
       ? [{ chave: 'acao', titulo: 'Ação', render: ({ versao }: LinhaHistorico) => rotuloAcaoHistoricoFaixas(versao.acao) }]
       : []),
-    { chave: 'motivo', titulo: 'Motivo', render: ({ versao }) => versao.motivo },
+    { chave: 'motivo', titulo: 'Motivo', render: ({ versao }) => versao.motivo ?? SEM_VALOR, quebrar: true },
     { chave: 'data', titulo: 'Data', render: ({ versao }) => formatarDataHora(versao.data) },
     { chave: 'usuario', titulo: 'Autor', render: ({ versao }) => versao.usuario },
     { chave: 'faixas', titulo: 'Faixas', render: ({ versao }) => textoFaixas(versao.quantidadeDeFaixas) },
@@ -144,7 +154,7 @@ function ConteudoHistorico({ tabela }: { tabela: TabelaFaixas }) {
       titulo: 'Ações',
       alinhar: 'direita',
       render: ({ chave, versao }) => {
-        if (!linhaTemFaixasDaVersao(versao.acao)) return null
+        if (!temFaixasParaConsultar(versao)) return null
         const aberta = abertas.has(chave)
         return (
           <Botao variante="link" tamanho="pequeno" aria-expanded={aberta} onClick={() => alternarVersao(chave, versao.versao)}>

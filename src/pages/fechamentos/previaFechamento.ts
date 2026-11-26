@@ -2,11 +2,12 @@
  * Funções puras compartilhadas pela pré-visualização (F10.4) e pela confirmação do encerramento
  * (F10.5): textos dos avisos, plural de "imagem" e agrupamento das imagens da prévia por filial.
  */
-import type { ImagemCongelada, PreviaFechamento, ResumoFechamento } from '../../types/dominio'
+import type { ImagemCongelada, PreviaFechamento, ProgressoDaFilial, ResumoFechamento } from '../../types/dominio'
+import { formatarInteiro } from '../../utils/formato'
 
 /** "1 imagem" / "N imagens". */
 export function textoImagens(quantidade: number): string {
-  return `${quantidade} ${quantidade === 1 ? 'imagem' : 'imagens'}`
+  return `${formatarInteiro(quantidade)} ${quantidade === 1 ? 'imagem' : 'imagens'}`
 }
 
 /** Rótulo do botão que encerra o período. */
@@ -54,6 +55,19 @@ export function filiaisDosAvisos(resumo: ResumoFechamento) {
     pendencias: ordenarCodigos(resumo.unidadesComPendencias.unidades),
     semFaixas: ordenarCodigos(resumo.unidadesSemTabelaDeFaixas.unidades),
   }
+}
+
+/**
+ * Avisos gerais do resumo (`resumo.avisos`, ex.: o aviso único do DRG), sem repetição, na ordem da API e
+ * sem textos vazios.
+ */
+export function avisosGerais(resumo: ResumoFechamento): string[] {
+  return [...new Set(resumo.avisos.filter((aviso) => aviso.trim() !== ''))]
+}
+
+/** Progresso da filial na prévia: "Progresso da filial {código}: {preenchidos} de {total}". */
+export function textoProgressoDaFilial({ filial, preenchidos, total }: ProgressoDaFilial): string {
+  return `Progresso da filial ${filial}: ${formatarInteiro(preenchidos)} de ${formatarInteiro(total)}`
 }
 
 /** Código da filial da imagem (texto vazio quando a API não informa). */

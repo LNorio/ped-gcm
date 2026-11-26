@@ -425,4 +425,35 @@ describe('F3.4 — FormularioTipo: cadastro de tipo personalizado (RF-13, RF-16)
       expect(alerta).toHaveClass('aviso--erro')
     })
   })
+
+  describe('dropdowns de vínculo: busca limpa ao fechar por clique fora ou Esc (alteração de 18/11/2026)', () => {
+    it('grupos: digitar na busca e clicar em "Nome do tipo" (fora) fecha a lista; ao reabrir, a busca está vazia e mostra todos os grupos', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await user.click(botaoGrupo())
+      const total = within(listaGrupos()).getAllByRole('option').length
+      await user.type(buscaGrupo(), 'zzz')
+
+      await user.click(nome())
+      expect(within(grupoGrupos()).queryByRole('listbox')).not.toBeInTheDocument()
+      await user.click(botaoGrupo())
+
+      expect(buscaGrupo()).toHaveValue('')
+      expect(within(listaGrupos()).getAllByRole('option')).toHaveLength(total)
+    })
+
+    it('usuários: digitar na busca e Esc fecha a lista e devolve o foco; ao reabrir, a busca está vazia', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await user.click(botaoUsuario())
+      await user.type(buscaUsuario(), 'zzz')
+
+      await user.keyboard('{Escape}')
+      expect(within(grupoUsuarios()).queryByRole('listbox')).not.toBeInTheDocument()
+      expect(botaoUsuario()).toHaveFocus()
+      await user.click(botaoUsuario())
+
+      expect(buscaUsuario()).toHaveValue('')
+    })
+  })
 })

@@ -13,6 +13,11 @@ export interface ColunaTabela<T> {
   render?: (linha: T) => ReactNode
   /** Alinhamento do texto da coluna (padrão `esquerda`). */
   alinhar?: AlinhamentoColuna
+  /**
+   * Permite quebra de linha nas células da coluna (texto longo: motivo, lista de filiais). Sem ela,
+   * as células não quebram (`white-space: nowrap`). Só acrescenta a classe `tabela__quebra`.
+   */
+  quebrar?: boolean
 }
 
 export interface TabelaProps<T> {
@@ -39,6 +44,14 @@ export interface TabelaProps<T> {
    */
   expandidas?: ReadonlySet<string | number>
   className?: string
+}
+
+function classesColuna<T>(coluna: ColunaTabela<T>, base?: string): string | undefined {
+  const classes: string[] = []
+  if (base) classes.push(base)
+  if (coluna.alinhar) classes.push(`tabela__alinhar-${coluna.alinhar}`)
+  if (coluna.quebrar) classes.push('tabela__quebra')
+  return classes.length > 0 ? classes.join(' ') : undefined
 }
 
 function valorPadrao<T>(linha: T, chave: string): ReactNode {
@@ -94,7 +107,7 @@ export function Tabela<T>({
               <th
                 key={coluna.chave}
                 scope="col"
-                className={coluna.alinhar ? `rotulo-secao tabela__alinhar-${coluna.alinhar}` : 'rotulo-secao'}
+                className={classesColuna(coluna, 'rotulo-secao')}
               >
                 {coluna.titulo}
               </th>
@@ -126,7 +139,7 @@ export function Tabela<T>({
                   {colunas.map((coluna) => (
                     <td
                       key={coluna.chave}
-                      className={coluna.alinhar ? `tabela__alinhar-${coluna.alinhar}` : undefined}
+                      className={classesColuna(coluna)}
                     >
                       {coluna.render ? coluna.render(linha) : valorPadrao(linha, coluna.chave)}
                     </td>

@@ -1,7 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { identificadoresApi, variaveisIntegracao } from '../../test/dadosExternosFalsos'
+import { identificadoresColeta, variaveisIntegracao } from '../../test/dadosExternosFalsos'
 import type { ParametrosValidacaoIntegracao, ResultadoValidacaoIntegracao } from '../../types/dominio'
 import {
   type AlvoIntegracao,
@@ -145,7 +145,7 @@ describe('F5.19 — DialogoConcluirConstrucao em modo "leitura" (integração do
   })
 
   it('sem "Inserir modelo", sem variáveis disponíveis nem operadores, mesmo recebendo as variáveis da API', () => {
-    renderizar({ variaveis: variaveisIntegracao(), identificadores: identificadoresApi() })
+    renderizar({ variaveis: variaveisIntegracao(), identificadores: identificadoresColeta() })
 
     expect(within(dialogo()).queryByRole('button', { name: 'Inserir modelo de saída' })).not.toBeInTheDocument()
     expect(within(dialogo()).queryByRole('button', { name: 'Inserir modelo de entrada' })).not.toBeInTheDocument()

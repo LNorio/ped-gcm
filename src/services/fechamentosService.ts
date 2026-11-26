@@ -18,7 +18,10 @@
  *   `paraImagemCongelada` (o mesmo do detalhe da imagem);
  * - resumo com contagens numéricas ou listas (códigos em texto, número ou `{ filial }`); sem resumo,
  *   "imagens a gerar" é o número de imagens;
- * - "imagens geradas" do encerramento como número ou lista de códigos (texto ou `{ codigo }`).
+ * - "imagens geradas" do encerramento como número ou lista de códigos (texto ou `{ codigo }`);
+ * - `resumo."progresso por filial"` (só na prévia; Swagger de 25/11/2026) vira `progressoPorFilial`, na ordem
+ *   da API: filial numérica vira texto; ausente, `null` ou não lista → `[]`, sem rejeitar a prévia; itens
+ *   fora do formato são ignorados.
  *
  * Números aceitam número ou texto decimal canônico; pt-BR ou outro tipo é inválido. Nas leituras,
  * respostas 2xx fora do formato viram `ApiError(200, MENSAGEM_RESPOSTA_INVALIDA)` e um item inválido
@@ -35,6 +38,7 @@ import {
   type Periodicidade,
   type PeriodoDaImagem,
   type PreviaFechamento,
+  type ProgressoDaFilial,
   type ResultadoEncerramento,
   type ResumoFechamento,
   SITUACOES_PERIODO,
@@ -242,6 +246,19 @@ function paraResumo(valor: unknown, imagensAGerarPadrao: number, estrito: boolea
   }
 }
 
+/** `resumo."progresso por filial"` da prévia, tolerante: fora do formato → `[]`; itens inválidos ignorados. */
+function progressoPorFilial(resumo: unknown): ProgressoDaFilial[] {
+  if (!ehObjeto(resumo)) return []
+  const valor = resumo['progresso por filial']
+  if (!Array.isArray(valor)) return []
+  return valor.flatMap((item: unknown): ProgressoDaFilial[] => {
+    if (!ehObjeto(item) || !ehNumero(item.preenchidos) || !ehNumero(item.total)) return []
+    const filial = ehTexto(item.filial) ? item.filial : ehNumero(item.filial) ? String(item.filial) : null
+    if (filial === null || filial.trim() === '') return []
+    return [{ filial, nomeFilial: textoOuNulo(item['nome filial']), preenchidos: item.preenchidos, total: item.total }]
+  })
+}
+
 function paraImagemDaPrevia(item: unknown): ImagemCongelada {
   if (!ehObjeto(item)) throw respostaInvalida()
   const conteudo = ehObjeto(item.imagem) ? item.imagem : item
@@ -256,6 +273,7 @@ function paraPrevia(resposta: unknown): PreviaFechamento {
     periodo: paraPeriodoDaImagem(resposta.periodo),
     resumo: paraResumo(resposta.resumo, imagens.length, true),
     imagens,
+    progressoPorFilial: progressoPorFilial(resposta.resumo),
   }
 }
 

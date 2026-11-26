@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import { type Usuario, colar, usuarioRapido } from '../../test/usuario'
 import { describe, expect, it, vi } from 'vitest'
 import { TIPOS_DO_USUARIO_API } from '../../test/apontamentosFalsos'
-import { identificadoresApi } from '../../test/dadosExternosFalsos'
+import { identificadoresColeta } from '../../test/dadosExternosFalsos'
 import type { NovoDadoExterno } from '../../types/dominio'
 import { FormularioDadoExterno } from './FormularioDadoExterno'
 
@@ -13,7 +13,7 @@ describe('F5.6 — FormularioDadoExterno variante solicitação (Validador/Preen
       <FormularioDadoExterno
         tipos={[TIPOS_DO_USUARIO_API[0]]}
         variante="solicitacao"
-        identificadores={identificadoresApi()}
+        identificadores={identificadoresColeta()}
         salvando={false}
         erro={null}
         onSalvar={onSalvar}

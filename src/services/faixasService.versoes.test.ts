@@ -69,7 +69,8 @@ describe('F8.1 — Serviço de faixas: histórico de versões, faixas de uma ver
       ['resposta sem lista', { mensagem: 'ok' }],
       ['versão sem número', [{ ...historicoFaixasApi()[0], versao: undefined }]],
       ['versão sem "vigente"', [{ ...historicoFaixasApi()[0], vigente: undefined }]],
-      ['versão sem motivo', [{ ...historicoFaixasApi()[0], motivo: undefined }]],
+      // Motivo ausente ou null vira null (D2, 25/11/2026 — faixasService.historicoNulos.test.ts); fora de texto continua inválido.
+      ['versão com motivo que não é texto', [{ ...historicoFaixasApi()[0], motivo: 123 }]],
       ['versão sem data', [{ ...historicoFaixasApi()[0], data: undefined }]],
       ['versão sem usuário', [{ ...historicoFaixasApi()[0], usuario: undefined }]],
       ['versão com número em texto', [{ ...historicoFaixasApi()[0], versao: 'v2' }]],

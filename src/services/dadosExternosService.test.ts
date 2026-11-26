@@ -7,6 +7,7 @@ import {
   DADO_TAREFA_ENVIADA_API,
   DADO_TAREFA_SEM_NUMERO_API,
   DADO_VOLUME_API,
+  IDENTIFICADORES_EXEMPLO_DOCUMENTO_API,
   dadosExternosApi,
   identificadoresApi,
   respostaConclusaoApi,
@@ -15,7 +16,7 @@ import {
   respostaDadosExternosApi,
   tarefaBitrixCriadaApi,
 } from '../test/dadosExternosFalsos'
-import type { IntegracaoDadoExterno, NovoDadoExterno } from '../types/dominio'
+import type { IdentificadorColeta, IntegracaoDadoExterno, NovoDadoExterno } from '../types/dominio'
 import { ApiError, MENSAGEM_RESPOSTA_INVALIDA, MENSAGEM_SEM_CONEXAO, mensagemPadraoPorStatus } from './api'
 import {
   ROTULOS_SITUACAO_FILTRO_DADO_EXTERNO,
@@ -442,8 +443,15 @@ describe('F5.1 — Serviço de dados externos', () => {
     })
   })
 
+  /**
+   * D1 (resposta do back-end de 25/11/2026, `docs/backend/FRONT-resposta-verificacao-swagger-2026-11-25.md`):
+   * cada item vem como `{ identificador, nome, unidade, ativo, "dados cadastrados" }` e **nunca** traz
+   * `quantidade`. A contagem do domínio (`IdentificadorColeta.quantidade`, tipo mantido) passa a vir de
+   * `"dados cadastrados"`; `quantidade` continua aceito só como reserva (formato antigo), e com os dois
+   * presentes vale `"dados cadastrados"`. `nome`, `unidade` e `ativo` não entram no domínio.
+   */
   describe('listarIdentificadores()', () => {
-    it('faz GET .../identificadores e devolve { identificador, quantidade } na ordem da API', async () => {
+    it('faz GET .../identificadores e devolve { identificador, quantidade } na ordem da API, com a contagem de "dados cadastrados"', async () => {
       const chamadas = simularApi(fetchFalso, { [`GET ${ROTA}/identificadores`]: () => respostaJson(identificadoresApi()) })
 
       const lista = await listarIdentificadores()
@@ -451,24 +459,69 @@ describe('F5.1 — Serviço de dados externos', () => {
       expect(chamadas[0].metodo).toBe('GET')
       expect(chamadas[0].caminho).toBe(`${ROTA}/identificadores`)
       expect(cabecalhoDaChamada(chamadas[0], 'Authorization')).toBe('Bearer token-123')
-      expect(lista).toEqual([
-        { identificador: 'faturamento', quantidade: 1 },
-        { identificador: 'cobertura', quantidade: 1 },
-        { identificador: 'volume_vendas', quantidade: 2 },
-        { identificador: 'novos_clientes', quantidade: 0 },
+      expect(lista).toEqual<IdentificadorColeta[]>([
+        { identificador: 'FATURAMENTO', quantidade: 1 },
+        { identificador: 'COBERTURA', quantidade: 1 },
+        { identificador: 'VOLUME_VENDAS', quantidade: 2 },
+        { identificador: 'NOVOS_CLIENTES', quantidade: 0 },
       ])
+    })
+
+    it('contrato (exemplo do documento de 25/11/2026): [{ identificador, nome, unidade, ativo, "dados cadastrados": 1 }] vira [{ identificador: "FATURAMENTO", quantidade: 1 }]', async () => {
+      simularApi(fetchFalso, { [`GET ${ROTA}/identificadores`]: () => respostaJson(IDENTIFICADORES_EXEMPLO_DOCUMENTO_API) })
+
+      await expect(listarIdentificadores()).resolves.toEqual<IdentificadorColeta[]>([{ identificador: 'FATURAMENTO', quantidade: 1 }])
+    })
+
+    it('contrato (exemplo do Swagger de 25/11/2026): "Atingimento meta faturamento", unidade "valor", ativo e 1 dado cadastrado', async () => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}/identificadores`]: () =>
+          respostaJson([
+            { identificador: 'FATURAMENTO', nome: 'Atingimento meta faturamento', unidade: 'valor', ativo: true, 'dados cadastrados': 1 },
+          ]),
+      })
+
+      await expect(listarIdentificadores()).resolves.toEqual<IdentificadorColeta[]>([{ identificador: 'FATURAMENTO', quantidade: 1 }])
+    })
+
+    it('coleta inativa e com 0 dados cadastrados também entra na lista (quantidade 0)', async () => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}/identificadores`]: () =>
+          respostaJson([{ identificador: 'NOVOS_CLIENTES', nome: 'Novos clientes', unidade: 'quantidade', ativo: false, 'dados cadastrados': 0 }]),
+      })
+
+      await expect(listarIdentificadores()).resolves.toEqual<IdentificadorColeta[]>([{ identificador: 'NOVOS_CLIENTES', quantidade: 0 }])
+    })
+
+    it('reserva: item só com "quantidade" (formato antigo, sem "dados cadastrados") continua aceito', async () => {
+      simularApi(fetchFalso, { [`GET ${ROTA}/identificadores`]: () => respostaJson([{ identificador: 'faturamento', quantidade: 3 }]) })
+
+      await expect(listarIdentificadores()).resolves.toEqual<IdentificadorColeta[]>([{ identificador: 'faturamento', quantidade: 3 }])
+    })
+
+    it('com "dados cadastrados" e "quantidade" no mesmo item, vale "dados cadastrados"', async () => {
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}/identificadores`]: () => respostaJson([{ identificador: 'FATURAMENTO', 'dados cadastrados': 2, quantidade: 9 }]),
+      })
+
+      await expect(listarIdentificadores()).resolves.toEqual<IdentificadorColeta[]>([{ identificador: 'FATURAMENTO', quantidade: 2 }])
     })
 
     it('aceita também a lista dentro da chave "identificadores"', async () => {
       simularApi(fetchFalso, {
-        [`GET ${ROTA}/identificadores`]: () => respostaJson({ identificadores: [{ identificador: 'faturamento', quantidade: 3 }] }),
+        [`GET ${ROTA}/identificadores`]: () =>
+          respostaJson({ identificadores: [{ identificador: 'FATURAMENTO', nome: 'Faturamento', unidade: 'valor', ativo: true, 'dados cadastrados': 3 }] }),
       })
 
-      await expect(listarIdentificadores()).resolves.toEqual([{ identificador: 'faturamento', quantidade: 3 }])
+      await expect(listarIdentificadores()).resolves.toEqual<IdentificadorColeta[]>([{ identificador: 'FATURAMENTO', quantidade: 3 }])
     })
 
-    it('resposta fora do formato (item sem identificador) vira ApiError "resposta inválida"', async () => {
-      simularApi(fetchFalso, { [`GET ${ROTA}/identificadores`]: () => respostaJson([{ quantidade: 1 }]) })
+    it.each([
+      ['item sem identificador', [{ nome: 'Faturamento', 'dados cadastrados': 1 }]],
+      ['item sem "dados cadastrados" e sem "quantidade"', [{ identificador: 'FATURAMENTO', nome: 'Faturamento', unidade: 'valor', ativo: true }]],
+      ['"dados cadastrados" em texto', [{ identificador: 'FATURAMENTO', 'dados cadastrados': '1' }]],
+    ])('resposta fora do formato (%s) vira ApiError "resposta inválida"', async (_caso, corpo) => {
+      simularApi(fetchFalso, { [`GET ${ROTA}/identificadores`]: () => respostaJson(corpo) })
 
       await expect(listarIdentificadores()).rejects.toMatchObject({ mensagem: MENSAGEM_RESPOSTA_INVALIDA })
     })

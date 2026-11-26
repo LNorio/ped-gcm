@@ -51,6 +51,31 @@
   line-height: 1.5;
 }
 
+/*
+ * Celular (RNF-04): as regras acima, com :has(), anulam a regra de 480px do Dialogo.css. Aqui o
+ * diálogo volta ao comportamento de "folha inferior": overlay com 0.75rem, diálogo encostado embaixo
+ * e altura limitada à tela, com a rolagem no corpo.
+ */
+@media (max-width: 480px) {
+  .dialogo-fundo:has(> .dialogo > .dialogo__corpo > .formulario-indicador) {
+    align-items: flex-end;
+    padding: 0.75rem;
+  }
+
+  .dialogo:has(> .dialogo__corpo > .formulario-indicador) {
+    max-height: calc(100vh - 1.5rem);
+    max-height: calc(100dvh - 1.5rem);
+  }
+
+  .dialogo:has(> .dialogo__corpo > .formulario-indicador) > .dialogo__cabecalho {
+    padding: 14px 16px;
+  }
+
+  .dialogo:has(> .dialogo__corpo > .formulario-indicador) > .dialogo__corpo {
+    padding: 16px;
+  }
+}
+
 .formulario-indicador {
   display: flex;
   flex-direction: column;

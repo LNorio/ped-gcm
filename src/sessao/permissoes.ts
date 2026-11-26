@@ -102,6 +102,7 @@ export function podeAcessar(perfil: Perfil | null, aba: Aba): boolean {
  * | excluir-indicador             |   x   |           |             |
  * | ver-historico-metas-indicador |   x   |     x     |             |
  * | configurar-integracao-indicador |   x   |           |             |
+ * | ver-integracao-pendente-indicador |   x   |     x     |             |
  * | cadastrar-dashboard           |   x   |     x     |             |
  * | editar-dashboard              |   x   |     x     |             |
  * | alterar-situacao-dashboard    |   x   |           |             |
@@ -138,6 +139,8 @@ export type AcaoPermissao =
   | 'ver-historico-metas-indicador'
   /** F6.11: "Preencher integração" / "Configurações" da meta buscada via API. */
   | 'configurar-integracao-indicador'
+  /** F6.11/F6.3: alerta "integração pendente" no menu e filtro "Integração pendente (TI)" (só leitura). */
+  | 'ver-integracao-pendente-indicador'
   | 'cadastrar-dashboard'
   | 'editar-dashboard'
   | 'alterar-situacao-dashboard'
@@ -168,6 +171,7 @@ const PERFIS_POR_ACAO: Readonly<Record<AcaoPermissao, readonly Perfil[]>> = {
   'excluir-indicador': ['admin'],
   'ver-historico-metas-indicador': ['admin', 'validador'],
   'configurar-integracao-indicador': ['admin'],
+  'ver-integracao-pendente-indicador': ['admin', 'validador'],
   'cadastrar-dashboard': ['admin', 'validador'],
   'editar-dashboard': ['admin', 'validador'],
   'alterar-situacao-dashboard': ['admin'],

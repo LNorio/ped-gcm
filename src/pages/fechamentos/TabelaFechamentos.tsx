@@ -12,6 +12,7 @@ import { Etiqueta } from '../../components/Etiqueta'
 import { MenuAcoes, type ItemMenuAcoes } from '../../components/MenuAcoes'
 import { Tabela, type ColunaTabela } from '../../components/Tabela'
 import { type Fechamento, ROTULOS_PERIODICIDADE, ROTULOS_SITUACAO_PERIODO } from '../../types/dominio'
+import { formatarInteiro } from '../../utils/formato'
 import './TabelaFechamentos.css'
 
 export interface TabelaFechamentosProps {
@@ -25,7 +26,7 @@ export interface TabelaFechamentosProps {
 }
 
 function contagem(quantidade: number, singular: string, plural: string): string {
-  return `${quantidade} ${quantidade === 1 ? singular : plural}`
+  return `${formatarInteiro(quantidade)} ${quantidade === 1 ? singular : plural}`
 }
 
 function textoVinculo(fechamento: Fechamento): string {
@@ -83,7 +84,7 @@ function colunaUnidades(fechamento: Fechamento) {
     <div className="tabela-fechamentos__pilha">
       <span>{textoUnidades(fechamento)}</span>
       <span className={pendencias > 0 ? 'tabela-fechamentos__pendencias' : 'tabela-fechamentos__secundario'}>
-        {pendencias > 0 ? `${pendencias} com pendências` : 'Sem pendências'}
+        {pendencias > 0 ? `${formatarInteiro(pendencias)} com pendências` : 'Sem pendências'}
       </span>
     </div>
   )
@@ -104,7 +105,7 @@ function colunaProgresso(fechamento: Fechamento) {
   const percentual = percentualProgresso(fechamento)
   return (
     <div className="tabela-fechamentos__pilha tabela-fechamentos__progresso">
-      <span>{`${preenchidos} de ${total} lançamentos`}</span>
+      <span>{`${formatarInteiro(preenchidos)} de ${formatarInteiro(total)} ${total === 1 ? 'lançamento' : 'lançamentos'}`}</span>
       <div
         className="tabela-fechamentos__barra"
         role="progressbar"
@@ -128,7 +129,7 @@ export function TabelaFechamentos({ fechamentos, onPrevisualizar, onEncerrar, te
   }
 
   const colunas: ColunaTabela<Fechamento>[] = [
-    { chave: 'nome', titulo: 'Dashboard', render: colunaDashboard },
+    { chave: 'nome', titulo: 'Dashboard', render: colunaDashboard, quebrar: true },
     { chave: 'unidades', titulo: 'Unidades', render: colunaUnidades },
     {
       chave: 'periodicidade',

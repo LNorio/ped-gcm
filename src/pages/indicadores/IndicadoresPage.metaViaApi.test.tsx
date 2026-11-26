@@ -27,8 +27,10 @@ function SondaAlertasMenu() {
 
 /**
  * F6.11 — Sinal da aba Indicadores com a integração da meta pendente.
- * `alertas["integracao pendente"] > 0` (opcional na API) também marca a aba no menu, só para quem pode
- * configurar a integração (Admin). Ausente → 0 (não marca). Nenhum aviso novo no topo da página.
+ * `alertas["integracao pendente"] > 0` (opcional na API) também marca a aba no menu para quem pode ver a
+ * integração pendente (`ver-integracao-pendente-indicador`: Admin e Validador — alteração de 19/11/2026,
+ * CONTRAPROPOSTA-alertas-menu.md, ajuste 2; editar a integração continua só do Admin). Ausente → 0 (não
+ * marca). Nenhum aviso novo no topo da página.
  */
 describe('F6.11 — IndicadoresPage: sinal da aba com integração da meta pendente', () => {
   let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
@@ -99,9 +101,36 @@ describe('F6.11 — IndicadoresPage: sinal da aba com integração da meta pende
     expect(sonda()).toHaveTextContent('')
   })
 
-  it('Validador: "integracao pendente" > 0 não marca a aba (só o Admin configura a integração)', async () => {
+  it('Validador: "integracao pendente" > 0 (sem outros alertas) marca a aba "indicadores"', async () => {
     const lista = [INDICADOR_COBERTURA_VISITAS_API]
     renderizar(lista, { ...alertasApi(lista), 'integracao pendente': 2 }, 'validador')
+
+    await screen.findByRole('table', { name: 'Indicadores' })
+
+    await waitFor(() => expect(sonda()).toHaveTextContent('indicadores'))
+  })
+
+  it('Validador: nenhum aviso novo no topo da página por causa da integração pendente', async () => {
+    const lista = [INDICADOR_COBERTURA_VISITAS_API]
+    renderizar(lista, { ...alertasApi(lista), 'integracao pendente': 2 }, 'validador')
+
+    await screen.findByRole('table', { name: 'Indicadores' })
+
+    expect(notas()).toEqual([])
+  })
+
+  it('Validador: "integracao pendente" 0 não marca a aba', async () => {
+    const lista = [INDICADOR_COBERTURA_VISITAS_API]
+    renderizar(lista, { ...alertasApi(lista), 'integracao pendente': 0 }, 'validador')
+
+    await screen.findByRole('table', { name: 'Indicadores' })
+
+    expect(sonda()).toHaveTextContent('')
+  })
+
+  it('Validador: sem "integracao pendente" nos alertas, a aba não é marcada', async () => {
+    const lista = [INDICADOR_COBERTURA_VISITAS_API]
+    renderizar(lista, alertasApi(lista), 'validador')
 
     await screen.findByRole('table', { name: 'Indicadores' })
 

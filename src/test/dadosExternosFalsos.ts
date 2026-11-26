@@ -22,7 +22,8 @@
  *
  * Formatos assumidos (não documentados em `docs/backend/API (24).md`; ver dúvidas da F5):
  * - listagem: `{ "dados externos": [...] }` (o serviço também aceita a lista pura);
- * - identificadores: lista de `{ identificador, quantidade }`;
+ * - identificadores (formato real, Swagger de 25/11/2026 — `docs/backend/FRONT-resposta-verificacao-swagger-2026-11-25.md`,
+ *   D1): lista de `{ identificador, nome, unidade, ativo, "dados cadastrados" }` — nunca `quantidade`;
  * - POST: `{ "dado externo": {...}, "tarefa": {...} | null }`;
  * - concluir: `{ "dado externo": {...}, "indicador criado": { id, nome } | null }`.
  *
@@ -31,7 +32,7 @@
  * traz a lista como o Admin a recebe (URL, parâmetros, variáveis usadas, integração pendente).
  * Variáveis: `variaveisIntegracaoApi` no formato real de `GET /api/ped/integracao/variaveis`.
  */
-import type { VariavelIntegracao } from '../types/dominio'
+import type { IdentificadorColeta, VariavelIntegracao } from '../types/dominio'
 import { normalizarBusca } from '../utils/formato'
 import type { RotaFalsa } from './apiFalsa'
 import { respostaJson } from './apiFalsa'
@@ -106,9 +107,18 @@ export interface DadoExternoApiFalso {
   'mapeamento da saida'?: unknown
 }
 
+/**
+ * Item de `GET .../identificadores` no formato real (D1, 25/11/2026): a contagem vem em
+ * `"dados cadastrados"`; a rota **nunca** devolveu `quantidade` (só usado aqui para o formato antigo,
+ * aceito como reserva pelo serviço).
+ */
 export interface IdentificadorApiFalso {
   identificador: string
-  quantidade: number
+  nome?: string
+  unidade?: string
+  ativo?: boolean
+  'dados cadastrados'?: number
+  quantidade?: number
 }
 
 /** Tarefa devolvida pela API ao pedir a construção (POST de Validador/Preenchedor). */
@@ -441,16 +451,30 @@ export function respostaDadosExternosApi(lista: DadoExternoApiFalso[] = dadosExt
 }
 
 /**
- * Coletas existentes devolvidas por `GET .../identificadores` (códigos do catálogo de coleta, em
- * minúsculas como em `GET /api/ped/indicadores`), com quantos dados usam cada uma.
+ * Coletas existentes devolvidas por `GET .../identificadores`, no formato real (D1, 25/11/2026):
+ * `{ identificador, nome, unidade, ativo, "dados cadastrados" }`, com o código em maiúsculas e quantos
+ * dados usam cada coleta em `"dados cadastrados"`.
  */
 export function identificadoresApi(): IdentificadorApiFalso[] {
   return [
-    { identificador: 'faturamento', quantidade: 1 },
-    { identificador: 'cobertura', quantidade: 1 },
-    { identificador: 'volume_vendas', quantidade: 2 },
-    { identificador: 'novos_clientes', quantidade: 0 },
+    { identificador: 'FATURAMENTO', nome: 'Atingimento meta faturamento', unidade: 'valor', ativo: true, 'dados cadastrados': 1 },
+    { identificador: 'COBERTURA', nome: 'Cobertura de clientes', unidade: 'quantidade', ativo: true, 'dados cadastrados': 1 },
+    { identificador: 'VOLUME_VENDAS', nome: 'Volume de vendas', unidade: 'valor', ativo: true, 'dados cadastrados': 2 },
+    { identificador: 'NOVOS_CLIENTES', nome: 'Novos clientes', unidade: 'quantidade', ativo: false, 'dados cadastrados': 0 },
   ]
+}
+
+/** Exemplo do documento do back-end de 25/11/2026 (D1), usado como teste de contrato. */
+export const IDENTIFICADORES_EXEMPLO_DOCUMENTO_API: IdentificadorApiFalso[] = [
+  { identificador: 'FATURAMENTO', nome: 'Faturamento', unidade: 'quantidade', ativo: true, 'dados cadastrados': 1 },
+]
+
+/**
+ * As mesmas coletas de `identificadoresApi()` já no formato do domínio (`IdentificadorColeta`), para os
+ * testes que passam as sugestões como prop (formulário e diálogo de concluir construção).
+ */
+export function identificadoresColeta(): IdentificadorColeta[] {
+  return identificadoresApi().map((item) => ({ identificador: item.identificador, quantidade: item['dados cadastrados'] ?? 0 }))
 }
 
 /**

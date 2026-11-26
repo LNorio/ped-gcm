@@ -99,7 +99,7 @@ function ConteudoMotivo({ tabela }: { tabela: TabelaFaixas }) {
         <ListaPares
           pares={[
             ['Ação', rotuloAcaoHistoricoFaixas(ultima.acao)],
-            ['Motivo', ultima.motivo],
+            ['Motivo', ultima.motivo ?? '—'],
             ['Autor', ultima.usuario],
             ['Data', formatarDataHora(ultima.data)],
           ]}

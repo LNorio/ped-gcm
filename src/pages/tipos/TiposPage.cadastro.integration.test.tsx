@@ -171,4 +171,56 @@ describe('F3.4 — Cadastro de tipo personalizado (integração: /tipos com Admi
     expect(screen.getByRole('alert')).toHaveTextContent(MENSAGEM_SESSAO_EXPIRADA)
     expect(obterToken()).toBeNull()
   })
+
+  describe('dropdowns de vínculo fecham ao clicar fora e com Esc (alteração de 18/11/2026)', () => {
+    it('com "Selecionar grupo" aberto, clicar no título do diálogo fecha a lista e o diálogo continua aberto', async () => {
+      const user = usuarioRapido()
+      simularSessao('admin')
+      await abrirTipos()
+      const dialogo = await abrirCadastro(user)
+      const campo = within(dialogo).getByRole('group', { name: 'Grupos vinculados' })
+      const botao = within(campo).getByRole('button', { name: 'Selecionar grupo' })
+      await user.click(botao)
+      expect(within(campo).getByRole('listbox')).toBeInTheDocument()
+
+      await user.click(within(dialogo).getByRole('heading', { name: TITULO }))
+
+      expect(within(campo).queryByRole('listbox')).not.toBeInTheDocument()
+      expect(botao).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.getByRole('dialog', { name: TITULO })).toBeInTheDocument()
+    })
+
+    it('escolher um grupo mantém a lista aberta; clicar no campo "Nome do tipo" (fora) a fecha, com o grupo escolhido', async () => {
+      const user = usuarioRapido()
+      simularSessao('admin')
+      await abrirTipos()
+      const dialogo = await abrirCadastro(user)
+      const campo = within(dialogo).getByRole('group', { name: 'Grupos vinculados' })
+
+      await escolher(user, dialogo, 'Grupos vinculados', 'DEF_OPERADOR DE CAIXA')
+      expect(within(campo).getByRole('listbox')).toBeInTheDocument()
+
+      await user.click(within(dialogo).getByRole('textbox', { name: 'Nome do tipo' }))
+
+      expect(within(campo).queryByRole('listbox')).not.toBeInTheDocument()
+      expect(campo).toHaveTextContent('DEF_OPERADOR DE CAIXA')
+    })
+
+    it('Esc na busca "Buscar usuário" fecha só a lista: o diálogo continua aberto e o foco volta a "Selecionar usuário"', async () => {
+      const user = usuarioRapido()
+      simularSessao('validador')
+      await abrirTipos()
+      const dialogo = await abrirCadastro(user)
+      const campo = within(dialogo).getByRole('group', { name: 'Usuários vinculados' })
+      const botao = within(campo).getByRole('button', { name: 'Selecionar usuário' })
+      await user.click(botao)
+      await user.click(within(campo).getByRole('searchbox', { name: 'Buscar usuário' }))
+
+      await user.keyboard('{Escape}')
+
+      expect(within(campo).queryByRole('listbox')).not.toBeInTheDocument()
+      expect(screen.getByRole('dialog', { name: TITULO })).toBeInTheDocument()
+      expect(botao).toHaveFocus()
+    })
+  })
 })

@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import { Dialogo } from '../../components/Dialogo'
 import { paraApontamento, paraDadoExterno } from '../../services/adaptadores'
 import {
   APONTAMENTO_CHAMADOS_API,
@@ -169,6 +170,223 @@ describe('F6.4 — FormularioIndicador: cadastro de indicador (RF-34, RF-35, RF-
 
       expect(botaoDadoExterno()).toHaveAttribute('aria-expanded', 'false')
       expect(within(grupoDadoExterno()).queryByRole('listbox')).not.toBeInTheDocument()
+    })
+
+    /**
+     * Alteração de 19/11/2026: os dropdowns da composição ("Selecionar apontamento" e "Selecionar
+     * dado externo") fecham ao clicar fora e com Esc, como o SeletorBusca dos dashboards. Motivação:
+     * comportamento igual em todos os dropdowns do sistema.
+     */
+    describe('dropdowns da composição fecham ao clicar fora e com Esc (alteração de 19/11/2026)', () => {
+      const PAINEIS = [
+        {
+          painel: 'apontamentos',
+          botao: botaoApontamento,
+          grupo: grupoApontamentos,
+          busca: buscaApontamento,
+          lista: listaApontamentos,
+          rotuloOpcao: 'Roteiro de visitas elaborado',
+        },
+        {
+          painel: 'dado externo',
+          botao: botaoDadoExterno,
+          grupo: grupoDadoExterno,
+          busca: buscaDadoExterno,
+          lista: listaDadosExternos,
+          rotuloOpcao: 'Faturamento líquido',
+        },
+      ] as const
+
+      it.each(PAINEIS)('$painel: com o painel aberto, clicar fora do dropdown (no campo Nome) fecha o painel', async ({ botao, grupo }) => {
+        const user = usuarioRapido()
+        renderizar()
+        await user.click(botao())
+        expect(within(grupo()).getByRole('listbox')).toBeInTheDocument()
+
+        await user.click(nome())
+
+        expect(within(grupo()).queryByRole('listbox')).not.toBeInTheDocument()
+        expect(within(grupo()).queryByRole('searchbox')).not.toBeInTheDocument()
+        expect(botao()).toHaveAttribute('aria-expanded', 'false')
+      })
+
+      it.each(PAINEIS)('$painel: clicar no título "Composição" (fora do dropdown) também fecha o painel', async ({ botao, grupo }) => {
+        const user = usuarioRapido()
+        renderizar()
+        await user.click(botao())
+
+        await user.click(screen.getByText('Composição'))
+
+        expect(within(grupo()).queryByRole('listbox')).not.toBeInTheDocument()
+        expect(botao()).toHaveAttribute('aria-expanded', 'false')
+      })
+
+      it.each(PAINEIS)('$painel: clicar fora limpa a busca; ao reabrir, a busca está vazia e todas as opções voltam', async ({ botao, busca, lista }) => {
+        const user = usuarioRapido()
+        renderizar()
+        await user.click(botao())
+        await user.type(busca(), 'xyz')
+
+        await user.click(nome())
+        expect(botao()).toHaveAttribute('aria-expanded', 'false')
+
+        await user.click(botao())
+        expect(busca()).toHaveValue('')
+        expect(textosDaLista(lista())).toHaveLength(3)
+      })
+
+      it.each(PAINEIS)('$painel: clicar e digitar na busca e clicar na área da lista mantêm o painel aberto', async ({ botao, busca, lista }) => {
+        const user = usuarioRapido()
+        renderizar()
+        await user.click(botao())
+
+        await user.click(busca())
+        await user.type(busca(), 'a')
+        await user.click(lista())
+
+        expect(lista()).toBeInTheDocument()
+        expect(busca()).toHaveValue('a')
+        expect(botao()).toHaveAttribute('aria-expanded', 'true')
+      })
+
+      it('clicar na mensagem do painel ("Nenhum apontamento encontrado.") mantém o painel aberto', async () => {
+        const user = usuarioRapido()
+        renderizar()
+        await user.click(botaoApontamento())
+        await user.type(buscaApontamento(), 'xyz')
+
+        await user.click(within(grupoApontamentos()).getByText('Nenhum apontamento encontrado.'))
+
+        expect(listaApontamentos()).toBeInTheDocument()
+        expect(botaoApontamento()).toHaveAttribute('aria-expanded', 'true')
+      })
+
+      it('o botão continua alternando: abrir e clicar de novo no próprio botão fecha (sem reabrir pelo clique fora)', async () => {
+        const user = usuarioRapido()
+        renderizar()
+
+        await user.click(botaoApontamento())
+        expect(botaoApontamento()).toHaveAttribute('aria-expanded', 'true')
+        await user.click(botaoApontamento())
+        expect(botaoApontamento()).toHaveAttribute('aria-expanded', 'false')
+        await user.click(botaoApontamento())
+        expect(botaoApontamento()).toHaveAttribute('aria-expanded', 'true')
+        expect(listaApontamentos()).toBeInTheDocument()
+      })
+
+      it('com "Selecionar apontamento" aberto, clicar em "Selecionar dado externo" deixa aberto só o painel de dado externo', async () => {
+        const user = usuarioRapido()
+        renderizar()
+        await user.click(botaoApontamento())
+
+        await user.click(botaoDadoExterno())
+
+        expect(within(grupoApontamentos()).queryByRole('listbox')).not.toBeInTheDocument()
+        expect(botaoApontamento()).toHaveAttribute('aria-expanded', 'false')
+        expect(listaDadosExternos()).toBeInTheDocument()
+        expect(botaoDadoExterno()).toHaveAttribute('aria-expanded', 'true')
+      })
+
+      it('escolher um apontamento mantém o painel aberto (comportamento atual); clicar fora depois fecha e mantém o escolhido', async () => {
+        const user = usuarioRapido()
+        renderizar()
+        await user.click(botaoApontamento())
+
+        await user.click(opcao(listaApontamentos(), 'Roteiro de visitas elaborado'))
+        expect(listaApontamentos()).toBeInTheDocument()
+
+        await user.click(nome())
+
+        expect(within(grupoApontamentos()).queryByRole('listbox')).not.toBeInTheDocument()
+        expect(escolhidosApontamento()).toHaveTextContent('Roteiro de visitas elaborado')
+      })
+
+      it.each(PAINEIS)('$painel: Esc na busca fecha o painel e devolve o foco ao botão', async ({ botao, grupo, busca }) => {
+        const user = usuarioRapido()
+        renderizar()
+        await user.click(botao())
+        await user.click(busca())
+
+        await user.keyboard('{Escape}')
+
+        expect(within(grupo()).queryByRole('listbox')).not.toBeInTheDocument()
+        expect(botao()).toHaveAttribute('aria-expanded', 'false')
+        expect(botao()).toHaveFocus()
+      })
+
+      it.each(PAINEIS)('$painel: Esc com o foco numa opção fecha o painel e devolve o foco ao botão', async ({ botao, grupo, lista, rotuloOpcao }) => {
+        const user = usuarioRapido()
+        renderizar()
+        await user.click(botao())
+        opcao(lista(), rotuloOpcao).focus()
+
+        await user.keyboard('{Escape}')
+
+        expect(within(grupo()).queryByRole('listbox')).not.toBeInTheDocument()
+        expect(botao()).toHaveFocus()
+      })
+
+      it('Esc com o foco no botão e o painel aberto fecha o painel', async () => {
+        const user = usuarioRapido()
+        renderizar()
+        await user.click(botaoApontamento())
+        expect(botaoApontamento()).toHaveFocus()
+
+        await user.keyboard('{Escape}')
+
+        expect(within(grupoApontamentos()).queryByRole('listbox')).not.toBeInTheDocument()
+        expect(botaoApontamento()).toHaveFocus()
+      })
+
+      function renderizarNoDialogo() {
+        const fecharDialogo = vi.fn<() => void>()
+        render(
+          <Dialogo aberto titulo="Novo indicador" onFechar={fecharDialogo}>
+            <FormularioIndicador
+              apontamentos={APONTAMENTOS}
+              dadosExternos={DADOS_EXTERNOS}
+              carregandoComponentes={false}
+              erroComponentes={null}
+              salvando={false}
+              erro={null}
+              onSalvar={vi.fn()}
+              onCancelar={vi.fn()}
+            />
+          </Dialogo>,
+        )
+        return fecharDialogo
+      }
+
+      it.each(PAINEIS)(
+        '$painel: dentro de um Dialogo, Esc com o painel aberto fecha só o painel; com ele fechado, o Esc fecha o diálogo',
+        async ({ botao, grupo, busca }) => {
+          const user = usuarioRapido()
+          const fecharDialogo = renderizarNoDialogo()
+          await user.click(botao())
+          await user.click(busca())
+
+          await user.keyboard('{Escape}')
+
+          expect(within(grupo()).queryByRole('listbox')).not.toBeInTheDocument()
+          expect(fecharDialogo).not.toHaveBeenCalled()
+          expect(screen.getByRole('dialog', { name: 'Novo indicador' })).toBeInTheDocument()
+
+          await user.keyboard('{Escape}')
+
+          expect(fecharDialogo).toHaveBeenCalledTimes(1)
+        },
+      )
+
+      it('dentro de um Dialogo, clicar no título do diálogo fecha o painel sem fechar o diálogo', async () => {
+        const user = usuarioRapido()
+        const fecharDialogo = renderizarNoDialogo()
+        await user.click(botaoApontamento())
+
+        await user.click(screen.getByRole('heading', { name: 'Novo indicador' }))
+
+        expect(within(grupoApontamentos()).queryByRole('listbox')).not.toBeInTheDocument()
+        expect(fecharDialogo).not.toHaveBeenCalled()
+      })
     })
 
     it('"Cálculo do realizado" só aparece quando há apontamento escolhido (RF-34)', async () => {

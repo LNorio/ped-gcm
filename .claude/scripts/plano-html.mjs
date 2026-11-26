@@ -162,6 +162,7 @@ function lerPlano(markdown) {
   const outras = []
   let historico = []
   let duvidas = null
+  let ocorrencias = null
 
   for (const secao of secoes) {
     const lista = blocos(secao.linhas)
@@ -214,6 +215,8 @@ function lerPlano(markdown) {
             ? { data: partes[1], tipo: partes[2] ?? 'outro', texto: partes[3] }
             : { data: '', tipo: 'outro', texto: item.texto }
         })
+    } else if (nome.startsWith('ocorrencias')) {
+      ocorrencias = lista
     } else if (nome.startsWith('duvidas')) {
       duvidas = lista
     } else {
@@ -222,7 +225,7 @@ function lerPlano(markdown) {
   }
 
   for (const fase of fases) fase.descricao = descricoesFase.get(fase.id) ?? ''
-  return { titulo, meta, preambulo: blocos(preambuloLivre), fases, historico, duvidas, outras }
+  return { titulo, meta, preambulo: blocos(preambuloLivre), fases, historico, duvidas, ocorrencias, outras }
 }
 
 // ---------- cálculos ----------
@@ -307,6 +310,32 @@ function tabelaAtividades(fase) {
   return `<div class="rolagem"><table class="tabela-atividades">
 <thead><tr><th scope="col">ID</th><th scope="col">Atividade</th><th scope="col">Requisitos</th><th scope="col">Agente</th><th scope="col">Depende de</th><th scope="col">Status</th><th scope="col"><span class="oculto">Detalhes</span></th></tr></thead>
 <tbody>${linhas.join('\n')}</tbody></table></div>`
+}
+
+// Seção "Ocorrências e mudanças de decisão": cada subtítulo (###) vira um grupo com a contagem
+// de linhas da tabela; as alterações de regra de negócio vêm destacadas.
+function secaoOcorrencias(lista) {
+  const grupos = []
+  for (const bloco of lista) {
+    if (bloco.tipo === 'titulo' || grupos.length === 0) grupos.push({ titulo: bloco.tipo === 'titulo' ? bloco.texto : '', blocos: [] })
+    if (bloco.tipo !== 'titulo') grupos[grupos.length - 1].blocos.push(bloco)
+  }
+  const linhas = (grupo) => grupo.blocos.filter((b) => b.tipo === 'tabela').reduce((soma, b) => soma + b.linhas.length, 0)
+  const resumo = grupos
+    .filter((g) => g.titulo)
+    .map((g) => `<div class="cartao kpi"><p class="kpi__rotulo">${emLinha(g.titulo)}</p><p class="kpi__valor">${linhas(g)}</p></div>`)
+    .join('')
+  const corpo = grupos
+    .map((g) => {
+      const negocio = /regras? de neg[oó]cio/i.test(g.titulo) && !/n[aã]o afetam/i.test(g.titulo)
+      return `<div class="ocorrencias__grupo${negocio ? ' ocorrencias__grupo--negocio' : ''}">${g.titulo ? `<h3>${emLinha(g.titulo)} <span class="suave">(${linhas(g)})</span></h3>` : ''}${renderizarBlocos(g.blocos)}</div>`
+    })
+    .join('')
+  return `<section class="cartao secao ocorrencias" aria-labelledby="titulo-ocorrencias">
+  <h2 id="titulo-ocorrencias">Ocorrências e mudanças de decisão</h2>
+  ${resumo ? `<div class="ocorrencias__resumo">${resumo}</div>` : ''}
+  ${corpo}
+</section>`
 }
 
 function gerarHtml(plano, origem) {
@@ -518,6 +547,14 @@ dd { margin: 0; overflow-wrap: anywhere; }
 .outras details > :last-child { margin-bottom: 14px; }
 .outras p, .outras li, .duvidas p, .duvidas li { overflow-wrap: anywhere; }
 .duvidas ul { padding-left: 20px; }
+.ocorrencias__resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 8px; }
+.ocorrencias__resumo .cartao { box-shadow: none; background: var(--superficie-2); }
+.ocorrencias__grupo { margin-top: 16px; }
+.ocorrencias__grupo h3 { font-size: 1rem; margin: 0 0 8px; }
+.ocorrencias__grupo--negocio { border-left: 3px solid var(--reaberta); padding-left: 12px; }
+.ocorrencias table { min-width: 1000px; }
+.ocorrencias td { overflow-wrap: break-word; }
+.ocorrencias td:nth-child(-n+2) { white-space: nowrap; }
 .rodape { margin-top: 32px; font-size: 0.8rem; color: var(--texto-3); }
 .dica { position: fixed; pointer-events: none; z-index: 20; background: var(--texto); color: var(--superficie); padding: 6px 10px; border-radius: 8px; font-size: 0.82rem; max-width: 280px; box-shadow: 0 4px 12px rgba(0,0,0,0.18); }
 .vazio { padding: 24px; text-align: center; color: var(--texto-2); }
@@ -606,6 +643,8 @@ ${objetivo ? `<p class="objetivo"><strong>Objetivo:</strong> ${emLinha(objetivo)
   ${blocoFases}
   <p class="vazio" id="sem-resultados" hidden>Nenhuma atividade corresponde aos filtros.</p>
 </section>
+
+${plano.ocorrencias ? secaoOcorrencias(plano.ocorrencias) : ''}
 
 ${
   plano.duvidas

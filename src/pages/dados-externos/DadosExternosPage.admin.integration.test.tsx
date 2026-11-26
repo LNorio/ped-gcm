@@ -111,7 +111,7 @@ describe('F5.5 — Cadastro de dado externo pelo Admin (integração: /dados-ext
     expect(campoCalculo(dialogo)).toHaveAttribute('aria-required', 'true')
     expect(within(dialogo).queryByLabelText('Observação para a TI')).not.toBeInTheDocument()
     const grupo = await within(dialogo).findByRole('group', { name: 'Identificadores existentes' })
-    expect(within(grupo).getByRole('button', { name: 'VOLUME_VENDAS — usado por 2 dado(s)' })).toBeInTheDocument()
+    expect(within(grupo).getByRole('button', { name: 'VOLUME_VENDAS — usado por 2 dados' })).toBeInTheDocument()
     const getIdentificadores = chamadas.find((c) => c.metodo === 'GET' && c.caminho === `${ROTA}/identificadores`)!
     expect(cabecalhoDaChamada(getIdentificadores, 'Authorization')).toBe('Bearer token-salvo')
   })
@@ -246,7 +246,7 @@ describe('F5.5 — Cadastro de dado externo pelo Admin (integração: /dados-ext
     await preencherComuns(user, dialogo)
 
     const grupo = await within(dialogo).findByRole('group', { name: 'Identificadores existentes' })
-    await user.click(within(grupo).getByRole('button', { name: 'NOVOS_CLIENTES — usado por 0 dado(s)' }))
+    await user.click(within(grupo).getByRole('button', { name: 'NOVOS_CLIENTES — usado por 0 dados' }))
     await user.click(within(dialogo).getByRole('button', { name: 'Salvar' }))
 
     await screen.findByText('Dado externo cadastrado.')

@@ -29,7 +29,8 @@
  * Formatos assumidos enquanto a API não documenta (ver dúvidas da F7 em `docs/plano-implementacao.md`):
  * - listagem: lista pura (o serviço também aceita `{ dashboards: [...] }`);
  * - detalhe: o dashboard na raiz (o serviço também aceita `{ dashboard: {...} }`); `indicadores` com
- *   `{ id, nome, "pontos base", ativo, problema }`; `indicador base da faixa` como id; `vinculos` com os
+ *   `{ id, nome, "pontos base", ativo, problema }` e, nos dashboards não mensais (F7.15, contrato proposto),
+ *   `"calculo do periodo"` (`soma`, `media` ou `ultimo`); o PED Gerentes (mensal) não traz o campo; `indicador base da faixa` como id; `vinculos` com os
  *   códigos dos itens vinculados, uma chave por tipo: `{ filial }` (formato real), `{ cargo }` e
  *   `{ "id colaborador" }` (cargos e colaboradores não vistos na API real; seguem as listas de vínculo);
  * - POST/PUT de cadastro e edição: `{ dashboard, tarefa }` (tarefa `{ id, status, titulo, descricao }`,
@@ -95,6 +96,11 @@ export interface IndicadorDoDetalheApiFalso {
   id: number
   nome: string
   'pontos base': number
+  /**
+   * F7.15 (contrato proposto em `docs/propostas-backend/PROPOSTA-calculo-no-periodo-dashboard.md`): como os
+   * resultados mensais se combinam no período do dashboard não mensal. Ausente (ou `null`) em dashboard mensal.
+   */
+  'calculo do periodo'?: 'soma' | 'media' | 'ultimo' | null
   ativo: boolean
   problema: string | null
 }
@@ -436,8 +442,8 @@ const EXTRAS_DETALHE: Readonly<
     'formula de pontuacao': 'Soma ponderada dos atingimentos, limitada a 120% por indicador.',
     'observacao para ti': null,
     indicadores: [
-      { id: 1, nome: 'Cobertura de visitas', 'pontos base': 40, ativo: true, problema: null },
-      { id: 3, nome: 'Faturamento líquido mensal', 'pontos base': 60, ativo: true, problema: null },
+      { id: 1, nome: 'Cobertura de visitas', 'pontos base': 40, 'calculo do periodo': 'media', ativo: true, problema: null },
+      { id: 3, nome: 'Faturamento líquido mensal', 'pontos base': 60, 'calculo do periodo': 'soma', ativo: true, problema: null },
     ],
     periodo: { codigo: '4º tri/2026', inicio: '2026-10-01', fim: '2026-12-31' },
   },
@@ -458,8 +464,8 @@ const EXTRAS_DETALHE: Readonly<
     'formula de pontuacao': 'Pontos base × atingimento, sem limite.',
     'observacao para ti': null,
     indicadores: [
-      { id: 1, nome: 'Cobertura de visitas', 'pontos base': 70, ativo: true, problema: null },
-      { id: 8, nome: 'Vendas por zona', 'pontos base': 50, ativo: true, problema: null },
+      { id: 1, nome: 'Cobertura de visitas', 'pontos base': 70, 'calculo do periodo': 'media', ativo: true, problema: null },
+      { id: 8, nome: 'Vendas por zona', 'pontos base': 50, 'calculo do periodo': 'soma', ativo: true, problema: null },
     ],
     periodo: { codigo: '2º sem/2026', inicio: '2026-07-01', fim: '2026-12-31' },
   },
@@ -468,7 +474,7 @@ const EXTRAS_DETALHE: Readonly<
     'indicador base da faixa': 6,
     'formula de pontuacao': 'Atingimento do custo de frete.',
     'observacao para ti': null,
-    indicadores: [{ id: 6, nome: 'Custo de frete por entrega', 'pontos base': 80, ativo: true, problema: null }],
+    indicadores: [{ id: 6, nome: 'Custo de frete por entrega', 'pontos base': 80, 'calculo do periodo': 'media', ativo: true, problema: null }],
     periodo: { codigo: '6º bim/2026', inicio: '2026-11-01', fim: '2026-12-31' },
   },
   5: {
@@ -477,8 +483,8 @@ const EXTRAS_DETALHE: Readonly<
     'formula de pontuacao': 'Soma simples.',
     'observacao para ti': null,
     indicadores: [
-      { id: 2, nome: 'Rotinas financeiras em dia', 'pontos base': 50.5, ativo: true, problema: null },
-      { id: 5, nome: 'Capacitação', 'pontos base': 40, ativo: false, problema: 'Indicador inativo' },
+      { id: 2, nome: 'Rotinas financeiras em dia', 'pontos base': 50.5, 'calculo do periodo': 'ultimo', ativo: true, problema: null },
+      { id: 5, nome: 'Capacitação', 'pontos base': 40, 'calculo do periodo': 'soma', ativo: false, problema: 'Indicador inativo' },
     ],
     periodo: { codigo: '2026', inicio: '2026-01-01', fim: '2026-12-31' },
   },

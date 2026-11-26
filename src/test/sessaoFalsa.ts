@@ -34,6 +34,8 @@ export function sessaoFalsa(parcial: Partial<Sessao> = {}): Sessao {
     entrar: vi.fn().mockResolvedValue(undefined),
     sair: vi.fn(),
     selecionarFilial: vi.fn(),
+    // F2.1 (18/11/2026): releitura do acesso; resolve sem valor e nunca rejeita.
+    recarregarAcesso: vi.fn().mockResolvedValue(undefined),
     ...parcial,
   }
 }

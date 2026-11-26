@@ -7,10 +7,15 @@
  * a escolha da imagem da filial num dropdown pesquisável (`SelectPesquisavel`, busca por colaborador ou
  * cargo), a imagem exibida em PDF gerado pelo back-end (`obterPdfPrevia`, F10.10) com a navegação entre todas as
  * imagens do dashboard e o botão "Exportar" (PDF da imagem exibida ou ZIP da prévia), os avisos
- * de pendências e de falta de faixas e o botão "Encerrar e gerar {N} imagem(ns)", que entrega a prévia
+ * de pendências, de falta de faixas e os gerais do resumo (ex.: o do DRG, uma vez só), o progresso de lançamentos
+ * da filial escolhida (`progressoPorFilial`) e o botão "Encerrar e gerar {N} imagem" / "… {N} imagens", que entrega a prévia
  * carregada a `onEncerrar` (a confirmação fica com `DialogoEncerrarFechamento`).
+ *
+ * Navegação (F12.1 — M14): nas pontas, o botão usado fica desabilitado e o foco vai para o outro botão de
+ * navegação; a posição "Imagem X de N · Filial F" fica numa região `role="status"`, anunciada a cada troca.
  */
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Aviso } from '../../components/Aviso'
 import { Botao } from '../../components/Botao'
 import { Dialogo } from '../../components/Dialogo'
@@ -18,7 +23,7 @@ import { Select, type OpcaoSelect } from '../../components/Select'
 import { SelectPesquisavel, type OpcaoSelectPesquisavel } from '../../components/SelectPesquisavel'
 import { obterPdfPrevia, obterZipPrevia } from '../../services/fechamentosService'
 import type { Fechamento, ImagemCongelada, PreviaFechamento } from '../../types/dominio'
-import { formatarNumero, formatarPercentual } from '../../utils/formato'
+import { formatarInteiro, formatarNumero, formatarPercentual } from '../../utils/formato'
 import {
   TEXTO_CALCULANDO,
   TEXTO_SEM_IMAGENS_A_GERAR,
@@ -29,6 +34,7 @@ import {
   rotuloEncerrar,
   rotuloFilial,
   textoImagens,
+  textoProgressoDaFilial,
   type GrupoFilial,
 } from './previaFechamento'
 import { AvisosFechamento } from './AvisosFechamento'
@@ -120,7 +126,8 @@ export function DialogoPreviaFechamento({ fechamento, onFechar, onEncerrar }: Di
           <p className="dialogo-previa__nota">Nada é gravado na pré-visualização.</p>
           <div className="dialogo-previa__topo">
             <p className="dialogo-previa__progresso">
-              Progresso de lançamentos: {fechamento.progresso.preenchidos} de {fechamento.progresso.total}
+              Progresso de lançamentos: {formatarInteiro(fechamento.progresso.preenchidos)} de{' '}
+              {formatarInteiro(fechamento.progresso.total)}
             </p>
             {!semImagens && chaveAtual !== null ? (
               <ExportarImagens
@@ -161,6 +168,7 @@ function ConteudoPrevia({ fechamento, previa, imagens }: ConteudoPreviaProps) {
 
   const filialAtual = filialDaImagem(atual)
   const grupoAtual = grupos.find((grupo) => grupo.codigo === filialAtual) ?? grupos[0]
+  const progressoDaFilial = previa.progressoPorFilial.find((item) => item.filial === grupoAtual.codigo)
 
   const opcoes = useMemo<OpcaoSelect[]>(() => {
     const comImagens = new Set(grupos.map((grupo) => grupo.codigo))
@@ -194,6 +202,15 @@ function ConteudoPrevia({ fechamento, previa, imagens }: ConteudoPreviaProps) {
   }
 
   const indiceAtual = ordenadas.indexOf(atual)
+  const refAnterior = useRef<HTMLButtonElement>(null)
+  const refProxima = useRef<HTMLButtonElement>(null)
+
+  /** Troca a imagem; ao chegar a uma ponta (botão usado desabilitado), leva o foco ao outro botão. */
+  function navegar(destino: number) {
+    flushSync(() => setPosicao(destino))
+    if (destino <= 0) refProxima.current?.focus()
+    else if (destino >= ordenadas.length - 1) refAnterior.current?.focus()
+  }
   const chaveAtual = atual.chave
   const tituloPdf = tituloPdfImagem(filialAtual || null, atual.tipo === 'filial' ? null : atual.unidade.colaborador)
 
@@ -207,8 +224,11 @@ function ConteudoPrevia({ fechamento, previa, imagens }: ConteudoPreviaProps) {
           onChange={(evento) => escolherFilial(evento.target.value)}
         />
         <p className="dialogo-previa__contagem">
-          {grupoAtual.imagens.length} nesta filial · {ordenadas.length} no total
+          {formatarInteiro(grupoAtual.imagens.length)} nesta filial · {formatarInteiro(ordenadas.length)} no total
         </p>
+        {progressoDaFilial ? (
+          <p className="dialogo-previa__contagem">{textoProgressoDaFilial(progressoDaFilial)}</p>
+        ) : null}
         <SelectPesquisavel
           rotulo="Imagem"
           rotuloBusca="Buscar colaborador ou cargo"
@@ -224,19 +244,21 @@ function ConteudoPrevia({ fechamento, previa, imagens }: ConteudoPreviaProps) {
         <Botao
           variante="contorno"
           tamanho="pequeno"
+          ref={refAnterior}
           disabled={indiceAtual <= 0}
-          onClick={() => setPosicao(indiceAtual - 1)}
+          onClick={() => navegar(indiceAtual - 1)}
         >
           Imagem anterior
         </Botao>
-        <span className="dialogo-previa__posicao">
-          Imagem {indiceAtual + 1} de {ordenadas.length} · Filial {filialAtual}
+        <span role="status" className="dialogo-previa__posicao">
+          {`Imagem ${indiceAtual + 1} de ${ordenadas.length} · Filial ${filialAtual}`}
         </span>
         <Botao
           variante="contorno"
           tamanho="pequeno"
+          ref={refProxima}
           disabled={indiceAtual >= ordenadas.length - 1}
-          onClick={() => setPosicao(indiceAtual + 1)}
+          onClick={() => navegar(indiceAtual + 1)}
         >
           Próxima imagem
         </Botao>

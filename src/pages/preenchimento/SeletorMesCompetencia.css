@@ -85,7 +85,7 @@
 }
 
 .seletor-mes__detalhe--aberto {
-  color: var(--cor-sucesso);
+  color: var(--cor-sucesso-texto);
   font-weight: 600;
 }
 
@@ -98,5 +98,13 @@
 @media (max-width: 600px) {
   .seletor-mes__meses {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Alto contraste: o mês selecionado não pode depender só do fundo e da sombra interna */
+@media (forced-colors: active) {
+  .seletor-mes__mes--selecionado {
+    border: 2px solid Highlight;
+    padding: calc(0.5rem - 1px) calc(0.625rem - 1px);
   }
 }

@@ -82,7 +82,7 @@ function formatarData(data: Date): string {
 }
 
 /** Número com vírgula decimal, sem zeros desnecessários nem separador de milhar. */
-function formatarNumero(valor: number): string {
+export function formatarNumero(valor: number): string {
   const arredondado = Number.parseFloat(valor.toFixed(10))
   return String(Object.is(arredondado, -0) ? 0 : arredondado).replace('.', ',')
 }

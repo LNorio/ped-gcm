@@ -29,6 +29,8 @@ let fecharMenuAberto: (() => void) | null = null
 
 /** Distância, em px, entre o gatilho e o menu flutuante. */
 const ESPACO_GATILHO = 4
+/** Margem mínima, em px, entre o menu e as bordas superior e inferior da janela. */
+const MARGEM_JANELA = 8
 
 /**
  * Menu de ações por linha: botão com ícone de três pontos que abre um menu flutuante
@@ -40,6 +42,7 @@ export function MenuAcoes({ rotulo, itens, rotuloVisivel, desabilitado = false }
   const [posicao, setPosicao] = useState<CSSProperties>({})
   const wrapperRef = useRef<HTMLDivElement>(null)
   const gatilhoRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const itensRef = useRef<(HTMLButtonElement | null)[]>([])
   const idMenu = useId()
 
@@ -57,9 +60,17 @@ export function MenuAcoes({ rotulo, itens, rotuloVisivel, desabilitado = false }
     const gatilho = gatilhoRef.current
     if (!gatilho) return
     const rect = gatilho.getBoundingClientRect()
+    // Sem espaço abaixo para o menu (altura medida depois de renderizado), abre para cima se lá houver mais.
+    const alturaJanela = window.innerHeight || document.documentElement.clientHeight
+    const alturaMenu = menuRef.current?.scrollHeight ?? 0
+    const espacoAbaixo = alturaJanela - rect.bottom - ESPACO_GATILHO - MARGEM_JANELA
+    const espacoAcima = rect.top - ESPACO_GATILHO - MARGEM_JANELA
+    const paraCima = alturaMenu > espacoAbaixo && espacoAcima > espacoAbaixo
+    const espaco = paraCima ? espacoAcima : espacoAbaixo
     setPosicao({
-      top: rect.bottom + ESPACO_GATILHO,
+      ...(paraCima ? { bottom: alturaJanela - rect.top + ESPACO_GATILHO } : { top: rect.bottom + ESPACO_GATILHO }),
       right: Math.max(0, document.documentElement.clientWidth - rect.right),
+      ...(alturaMenu > espaco && espaco > 0 ? { maxHeight: espaco, overflowY: 'auto' as const } : {}),
     })
   }, [])
 
@@ -73,12 +84,17 @@ export function MenuAcoes({ rotulo, itens, rotuloVisivel, desabilitado = false }
     }
   }, [aberto, fechar])
 
+  // Reposiciona com a altura real do menu, já renderizado, antes da pintura (abre para cima se preciso).
+  useLayoutEffect(() => {
+    if (aberto) calcularPosicao()
+  }, [aberto, calcularPosicao])
+
   // Foco no primeiro item ao abrir.
   useLayoutEffect(() => {
     if (aberto) itensRef.current[0]?.focus()
   }, [aberto])
 
-  // Clique fora fecha; rolagem e redimensionamento reposicionam.
+  // Clique fora (inclusive dentro de um iframe) fecha; rolagem e redimensionamento reposicionam.
   useEffect(() => {
     if (!aberto) return
     function aoPressionar(evento: PointerEvent | MouseEvent) {
@@ -86,11 +102,17 @@ export function MenuAcoes({ rotulo, itens, rotuloVisivel, desabilitado = false }
       if (alvo && wrapperRef.current?.contains(alvo)) return
       setAberto(false)
     }
+    // Clique dentro de um iframe (ex.: PDF embutido) não gera evento no documento: a janela perde o foco.
+    function aoPerderFocoJanela() {
+      if (document.activeElement?.tagName === 'IFRAME') setAberto(false)
+    }
     document.addEventListener('pointerdown', aoPressionar)
+    window.addEventListener('blur', aoPerderFocoJanela)
     window.addEventListener('scroll', calcularPosicao, true)
     window.addEventListener('resize', calcularPosicao)
     return () => {
       document.removeEventListener('pointerdown', aoPressionar)
+      window.removeEventListener('blur', aoPerderFocoJanela)
       window.removeEventListener('scroll', calcularPosicao, true)
       window.removeEventListener('resize', calcularPosicao)
     }
@@ -183,6 +205,7 @@ export function MenuAcoes({ rotulo, itens, rotuloVisivel, desabilitado = false }
           id={idMenu}
           role="menu"
           aria-label={rotulo}
+          ref={menuRef}
           className="menu-acoes__menu"
           style={posicao}
           onKeyDown={aoTeclarNoMenu}

@@ -1,5 +1,157 @@
 # Diário de Implementação — PED
 
+## 25/11/2026
+
+**Resumo:** O front passou a ter os dois Swaggers do back-end (produção e desenvolvimento), refez a verificação com o de desenvolvimento e escreveu o novo documento de bloqueios do back-end. Foram criadas as páginas públicas `/backend` (F2.13) e `/resumo` (F2.14), e o front foi adequado à resposta do back-end à verificação (D1, D2, D6 e os campos novos do deploy `c2c6c84`), mantendo a F6.14\* como estava. No fim do dia entrou o requisito novo F7.15 (cálculo no período de cada indicador em dashboard não mensal), com proposta de contrato ao back-end. Bateria validada: 116 de 116 requisitos `implementado`, plano em 92% (157 de 170). O commit do dia foi pedido junto com este fechamento.
+
+### Implementações
+- Dois Swaggers em `docs/backend/.env`: `SWAGGER_PRODUCAO_*` (`http://192.168.7.18:8080/api-docs/`) e `SWAGGER_DESENVOLVIMENTO_*` (`http://192.168.1.244:8081/`, com o `ped.yaml` na raiz).
+- Documento `docs/propostas-backend/PENDENCIAS-backend-2026-11-25.md`: 10 itens por prioridade, decisões D-1 a D-5 separadas e seção "Recebido". Substitui o de 24/11 como lista do que falta.
+- Página pública `/backend` (F2.13): todos os `.md` de `docs/propostas-backend/` (`import.meta.glob`), lista do mais recente ao mais antigo, Markdown com tabelas, `?doc=<id>`, links entre documentos dentro da página e HTML cru não executado. Fora do menu e sem login. 50 testes.
+- Página pública `/resumo` (F2.14): abas "Diário de implementação" e "Documentação" (setas, Home/End), `?aba=diario|documentacao`, links do índice levando ao dia e HTML cru descartado. Fora do menu e sem login. 54 testes.
+- Dependências novas: `react-markdown` 10.1.0 e `remark-gfm` 4.0.1, para mostrar Markdown com tabelas sem `dangerouslySetInnerHTML`.
+- Campos novos do servidor (deploy `c2c6c84`):
+  - Início com "%" nas últimas alterações pelo `tipo de valor` (F12.12\*);
+  - prévia com "Progresso da filial {código}: p de t" (RF-80);
+  - aviso geral (`resumo.avisos`, ex.: DRG) uma vez no topo da prévia e da confirmação;
+  - nome da filial e cargo da consulta de imagens pelo bloco `unidade`.
+- F7.15 (requisito novo): em dashboard não mensal, cada indicador tem o campo obrigatório "Cálculo no período" (Somar, Fazer a média, Usar só o último valor), sem padrão, com coluna, aviso e erro "Selecione o cálculo no período.". No mensal o campo some e não é enviado; o valor fica guardado. 76 testes.
+- Contrato proposto `"calculo do periodo": soma|media|ultimo` em cada item de `indicadores` (POST, PUT, prévia e detalhe) e documento `docs/propostas-backend/PROPOSTA-calculo-no-periodo-dashboard.md` com 5 perguntas (A-23).
+
+### Modificações
+- `docs/documentacao.md`: nome antigo das variáveis do Swagger atualizado na entrada de 24/11.
+- Verificação do Swagger refeita com o de desenvolvimento (versão "2026-11-25"): mesmas 6.668 linhas e rotas. Só a D8 foi resolvida (documentação do `busca` das imagens). Revisão anotada no topo de `VERIFICACAO-swagger-2026-11-24.md`.
+- D1: as sugestões de identificador leem `"dados cadastrados"`, com `quantidade` como reserva. Antes, as sugestões sumiam.
+- D2: o histórico de faixas aceita `motivo` nulo ou ausente e `versao` nula ("—" na tela, sem "Ver faixas da versão"). O teste "versão sem motivo vira ApiError" foi trocado por "motivo que não é texto".
+- D6: todos os perfis pedem `?filial` no Início dentro do próprio escopo. O comportamento já estava certo; testes dos dois `403` e comentário do `inicioService.ts` atualizados.
+- Requisitos alterados: F5.1, F5.5, F5.7, F6.11, F8.1, F8.5, F8.8, F10.1, F10.4, F10.5, F10.6, F11.1 e F11.5.
+- `vite.config.ts`: bibliotecas usadas só por páginas lazy vão para `vendor-sob-demanda`. O `vendor` inicial caiu de 476 kB para 311 kB.
+- F6.14\* mantida como estava, por decisão do usuário (o back-end não tem fonte SOAP real e o executor está desligado de propósito).
+- Ocorrência de agentes: o primeiro implementador do D2 não podia mudar teste, e um teste antigo contraditório ficou vermelho até o `gerador-testes` adequá-lo.
+- F7.1 e F7.5–F7.8 adequados ao F7.15 (detalhe com `calculoNoPeriodo`, gravação e prévia exigindo o cálculo no não mensal).
+- Validação final: `test:implementados` com integração 848 de 848 e unitários 5220 de 5221; a falha (F2.13) era cache antigo do Vitest, que não conhecia o `.md` novo, e passou a 50 de 50 após limpar o cache. F2.14 e os 13 requisitos alterados voltaram a `implementado`.
+- Orientação sem alteração de código: como rodar o projeto pelo IP da máquina na rede (`npm run dev -- --host` ou `npm run preview -- --host`, porta no firewall).
+
+### Pendências
+- Commit e push do dia, pedidos junto com este fechamento (nada commitado desde o `941a63c`, de 17/11). O usuário deve confirmar se o `docs/backend/.env` entra.
+- A-23: back-end aceitar e usar o `"calculo do periodo"`; envio da proposta a cargo do usuário.
+- F7.15: "Ver pesos" (F7.9) deve mostrar o cálculo? Dashboards não mensais existentes abrem com o campo vazio e exigem escolha (pergunta 3 ao back-end). Relação com a P-08 / F10.8. Texto cortado em 360 px.
+- Páginas `/backend` e `/resumo` são públicas e citam IPs internos (também visíveis na rede se o projeto rodar com `--host`).
+- Bloco da página `/resumo` com cerca de 355 kB, que cresce com a documentação.
+- Defeito do primeiro Tab ("Pular para o conteúdo").
+- Layout de Apontamentos e Fechamentos em 360 px.
+- JSON de `/acesso` do usuário do caso A-20.
+- Gerar e enviar uma prévia nova para confirmar o formato real.
+- Reticências: "..." ou "…".
+- Seletor de filial: trocar só ao confirmar?
+- Envio do documento de bloqueios de 25/11 ao back-end.
+- Motivação da seção "Ocorrências" do HTML do plano (18/11) ainda não informada.
+
+---
+
+## 24/11/2026
+
+**Resumo:** A prévia do fechamento passou a ler o formato real do back-end (F10.18\*). Foram concluídas as atividades que não dependem do back-end: F5.10, F1.18, F12.1 (acessibilidade) e F12.2 (responsividade e pt-BR), com 113 requisitos `implementado`. Foram criados os testes E2E com Playwright, que encontraram um defeito no primeiro Tab, e uma build foi validada depois de corrigir um teste intermitente. O front também escreveu o documento de bloqueios do back-end e verificou o Swagger. Nada foi para commit desde o `941a63c`.
+
+### Implementações
+- Levantamento do que falta implementar a partir do plano: prontas, dependentes do back-end e bloqueadas por decisão do negócio.
+- Prévia do fechamento pelo formato real (F10.18\*, não planejada): `imagensService` aceita `unidade.filial`, `unidade.colaborador` e `pontuacao.faixas`, além dos formatos antigos. Exemplo real em `docs/backend/exemplos-reais/previa.json`. 25 testes novos.
+- F5.10: 17 testes de ponta a ponta das referências Colaborador e Zona de venda. O comportamento já existia.
+- F12.1, acessibilidade:
+  - link "Pular para o conteúdo";
+  - título "{Aba} · PED" e foco no `<h1>` ao navegar (`useTituloDocumento`);
+  - `Dialogo` com iframe no Tab e a prop `focoAoFechar`;
+  - `Aviso` com a prop `anunciar`;
+  - dica do alerta do menu por `aria-describedby`.
+- F12.2, responsividade e pt-BR:
+  - prop `quebrar` na `Tabela`;
+  - `formatarInteiro` ("1.500");
+  - link "Abrir PDF em nova aba".
+- Testes E2E com Playwright: `@playwright/test` 1.62.1, `playwright.config.ts`, `e2e/` e o script `test:e2e`. 18 cenários, 17 aprovados.
+- Documento `docs/propostas-backend/PENDENCIAS-backend-2026-11-24.md`: 9 itens técnicos e as decisões D-1 a D-5.
+- Link do Swagger em `docs/backend/.env` e a verificação em `docs/propostas-backend/VERIFICACAO-swagger-2026-11-24.md`.
+
+### Modificações
+- F1.18: `SeletorBusca` movido para `src/components/`. O Enter na busca dos Dashboards não envia mais o formulário, e Tipos não usa mais o CSS de Dashboards (`FormularioTipo.css`). Novo teste `src/isolamentoDashboards.test.ts`.
+- F12.1:
+  - anel de foco sólido, alto contraste e tokens de contraste novos em `tema.css`;
+  - o foco não se perde ao escolher ou remover itens em Indicadores, Dashboards e Faixas, nem ao navegar na prévia;
+  - "Limpar seleção" devolve o foco ao seletor (fora do pedido, aceito).
+- F12.2:
+  - editor de faixas abaixo de 420 px;
+  - formulários de Indicadores e Dashboards como folha inferior no celular;
+  - `SelectPesquisavel` e `MenuAcoes` dentro da tela;
+  - aba ativa visível;
+  - plural pelo total e fim do "(s)";
+  - resultado do cálculo vindo do servidor com vírgula.
+- Requisitos alterados e concluídos de novo: F10.1 e F10.4 (pela F10.18\*); F3.4, F7.5 e F7.6 (pela F1.18); F3.3, F5.5, F5.7, F6.4 e F10.6 (pela F12.2).
+- Correção do teste intermitente `rotas.titulo.integration.test.tsx`: em `LayoutPrincipal.tsx`, o destino do foco passou a guardar a rota de origem.
+- Build validada na 2ª tentativa: unitários 5437/5437, integração 854/854, carga 100% 2xx com p99 de 109 ms e `dist/` com 1,6 MB.
+- A-08: o documento de bloqueios pede ao back-end que calcule a pontuação pela "fórmula de pontuação" do cadastro (mudança de rumo do usuário).
+- Agente de responsividade parado: encerrado sem perda de trabalho. Os "vermelhos" do mapa eram agentes interrompidos.
+
+### Pendências
+- Commit do trabalho de 18/11, 19/11 e 24/11, incluindo os documentos do back-end e o Playwright.
+- Defeito do primeiro Tab: vai para a aba ativa, e não para "Pular para o conteúdo". O cenário E2E está como `test.fail`.
+- Conferência visual em 360 px de Apontamentos e Fechamentos.
+- Divergências do Swagger: `"dados cadastrados"` × `quantidade` nas sugestões de identificador, e `versao`/`motivo` nulos no histórico de faixas. A proposta de aceitar os dois formatos aguarda resposta.
+- Atividades novas do plano: F1.22\*, F1.23\* e F12.7\* a F12.12\*.
+- Dúvidas para o usuário:
+  - reticências: "..." ou "…";
+  - seletor de filial: trocar só ao confirmar;
+  - remover a `VisualizacaoImagem`;
+  - prioridade das atividades novas.
+- Envio dos documentos de pendências e de verificação ao back-end, a cargo do usuário.
+
+---
+
+## 19/11/2026
+
+**Resumo:** O dropdown da composição do indicador passou a fechar ao clicar fora (F6.15\*). O Validador passou a ver o alerta de integração pendente. As abas do menu passaram a mostrar os alertas desde o login, pelo `GET /api/ped/alertas-menu` (F2.12\*), depois de proposta, contraproposta e resposta ao back-end. Uma build foi gerada com 109/109 requisitos. Sem commit.
+
+### Implementações
+- F2.12\*, alertas das abas desde o login:
+  - `alertasMenuService.ts` e `useVerificadorAlertasMenu.ts`;
+  - consulta no login, na troca de filial, no foco da janela e a cada 5 minutos;
+  - o 429 espera o `Retry-After`;
+  - tooltip com as descrições.
+- Nova ação `ver-integracao-pendente-indicador` (Admin e Validador).
+- Proposta `PROPOSTA-alertas-menu.md` (opção 2, todas as abas) e resposta à contraproposta do back-end (`RESPOSTA-contraproposta-alertas-menu.md`). Documentos do back-end registrados: `FRONT-alertas-menu.md` e `API (31).md`.
+
+### Modificações
+- F6.15\* (F6.4): o `SeletorComponentes` do formulário de indicador fecha ao clicar fora e com Esc. O Esc não fecha o diálogo.
+- F6.11 e F6.3: o alerta e o filtro "Integração pendente (TI)" passaram a valer também para o Validador.
+- Build gerada a pedido do usuário: 109/109 requisitos.
+- Propostas ao back-end movidas pelo usuário de `docs/backend/` para `docs/propostas-backend/`.
+
+### Pendências
+- Commit do trabalho do dia.
+
+---
+
+## 18/11/2026
+
+**Resumo:** O campo Tipo dos cadastros passou a mostrar os tipos criados depois do login, pela releitura do acesso (F2.11\*, opção A da proposta ao back-end). Os dropdowns passaram a fechar ao clicar fora, por padrão (F1.21\*). Sem commit.
+
+### Implementações
+- `recarregarAcesso()` no `SessaoProvider` (F2.11\*): relê `GET /api/ped/acesso` sem tela de carregamento, preserva a filial e mantém o acesso anterior se a leitura falhar.
+- Proposta ao back-end `PROPOSTA-tipos-no-acesso.md` (A-20): todos os tipos no acesso do Admin e do Validador.
+
+### Modificações
+- `useTipos` relê o acesso depois de criar ou alterar um tipo. "Novo apontamento" e "Novo dado externo" releem o acesso ao abrir (F2.1, F3.4, F3.5, F4.4, F5.4).
+- F1.21\*:
+  - o `SeletorBusca` fecha ao clicar fora e com Esc (prop `onFechar`) e limpa a busca;
+  - "Vincular dashboard a" (`SecaoVinculo`) e os dropdowns de vínculo dos Tipos fecham ao clicar fora;
+  - `SelectPesquisavel` e `MenuAcoes` fecham quando o foco vai para o iframe do PDF.
+- Script `.claude/scripts/plano-html.mjs`: nova seção opcional "Ocorrências e mudanças de decisão" no HTML do plano.
+- `test:implementados` aprovado: 5183 unitários e 812 de integração, 109/109.
+
+### Pendências
+- Item 1 da proposta de tipos no acesso (A-20) e as 3 perguntas ao back-end.
+- Motivação da nova seção do `plano-html.mjs` não informada.
+
+---
+
 ## 17/11/2026
 
 **Resumo:** A aba Fechamentos passou a mostrar as imagens em PDF gerado pelo back-end, na prévia e nas imagens congeladas, com o botão "Exportar" (PDF desta imagem ou todas em ZIP) (F10.10, novo). O front foi adequado aos documentos novos do back-end: limite de uso (429), encerramento pelo mês aberto, filiais sem composição do DRG e Início sem mês aberto. A lista de imagens da prévia virou um dropdown pesquisável reutilizável (`SelectPesquisavel`, F1.20, novo). Duas builds foram validadas, com 109/109 requisitos `implementado`. Todo o trabalho do dia está sem commit (depois do `2a105f6`). Plano em 93% (139/149).

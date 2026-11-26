@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type ReactNode, type RefObject } from 'react'
 import { Botao } from './Botao'
 import './Dialogo.css'
 
@@ -15,6 +15,12 @@ export interface DialogoProps {
   /** Texto curto logo abaixo do título; vira a descrição acessível do diálogo. */
   descricao?: string
   className?: string
+  /**
+   * Destino do foco ao fechar quando o elemento que abriu o diálogo saiu da página (ex.: a linha
+   * excluída). Sem a prop (ou com o elemento fora da página), o foco vai para o `<h1>` da página ou,
+   * sem `<h1>`, para o `<main>`; nunca fica no `<body>` (F12.1, M3).
+   */
+  focoAoFechar?: RefObject<HTMLElement | null>
 }
 
 const SELETOR_FOCAVEIS = [
@@ -23,6 +29,7 @@ const SELETOR_FOCAVEIS = [
   'input:not([disabled]):not([type="hidden"])',
   'select:not([disabled])',
   'textarea:not([disabled])',
+  'iframe',
   '[tabindex]:not([tabindex="-1"])',
 ].join(',')
 
@@ -81,15 +88,92 @@ function aoPressionarTecla(evento: KeyboardEvent) {
   }
 }
 
+/**
+ * Foco que chega fora do painel do diálogo do topo (ex.: ao sair do `iframe` do PDF pelo Tab, cujas
+ * teclas não passam pelo `document` da página) volta para dentro: ao primeiro focável se o elemento
+ * fica depois do painel, ao último se fica antes (F12.1, M2).
+ */
+function aoReceberFoco(evento: FocusEvent) {
+  const topo = pilhaDialogos[pilhaDialogos.length - 1]
+  if (!topo) return
+  const painel = topo.obterPainel()
+  const alvo = evento.target
+  if (!painel || !painel.isConnected || !(alvo instanceof Node) || painel.contains(alvo)) return
+
+  const focaveis = obterFocaveis(painel)
+  if (focaveis.length === 0) {
+    painel.focus()
+    return
+  }
+  const antesDoPainel = Boolean(painel.compareDocumentPosition(alvo) & Node.DOCUMENT_POSITION_PRECEDING)
+  focaveis[antesDoPainel ? focaveis.length - 1 : 0].focus()
+}
+
 /** Coloca o diálogo no topo da pilha; devolve a função que o retira. */
 function empilharDialogo(entrada: EntradaPilha): () => void {
-  if (pilhaDialogos.length === 0) document.addEventListener('keydown', aoPressionarTecla)
+  if (pilhaDialogos.length === 0) {
+    document.addEventListener('keydown', aoPressionarTecla)
+    document.addEventListener('focusin', aoReceberFoco)
+  }
   pilhaDialogos.push(entrada)
   return () => {
     const indice = pilhaDialogos.lastIndexOf(entrada)
     if (indice >= 0) pilhaDialogos.splice(indice, 1)
-    if (pilhaDialogos.length === 0) document.removeEventListener('keydown', aoPressionarTecla)
+    if (pilhaDialogos.length === 0) {
+      document.removeEventListener('keydown', aoPressionarTecla)
+      document.removeEventListener('focusin', aoReceberFoco)
+    }
   }
+}
+
+/** Foca o elemento; se ele não recebe foco por padrão (ex.: `<h1>`), ganha `tabIndex=-1` antes. */
+function focarElemento(elemento: HTMLElement): boolean {
+  if (!elemento.isConnected) return false
+  if (!elemento.hasAttribute('tabindex') && !elemento.matches(SELETOR_FOCAVEIS)) elemento.tabIndex = -1
+  elemento.focus()
+  return document.activeElement === elemento
+}
+
+/** Destino estável quando o elemento que abriu o diálogo saiu da página (F12.1, M3). */
+function focarDestinoEstavel(focoAoFechar: HTMLElement | null | undefined) {
+  if (focoAoFechar && focarElemento(focoAoFechar)) return
+  const principal = document.querySelector<HTMLElement>('main')
+  const titulo = principal?.querySelector<HTMLElement>('h1') ?? document.querySelector<HTMLElement>('h1')
+  if (titulo && focarElemento(titulo)) return
+  const principalDoTitulo = titulo?.closest<HTMLElement>('main')
+  if (principalDoTitulo && focarElemento(principalDoTitulo)) return
+  if (principal) focarElemento(principal)
+}
+
+/** Tempo (ms) em que o diálogo, já fechado, ainda acompanha a saída do elemento que o abriu. */
+const VIGIA_GATILHO_MS = 5000
+
+/**
+ * O foco voltou ao elemento que abriu o diálogo, mas ele pode sair da página logo depois (ex.: a linha
+ * some quando a listagem é recarregada após a exclusão). Se isso acontecer com o foco nele, o foco vai
+ * para o destino estável em vez de cair no `<body>`. Devolve a função que encerra a vigia.
+ */
+function vigiarSaidaDoGatilho(gatilho: HTMLElement, obterFocoAoFechar: () => HTMLElement | null | undefined) {
+  if (typeof MutationObserver === 'undefined') return () => {}
+  let encerrada = false
+  const observador = new MutationObserver(() => {
+    const ativo = document.activeElement
+    if (gatilho.isConnected) {
+      if (ativo !== gatilho) encerrar()
+      return
+    }
+    if (!ativo || ativo === document.body) focarDestinoEstavel(obterFocoAoFechar())
+    encerrar()
+  })
+  const temporizador = setTimeout(encerrar, VIGIA_GATILHO_MS)
+  function encerrar() {
+    if (encerrada) return
+    encerrada = true
+    observador.disconnect()
+    clearTimeout(temporizador)
+  }
+  observador.observe(document.body, { childList: true, subtree: true })
+  return encerrar
 }
 
 /**
@@ -97,43 +181,75 @@ function empilharDialogo(entrada: EntradaPilha): () => void {
  * fechamento por Esc, foco movido para dentro ao abrir, foco preso enquanto aberto e devolvido ao
  * elemento que o abriu ao fechar.
  */
-export function Dialogo({ aberto, titulo, onFechar, children, acoes, descricao, className }: DialogoProps) {
+export function Dialogo({
+  aberto,
+  titulo,
+  onFechar,
+  children,
+  acoes,
+  descricao,
+  className,
+  focoAoFechar,
+}: DialogoProps) {
   const idTitulo = useId()
   const idDescricao = useId()
   const painelRef = useRef<HTMLDivElement>(null)
   const elementoAnteriorRef = useRef<HTMLElement | null>(null)
 
-  // Foco: guarda o elemento ativo, move o foco para o painel e devolve ao fechar/desmontar.
-  useEffect(() => {
-    if (!aberto) return
-
-    elementoAnteriorRef.current = document.activeElement as HTMLElement | null
-    painelRef.current?.focus()
-
-    return () => {
-      const anterior = elementoAnteriorRef.current
-      elementoAnteriorRef.current = null
-      if (anterior && anterior.isConnected && typeof anterior.focus === 'function') {
-        anterior.focus()
-      }
-    }
-  }, [aberto])
-
-  // Mantém a versão mais recente de `onFechar` sem reinscrever o diálogo na pilha a cada render.
+  // Mantém as versões mais recentes de `onFechar` e `focoAoFechar` sem reinscrever o diálogo na pilha.
   const onFecharRef = useRef(onFechar)
+  const focoAoFecharRef = useRef(focoAoFechar)
   useEffect(() => {
     onFecharRef.current = onFechar
-  }, [onFechar])
+    focoAoFecharRef.current = focoAoFechar
+  }, [onFechar, focoAoFechar])
 
-  // Teclado: entra na pilha de diálogos abertos; só o do topo trata Esc e Tab/Shift+Tab.
+  // Vigia do gatilho do último fechamento; encerrada ao reabrir ou desmontar.
+  const encerrarVigiaRef = useRef<(() => void) | null>(null)
+
+  // Foco e teclado: guarda o elemento ativo, move o foco para o painel e entra na pilha de diálogos
+  // abertos (só o do topo trata Esc, Tab/Shift+Tab e o foco que chega fora dele). Ao fechar, sai da
+  // pilha antes de devolver o foco: ao elemento que abriu, se ainda está na página, ou a um destino
+  // estável (`focoAoFechar`, `<h1>` ou `<main>`).
   useEffect(() => {
     if (!aberto) return
-    const entrada: EntradaPilha = {
+    encerrarVigiaRef.current?.()
+    encerrarVigiaRef.current = null
+
+    elementoAnteriorRef.current = document.activeElement as HTMLElement | null
+    const desempilhar = empilharDialogo({
       obterPainel: () => painelRef.current,
       fechar: () => onFecharRef.current(),
+    })
+    painelRef.current?.focus()
+    // Lido só no fechamento: vale o `focoAoFechar` mais recente.
+    const obterFocoAoFechar = () => focoAoFecharRef.current?.current
+
+    return () => {
+      desempilhar()
+      const anterior = elementoAnteriorRef.current
+      elementoAnteriorRef.current = null
+      const anteriorNaPagina =
+        anterior !== null && anterior !== document.body && anterior.isConnected && typeof anterior.focus === 'function'
+      if (anteriorNaPagina) {
+        anterior.focus()
+        if (document.activeElement === anterior) {
+          encerrarVigiaRef.current = vigiarSaidaDoGatilho(anterior, obterFocoAoFechar)
+          return
+        }
+      }
+      // Outro diálogo continua aberto por baixo: o foco vai para ele, não para a página.
+      const abaixo = pilhaDialogos[pilhaDialogos.length - 1]?.obterPainel()
+      if (abaixo) {
+        abaixo.focus()
+        return
+      }
+      focarDestinoEstavel(obterFocoAoFechar())
     }
-    return empilharDialogo(entrada)
   }, [aberto])
+
+  // Ao desmontar, encerra a vigia (declarado depois do efeito acima: a limpeza roda depois da dele).
+  useEffect(() => () => encerrarVigiaRef.current?.(), [])
 
   // Evita rolagem da página atrás do diálogo.
   useEffect(() => {

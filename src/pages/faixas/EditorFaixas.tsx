@@ -4,7 +4,11 @@
  * Cada linha tem De (R$), Até (R$) e Alíquota (%) em texto com `inputmode="decimal"` (vírgula
  * decimal). "+ Adicionar faixa" inclui uma linha vazia no fim; "Remover faixa N" retira a linha
  * (desabilitado quando há só uma) e as seguintes são renumeradas.
+ *
+ * Foco (F12.1, A4): "Remover faixa N" leva o foco ao "De" da linha que passa a ser a N (ou da anterior,
+ * se era a última); "+ Adicionar faixa" leva ao "De" da nova linha. Aplicado depois da renderização.
  */
+import { useEffect, useRef } from 'react'
 import { Botao } from '../../components/Botao'
 import { linhaFaixaVazia, type LinhaFaixaEditavel } from './regrasFaixas'
 import './EditorFaixas.css'
@@ -40,11 +44,23 @@ const ICONE_REMOVER = (
 )
 
 export function EditorFaixas({ linhas, onChange, desabilitado = false }: EditorFaixasProps) {
+  // Campos "De" por posição; a linha cuja posição recebe o foco na próxima renderização.
+  const camposDeRef = useRef<(HTMLInputElement | null)[]>([])
+  const focoPendenteRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    const indice = focoPendenteRef.current
+    if (indice === null) return
+    focoPendenteRef.current = null
+    camposDeRef.current[indice]?.focus()
+  })
+
   function alterar(indice: number, campo: CampoLinha, valor: string) {
     onChange(linhas.map((linha, i) => (i === indice ? { ...linha, [campo]: valor } : linha)))
   }
 
   function remover(indice: number) {
+    focoPendenteRef.current = Math.min(indice, linhas.length - 2)
     onChange(linhas.filter((_, i) => i !== indice))
   }
 
@@ -72,6 +88,13 @@ export function EditorFaixas({ linhas, onChange, desabilitado = false }: EditorF
                   inputMode="decimal"
                   autoComplete="off"
                   aria-label={`${rotulo}, faixa ${n}`}
+                  ref={
+                    campo === 'de'
+                      ? (elemento) => {
+                          camposDeRef.current[indice] = elemento
+                        }
+                      : undefined
+                  }
                   value={linha[campo]}
                   disabled={desabilitado}
                   onChange={(evento) => alterar(indice, campo, evento.target.value)}
@@ -95,7 +118,10 @@ export function EditorFaixas({ linhas, onChange, desabilitado = false }: EditorF
           variante="contorno"
           tamanho="pequeno"
           disabled={desabilitado}
-          onClick={() => onChange([...linhas, linhaFaixaVazia()])}
+          onClick={() => {
+            focoPendenteRef.current = linhas.length
+            onChange([...linhas, linhaFaixaVazia()])
+          }}
         >
           + Adicionar faixa
         </Botao>

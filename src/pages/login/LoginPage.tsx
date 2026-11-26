@@ -17,6 +17,7 @@ import { Campo } from '../../components/Campo'
 import { Etiqueta } from '../../components/Etiqueta'
 import { Marca } from '../../components/Marca'
 import { Rodape } from '../../components/Rodape'
+import { useTituloDocumento } from '../../hooks/useTituloDocumento'
 import { ApiError, SEGUNDOS_BLOQUEIO_PADRAO } from '../../services/api'
 import { useSessao } from '../../sessao/SessaoProvider'
 import './LoginPage.css'
@@ -47,6 +48,7 @@ function segundosRestantes(fim: number): number {
 }
 
 export function LoginPage() {
+  useTituloDocumento('Entrar')
   const { entrar, erro } = useSessao()
   const navigate = useNavigate()
   const [usuario, setUsuario] = useState('')

@@ -315,4 +315,95 @@ describe('F7.6 — SecaoIndicadores: indicadores com pontos base, total e indisp
       expect.stringContaining('Informe os pontos base do indicador “Cobertura de visitas” neste dashboard.'),
     )
   })
+
+  describe('fechar o dropdown (alteração de 18/11/2026: clique fora e Esc, como qualquer lista suspensa)', () => {
+    it('clicar fora do dropdown (no rótulo "Indicadores vinculados") fecha a lista', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await abrir(user)
+      expect(lista()).toBeInTheDocument()
+
+      await user.click(within(grupo()).getByText('Indicadores vinculados'))
+
+      expect(within(grupo()).queryByRole('listbox', { name: 'Indicadores' })).not.toBeInTheDocument()
+      expect(botao()).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    it('digitar os pontos base de um escolhido (fora do dropdown) fecha a lista e mantém o valor', async () => {
+      const user = usuarioRapido()
+      const { onChange } = renderizar()
+      await escolher(user, 'Cobertura de visitas')
+      expect(lista()).toBeInTheDocument()
+
+      await user.type(pontos('Cobertura de visitas'), '40')
+
+      expect(within(grupo()).queryByRole('listbox', { name: 'Indicadores' })).not.toBeInTheDocument()
+      expect(onChange).toHaveBeenLastCalledWith([{ idIndicador: 1, pontos: '40' }])
+    })
+
+    it('clicar na busca ou escolher um indicador não fecha a lista', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await abrir(user)
+
+      await user.click(within(grupo()).getByLabelText('Buscar indicador'))
+      await user.click(opcao('Cobertura de visitas'))
+
+      expect(lista()).toBeInTheDocument()
+      expect(botao()).toHaveAttribute('aria-expanded', 'true')
+    })
+
+    it('Esc na busca fecha a lista e devolve o foco a "Selecionar indicador"', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await abrir(user)
+      await user.click(within(grupo()).getByLabelText('Buscar indicador'))
+
+      await user.keyboard('{Escape}')
+
+      expect(within(grupo()).queryByRole('listbox', { name: 'Indicadores' })).not.toBeInTheDocument()
+      expect(botao()).toHaveFocus()
+    })
+
+    it('depois de fechada por clique fora, a lista abre de novo pelo botão', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await abrir(user)
+      await user.click(within(grupo()).getByText('Indicadores vinculados'))
+
+      await user.click(botao())
+
+      expect(lista()).toBeInTheDocument()
+      expect(botao()).toHaveAttribute('aria-expanded', 'true')
+    })
+  })
+
+  describe('busca limpa ao fechar por clique fora ou Esc (alteração de 18/11/2026)', () => {
+    it('digitar na busca, clicar fora e reabrir mostra a busca vazia e todas as opções', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await abrir(user)
+      const total = within(lista()).getAllByRole('option').length
+      await user.type(within(grupo()).getByLabelText('Buscar indicador'), 'zzz')
+
+      await user.click(within(grupo()).getByText('Indicadores vinculados'))
+      await user.click(botao())
+
+      expect(within(grupo()).getByLabelText('Buscar indicador')).toHaveValue('')
+      expect(within(lista()).getAllByRole('option')).toHaveLength(total)
+      expect(within(grupo()).queryByText('Nenhum indicador encontrado para a busca.')).not.toBeInTheDocument()
+    })
+
+    it('digitar na busca, Esc e reabrir mostra a busca vazia', async () => {
+      const user = usuarioRapido()
+      renderizar()
+      await abrir(user)
+      await user.type(within(grupo()).getByLabelText('Buscar indicador'), 'zzz')
+
+      await user.keyboard('{Escape}')
+      await user.click(botao())
+
+      expect(within(grupo()).getByLabelText('Buscar indicador')).toHaveValue('')
+    })
+  })
 })

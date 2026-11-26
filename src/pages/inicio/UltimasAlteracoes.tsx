@@ -1,7 +1,8 @@
 import { Card } from '../../components/Card'
 import { Etiqueta } from '../../components/Etiqueta'
-import { ROTULOS_ACAO_LANCAMENTO, type UltimaAlteracaoInicio, type ValorLancamento } from '../../types/dominio'
+import { ROTULOS_ACAO_LANCAMENTO, type TipoValor, type UltimaAlteracaoInicio, type ValorLancamento } from '../../types/dominio'
 import { formatarCompetencia, formatarDataHora, formatarNumero } from '../../utils/formato'
+import { formatarValorLancamento } from '../preenchimento/regrasPreenchimento'
 import './UltimasAlteracoes.css'
 
 /** Quantidade máxima de alterações exibidas (as mais recentes, na ordem da API). */
@@ -12,8 +13,12 @@ export interface UltimasAlteracoesProps {
   alteracoes: UltimaAlteracaoInicio[]
 }
 
-/** Número em pt-BR com 2 casas (RN-10); booleano como "Sim"/"Não". */
-function formatarValor(valor: ValorLancamento): string {
+/**
+ * Valor pelo `tipoValor`, no padrão do Preenchimento (`formatarValorLancamento`: "%" na porcentagem, 2 casas
+ * no numeral, Sim/Não no booleano). Sem tipo: número em pt-BR com 2 casas (RN-10); booleano como "Sim"/"Não".
+ */
+function formatarValor(valor: ValorLancamento, tipoValor: TipoValor | null): string {
+  if (tipoValor !== null) return formatarValorLancamento(tipoValor, valor)
   if (typeof valor === 'boolean') return valor ? 'Sim' : 'Não'
   return formatarNumero(valor)
 }
@@ -21,8 +26,8 @@ function formatarValor(valor: ValorLancamento): string {
 /** "Competência MM/AAAA · Filial {código} · {anterior} → {novo}" (sem anterior, só o novo). */
 function textoDetalhe(alteracao: UltimaAlteracaoInicio): string {
   const partes = [`Competência ${formatarCompetencia(alteracao.competencia)}`, `Filial ${alteracao.filial}`]
-  const novo = alteracao.valorNovo === null ? '' : formatarValor(alteracao.valorNovo)
-  if (alteracao.valorAnterior !== null) partes.push(`${formatarValor(alteracao.valorAnterior)} → ${novo}`)
+  const novo = alteracao.valorNovo === null ? '' : formatarValor(alteracao.valorNovo, alteracao.tipoValor)
+  if (alteracao.valorAnterior !== null) partes.push(`${formatarValor(alteracao.valorAnterior, alteracao.tipoValor)} → ${novo}`)
   else if (novo !== '') partes.push(novo)
   return partes.join(' · ')
 }

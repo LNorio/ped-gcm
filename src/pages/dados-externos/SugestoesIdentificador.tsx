@@ -8,6 +8,7 @@
 import { useId } from 'react'
 import { Botao } from '../../components/Botao'
 import type { IdentificadorColeta } from '../../types/dominio'
+import { formatarInteiro } from '../../utils/formato'
 import './SugestoesIdentificador.css'
 
 export interface SugestoesIdentificadorProps {
@@ -41,7 +42,7 @@ export function SugestoesIdentificador({ identificadores, filtro, onEscolher }: 
             tamanho="pequeno"
             onClick={() => onEscolher(item.identificador)}
           >
-            {`${item.identificador} — usado por ${item.quantidade} dado(s)`}
+            {`${item.identificador} — usado por ${formatarInteiro(item.quantidade)} ${item.quantidade === 1 ? 'dado' : 'dados'}`}
           </Botao>
         ))}
       </div>

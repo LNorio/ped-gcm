@@ -6,6 +6,7 @@
  */
 import { DialogoConfirmacao } from '../../components/DialogoConfirmacao'
 import type { TipoApontamento } from '../../types/dominio'
+import { formatarInteiro } from '../../utils/formato'
 
 export interface DialogoExcluirTipoProps {
   /** Tipo a excluir; `null` mantém o diálogo fechado. */
@@ -19,7 +20,9 @@ export interface DialogoExcluirTipoProps {
 
 function textoBloqueio(tipo: TipoApontamento): string | undefined {
   if (tipo.quantidadeApontamentos <= 0) return undefined
-  return `Este tipo possui ${tipo.quantidadeApontamentos} apontamento(s) vinculado(s) e não pode ser excluído.`
+  const quantidade = tipo.quantidadeApontamentos
+  const texto = quantidade === 1 ? 'apontamento vinculado' : 'apontamentos vinculados'
+  return `Este tipo possui ${formatarInteiro(quantidade)} ${texto} e não pode ser excluído.`
 }
 
 export function DialogoExcluirTipo({ tipo, excluindo, onConfirmar, onCancelar }: DialogoExcluirTipoProps) {

@@ -6,9 +6,12 @@
 import { Link } from 'react-router-dom'
 import { CAMINHOS } from '../../caminhos'
 import { Card } from '../../components/Card'
+import { useTituloDocumento } from '../../hooks/useTituloDocumento'
 import './NaoEncontradaPage.css'
 
 export function NaoEncontradaPage() {
+  useTituloDocumento('Página não encontrada')
+
   return (
     <Card className="nao-encontrada">
       <div className="nao-encontrada__corpo">

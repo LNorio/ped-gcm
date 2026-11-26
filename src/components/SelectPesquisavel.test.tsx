@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { usuarioRapido } from '../test/usuario'
@@ -486,5 +486,61 @@ describe('F1.20 — SelectPesquisavel (select com barra de pesquisa dentro do dr
       expect(gatilho()).toHaveTextContent('Ana Souza')
       expect(onSelecionar).not.toHaveBeenCalled()
     })
+  })
+})
+
+/**
+ * Alteração de 18/11/2026: um clique dentro de um `<iframe>` (ex.: o PDF embutido da prévia,
+ * `VisualizadorPdf`) não gera evento no documento, e a lista ficava aberta. Aberta, se a janela perde
+ * o foco para um iframe (evento `blur` em `window` com `document.activeElement` sendo um IFRAME), a
+ * lista fecha sem alterar a seleção.
+ */
+describe('F1.20 — SelectPesquisavel: fecha quando o foco vai para um iframe (alteração de 18/11/2026)', () => {
+  function renderizarComIframe() {
+    const user = usuarioRapido()
+    const onSelecionar = vi.fn()
+    render(
+      <>
+        <Controlado onSelecionar={onSelecionar} />
+        <iframe title="PDF da prévia" />
+      </>,
+    )
+    const iframe = screen.getByTitle('PDF da prévia')
+    return { user, onSelecionar, iframe }
+  }
+
+  it('aberta, o foco ir para o iframe com o blur da janela fecha a lista sem alterar a seleção', async () => {
+    const { user, onSelecionar, iframe } = renderizarComIframe()
+    await user.click(gatilho())
+    expect(lista()).toBeInTheDocument()
+
+    iframe.focus()
+    fireEvent.blur(window)
+
+    fechado()
+    expect(gatilho()).toHaveTextContent('Ana Souza')
+    expect(onSelecionar).not.toHaveBeenCalled()
+  })
+
+  it('aberta, o blur da janela com document.activeElement no iframe fecha a lista (sem depender do blur da barra de pesquisa)', async () => {
+    const { user, onSelecionar, iframe } = renderizarComIframe()
+    await user.click(gatilho())
+    expect(busca()).toHaveFocus()
+
+    const ativo = vi.spyOn(document, 'activeElement', 'get').mockReturnValue(iframe)
+    fireEvent.blur(window)
+    ativo.mockRestore()
+
+    fechado()
+    expect(onSelecionar).not.toHaveBeenCalled()
+  })
+
+  it('fechada, o blur da janela para o iframe não abre a lista', async () => {
+    const { iframe } = renderizarComIframe()
+
+    iframe.focus()
+    fireEvent.blur(window)
+
+    fechado()
   })
 })

@@ -10,11 +10,17 @@ export default defineConfig(({ mode }) => {
     // Divide o JavaScript da build em duas partes (pedido do usuário em 10/11/2026: o arquivo único
     // passava de 500 kB): `vendor` com as bibliotecas de node_modules (React, React Router), que
     // mudam pouco e ficam no cache do navegador entre versões, e `index` com o código do sistema.
+    // F2.13 (25/11/2026): o `vendor` fica só com as bibliotecas da carga inicial (`$initial`); as usadas
+    // apenas por páginas sob demanda (react-markdown e remark-gfm, da página /backend) vão para
+    // `vendor-sob-demanda`, baixado só ao abrir a página que as usa.
     build: {
       rolldownOptions: {
         output: {
           codeSplitting: {
-            groups: [{ name: 'vendor', test: /[\\/]node_modules[\\/]/ }],
+            groups: [
+              { name: 'vendor', test: /[\\/]node_modules[\\/]/, tags: ['$initial'], priority: 1 },
+              { name: 'vendor-sob-demanda', test: /[\\/]node_modules[\\/]/ },
+            ],
           },
         },
       },

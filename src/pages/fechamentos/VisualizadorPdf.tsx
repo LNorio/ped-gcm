@@ -23,7 +23,15 @@ export function VisualizadorPdf({ pdf, titulo }: VisualizadorPdfProps) {
         onTentarNovamente={pdf.tentarNovamente}
         tentarNovamenteDesabilitado={pdf.aguardandoLimite}
       />
-      {pdf.url ? <iframe className="visualizador-pdf__quadro" title={titulo} src={pdf.url} /> : null}
+      {pdf.url ? (
+        <>
+          <iframe className="visualizador-pdf__quadro" title={titulo} src={pdf.url} />
+          {/* F12.2: alternativa para telas pequenas e navegadores que não mostram PDF no iframe. */}
+          <a className="visualizador-pdf__link foco-anel" href={pdf.url} target="_blank" rel="noopener noreferrer">
+            Abrir PDF em nova aba
+          </a>
+        </>
+      ) : null}
     </div>
   )
 }

@@ -82,7 +82,7 @@ export function FormularioTipo({
   }
 
   return (
-    <form className="formulario-dashboard formulario-tipo" onSubmit={enviar} noValidate>
+    <form className="formulario-tipo" onSubmit={enviar} noValidate>
       <RegiaoStatus mensagem={carregandoListas ? MENSAGEM_CARREGANDO_LISTAS : null} />
       {erroListas ? <Aviso tipo="erro">{erroListas}</Aviso> : null}
 
@@ -108,7 +108,7 @@ export function FormularioTipo({
 
       {erro ? <Aviso tipo="erro">{erro}</Aviso> : null}
 
-      <div className="formulario-dashboard__acoes">
+      <div className="formulario-tipo__acoes">
         <Botao type="button" variante="contorno" onClick={onCancelar}>
           Cancelar
         </Botao>

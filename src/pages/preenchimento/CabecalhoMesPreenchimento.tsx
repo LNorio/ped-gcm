@@ -6,7 +6,7 @@
 import { Aviso } from '../../components/Aviso'
 import { Etiqueta } from '../../components/Etiqueta'
 import type { TelaPreenchimento } from '../../types/dominio'
-import { formatarCompetencia, formatarDataHora } from '../../utils/formato'
+import { formatarCompetencia, formatarDataHora, formatarInteiro } from '../../utils/formato'
 import { avisoSomenteConsulta } from './regrasPreenchimento'
 
 export interface CabecalhoMesPreenchimentoProps {
@@ -34,7 +34,7 @@ export function CabecalhoMesPreenchimento({ tela }: CabecalhoMesPreenchimentoPro
         <Etiqueta tom={aberto ? 'sucesso' : 'neutro'}>{aberto ? 'Aberto' : 'Fechado'}</Etiqueta>
       </div>
       <p className="resumo-mes-preenchimento__progresso">
-        {`${tela.progresso.preenchidos} de ${tela.progresso.total} apontamentos preenchidos`}
+        {`${formatarInteiro(tela.progresso.preenchidos)} de ${formatarInteiro(tela.progresso.total)} ${tela.progresso.total === 1 ? 'apontamento preenchido' : 'apontamentos preenchidos'}`}
       </p>
       {abertura ? <p className="resumo-mes-preenchimento__abertura">{abertura}</p> : null}
       {tela.editavel ? null : <Aviso tipo="info">{avisoSomenteConsulta(tela.periodoAberto)}</Aviso>}

@@ -407,3 +407,196 @@ describe('F10.1 — Conteúdo da imagem congelada (RF-83)', () => {
     await expect(obterImagem(3)).rejects.toMatchObject({ status: 200, mensagem: MENSAGEM_RESPOSTA_INVALIDA })
   })
 })
+
+/**
+ * F10.1 — Formato real do conteúdo da imagem (`docs/backend/exemplos-reais/previa.json`, 24/11/2026):
+ * `unidade.filial` em `{ codigo, nome }`, `unidade.colaborador` em `{ id, nome, cargo }` e as faixas em
+ * `pontuacao.faixas`. Os formatos anteriores (`{ filial, "nome filial" }`, texto, número, campos na raiz,
+ * "id colaborador" na raiz ou no colaborador, `faixas` na raiz) continuam aceitos. Motivo: contra o
+ * servidor real, a pré-visualização agrupava todas as imagens em "Filial · 60 imagens", sem o código.
+ */
+describe('F10.1 — Conteúdo da imagem congelada: formato real da unidade e das faixas', () => {
+  let fetchFalso: ReturnType<typeof vi.spyOn<typeof globalThis, 'fetch'>>
+
+  beforeEach(() => {
+    sessionStorage.clear()
+    limparToken()
+    definirToken('token-123')
+    vi.stubEnv('VITE_API_URL', undefined)
+    fetchFalso = vi.spyOn(globalThis, 'fetch')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+    limparToken()
+  })
+
+  function responder(corpo: unknown) {
+    simularApi(fetchFalso, { [`GET ${ROTA}`]: () => respostaJson(corpo) })
+  }
+
+  /** Imagem da Ana sem "id colaborador" na raiz (o id vem só da unidade). */
+  function anaSemIdNaRaiz(): ImagemApiEditavel {
+    const { 'id colaborador': _id, ...api } = ana()
+    return api as ImagemApiEditavel
+  }
+
+  describe('filial', () => {
+    it('filial em { codigo, nome } (formato real) vira filial e nomeFilial', async () => {
+      const api = ana()
+      api.unidade.filial = { codigo: '403', nome: 'Filial 403' }
+      responder(api)
+
+      await expect(obterImagem(3)).resolves.toMatchObject({
+        unidade: { filial: '403', nomeFilial: 'Filial 403', colaborador: 'Ana Souza', cargo: 'Gerente de Loja' },
+      })
+    })
+
+    it('código numérico em { codigo, nome } vira texto', async () => {
+      const api = ana()
+      api.unidade.filial = { codigo: 403, nome: 'Filial 403' }
+      responder(api)
+
+      await expect(obterImagem(3)).resolves.toMatchObject({ unidade: { filial: '403', nomeFilial: 'Filial 403' } })
+    })
+
+    it('{ codigo } sem nome: nomeFilial null (o código continua lido)', async () => {
+      const api = ana()
+      api.unidade.filial = { codigo: '403' }
+      responder(api)
+
+      await expect(obterImagem(3)).resolves.toMatchObject({ unidade: { filial: '403', nomeFilial: null } })
+    })
+
+    it('regressão: filial em { filial, "nome filial" } continua aceita', async () => {
+      const api = ana()
+      api.unidade.filial = { filial: '100', 'nome filial': 'MATRIZ' }
+      responder(api)
+
+      await expect(obterImagem(3)).resolves.toMatchObject({ unidade: { filial: '100', nomeFilial: 'MATRIZ' } })
+    })
+
+    it('código da filial em { codigo } fora do formato (booleano) vira ApiError "resposta inválida"', async () => {
+      const api = ana()
+      api.unidade.filial = { codigo: true, nome: 'Filial 403' }
+      responder(api)
+
+      await expect(obterImagem(3)).rejects.toMatchObject({ status: 200, mensagem: MENSAGEM_RESPOSTA_INVALIDA })
+    })
+  })
+
+  describe('colaborador', () => {
+    it('colaborador em { id, nome, cargo } (formato real): idColaborador do "id", nome e cargo', async () => {
+      const api = anaSemIdNaRaiz()
+      api.unidade.colaborador = { id: 242, nome: 'Alexandre dos Santos Sousa', cargo: 'Gerente' }
+      responder(api)
+
+      await expect(obterImagem(3)).resolves.toMatchObject({
+        tipo: 'colaborador',
+        idColaborador: 242,
+        unidade: { colaborador: 'Alexandre dos Santos Sousa', cargo: 'Gerente' },
+      })
+    })
+
+    it('sem "tipo" (raiz e unidade), o "id" do colaborador basta para o tipo "colaborador"', async () => {
+      const { tipo: _tipo, ...api } = anaSemIdNaRaiz()
+      const { tipo: _tipoUnidade, ...unidade } = api.unidade
+      responder({ ...api, unidade: { ...unidade, colaborador: { id: 242, nome: 'Alexandre dos Santos Sousa', cargo: 'Gerente' } } })
+
+      await expect(obterImagem(3)).resolves.toMatchObject({ tipo: 'colaborador', idColaborador: 242 })
+    })
+
+    it('"id" do colaborador em texto só com dígitos vira número', async () => {
+      const api = anaSemIdNaRaiz()
+      api.unidade.colaborador = { id: '242', nome: 'Alexandre dos Santos Sousa', cargo: 'Gerente' }
+      responder(api)
+
+      await expect(obterImagem(3)).resolves.toMatchObject({ idColaborador: 242 })
+    })
+
+    it('"id" do colaborador em texto não numérico vira ApiError "resposta inválida"', async () => {
+      const api = anaSemIdNaRaiz()
+      api.unidade.colaborador = { id: 'duzentos', nome: 'Alexandre dos Santos Sousa', cargo: 'Gerente' }
+      responder(api)
+
+      await expect(obterImagem(3)).rejects.toMatchObject({ status: 200, mensagem: MENSAGEM_RESPOSTA_INVALIDA })
+    })
+
+    it('regressão: "id colaborador" na raiz e dentro do colaborador continuam aceitos', async () => {
+      const naRaiz = ana()
+      naRaiz.unidade.colaborador = { nome: 'Ana Souza', cargo: 'Gerente de Loja' }
+      const noColaborador = anaSemIdNaRaiz()
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}`]: () => respostaJson(naRaiz),
+        'GET /api/ped/imagens/4': () => respostaJson(noColaborador),
+      })
+
+      await expect(obterImagem(3)).resolves.toMatchObject({ tipo: 'colaborador', idColaborador: 11 })
+      await expect(obterImagem(4)).resolves.toMatchObject({ tipo: 'colaborador', idColaborador: 11 })
+    })
+  })
+
+  describe('faixas', () => {
+    const FAIXAS_REAIS = {
+      versao: 2,
+      linhas: [
+        { de: 0, ate: 200000, aliquota: 2.75 },
+        { de: 200000.01, ate: 300000, aliquota: 2.22 },
+      ],
+    }
+
+    it('sem "faixas" na raiz, as faixas vêm de "pontuacao.faixas" (formato real)', async () => {
+      const { faixas: _faixas, ...api } = ana()
+      responder({ ...api, pontuacao: { ...api.pontuacao, faixas: FAIXAS_REAIS } })
+
+      await expect(obterImagem(3)).resolves.toMatchObject({ faixas: { nome: null, ...FAIXAS_REAIS } })
+    })
+
+    it('"faixas" na raiz têm prioridade sobre "pontuacao.faixas" (regressão do formato antigo)', async () => {
+      const api = ana()
+      api.pontuacao.faixas = FAIXAS_REAIS
+      responder(api)
+
+      await expect(obterImagem(3)).resolves.toMatchObject({ faixas: IMAGEM_ANA.faixas })
+    })
+
+    it('sem "faixas" na raiz e com "pontuacao.faixas" null ou ausente: faixas null', async () => {
+      const { faixas: _faixas, ...api } = ana()
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}`]: () => respostaJson({ ...api, pontuacao: { ...api.pontuacao, faixas: null } }),
+        'GET /api/ped/imagens/4': () => respostaJson(api),
+      })
+
+      await expect(obterImagem(3)).resolves.toMatchObject({ faixas: null })
+      await expect(obterImagem(4)).resolves.toMatchObject({ faixas: null })
+    })
+
+    it('"pontuacao.faixas" com linha em formato pt-BR vira ApiError "resposta inválida"', async () => {
+      const { faixas: _faixas, ...api } = ana()
+      const faixas = { versao: 2, linhas: [{ de: '1.000,00', ate: 200000, aliquota: 2.75 }] }
+      responder({ ...api, pontuacao: { ...api.pontuacao, faixas } })
+
+      await expect(obterImagem(3)).rejects.toMatchObject({ status: 200, mensagem: MENSAGEM_RESPOSTA_INVALIDA })
+    })
+
+    it('a pontuação continua com os passos quando traz "faixas" e "ped percentual" dentro dela', async () => {
+      const { faixas: _faixas, ...api } = ana()
+      responder({ ...api, pontuacao: { ...api.pontuacao, faixas: FAIXAS_REAIS, 'ped percentual': 20 } })
+
+      await expect(obterImagem(3)).resolves.toMatchObject({ pontuacao: IMAGEM_ANA.pontuacao })
+    })
+  })
+
+  it('campos extras do formato real são tolerados: "composicao do resultado" null, "id indicador" e "sentido" nos indicadores', async () => {
+    const api = ana()
+    api['composicao do resultado'] = null
+    api.indicadores = api.indicadores.map((indicador, posicao) => ({ ...indicador, 'id indicador': posicao + 1, sentido: 'maior_melhor' }))
+    responder(api)
+
+    const imagem = await obterImagem(3)
+
+    expect(imagem.indicadores).toEqual(IMAGEM_ANA.indicadores)
+    expect(imagem.unidade).toEqual(IMAGEM_ANA.unidade)
+  })
+})

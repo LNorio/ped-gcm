@@ -179,7 +179,7 @@ describe('F5.7 — Concluir construção de dado externo (Admin registra a integ
     const dialogo = await abrirConclusao(user)
 
     const grupo = await within(dialogo).findByRole('group', { name: 'Identificadores existentes' })
-    await user.click(within(grupo).getByRole('button', { name: 'NOVOS_CLIENTES — usado por 0 dado(s)' }))
+    await user.click(within(grupo).getByRole('button', { name: 'NOVOS_CLIENTES — usado por 0 dados' }))
     await preencherIntegracao(user, dialogo)
     await user.click(botaoConcluir(dialogo))
 

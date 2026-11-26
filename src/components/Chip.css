@@ -39,3 +39,11 @@
   background-color: var(--cor-primaria);
   color: #fff;
 }
+
+/* Alto contraste: o chip ativo não pode depender só da cor de fundo */
+@media (forced-colors: active) {
+  .chip--ativo {
+    border-width: 2px;
+    border-color: Highlight;
+  }
+}

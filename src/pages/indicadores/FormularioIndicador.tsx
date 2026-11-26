@@ -17,14 +17,19 @@
  * A composição é exclusiva (RF-35): ou um ou mais apontamentos (com "Cálculo do realizado" obrigatório),
  * ou um dado externo. Apontamentos e dado externo são escolhidos em dropdowns com busca (como no
  * protótipo, bloco indModal); a área de itens mostra só o que foi escolhido, com "Remover". Escolher
- * de um tipo bloqueia o outro até o item ser removido.
+ * de um tipo bloqueia o outro até o item ser removido. Aberto, o dropdown fecha com clique fora (botão +
+ * painel) e com Esc, como o `SeletorBusca` dos dashboards; o Esc devolve o foco ao botão e não se
+ * propaga, para não fechar o `Dialogo` em volta. Enter na busca não envia o formulário (F6.4).
+ * Foco (F12.1, A4): escolher um apontamento leva o foco à busca (o painel continua aberto); escolher o
+ * dado externo leva ao "Remover {nome}" dele; remover leva ao "Remover" do próximo, ou do anterior, ou
+ * ao botão do dropdown quando não sobram itens. O foco nunca cai no `<body>`.
  *
  * Valida localmente antes de chamar `onSalvar`. O indicador não é editável depois de cadastrado, por
  * isso não há campo de situação nem ação de editar. O erro devolvido pela API (`erro`) aparece dentro
  * do formulário sem apagar o que o usuário digitou. Os apontamentos e dados externos chegam prontos
  * pela página (somente ativos); a carga e o erro da carga são exibidos aqui.
  */
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type RefObject } from 'react'
 import { AreaTexto } from '../../components/AreaTexto'
 import { Aviso } from '../../components/Aviso'
 import { Botao } from '../../components/Botao'
@@ -198,6 +203,8 @@ interface SeletorComponentesProps {
   textoBotao: string
   aberto: boolean
   onAlternar: () => void
+  /** Fecha o painel (clique fora e Esc, só com o painel aberto). Sem ela, o componente usa `onAlternar`. */
+  onFechar?: () => void
   rotuloBusca: string
   busca: string
   onBusca: (texto: string) => void
@@ -205,6 +212,8 @@ interface SeletorComponentesProps {
   opcoes: OpcaoComponente[]
   mensagemVazia: string | null
   onEscolher: (id: number) => void
+  /** Ref do botão que abre o painel (para devolver o foco a ele). */
+  refBotao?: RefObject<HTMLButtonElement | null>
 }
 
 /** Botão que abre o painel com busca e a lista de opções (dropdown do protótipo, bloco indModal). */
@@ -212,6 +221,7 @@ function SeletorComponentes({
   textoBotao,
   aberto,
   onAlternar,
+  onFechar,
   rotuloBusca,
   busca,
   onBusca,
@@ -219,10 +229,77 @@ function SeletorComponentes({
   opcoes,
   mensagemVazia,
   onEscolher,
+  refBotao,
 }: SeletorComponentesProps) {
+  const raizRef = useRef<HTMLDivElement>(null)
+  const botaoInternoRef = useRef<HTMLButtonElement>(null)
+  const botaoRef = refBotao ?? botaoInternoRef
+  const buscaRef = useRef<HTMLInputElement>(null)
+  // Depois de escolher, o foco é conferido de novo na renderização seguinte (o painel pode ter fechado).
+  const focoPendenteRef = useRef(false)
+  // Callback mais recente para os listeners do documento, sem reinscrevê-los a cada renderização.
+  const fecharRef = useRef<() => void>(onFechar ?? onAlternar)
+  useEffect(() => {
+    fecharRef.current = onFechar ?? onAlternar
+  })
+
+  // Clique fora fecha. pointerdown e mousedown do mesmo clique fecham uma única vez (o fallback
+  // `onAlternar` alterna o estado, e chamá-lo duas vezes reabriria o painel).
+  useEffect(() => {
+    if (!aberto) return
+    let fechado = false
+    function aoPressionar(evento: Event) {
+      if (fechado) return
+      if (evento.target instanceof Node && raizRef.current?.contains(evento.target)) return
+      fechado = true
+      focoPendenteRef.current = false
+      fecharRef.current()
+    }
+    document.addEventListener('pointerdown', aoPressionar)
+    document.addEventListener('mousedown', aoPressionar)
+    return () => {
+      document.removeEventListener('pointerdown', aoPressionar)
+      document.removeEventListener('mousedown', aoPressionar)
+    }
+  }, [aberto])
+
+  // Esc (na busca, numa opção ou no botão) fecha só o painel e devolve o foco ao botão.
+  function aoPressionarTecla(evento: KeyboardEvent<HTMLDivElement>) {
+    if (!aberto || evento.key !== 'Escape') return
+    evento.preventDefault()
+    evento.stopPropagation()
+    focoPendenteRef.current = false
+    botaoRef.current?.focus()
+    fecharRef.current()
+  }
+
+  // A opção escolhida some: o foco vai para a busca (painel aberto) ou para o botão. Se o seletor
+  // deixar de existir (dado externo escolhido), quem o usa move o foco.
+  function focarAposEscolher() {
+    const alvo = buscaRef.current?.isConnected ? buscaRef.current : botaoRef.current
+    alvo?.focus()
+  }
+
+  useEffect(() => {
+    if (!focoPendenteRef.current) return
+    focoPendenteRef.current = false
+    focarAposEscolher()
+  })
+
+  function escolher(id: number) {
+    onEscolher(id)
+    focoPendenteRef.current = true
+    focarAposEscolher()
+  }
+
+  // Enter na busca não dispara o envio implícito do formulário (F6.4).
+  function impedirEnvioPelaBusca(evento: KeyboardEvent<HTMLInputElement>) {
+    if (evento.key === 'Enter') evento.preventDefault()
+  }
+
   return (
-    <div className="formulario-indicador__dd">
-      <button type="button" className="formulario-indicador__dd-botao foco-anel" aria-expanded={aberto} onClick={onAlternar}>
+    <div ref={raizRef} className="formulario-indicador__dd" onKeyDown={aoPressionarTecla}>
+      <button ref={botaoRef} type="button" className="formulario-indicador__dd-botao foco-anel" aria-expanded={aberto} onClick={onAlternar}>
         <span>{textoBotao}</span>
         {ICONE_SETA}
       </button>
@@ -235,8 +312,10 @@ function SeletorComponentes({
               type="search"
               autoComplete="off"
               placeholder={`${rotuloBusca}...`}
+              ref={buscaRef}
               value={busca}
               onChange={(evento) => onBusca(evento.target.value)}
+              onKeyDown={impedirEnvioPelaBusca}
             />
           </div>
           <div role="listbox" aria-label={rotuloLista} className="formulario-indicador__dd-opcoes">
@@ -247,7 +326,7 @@ function SeletorComponentes({
                 role="option"
                 aria-selected={false}
                 className="formulario-indicador__dd-opcao foco-anel"
-                onClick={() => onEscolher(opcao.id)}
+                onClick={() => escolher(opcao.id)}
               >
                 <span>{opcao.nome}</span>
                 <small>{opcao.subtexto}</small>
@@ -266,16 +345,18 @@ interface ItensEscolhidosProps {
   textoVazio: string
   itens: OpcaoComponente[]
   onRemover: (id: number) => void
+  /** Ref da lista, para mover o foco entre os botões "Remover". */
+  refLista?: RefObject<HTMLUListElement | null>
 }
 
 /** Área de itens: só os escolhidos, cada um com "Remover {nome}"; vazia mostra o texto de vazio. */
-function ItensEscolhidos({ rotuloLista, textoVazio, itens, onRemover }: ItensEscolhidosProps) {
+function ItensEscolhidos({ rotuloLista, textoVazio, itens, onRemover, refLista }: ItensEscolhidosProps) {
   return (
     <div className="formulario-indicador__selecionados">
       {itens.length === 0 ? (
         <p className="formulario-indicador__vazio">{textoVazio}</p>
       ) : (
-        <ul className="formulario-indicador__lista" aria-label={rotuloLista}>
+        <ul ref={refLista} className="formulario-indicador__lista" aria-label={rotuloLista}>
           {itens.map((item) => (
             <li key={item.id} className="formulario-indicador__escolhido">
               <span className="formulario-indicador__escolhido-texto">
@@ -327,6 +408,20 @@ export function FormularioIndicador({
   const [buscaDadoExterno, setBuscaDadoExterno] = useState('')
   const [erros, setErros] = useState<ErrosFormulario>({})
 
+  // Foco depois de escolher ou remover (F12.1, A4): aplicado depois da renderização, quando o alvo existe.
+  const botaoApontamentoRef = useRef<HTMLButtonElement>(null)
+  const botaoDadoExternoRef = useRef<HTMLButtonElement>(null)
+  const listaApontamentosRef = useRef<HTMLUListElement>(null)
+  const listaDadoExternoRef = useRef<HTMLUListElement>(null)
+  const focoPendenteRef = useRef<(() => HTMLElement | null | undefined) | null>(null)
+
+  useEffect(() => {
+    const alvo = focoPendenteRef.current
+    if (!alvo) return
+    focoPendenteRef.current = null
+    alvo()?.focus()
+  })
+
   // Componentes escolhidos, na ordem em que foram escolhidos (ids que sumirem da lista são ignorados).
   const escolhidosApontamento = idsApontamentos.flatMap((id) => {
     const apontamento = apontamentos.find((item) => item.id === id)
@@ -363,12 +458,28 @@ export function FormularioIndicador({
     setBuscaDadoExterno('')
   }
 
+  // Clique fora e Esc: zera o painel (não alterna) e limpa as buscas.
+  function fecharPainel() {
+    setPainelAberto(null)
+    setBuscaApontamento('')
+    setBuscaDadoExterno('')
+  }
+
   // Escolher um apontamento mantém o painel aberto, para escolher outros.
   function adicionarApontamento(id: number) {
     atualizarApontamentos([...idsApontamentos, id])
   }
 
   function removerApontamento(id: number) {
+    const posicao = escolhidosApontamento.findIndex((item) => item.id === id)
+    const restantes = escolhidosApontamento.length - 1
+    focoPendenteRef.current =
+      restantes === 0
+        ? () => botaoApontamentoRef.current
+        : () =>
+            listaApontamentosRef.current?.querySelectorAll<HTMLButtonElement>('.formulario-indicador__remover')[
+              Math.min(posicao, restantes - 1)
+            ] ?? botaoApontamentoRef.current
     atualizarApontamentos(idsApontamentos.filter((item) => item !== id))
   }
 
@@ -380,6 +491,14 @@ export function FormularioIndicador({
     setPainelAberto(null)
     setBuscaDadoExterno('')
     limparErro('composicao')
+    // O dropdown some (só cabe um dado): o foco vai para o "Remover" do dado escolhido.
+    focoPendenteRef.current = () => listaDadoExternoRef.current?.querySelector<HTMLButtonElement>('.formulario-indicador__remover')
+  }
+
+  // Sem o dado, o dropdown volta a aparecer e recebe o foco.
+  function removerDadoExterno() {
+    focoPendenteRef.current = () => botaoDadoExternoRef.current
+    setIdDadoExterno(null)
   }
 
   function enviar(evento: FormEvent<HTMLFormElement>) {
@@ -494,6 +613,7 @@ export function FormularioIndicador({
               textoBotao="Selecionar apontamento"
               aberto={painelAberto === 'apontamentos'}
               onAlternar={() => alternarPainel('apontamentos')}
+              onFechar={fecharPainel}
               rotuloBusca="Buscar apontamento"
               busca={buscaApontamento}
               onBusca={setBuscaApontamento}
@@ -507,6 +627,7 @@ export function FormularioIndicador({
                 'Nenhum apontamento encontrado.',
               )}
               onEscolher={adicionarApontamento}
+              refBotao={botaoApontamentoRef}
             />
           )}
           <ItensEscolhidos
@@ -514,6 +635,7 @@ export function FormularioIndicador({
             textoVazio="Nenhum apontamento selecionado."
             itens={escolhidosApontamento.map(paraOpcaoApontamento)}
             onRemover={removerApontamento}
+            refLista={listaApontamentosRef}
           />
           {temApontamentos ? (
             <Select
@@ -543,6 +665,7 @@ export function FormularioIndicador({
               textoBotao="Selecionar dado externo"
               aberto={painelAberto === 'dadoExterno'}
               onAlternar={() => alternarPainel('dadoExterno')}
+              onFechar={fecharPainel}
               rotuloBusca="Buscar dado externo"
               busca={buscaDadoExterno}
               onBusca={setBuscaDadoExterno}
@@ -556,13 +679,15 @@ export function FormularioIndicador({
                 'Nenhum dado externo encontrado.',
               )}
               onEscolher={escolherDadoExterno}
+              refBotao={botaoDadoExternoRef}
             />
           )}
           <ItensEscolhidos
             rotuloLista="Dado externo escolhido"
             textoVazio="Nenhum dado externo selecionado."
             itens={dadoEscolhido ? [paraOpcaoDadoExterno(dadoEscolhido)] : []}
-            onRemover={() => setIdDadoExterno(null)}
+            onRemover={removerDadoExterno}
+            refLista={listaDadoExternoRef}
           />
         </fieldset>
 

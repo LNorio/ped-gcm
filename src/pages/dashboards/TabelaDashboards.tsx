@@ -197,7 +197,7 @@ export function TabelaDashboards({
       titulo: 'Periodicidade',
       render: (dashboard) => ROTULOS_PERIODICIDADE[dashboard.periodicidade],
     },
-    { chave: 'vinculo', titulo: 'Vínculo', render: textoVinculo },
+    { chave: 'vinculo', titulo: 'Vínculo', render: textoVinculo, quebrar: true },
     {
       chave: 'indicadores',
       titulo: 'Indicadores',

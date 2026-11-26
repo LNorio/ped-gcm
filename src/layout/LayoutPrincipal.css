@@ -10,6 +10,41 @@
   flex-direction: column;
 }
 
+/* ---------- Pular para o conteúdo (F12.1, M4) ---------- */
+
+/* Visualmente oculto até receber foco; então aparece sobre o cabeçalho, no canto superior esquerdo. */
+.layout-principal__pular {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 1000;
+  padding: 0.625rem 1rem;
+  border-radius: var(--raio);
+  background-color: var(--cor-superficie);
+  color: var(--cor-primaria);
+  font-weight: 700;
+  text-decoration: underline;
+  box-shadow: 0 2px 8px rgba(0, 30, 60, 0.25);
+  transform: translateY(-200%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.layout-principal__pular:focus,
+.layout-principal__pular:focus-visible {
+  transform: none;
+  opacity: 1;
+  pointer-events: auto;
+  outline: 2px solid var(--cor-primaria);
+  outline-offset: 2px;
+}
+
+/* O <main> e o <h1> recebem foco por programa (tabIndex=-1); o anel ficaria sobre a página inteira. */
+.layout-principal__conteudo:focus,
+.layout-principal__conteudo h1[tabindex='-1']:focus {
+  outline: none;
+}
+
 /* ---------- Cabeçalho ---------- */
 
 .layout-principal__cabecalho {

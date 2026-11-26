@@ -1,0 +1,294 @@
+{
+    "dashboard": "PED",
+    "periodo": {
+        "codigo": "10\/2026",
+        "inicio": "2026-10-01",
+        "fim": "2026-10-31"
+    },
+    "resumo": {
+        "imagens a gerar": 33,
+        "unidades ja encerradas": 60,
+        "unidades com pendencias": 32,
+        "unidades sem tabela de faixas": 0,
+        "avisos": []
+    },
+    "imagens": [
+        {
+            "chave": "colaborador:242",
+            "dashboard": {
+                "id": 2,
+                "nome": "PED",
+                "periodicidade": "mensal",
+                "pontuacao base maxima": 120,
+                "tipo de vinculo": "cargos",
+                "formula de pontuacao": "teste"
+            },
+            "periodo": {
+                "codigo": "10\/2026",
+                "inicio": "2026-10-01",
+                "fim": "2026-10-31"
+            },
+            "unidade": {
+                "tipo": "colaborador",
+                "filial": {
+                    "codigo": "403",
+                    "nome": "Filial 403"
+                },
+                "colaborador": {
+                    "id": 242,
+                    "nome": "Alexandre dos Santos Sousa",
+                    "cargo": "Gerente"
+                }
+            },
+            "avisos": [
+                "7 lancamento(s) pendente(s) serao congelados sem valor: Pagamento fora da programação, Pagamento com multas\/juros, Documento não fiscal, Qualidade do lançamento, Treinamento técnico, Coaching, Treinamento no ponto de vendas.",
+                "Composicao do Resultado Operacional indisponivel: fonte de dados (DRG) nao configurada."
+            ],
+            "composicao do resultado": null,
+            "indicadores": [
+                {
+                    "id indicador": 15,
+                    "indicador": "Cobertura de clientes",
+                    "sentido": "maior_melhor",
+                    "meta": 90,
+                    "realizado": 34.16,
+                    "atingimento": 37.96,
+                    "pontos base": 20,
+                    "pontos realizados": 7.59,
+                    "observacao": "Dado externo (Cobertura de clientes), valor da data atual."
+                },
+                {
+                    "id indicador": 7,
+                    "indicador": "Faturamento",
+                    "sentido": "maior_melhor",
+                    "meta": 100,
+                    "realizado": 4087767.24,
+                    "atingimento": 4087767.24,
+                    "pontos base": 20,
+                    "pontos realizados": 20,
+                    "observacao": "Dado externo (Faturamento), valor da data atual."
+                },
+                {
+                    "id indicador": 17,
+                    "indicador": "Indicadores de Financeiro",
+                    "sentido": "maior_melhor",
+                    "meta": 4,
+                    "realizado": null,
+                    "atingimento": null,
+                    "pontos base": 20,
+                    "pontos realizados": 0,
+                    "observacao": "Sem lancamentos no periodo."
+                },
+                {
+                    "id indicador": 16,
+                    "indicador": "Indicadores de RH",
+                    "sentido": "maior_melhor",
+                    "meta": 3,
+                    "realizado": null,
+                    "atingimento": null,
+                    "pontos base": 20,
+                    "pontos realizados": 0,
+                    "observacao": "Sem lancamentos no periodo."
+                },
+                {
+                    "id indicador": 10,
+                    "indicador": "Litragem Ipiranga",
+                    "sentido": "maior_melhor",
+                    "meta": 100,
+                    "realizado": 113729.3,
+                    "atingimento": 113729.3,
+                    "pontos base": 20,
+                    "pontos realizados": 20,
+                    "observacao": "Dado externo (Litragem Ipiranga), valor da data atual."
+                },
+                {
+                    "id indicador": 11,
+                    "indicador": "Litragem Texaco",
+                    "sentido": "maior_melhor",
+                    "meta": null,
+                    "realizado": null,
+                    "atingimento": null,
+                    "pontos base": 20,
+                    "pontos realizados": 0,
+                    "observacao": "Sem realizado e meta coletados do dado externo."
+                }
+            ],
+            "ped percentual": 47.59,
+            "pontos base total": 120,
+            "resultado operacional": {
+                "indicador": "Faturamento",
+                "valor": 4087767.24,
+                "observacao": "Dado externo (Faturamento), valor da data atual."
+            },
+            "pontuacao": {
+                "calculada": true,
+                "motivo": null,
+                "faixas": {
+                    "versao": 2,
+                    "linhas": [
+                        { "de": 0, "ate": 200000, "aliquota": 2.75 },
+                        { "de": 200000.01, "ate": 300000, "aliquota": 2.22 },
+                        { "de": 300000.01, "ate": 400000, "aliquota": 2.21 },
+                        { "de": 400000.01, "ate": 500000, "aliquota": 1.95 },
+                        { "de": 500000.01, "ate": 600000, "aliquota": 1.8 },
+                        { "de": 600000.01, "ate": 700000, "aliquota": 1.68 }
+                    ]
+                },
+                "faixa atual": { "de": 600000.01, "ate": 700000, "aliquota": 1.68 },
+                "faixa anterior": { "de": 500000.01, "ate": 600000, "aliquota": 1.8 },
+                "aliquota anterior": 1.8,
+                "aliquota atual": 1.68,
+                "piso da faixa": 600000.01,
+                "opcao a": 10800,
+                "opcao b": 68674.49,
+                "opcao selecionada": "B",
+                "base de calculo": 68674.49,
+                "ped percentual": 47.59,
+                "valor": 32682.19
+            },
+            "pendencias": [
+                "Pagamento fora da programação",
+                "Pagamento com multas\/juros",
+                "Documento não fiscal",
+                "Qualidade do lançamento",
+                "Treinamento técnico",
+                "Coaching",
+                "Treinamento no ponto de vendas"
+            ]
+        },
+        {
+            "chave": "colaborador:250",
+            "dashboard": {
+                "id": 2,
+                "nome": "PED",
+                "periodicidade": "mensal",
+                "pontuacao base maxima": 120,
+                "tipo de vinculo": "cargos",
+                "formula de pontuacao": "teste"
+            },
+            "periodo": {
+                "codigo": "10\/2026",
+                "inicio": "2026-10-01",
+                "fim": "2026-10-31"
+            },
+            "unidade": {
+                "tipo": "colaborador",
+                "filial": {
+                    "codigo": "101",
+                    "nome": "Filial 101"
+                },
+                "colaborador": {
+                    "id": 250,
+                    "nome": "Andre Luiz Mendes Monteiro",
+                    "cargo": "Gerente"
+                }
+            },
+            "avisos": [
+                "Composicao do Resultado Operacional indisponivel: fonte de dados (DRG) nao configurada."
+            ],
+            "composicao do resultado": null,
+            "indicadores": [
+                {
+                    "id indicador": 15,
+                    "indicador": "Cobertura de clientes",
+                    "sentido": "maior_melhor",
+                    "meta": 90,
+                    "realizado": 29.64,
+                    "atingimento": 32.93,
+                    "pontos base": 20,
+                    "pontos realizados": 6.59,
+                    "observacao": "Dado externo (Cobertura de clientes), valor da data atual."
+                },
+                {
+                    "id indicador": 7,
+                    "indicador": "Faturamento",
+                    "sentido": "maior_melhor",
+                    "meta": 100,
+                    "realizado": 4732386.88,
+                    "atingimento": 4732386.88,
+                    "pontos base": 20,
+                    "pontos realizados": 20,
+                    "observacao": "Dado externo (Faturamento), valor da data atual."
+                },
+                {
+                    "id indicador": 17,
+                    "indicador": "Indicadores de Financeiro",
+                    "sentido": "maior_melhor",
+                    "meta": 4,
+                    "realizado": 4,
+                    "atingimento": 100,
+                    "pontos base": 20,
+                    "pontos realizados": 20,
+                    "observacao": "Soma de 4 de 4 apontamento(s)."
+                },
+                {
+                    "id indicador": 16,
+                    "indicador": "Indicadores de RH",
+                    "sentido": "maior_melhor",
+                    "meta": 3,
+                    "realizado": 1,
+                    "atingimento": 33.33,
+                    "pontos base": 20,
+                    "pontos realizados": 6.67,
+                    "observacao": "Soma de 3 de 3 apontamento(s)."
+                },
+                {
+                    "id indicador": 10,
+                    "indicador": "Litragem Ipiranga",
+                    "sentido": "maior_melhor",
+                    "meta": 100,
+                    "realizado": 94795.9,
+                    "atingimento": 94795.9,
+                    "pontos base": 20,
+                    "pontos realizados": 20,
+                    "observacao": "Dado externo (Litragem Ipiranga), valor da data atual."
+                },
+                {
+                    "id indicador": 11,
+                    "indicador": "Litragem Texaco",
+                    "sentido": "maior_melhor",
+                    "meta": 52000,
+                    "realizado": 36788.5,
+                    "atingimento": 70.75,
+                    "pontos base": 20,
+                    "pontos realizados": 14.15,
+                    "observacao": "Dado externo (Litragem Texaco), realizado e meta de 1 mes(es), valor da data atual."
+                }
+            ],
+            "ped percentual": 87.41,
+            "pontos base total": 120,
+            "resultado operacional": {
+                "indicador": "Faturamento",
+                "valor": 4732386.88,
+                "observacao": "Dado externo (Faturamento), valor da data atual."
+            },
+            "pontuacao": {
+                "calculada": true,
+                "motivo": null,
+                "faixas": {
+                    "versao": 2,
+                    "linhas": [
+                        { "de": 0, "ate": 200000, "aliquota": 2.75 },
+                        { "de": 200000.01, "ate": 300000, "aliquota": 2.22 },
+                        { "de": 300000.01, "ate": 400000, "aliquota": 2.21 },
+                        { "de": 400000.01, "ate": 500000, "aliquota": 1.95 },
+                        { "de": 500000.01, "ate": 600000, "aliquota": 1.8 },
+                        { "de": 600000.01, "ate": 700000, "aliquota": 1.68 }
+                    ]
+                },
+                "faixa atual": { "de": 600000.01, "ate": 700000, "aliquota": 1.68 },
+                "faixa anterior": { "de": 500000.01, "ate": 600000, "aliquota": 1.8 },
+                "aliquota anterior": 1.8,
+                "aliquota atual": 1.68,
+                "piso da faixa": 600000.01,
+                "opcao a": 10800,
+                "opcao b": 79504.1,
+                "opcao selecionada": "B",
+                "base de calculo": 79504.1,
+                "ped percentual": 87.41,
+                "valor": 69494.53
+            },
+            "pendencias": []
+        }
+    ]
+}

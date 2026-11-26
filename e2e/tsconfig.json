@@ -1,0 +1,19 @@
+{
+  // Checagem de tipos dos testes E2E (fora do `npm run typecheck`, que cobre só src/ e vite.config.ts):
+  // npx tsc -p e2e/tsconfig.json
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["node", "vite/client"],
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  },
+  "include": ["**/*.ts", "../playwright.config.ts"]
+}

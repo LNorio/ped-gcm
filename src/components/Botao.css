@@ -53,7 +53,7 @@
 .botao--contorno {
   background-color: var(--cor-superficie);
   color: var(--cor-primaria);
-  border-color: #9db6d1;
+  border-color: var(--cor-borda-contorno);
 }
 
 .botao--contorno:hover:not(:disabled) {
@@ -63,7 +63,7 @@
 .botao--perigo {
   background-color: var(--cor-superficie);
   color: var(--cor-perigo);
-  border-color: #e3b1aa;
+  border-color: var(--cor-borda-perigo);
 }
 
 .botao--perigo:hover:not(:disabled) {

@@ -24,7 +24,8 @@
  *   não numérico (`"abc"`, `""`, `"31a"`, `"31.5"`, `"-31"`) é inválido. A mesma regra vale para o `id`
  *   da tarefa no detalhe, no histórico, nas tarefas e no POST/PUT;
  * - detalhe: o dashboard na raiz ou em `{ dashboard }`; `indicadores` com `id` (ou `"id indicador"`),
- *   `nome`, `"pontos base"`, `ativo` e `problema` (texto ou `{ mensagem }`); `"indicador base da faixa"`
+ *   `nome`, `"pontos base"`, `ativo`, `problema` (texto ou `{ mensagem }`) e `"calculo do periodo"`
+ *   (F7.15: `soma`, `media` ou `ultimo`; ausente ou `null` vira `null`; fora do enum é inválido); `"indicador base da faixa"`
  *   como id ou `{ id, nome }`; `"itens vinculados"` traz os rótulos (ex.: `"100 - Filial 100"`) e vira
  *   `itensVinculados`; `vinculos` traz os códigos que o POST/PUT espera e vira `codigosVinculados`, na
  *   ordem da API, conforme o `"tipo de vinculo"`: filiais `{ filial }` (texto ou número), cargos
@@ -64,11 +65,13 @@
 
 import {
   PERIODICIDADES,
+  SENTIDOS_CALCULO,
   SITUACOES_DASHBOARD,
   TIPOS_ALERTA_FAIXAS,
   TIPOS_VINCULO,
   type DadosDashboard,
   type Dashboard,
+  type SentidoCalculo,
   type TarefaConstrucao,
   type TipoVinculo,
 } from '../types/dominio'
@@ -107,6 +110,11 @@ export interface IndicadorDetalheDashboard {
   id: number
   nome: string
   pontosBase: number
+  /**
+   * F7.15 (contrato proposto): `"calculo do periodo"` do indicador em dashboard não mensal; `null`
+   * quando ausente ou nulo (dashboard mensal ou cadastrado antes da mudança).
+   */
+  calculoNoPeriodo: SentidoCalculo | null
   ativo: boolean
   /** Motivo do problema (indicador inativo ou com componente desativado); `null` sem problema. */
   problema: string | null
@@ -394,7 +402,13 @@ function converterIndicadorDetalhe(valor: unknown): IndicadorDetalheDashboard {
   else if (ehObjeto(problema) && ehTexto(problema.mensagem)) motivo = problema.mensagem
   else throw respostaInvalida()
 
-  return { id, nome, pontosBase, ativo, problema: motivo }
+  const calculo = valor['calculo do periodo']
+  let calculoNoPeriodo: SentidoCalculo | null
+  if (calculo === undefined || calculo === null) calculoNoPeriodo = null
+  else if (ehUmDe(SENTIDOS_CALCULO, calculo)) calculoNoPeriodo = calculo
+  else throw respostaInvalida()
+
+  return { id, nome, pontosBase, calculoNoPeriodo, ativo, problema: motivo }
 }
 
 function converterPeriodo(valor: unknown): PeriodoDashboard | null {

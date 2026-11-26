@@ -23,7 +23,8 @@
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.04em;
-  color: var(--cor-dourado);
+  /* Dourado escurecido (4,55:1 sobre o branco); o token --cor-dourado (2,60:1) não serve para texto */
+  color: #94702c;
 }
 
 .nao-encontrada__texto {

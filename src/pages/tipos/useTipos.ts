@@ -10,7 +10,7 @@
  * - Atualizar substitui o item, na mesma posição, pela versão da API; 2xx sem o tipo recarrega.
  * - Excluir remove o item da lista.
  */
-import { useCallback } from 'react'
+import { useCallback, useContext } from 'react'
 import { useConsulta } from '../../hooks/useConsulta'
 import {
   type AtualizacaoTipo,
@@ -20,6 +20,7 @@ import {
   excluirTipo,
   listarTipos,
 } from '../../services/tiposService'
+import { SessaoContexto } from '../../sessao/SessaoProvider'
 import type { TipoApontamento } from '../../types/dominio'
 
 export interface UseTiposResultado {
@@ -62,6 +63,10 @@ export function useTipos(): UseTiposResultado {
     setDados: setItens,
   } = useConsulta<TipoApontamento[]>(listarTipos, SEM_TIPOS, OPCOES_CONSULTA)
 
+  // Sem exigir o provider (o hook também é usado fora dele): após criar/alterar um tipo, relê o acesso
+  // para o campo Tipo dos cadastros listar os tipos atuais (opção A de PROPOSTA-tipos-no-acesso.md).
+  const recarregarAcesso = useContext(SessaoContexto)?.recarregarAcesso
+
   const excluir = useCallback(
     async (id: number): Promise<void> => {
       await excluirTipo(id)
@@ -73,21 +78,23 @@ export function useTipos(): UseTiposResultado {
   const criar = useCallback(
     async (dados: NovoTipo): Promise<void> => {
       await criarTipo(dados)
+      void recarregarAcesso?.()
       await recarregar()
     },
-    [recarregar],
+    [recarregar, recarregarAcesso],
   )
 
   const atualizar = useCallback(
     async (id: number, dados: AtualizacaoTipo): Promise<void> => {
       const atualizado = await atualizarTipo(id, dados)
+      void recarregarAcesso?.()
       if (atualizado === null) {
         await recarregar()
         return
       }
       setItens((atual) => atual.map((tipo) => (tipo.id === id ? atualizado : tipo)))
     },
-    [recarregar, setItens],
+    [recarregar, setItens, recarregarAcesso],
   )
 
   return { tipos, carregando, carregouUmaVez, erro, recarregar, excluir, criar, atualizar }

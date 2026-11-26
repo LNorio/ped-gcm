@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { paraDadoExterno } from '../../services/adaptadores'
 import {
   DADO_DEVOLUCOES_API,
-  identificadoresApi,
+  identificadoresColeta,
   variaveisIntegracao,
   variaveisIntegracaoSemExemplo,
 } from '../../test/dadosExternosFalsos'
@@ -55,7 +55,7 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
     const montar = (extra: Partial<DialogoConcluirConstrucaoProps> = {}) => (
       <DialogoConcluirConstrucao
         dado={props.dado === undefined ? DEVOLUCOES : props.dado}
-        identificadores={props.identificadores ?? identificadoresApi()}
+        identificadores={props.identificadores ?? identificadoresColeta()}
         variaveis={props.variaveis ?? variaveisIntegracaoSemExemplo()}
         carregandoVariaveis={props.carregandoVariaveis ?? false}
         erroVariaveis={props.erroVariaveis ?? null}
@@ -339,7 +339,7 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
       const { onConfirmar } = renderizar({ identificadores: [{ identificador: 'vendas líq-2', quantidade: 1 }] })
 
       const grupo = within(dialogo()).getByRole('group', { name: 'Identificadores existentes' })
-      await user.click(within(grupo).getByRole('button', { name: /usado por 1 dado\(s\)/ }))
+      await user.click(within(grupo).getByRole('button', { name: /usado por 1 dado$/ }))
       expect(identificador()).toHaveValue('VENDASLQ-2')
 
       await preencherIntegracao(user)
@@ -347,13 +347,13 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
       expect(onConfirmar).toHaveBeenCalledWith(expect.objectContaining({ identificador: 'VENDASLQ-2' }))
     })
 
-    it('mostra as sugestões "{IDENTIFICADOR} — usado por {n} dado(s)"; clicar preenche o campo', async () => {
+    it('mostra as sugestões "{IDENTIFICADOR} — usado por 1 dado" ou "… usado por {n} dados" (singular só para 1); clicar preenche o campo', async () => {
       const user = usuarioRapido()
       const { onConfirmar } = renderizar()
 
       const grupo = within(dialogo()).getByRole('group', { name: 'Identificadores existentes' })
       expect(within(grupo).getAllByRole('button')).toHaveLength(4)
-      await user.click(within(grupo).getByRole('button', { name: 'FATURAMENTO — usado por 1 dado(s)' }))
+      await user.click(within(grupo).getByRole('button', { name: 'FATURAMENTO — usado por 1 dado' }))
       expect(identificador()).toHaveValue('FATURAMENTO')
 
       await preencherIntegracao(user)
@@ -1135,7 +1135,7 @@ describe('F5.7 — DialogoConcluirConstrucao (Admin registra a integração e co
         expect(identificador()).toHaveAttribute('aria-invalid', 'true')
 
         const grupo = within(dialogo()).getByRole('group', { name: 'Identificadores existentes' })
-        await user.click(within(grupo).getByRole('button', { name: 'FATURAMENTO — usado por 1 dado(s)' }))
+        await user.click(within(grupo).getByRole('button', { name: 'FATURAMENTO — usado por 1 dado' }))
 
         expect(identificador()).toHaveValue('FATURAMENTO')
         semErroDaApi(identificador(), 'identificador invalido')

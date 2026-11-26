@@ -73,14 +73,20 @@
 
 /* O anel de foco fica por dentro porque o grupo tem overflow: hidden */
 .barra-filtros__situacao:focus-visible {
-  outline: none;
-  box-shadow: inset var(--anel-foco);
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 2px var(--cor-primaria);
 }
 
 .barra-filtros__situacao--ativa,
 .barra-filtros__situacao--ativa:hover {
   background-color: var(--cor-primaria);
   color: #fff;
+}
+
+/* Na opção ativa o anel azul sumiria no fundo azul: filete branco e contorno azul-escuro */
+.barra-filtros__situacao--ativa:focus-visible {
+  box-shadow: var(--anel-foco-interno-sobre-primaria);
 }
 
 /* A contagem usa a pílula compartilhada `.contagem-pilula` (tema.css); aqui só o estado ativo */
@@ -129,5 +135,19 @@
   .barra-filtros__limpar {
     margin-left: 0;
     min-height: 0;
+  }
+}
+
+/* Alto contraste: o estado ativo não pode depender só da cor de fundo */
+@media (forced-colors: active) {
+  .barra-filtros__situacao--ativa,
+  .barra-filtros__situacao--ativa:hover {
+    forced-color-adjust: none;
+    background-color: Highlight;
+    color: HighlightText;
+  }
+
+  .barra-filtros__situacao:focus-visible {
+    outline-color: Highlight;
   }
 }

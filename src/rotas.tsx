@@ -23,15 +23,23 @@
  * "Carregando..." do `Suspense` e sem a espera mínima do React ao revelar o conteúdo). O Início
  * continua num chunk próprio; as demais abas só são baixadas ao abrir.
  *
+ * F2.13: `/backend` (documentação para o back-end) é pública — fora de `RotaProtegida` e do
+ * `LayoutPrincipal`, como o `/login` — e não entra no menu. É carregada sob demanda com um `Suspense`
+ * próprio (o do layout não a envolve), para que o react-markdown fique fora do bloco principal.
+ * `/backend/<qualquer>` não casa com esta rota e cai na 404 do layout.
+ *
+ * F2.14: `/resumo` (diário de implementação e documentação do projeto) segue o mesmo padrão do
+ * `/backend`: pública, fora do menu, sob demanda com `Suspense` próprio; `/resumo/<qualquer>` cai na 404.
+ *
  * Além disso, uma rota pode antecipar as próprias consultas pelo `handle.aoObterAcesso`: enquanto a
  * sessão salva é restaurada, `AntecipacaoDaRota` ouve o acesso das rotas abertas e as chama assim que o
  * acesso chega, antes de a tela renderizar. O Início usa isso para disparar `GET /api/ped/inicio` (e as
  * pendências do Admin e do Validador) em paralelo com a renderização do layout; a primeira renderização
  * da página já pode sair com os dados.
  */
-import { lazy, useEffect, type ReactNode } from 'react'
+import { Suspense, lazy, useEffect, type ReactNode } from 'react'
 import { Navigate, useMatches, type RouteObject } from 'react-router-dom'
-import { CAMINHOS } from './caminhos'
+import { CAMINHOS, CAMINHO_BACKEND, CAMINHO_RESUMO } from './caminhos'
 import { RegiaoStatus } from './components/RegiaoStatus'
 import { LayoutPrincipal } from './layout/LayoutPrincipal'
 import { ErroPage } from './pages/erro/ErroPage'
@@ -58,6 +66,8 @@ const DashboardsPage = lazy(() => import('./pages/dashboards/DashboardsPage').th
 const FaixasPage = lazy(() => import('./pages/faixas/FaixasPage').then((m) => ({ default: m.FaixasPage })))
 const PreenchimentoPage = lazy(() => import('./pages/preenchimento/PreenchimentoPage').then((m) => ({ default: m.PreenchimentoPage })))
 const FechamentosPage = lazy(() => import('./pages/fechamentos/FechamentosPage').then((m) => ({ default: m.FechamentosPage })))
+const BackendPage = lazy(() => import('./pages/backend/BackendPage').then((m) => ({ default: m.BackendPage })))
+const ResumoPage = lazy(() => import('./pages/resumo/ResumoPage').then((m) => ({ default: m.ResumoPage })))
 const NaoEncontradaPage = lazy(() => import('./pages/nao-encontrada/NaoEncontradaPage').then((m) => ({ default: m.NaoEncontradaPage })))
 
 /** Dados extras de uma rota (`handle` do React Router). */
@@ -136,6 +146,24 @@ function RotaAba({ aba, children }: { aba: Aba; children: ReactNode }) {
 export const rotas: RouteObject[] = [
   { path: CAMINHOS.login, element: <RotaLogin />, errorElement: <ErroPage /> },
   { path: CAMINHOS.semAcesso, element: <SemAcessoPage />, errorElement: <ErroPage /> },
+  {
+    path: CAMINHO_BACKEND,
+    element: (
+      <Suspense fallback={<RegiaoStatus mensagem="Carregando..." />}>
+        <BackendPage />
+      </Suspense>
+    ),
+    errorElement: <ErroPage />,
+  },
+  {
+    path: CAMINHO_RESUMO,
+    element: (
+      <Suspense fallback={<RegiaoStatus mensagem="Carregando..." />}>
+        <ResumoPage />
+      </Suspense>
+    ),
+    errorElement: <ErroPage />,
+  },
   {
     path: CAMINHOS.inicio,
     element: (

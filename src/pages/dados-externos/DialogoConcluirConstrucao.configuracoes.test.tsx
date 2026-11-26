@@ -8,7 +8,7 @@ import {
   SAIDA_FATURAMENTO_API,
   SAIDA_VOLUME_API,
   URL_FATURAMENTO,
-  identificadoresApi,
+  identificadoresColeta,
   variaveisIntegracaoSemExemplo,
 } from '../../test/dadosExternosFalsos'
 import { type Usuario, colar, usuarioRapido } from '../../test/usuario'
@@ -65,7 +65,7 @@ describe('F5.16 — DialogoConcluirConstrucao em modo "configurar" (Configuraç�
       <DialogoConcluirConstrucao
         modo="configurar"
         dado={props.dado === undefined ? FATURAMENTO : props.dado}
-        identificadores={identificadoresApi()}
+        identificadores={identificadoresColeta()}
         variaveis={props.variaveis ?? variaveisIntegracaoSemExemplo()}
         carregandoVariaveis={false}
         erroVariaveis={null}

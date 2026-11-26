@@ -182,6 +182,33 @@ describe('F10.1 — Serviço das imagens congeladas: consulta retroativa e detal
       expect(segunda).toMatchObject({ nomeFilial: 'MATRIZ', colaborador: 'Ana Souza', cargo: 'Gerente de Loja' })
     })
 
+    it('filial em { codigo, nome } e colaborador em { id, nome, cargo } (formato real da prévia) também são lidos', async () => {
+      const { 'id colaborador': _id, ...semId } = ITEM_ANA_API
+      simularApi(fetchFalso, {
+        [`GET ${ROTA}`]: () =>
+          respostaJson([
+            {
+              ...semId,
+              filial: { codigo: '403', nome: 'Filial 403' },
+              colaborador: { id: 242, nome: 'Alexandre dos Santos Sousa', cargo: 'Gerente' },
+            },
+            { ...semId, tipo: undefined, filial: { codigo: 101, nome: 'Filial 101' }, colaborador: { id: '250', nome: 'Andre' } },
+          ]),
+      })
+
+      const [primeira, segunda] = await listarImagens()
+
+      expect(primeira).toMatchObject({
+        tipo: 'colaborador',
+        idColaborador: 242,
+        filial: '403',
+        nomeFilial: 'Filial 403',
+        colaborador: 'Alexandre dos Santos Sousa',
+        cargo: 'Gerente',
+      })
+      expect(segunda).toMatchObject({ tipo: 'colaborador', idColaborador: 250, filial: '101', nomeFilial: 'Filial 101', colaborador: 'Andre' })
+    })
+
     it('"ped percentual" e pontuação em texto decimal ("99.99") viram número; pontuação { valor } ou { calculada: false } também', async () => {
       simularApi(fetchFalso, {
         [`GET ${ROTA}`]: () =>

@@ -43,7 +43,7 @@ const COLUNAS: ColunaTabela<LinhaHistorico>[] = [
   { chave: 'de', titulo: 'De', alinhar: 'direita', render: (linha) => (linha.de === null ? SEM_VALOR : formatarNumero(linha.de)) },
   { chave: 'para', titulo: 'Para', alinhar: 'direita', render: (linha) => formatarNumero(linha.para) },
   { chave: 'usuario', titulo: 'Usuário', render: (linha) => linha.usuario },
-  { chave: 'motivo', titulo: 'Motivo', render: (linha) => linha.motivo },
+  { chave: 'motivo', titulo: 'Motivo', render: (linha) => linha.motivo, quebrar: true },
 ]
 
 function textoFilial(filial: string | null): string {

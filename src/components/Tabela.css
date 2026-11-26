@@ -75,6 +75,24 @@
   background-color: var(--cor-superficie-suave);
 }
 
+/*
+ * Coluna com texto longo (motivo, lista de filiais): quebra linha dentro de um teto, inclusive
+ * palavras sem espaço, para não alargar a tabela (RNF-04). Ativada por `quebrar` na coluna.
+ */
+.tabela th.tabela__quebra,
+.tabela td.tabela__quebra {
+  white-space: normal;
+  min-width: 12rem;
+  max-width: 28rem;
+  overflow-wrap: anywhere;
+}
+
+.tabela td.tabela__quebra .etiqueta {
+  white-space: normal;
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
+}
+
 .tabela__alinhar-direita {
   text-align: right;
 }

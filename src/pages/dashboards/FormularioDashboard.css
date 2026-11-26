@@ -46,6 +46,31 @@
   padding: 20px;
 }
 
+/*
+ * Celular (RNF-04): as regras acima, com :has(), anulam a regra de 480px do Dialogo.css. Aqui o
+ * diálogo volta ao comportamento de "folha inferior": overlay com 0.75rem, diálogo encostado embaixo
+ * e altura limitada à tela, com a rolagem no corpo.
+ */
+@media (max-width: 480px) {
+  .dialogo-fundo:has(> .dialogo > .dialogo__corpo > .formulario-dashboard) {
+    align-items: flex-end;
+    padding: 0.75rem;
+  }
+
+  .dialogo:has(> .dialogo__corpo > .formulario-dashboard) {
+    max-height: calc(100vh - 1.5rem);
+    max-height: calc(100dvh - 1.5rem);
+  }
+
+  .dialogo:has(> .dialogo__corpo > .formulario-dashboard) > .dialogo__cabecalho {
+    padding: 14px 16px;
+  }
+
+  .dialogo:has(> .dialogo__corpo > .formulario-dashboard) > .dialogo__corpo {
+    padding: 16px;
+  }
+}
+
 .formulario-dashboard {
   display: flex;
   flex-direction: column;
@@ -152,134 +177,6 @@
   color: #56636f;
 }
 
-/* Dropdown com busca (dd / dd-btn / dd-panel / dd-opt do protótipo) */
-.formulario-dashboard__dd {
-  position: relative;
-}
-
-.formulario-dashboard__dd-botao {
-  width: 100%;
-  height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 12px;
-  border: 1px solid #bfcad6;
-  border-radius: 8px;
-  background-color: #fff;
-  color: #33414e;
-  font-size: 15px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.formulario-dashboard__dd-botao:hover,
-.formulario-dashboard__dd-botao[aria-expanded='true'] {
-  border-color: #0062af;
-}
-
-.formulario-dashboard__dd-botao svg {
-  flex: none;
-}
-
-.formulario-dashboard__dd-valor {
-  font-weight: 500;
-}
-
-.formulario-dashboard__dd-painel {
-  position: absolute;
-  top: 46px;
-  left: 0;
-  right: 0;
-  z-index: 5;
-  display: flex;
-  flex-direction: column;
-  max-height: 280px;
-  overflow-y: auto;
-  background-color: #fff;
-  border: 1px solid #bfcad6;
-  border-radius: 8px;
-  box-shadow: 0 12px 28px rgba(0, 30, 60, 0.18);
-}
-
-.formulario-dashboard__dd-busca {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  padding: 8px;
-  border-bottom: 1px solid #e3e9ef;
-  background-color: #fff;
-}
-
-.formulario-dashboard__dd-busca .campo__controle {
-  min-height: 38px;
-  height: 38px;
-}
-
-.formulario-dashboard__dd-opcoes {
-  display: flex;
-  flex-direction: column;
-}
-
-.formulario-dashboard__dd-opcao {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  padding: 10px 12px;
-  border: 0;
-  border-bottom: 1px solid #f0f3f6;
-  background: none;
-  color: #1d2a36;
-  font-size: 14px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.formulario-dashboard__dd-opcao:hover {
-  background-color: #f1f6fb;
-}
-
-.formulario-dashboard__dd-opcao small {
-  font-size: 12px;
-  color: #56636f;
-}
-
-/* Tipo atual (dd-opt.sel) */
-.formulario-dashboard__dd-opcao--atual,
-.formulario-dashboard__dd-opcao--atual:hover {
-  background-color: #e3eef9;
-  color: #00427a;
-  font-weight: 500;
-}
-
-/* "Selecionar todas as filiais (N)" */
-.formulario-dashboard__dd-opcao--acao,
-.formulario-dashboard__dd-opcao--acao:hover {
-  background-color: #f1f6fb;
-  color: #0b4f8a;
-  font-weight: 500;
-}
-
-/* Indicador indisponível (dd-opt.off + :disabled) */
-.formulario-dashboard__dd-opcao:disabled {
-  opacity: 0.45;
-  background: none;
-  cursor: not-allowed;
-}
-
-.formulario-dashboard__dd-opcao--indisponivel small {
-  color: #932a1d;
-}
-
-.formulario-dashboard__dd-vazio {
-  margin: 0;
-  padding: 10px 12px;
-  font-size: 13px;
-  color: #56636f;
-}
-
 /* Itens escolhidos (sel-list / sel-item do protótipo) */
 .formulario-dashboard__selecionados {
   margin-top: 1px;
@@ -373,6 +270,61 @@
   text-align: right;
 }
 
+/*
+ * Cálculo no período (F7.15, dashboard não mensal): coluna depois dos pontos, antes do "Remover".
+ * No cabeçalho, "Pts base" fica alinhado à direita do campo de pontos e "Cálculo no período" sobre o select.
+ */
+.formulario-dashboard__calculo {
+  flex: none;
+  width: 190px;
+  min-width: 0;
+}
+
+.formulario-dashboard__calculo .campo__controle {
+  min-height: 36px;
+  height: 36px;
+}
+
+.formulario-dashboard__cabecalho-lista--calculo .formulario-dashboard__cabecalho-indicador {
+  flex: 1;
+  min-width: 0;
+}
+
+.formulario-dashboard__cabecalho-lista--calculo .formulario-dashboard__cabecalho-pontos {
+  margin-right: 0;
+  text-align: right;
+}
+
+.formulario-dashboard__cabecalho-calculo {
+  flex: none;
+  width: 190px;
+  margin-right: 42px;
+}
+
+/* Celular (360px): o nome ocupa a linha; pontos, cálculo e "Remover" vão para a linha de baixo. */
+@media (max-width: 480px) {
+  .formulario-dashboard__escolhido-linha--calculo,
+  .formulario-dashboard__cabecalho-lista--calculo {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .formulario-dashboard__escolhido-linha--calculo .formulario-dashboard__escolhido-texto,
+  .formulario-dashboard__cabecalho-lista--calculo .formulario-dashboard__cabecalho-indicador {
+    flex: 1 0 100%;
+  }
+
+  .formulario-dashboard__cabecalho-lista--calculo .formulario-dashboard__cabecalho-pontos {
+    width: 96px;
+  }
+
+  .formulario-dashboard__escolhido-linha--calculo .formulario-dashboard__calculo,
+  .formulario-dashboard__cabecalho-calculo {
+    flex: 1 1 0;
+    width: auto;
+  }
+}
+
 /* Remover (icon-btn 32 × 32) */
 .formulario-dashboard__remover {
   flex: none;
@@ -382,7 +334,7 @@
   width: 32px;
   height: 32px;
   padding: 0;
-  border: 1px solid #e3b1aa;
+  border: 1px solid var(--cor-borda-perigo);
   border-radius: 8px;
   background-color: #fff;
   color: #a3271a;
@@ -443,7 +395,7 @@
 /* Bloco da tarefa do Bitrix24 ("bx" do protótipo) */
 .formulario-dashboard__bx {
   overflow: hidden;
-  border: 1px solid #9db6d1;
+  border: 1px solid var(--cor-borda-contorno);
   border-radius: 8px;
 }
 

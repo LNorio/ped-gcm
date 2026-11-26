@@ -17,6 +17,10 @@
  *   dashboard em construção) e, marcada, mostra o bloco da tarefa de modificação com a observação.
  *   Mostra as tarefas anteriores em uma linha.
  *
+ * Dashboard não mensal (F7.15): cada indicador exige o "Cálculo no período", enviado em `calculoNoPeriodo`.
+ * No mensal o campo some e não é enviado; os valores escolhidos ficam guardados enquanto o formulário está
+ * aberto e voltam ao escolher de novo uma periodicidade não mensal.
+ *
  * As listas chegam prontas pela página; o erro da gravação (`erro`) aparece sem apagar o digitado.
  */
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
@@ -42,6 +46,7 @@ import {
   type DadoExterno,
   type DadosDashboard,
   type Indicador,
+  type IndicadorDoDashboard,
   type Periodicidade,
 } from '../../types/dominio'
 import { formatarDataHora, lerDecimal } from '../../utils/formato'
@@ -88,6 +93,7 @@ interface Analise {
   dados: DadosDashboard | null
   erros: ErrosFormulario
   errosPontos: Record<number, string>
+  errosCalculo: Record<number, string>
 }
 
 /** Estado da prévia da tarefa de construção, sempre ligado aos dados (`chave`) que a geraram. */
@@ -117,6 +123,7 @@ const ERRO_ITENS = {
   colaboradores: 'Selecione ao menos um colaborador.',
 } as const
 
+const ERRO_CALCULO_NO_PERIODO = 'Selecione o cálculo no período.'
 const ORIENTACAO_INDICADOR_BASE = 'Vincule indicadores para escolher o indicador base.'
 const ROTULO_OBSERVACAO = 'Observação para a TI (opcional)'
 const ORIENTACAO_PREVIA = 'Preencha os dados do dashboard para ver o título e a descrição da tarefa.'
@@ -206,16 +213,22 @@ export function FormularioDashboard({
     dashboard ? { tipo: dashboard.tipoVinculo, itens: [...dashboard.codigosVinculados] } : { tipo: 'cargos', itens: [] },
   )
   const [indicadores, setIndicadores] = useState<PontosIndicador[]>(
-    dashboard?.indicadores.map((item) => ({ idIndicador: item.id, pontos: formatarPontos(item.pontosBase) })) ?? [],
+    dashboard?.indicadores.map((item) => ({
+      idIndicador: item.id,
+      pontos: formatarPontos(item.pontosBase),
+      ...(item.calculoNoPeriodo ? { calculoNoPeriodo: item.calculoNoPeriodo } : {}),
+    })) ?? [],
   )
   const [enviarTarefa, setEnviarTarefa] = useState(false)
   const [erros, setErros] = useState<ErrosFormulario>({})
   const [errosPontos, setErrosPontos] = useState<Record<number, string>>({})
+  const [errosCalculo, setErrosCalculo] = useState<Record<number, string>>({})
   const [previa, setPrevia] = useState<EstadoPrevia | null>(null)
 
   const idsJaVinculados = dashboard?.indicadores.map((item) => item.id) ?? []
   const emConstrucao = dashboard?.situacao === 'em_construcao'
   const pontuacaoMaxima = edicao ? dashboard.pontuacaoBaseMaxima : lerDecimal(pontuacao)
+  const exigeCalculo = periodicidade !== 'mensal'
 
   // Opções do indicador base: só os indicadores vinculados, na ordem da lista.
   const opcoesIndicadorBase: OpcaoSelect[] = indicadores.map((item) => ({
@@ -250,6 +263,14 @@ export function FormularioDashboard({
       for (const item of novo) {
         const anterior = indicadores.find((existente) => existente.idIndicador === item.idIndicador)
         if (anterior && anterior.pontos !== item.pontos) delete proximo[item.idIndicador]
+      }
+      return proximo
+    })
+    setErrosCalculo((atual) => {
+      const proximo = { ...atual }
+      for (const item of novo) {
+        const anterior = indicadores.find((existente) => existente.idIndicador === item.idIndicador)
+        if (anterior && anterior.calculoNoPeriodo !== item.calculoNoPeriodo) delete proximo[item.idIndicador]
       }
       return proximo
     })
@@ -307,17 +328,24 @@ export function FormularioDashboard({
       const nomeIndicador = indicador?.nome ?? `#${item.idIndicador}`
       novosErrosPontos[item.idIndicador] = `Informe os pontos base do indicador “${nomeIndicador}” neste dashboard.`
     }
+    const novosErrosCalculo: Record<number, string> = {}
+    if (exigeCalculo) {
+      for (const item of indicadores) {
+        if (!item.calculoNoPeriodo) novosErrosCalculo[item.idIndicador] = ERRO_CALCULO_NO_PERIODO
+      }
+    }
     const erroIndicadores = validarIndicadores(Object.keys(novosErrosPontos).length === 0)
     if (erroIndicadores) novosErros.indicadores = erroIndicadores
 
     const invalido =
       Object.keys(novosErros).length > 0 ||
       Object.keys(novosErrosPontos).length > 0 ||
+      Object.keys(novosErrosCalculo).length > 0 ||
       !periodicidadeEscolhida ||
       !indicadorBaseEscolhido ||
       pontuacaoMaxima === null ||
       tipoVinculo === ''
-    if (invalido) return { dados: null, erros: novosErros, errosPontos: novosErrosPontos }
+    if (invalido) return { dados: null, erros: novosErros, errosPontos: novosErrosPontos, errosCalculo: novosErrosCalculo }
 
     const observacaoParaTi = edicao && !enviarTarefa ? dashboard.observacaoParaTi : textoOuNulo(observacao)
     return {
@@ -327,13 +355,20 @@ export function FormularioDashboard({
         pontuacaoBaseMaxima: pontuacaoMaxima,
         tipoVinculo,
         itensVinculados: tipoVinculo === 'colaboradores' ? vinculo.itens.map(Number) : [...vinculo.itens],
-        indicadores: indicadores.map((item) => ({ idIndicador: item.idIndicador, pontosBase: lerPontos(item.pontos) ?? 0 })),
+        indicadores: indicadores.map((item): IndicadorDoDashboard => {
+          const pontosBase = lerPontos(item.pontos) ?? 0
+          // No mensal o cálculo não é enviado (fica guardado no estado para a volta ao não mensal).
+          return exigeCalculo && item.calculoNoPeriodo
+            ? { idIndicador: item.idIndicador, pontosBase, calculoNoPeriodo: item.calculoNoPeriodo }
+            : { idIndicador: item.idIndicador, pontosBase }
+        }),
         indicadorBaseDaFaixa: indicadorBaseEscolhido.idIndicador,
         formulaDePontuacao: formulaLimpa,
         observacaoParaTi,
       },
       erros: novosErros,
       errosPontos: novosErrosPontos,
+      errosCalculo: novosErrosCalculo,
     }
   }
 
@@ -379,9 +414,10 @@ export function FormularioDashboard({
     evento.preventDefault()
     if (salvando) return
 
-    const { dados, erros: novosErros, errosPontos: novosErrosPontos } = analisar()
+    const { dados, erros: novosErros, errosPontos: novosErrosPontos, errosCalculo: novosErrosCalculo } = analisar()
     setErros(novosErros)
     setErrosPontos(novosErrosPontos)
+    setErrosCalculo(novosErrosCalculo)
     if (!dados) return
 
     onSalvar(edicao ? { ...dados, enviarTarefaTi: enviarTarefa } : dados)
@@ -422,7 +458,11 @@ export function FormularioDashboard({
           rotulo="Periodicidade de lançamento"
           opcoes={OPCOES_PERIODICIDADE}
           value={periodicidade}
-          onChange={(evento) => setPeriodicidade(evento.target.value)}
+          onChange={(evento) => {
+            setPeriodicidade(evento.target.value)
+            // No mensal o campo some, e o erro do cálculo junto com ele.
+            if (evento.target.value === 'mensal') setErrosCalculo({})
+          }}
         />
         {edicao ? (
           <Campo
@@ -471,6 +511,8 @@ export function FormularioDashboard({
         idsJaVinculados={idsJaVinculados}
         erro={erros.indicadores}
         errosPontos={errosPontos}
+        mostrarCalculoNoPeriodo={exigeCalculo}
+        errosCalculo={errosCalculo}
       />
 
       <div className="formulario-dashboard__grade">

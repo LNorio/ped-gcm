@@ -144,7 +144,7 @@ describe('F3.3 — Exclusão de tipo personalizado (integração: /tipos com Adm
 
     const dialogo = screen.getByRole('dialog', { name: 'Excluir tipo' })
     expect(
-      within(dialogo).getByText('Este tipo possui 3 apontamento(s) vinculado(s) e não pode ser excluído.'),
+      within(dialogo).getByText('Este tipo possui 3 apontamentos vinculados e não pode ser excluído.'),
     ).toBeInTheDocument()
     expect(within(dialogo).queryByRole('button', { name: 'Excluir' })).not.toBeInTheDocument()
     await user.click(within(dialogo).getByRole('button', { name: 'Entendi' }))

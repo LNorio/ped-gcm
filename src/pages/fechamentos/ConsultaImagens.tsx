@@ -11,7 +11,7 @@ import { EstadoCarga } from '../../components/EstadoCarga'
 import { Select, type OpcaoSelect } from '../../components/Select'
 import { Tabela, type ColunaTabela } from '../../components/Tabela'
 import { ROTULOS_TIPO_IMAGEM, TIPOS_IMAGEM, type ImagemDaConsulta, type TipoImagem } from '../../types/dominio'
-import { formatarDataHora, formatarPercentual } from '../../utils/formato'
+import { formatarDataHora, formatarInteiro, formatarPercentual } from '../../utils/formato'
 import { DialogoImagem } from './DialogoImagem'
 import { useConsultaImagens } from './useConsultaImagens'
 import './ConsultaImagens.css'
@@ -108,7 +108,7 @@ export function ConsultaImagens() {
       titulo="Imagens congeladas — consulta retroativa"
       semPadding
       className="consulta-imagens"
-      acoes={<span className="consulta-imagens__contagem">{`${imagens.length} de ${total} imagens`}</span>}
+      acoes={<span className="consulta-imagens__contagem">{`${formatarInteiro(imagens.length)} de ${formatarInteiro(total)} ${total === 1 ? 'imagem' : 'imagens'}`}</span>}
     >
       <BarraFiltros
         busca={filtros.busca}

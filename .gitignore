@@ -26,3 +26,8 @@ dist-ssr
 # Testes
 .carga-dist
 coverage
+
+# Testes E2E (Playwright)
+test-results
+playwright-report
+e2e/resultados

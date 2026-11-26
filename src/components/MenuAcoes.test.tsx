@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { usuarioRapido } from '../test/usuario'
 import { MenuAcoes, type ItemMenuAcoes } from './MenuAcoes'
@@ -402,5 +402,65 @@ describe('F1.16 — MenuAcoes (menu de ações por linha)', () => {
       expect(segundo.desativar).toHaveBeenCalledTimes(1)
       expect(primeiro.desativar).not.toHaveBeenCalled()
     })
+  })
+})
+
+/**
+ * Alteração de 18/11/2026: um clique dentro de um `<iframe>` (ex.: o PDF embutido da prévia,
+ * `VisualizadorPdf`) não gera evento no documento, e o menu ficava aberto. Aberto, se a janela perde
+ * o foco para um iframe (evento `blur` em `window` com `document.activeElement` sendo um IFRAME), o
+ * menu fecha sem selecionar nada.
+ */
+describe('F1.16 — MenuAcoes: fecha quando o foco vai para um iframe (alteração de 18/11/2026)', () => {
+  const gatilho = () => screen.getByRole('button', { name: ROTULO })
+
+  function renderizarComIframe() {
+    const user = usuarioRapido()
+    const espioes = criarItens()
+    render(
+      <div>
+        <MenuAcoes rotulo={ROTULO} itens={espioes.itens} />
+        <iframe title="PDF da prévia" />
+      </div>,
+    )
+    const iframe = screen.getByTitle('PDF da prévia')
+    return { user, iframe, ...espioes }
+  }
+
+  it('aberto, o foco ir para o iframe com o blur da janela fecha o menu sem selecionar nada', async () => {
+    const { user, iframe, verDetalhes, desativar, excluir } = renderizarComIframe()
+    await user.click(gatilho())
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+
+    iframe.focus()
+    fireEvent.blur(window)
+
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(gatilho()).toHaveAttribute('aria-expanded', 'false')
+    expect(verDetalhes).not.toHaveBeenCalled()
+    expect(desativar).not.toHaveBeenCalled()
+    expect(excluir).not.toHaveBeenCalled()
+  })
+
+  it('aberto, o blur da janela com document.activeElement no iframe fecha o menu', async () => {
+    const { user, iframe } = renderizarComIframe()
+    await user.click(gatilho())
+
+    const ativo = vi.spyOn(document, 'activeElement', 'get').mockReturnValue(iframe)
+    fireEvent.blur(window)
+    ativo.mockRestore()
+
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(gatilho()).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('fechado, o blur da janela para o iframe não abre o menu', () => {
+    const { iframe } = renderizarComIframe()
+
+    iframe.focus()
+    fireEvent.blur(window)
+
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(gatilho()).toHaveAttribute('aria-expanded', 'false')
   })
 })

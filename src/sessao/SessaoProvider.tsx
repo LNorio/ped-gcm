@@ -44,6 +44,13 @@ export interface Sessao {
   sair: () => void
   /** Seleciona uma filial pelo código ou `'todas'` (somente para quem tem todas as filiais). */
   selecionarFilial: (codigo: string) => void
+  /**
+   * Lê de novo o acesso (`GET /ped/acesso`) e o substitui sem passar por `carregando` — ex.: depois de criar
+   * ou alterar um tipo e ao abrir os cadastros, para o campo Tipo listar os tipos atuais. Mantém a filial
+   * selecionada se ela continuar no acesso. Nunca rejeita: em falha mantém o acesso anterior (o 401 segue o
+   * fluxo de sessão expirada); com chamadas concorrentes, vale a mais recente.
+   */
+  recarregarAcesso: () => Promise<void>
 }
 
 // Contexto e hook ficam neste arquivo por contrato dos testes (F2.1) e do `ProvedorSessaoFalso`.
@@ -75,6 +82,16 @@ function dadosComAcesso(acesso: Acesso): DadosSessao {
     erro: null,
     filialSelecionada: filialInicial(acesso),
   }
+}
+
+/** Filial em uso após reler o acesso: a mesma, se continua disponível; senão, a inicial do novo acesso. */
+function filialPreservada(atual: FilialSelecionada, acesso: Acesso): FilialSelecionada {
+  if (atual === TODAS_AS_FILIAIS) return acesso.todasAsFiliais ? TODAS_AS_FILIAIS : filialInicial(acesso)
+  if (atual !== null) {
+    const mesma = acesso.filiais.find((filial) => filial.codigo === atual.codigo)
+    if (mesma) return mesma
+  }
+  return filialInicial(acesso)
 }
 
 /** Sessão expirada: volta ao anônimo com a mensagem padrão (sem efeito se já está anônima). */
@@ -194,6 +211,30 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     setDados(SESSAO_ANONIMA)
   }, [])
 
+  // Versão da última releitura do acesso: respostas de releituras anteriores são descartadas.
+  const versaoReleitura = useRef(0)
+
+  const recarregarAcesso = useCallback(async (): Promise<void> => {
+    if (!obterToken()) return
+    const versao = ++versaoReleitura.current
+    try {
+      const acesso = await obterAcesso()
+      if (!montado.current || versao !== versaoReleitura.current) return
+      setDados((atual) => {
+        // Sem sessão aberta (saiu, expirou ou ainda restaurando): nada a substituir.
+        if (atual.estado === 'anonimo' || atual.estado === 'carregando') return atual
+        return {
+          ...atual,
+          estado: acesso.perfil === null ? 'sem-acesso' : 'autenticado',
+          acesso,
+          filialSelecionada: filialPreservada(atual.filialSelecionada, acesso),
+        }
+      })
+    } catch {
+      // 401: o cliente HTTP já disparou `EVENTO_SESSAO_EXPIRADA`. Demais falhas: mantém o acesso anterior.
+    }
+  }, [])
+
   const selecionarFilial = useCallback((codigo: string): void => {
     setDados((atual) => {
       if (!atual.acesso) return atual
@@ -206,8 +247,8 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const valor = useMemo<Sessao>(
-    () => ({ ...dados, entrar, sair, selecionarFilial }),
-    [dados, entrar, sair, selecionarFilial],
+    () => ({ ...dados, entrar, sair, selecionarFilial, recarregarAcesso }),
+    [dados, entrar, sair, selecionarFilial, recarregarAcesso],
   )
 
   return <SessaoContexto.Provider value={valor}>{children}</SessaoContexto.Provider>

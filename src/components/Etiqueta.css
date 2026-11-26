@@ -22,7 +22,7 @@
 
 .etiqueta--sucesso {
   background-color: #dff1e7;
-  color: #1b6340;
+  color: var(--cor-sucesso-texto);
 }
 
 .etiqueta--alerta {

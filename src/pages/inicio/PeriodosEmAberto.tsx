@@ -3,6 +3,7 @@ import { CAMINHOS } from '../../caminhos'
 import { Card } from '../../components/Card'
 import '../../components/Botao.css'
 import { ROTULOS_PERIODICIDADE, type PeriodoEmAbertoInicio } from '../../types/dominio'
+import { formatarInteiro } from '../../utils/formato'
 import './PeriodosEmAberto.css'
 
 export interface PeriodosEmAbertoProps {
@@ -30,7 +31,7 @@ export function PeriodosEmAberto({ periodos }: PeriodosEmAbertoProps) {
                   {`${ROTULOS_PERIODICIDADE[periodo.periodicidade]} · período ${periodo.periodoAtual}`}
                 </span>
                 <span className="periodos-em-aberto__progresso">
-                  {`${periodo.progresso.preenchidos} de ${periodo.progresso.total} lançamentos`}
+                  {`${formatarInteiro(periodo.progresso.preenchidos)} de ${formatarInteiro(periodo.progresso.total)} ${periodo.progresso.total === 1 ? 'lançamento' : 'lançamentos'}`}
                 </span>
               </div>
               <Link

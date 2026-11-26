@@ -6,18 +6,21 @@
  * - Campo de itens ("Filiais vinculadas", "Cargos vinculados" ou "Colaboradores vinculados"): dropdown
  *   com busca (só cargos e colaboradores, sem acento nem maiúsculas), "Selecionar todas" (filiais) e
  *   "Limpar seleção" (mais de um item). A lista mostra só os escolhidos, na ordem da escolha.
- * - Abaixo, o resumo das imagens geradas no encerramento.
+ * - Abaixo, o resumo das imagens geradas no encerramento (quantidade com separador de milhar, F12.2).
+ * - Foco (F12.1, A4): escolher o tipo devolve o foco ao botão do tipo; escolher um item leva à busca
+ *   (ou ao botão "Selecionar filial", sem busca), pelo `SeletorBusca`; remover leva ao "Remover" do
+ *   próximo, ou do anterior, ou ao botão do seletor quando não sobram itens.
  *
  * As listas chegam prontas pela página e são filtradas localmente.
  */
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { Botao } from '../../components/Botao'
 import { ErroCampo } from '../../components/ErroCampo'
 import type { CargoVinculo, ColaboradorVinculo, FilialVinculo } from '../../services/dashboardsService'
 import { TIPOS_VINCULO, type TipoVinculo } from '../../types/dominio'
-import { normalizarBusca } from '../../utils/formato'
+import { formatarInteiro, normalizarBusca } from '../../utils/formato'
 import { resumoImagens, type ResumoImagens, type VinculoFormulario } from './regrasDashboard'
-import { ICONE_REMOVER, ICONE_SETA, SeletorBusca, type OpcaoSeletor } from './SeletorBusca'
+import { ICONE_REMOVER, ICONE_SETA, SeletorBusca, type OpcaoSeletor } from '../../components/SeletorBusca'
 import './FormularioDashboard.css'
 
 export interface SecaoVinculoProps {
@@ -144,7 +147,7 @@ function frasesResumo(resumo: ResumoImagens): string[] {
   const frases = [
     resumo.quantidade === 1
       ? `No encerramento será gerada 1 imagem (uma por colaborador) ${local}.`
-      : `No encerramento serão geradas ${resumo.quantidade} imagens (uma por colaborador) ${local}.`,
+      : `No encerramento serão geradas ${formatarInteiro(resumo.quantidade)} imagens (uma por colaborador) ${local}.`,
   ]
 
   const sem = resumo.filiaisSemColaborador
@@ -169,8 +172,37 @@ export function SecaoVinculo({ valor, onChange, filiais, cargos, colaboradores, 
     setBusca('')
   }
 
+  const tipoRaizRef = useRef<HTMLDivElement>(null)
+  const tipoBotaoRef = useRef<HTMLButtonElement>(null)
+  const tipoAberto = painel === 'tipo'
+
+  // Lista de tipos aberta: clique fora (botão + painel) a fecha sem mudar o tipo.
+  useEffect(() => {
+    if (!tipoAberto) return
+    function aoPressionar(evento: Event) {
+      if (evento.target instanceof Node && tipoRaizRef.current?.contains(evento.target)) return
+      setPainel((atual) => (atual === 'tipo' ? null : atual))
+    }
+    document.addEventListener('pointerdown', aoPressionar)
+    document.addEventListener('mousedown', aoPressionar)
+    return () => {
+      document.removeEventListener('pointerdown', aoPressionar)
+      document.removeEventListener('mousedown', aoPressionar)
+    }
+  }, [tipoAberto])
+
+  // Esc com a lista de tipos aberta fecha só ela (não o `Dialogo` em volta) e devolve o foco ao botão.
+  function aoPressionarTeclaTipo(evento: KeyboardEvent<HTMLDivElement>) {
+    if (!tipoAberto || evento.key !== 'Escape') return
+    evento.preventDefault()
+    evento.stopPropagation()
+    tipoBotaoRef.current?.focus()
+    setPainel(null)
+  }
+
   // Outro tipo limpa os itens; o mesmo tipo os mantém. Escolher fecha o painel.
   function escolherTipo(novo: TipoVinculo) {
+    tipoBotaoRef.current?.focus()
     setPainel(null)
     setBusca('')
     if (novo !== valor.tipo) onChange({ tipo: novo, itens: [] })
@@ -180,21 +212,22 @@ export function SecaoVinculo({ valor, onChange, filiais, cargos, colaboradores, 
     <div className="formulario-dashboard__secao">
       <div className="formulario-dashboard__campo">
         <span className="formulario-dashboard__rotulo">Vincular dashboard a</span>
-        <div className="formulario-dashboard__dd">
+        <div ref={tipoRaizRef} className="seletor-busca" onKeyDown={aoPressionarTeclaTipo}>
           <button
+            ref={tipoBotaoRef}
             type="button"
-            className="formulario-dashboard__dd-botao foco-anel"
+            className="seletor-busca__botao foco-anel"
             aria-label={ROTULO_TIPO}
             aria-haspopup="listbox"
             aria-expanded={painel === 'tipo'}
             onClick={() => alternar('tipo')}
           >
-            <span className="formulario-dashboard__dd-valor">{TEXTOS[tipo].rotulo}</span>
+            <span className="seletor-busca__valor">{TEXTOS[tipo].rotulo}</span>
             {ICONE_SETA}
           </button>
           {painel === 'tipo' ? (
-            <div className="formulario-dashboard__dd-painel">
-              <div role="listbox" aria-label={ROTULO_TIPO} className="formulario-dashboard__dd-opcoes">
+            <div className="seletor-busca__painel">
+              <div role="listbox" aria-label={ROTULO_TIPO} className="seletor-busca__opcoes">
                 {TIPOS_VINCULO.map((opcao) => (
                   <button
                     key={opcao}
@@ -203,8 +236,8 @@ export function SecaoVinculo({ valor, onChange, filiais, cargos, colaboradores, 
                     aria-selected={opcao === tipo}
                     className={
                       opcao === tipo
-                        ? 'formulario-dashboard__dd-opcao formulario-dashboard__dd-opcao--atual foco-anel'
-                        : 'formulario-dashboard__dd-opcao foco-anel'
+                        ? 'seletor-busca__opcao seletor-busca__opcao--atual foco-anel'
+                        : 'seletor-busca__opcao foco-anel'
                     }
                     onClick={() => escolherTipo(opcao)}
                   >
@@ -262,6 +295,20 @@ function GrupoItens({
   erroItens,
 }: GrupoItensProps) {
   const idRotulo = useId()
+  const botaoSeletorRef = useRef<HTMLButtonElement>(null)
+  const listaRef = useRef<HTMLUListElement>(null)
+  // Posição (na lista já sem o item removido) do "Remover" que recebe o foco; -1 = botão do seletor.
+  const focoAposRemoverRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    const indice = focoAposRemoverRef.current
+    if (indice === null) return
+    focoAposRemoverRef.current = null
+    const botoes = listaRef.current?.querySelectorAll<HTMLButtonElement>('.formulario-dashboard__remover')
+    const alvo = (indice >= 0 ? botoes?.[indice] : undefined) ?? botaoSeletorRef.current
+    alvo?.focus()
+  })
+
   const textos = TEXTOS[tipo]
   const itensDoValor = valor.tipo === tipo ? valor.itens : []
   // Item escolhido fora da lista carregada aparece pelo próprio código (sem subtexto), para poder ser removido.
@@ -290,7 +337,16 @@ function GrupoItens({
     onChange({ tipo, itens: itens.map((item) => item.id) })
   }
 
+  // "Limpar seleção" some junto com os itens: o foco vai para o botão do seletor.
+  function limparSelecao() {
+    focoAposRemoverRef.current = -1
+    onChange({ tipo, itens: [] })
+  }
+
   function remover(id: string) {
+    const posicao = escolhidos.findIndex((item) => item.id === id)
+    const restantes = escolhidos.length - 1
+    focoAposRemoverRef.current = restantes === 0 ? -1 : Math.min(posicao, restantes - 1)
     onChange({ tipo, itens: itensDoValor.filter((item) => item !== id) })
   }
 
@@ -308,7 +364,7 @@ function GrupoItens({
             </Botao>
           ) : null}
           {itensDoValor.length > 1 ? (
-            <Botao variante="link" tamanho="pequeno" className="formulario-dashboard__link" onClick={() => onChange({ tipo, itens: [] })}>
+            <Botao variante="link" tamanho="pequeno" className="formulario-dashboard__link" onClick={limparSelecao}>
               Limpar seleção
             </Botao>
           ) : null}
@@ -338,12 +394,13 @@ function GrupoItens({
         opcoes={opcoes}
         mensagemVazia={mensagemVazia}
         onEscolher={escolher}
+        refBotao={botaoSeletorRef}
       />
       <div className="formulario-dashboard__selecionados">
         {escolhidos.length === 0 ? (
           <p className="formulario-dashboard__vazio">{textos.vazio}</p>
         ) : (
-          <ul className="formulario-dashboard__lista" aria-label={textos.escolhidos}>
+          <ul ref={listaRef} className="formulario-dashboard__lista" aria-label={textos.escolhidos}>
             {escolhidos.map((item) => (
               <li key={item.id} className="formulario-dashboard__escolhido">
                 <span className="formulario-dashboard__escolhido-texto">

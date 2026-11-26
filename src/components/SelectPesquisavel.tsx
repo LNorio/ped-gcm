@@ -50,6 +50,10 @@ const ESPACO_CAMPO = 4
 const ALTURA_MAXIMA = 320
 /** Abaixo desta altura disponível sob o gatilho, o painel abre para cima (se houver mais espaço lá). */
 const ALTURA_MINIMA_ABAIXO = 200
+/** Largura mínima do painel (12rem com a fonte base de 16px, como no CSS), em px. */
+const LARGURA_MINIMA = 192
+/** Margem mínima entre o painel e as bordas laterais da janela, em px. */
+const MARGEM_JANELA = 8
 
 /** Opções cujo rótulo ou descrição contém a busca (sem acentos e maiúsculas), na ordem original. */
 function filtrar(opcoes: OpcaoSelectPesquisavel[], texto: string): OpcaoSelectPesquisavel[] {
@@ -211,15 +215,23 @@ export function SelectPesquisavel({
     if (aberto) buscaRef.current?.focus()
   }, [aberto])
 
-  // Clique fora fecha.
+  // Clique fora (inclusive dentro de um iframe) fecha.
   useEffect(() => {
     if (!aberto) return
     function aoPressionarPonteiro(evento: MouseEvent) {
       if (evento.target instanceof Node && raizRef.current?.contains(evento.target)) return
       setAberto(false)
     }
+    // Clique dentro de um iframe (ex.: PDF embutido) não gera evento no documento: a janela perde o foco.
+    function aoPerderFocoJanela() {
+      if (document.activeElement?.tagName === 'IFRAME') setAberto(false)
+    }
     document.addEventListener('mousedown', aoPressionarPonteiro)
-    return () => document.removeEventListener('mousedown', aoPressionarPonteiro)
+    window.addEventListener('blur', aoPerderFocoJanela)
+    return () => {
+      document.removeEventListener('mousedown', aoPressionarPonteiro)
+      window.removeEventListener('blur', aoPerderFocoJanela)
+    }
   }, [aberto])
 
   const calcularPosicao = useCallback(() => {
@@ -231,8 +243,15 @@ export function SelectPesquisavel({
     const espacoAcima = rect.top - ESPACO_CAMPO * 2
     const paraCima = espacoAbaixo < ALTURA_MINIMA_ABAIXO && espacoAcima > espacoAbaixo
     const espaco = paraCima ? espacoAcima : espacoAbaixo
+    // O painel pode ser mais largo que o gatilho (largura mínima): limita `left` para não passar da tela.
+    const larguraJanela = document.documentElement.clientWidth || window.innerWidth
+    const larguraPainel = Math.min(
+      Math.max(rect.width, painelRef.current?.offsetWidth ?? 0, LARGURA_MINIMA),
+      larguraJanela - MARGEM_JANELA * 2,
+    )
+    const left = Math.max(MARGEM_JANELA, Math.min(rect.left, larguraJanela - larguraPainel - MARGEM_JANELA))
     setPosicao({
-      left: rect.left,
+      left,
       width: rect.width,
       maxHeight: espaco > 0 ? Math.min(ALTURA_MAXIMA, espaco) : ALTURA_MAXIMA,
       ...(paraCima ? { bottom: alturaJanela - rect.top + ESPACO_CAMPO } : { top: rect.bottom + ESPACO_CAMPO }),

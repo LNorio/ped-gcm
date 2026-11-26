@@ -17,12 +17,19 @@
  * - `tipo` da raiz, senão `unidade.tipo`, senão "colaborador" quando há "id colaborador" e "filial" sem;
  * - `dashboard` em objeto (chaves alternativas "pontuacao base maxima", "vinculo", "formula"), em texto
  *   (só o nome) ou, ausente, `dashboard_nome` (dashboard excluído);
- * - `unidade` com filial/colaborador em objeto ou texto; sem `unidade`, os campos da raiz;
+ * - `unidade` com filial/colaborador em objeto ou texto; sem `unidade`, os campos da raiz. Filial em
+ *   `{ filial, "nome filial" }` ou no formato real `{ codigo, nome }` (`docs/backend/exemplos-reais/previa.json`);
+ *   código em texto ou número (outro tipo rejeita);
+ * - "id colaborador" da raiz, senão `colaborador["id colaborador"]`, senão `colaborador.id` (formato real
+ *   `{ id, nome, cargo }`); número ou texto só com dígitos, o resto rejeita. O mesmo vale para a consulta;
+ * - na consulta, o bloco `unidade` (Swagger de 25/11/2026) dá só o nome da filial (`unidade.filial.nome`) e o
+ *   cargo (`unidade.colaborador.cargo`); o código da filial e o nome do colaborador vêm sempre da raiz;
  * - indicador: `meta: null` = sem meta (nunca 0); realizado `null` ou `{ valor, "coleta disponivel" }`
  *   (`coletaDisponivel: false` = sem coleta ainda, não é erro; padrão `true`);
  * - pontuação com os passos (sem `calculada` = calculada), `{ calculada: false, motivo }`, ausente ou
  *   `null` (não calculada, sem motivo); "opcao selecionada" `a`/`B`/`opcao a`/`Opção B` → `A`/`B`;
- * - `faixas` `{ versao, descricao|nome, linhas }` ou `null`; pendências e avisos aceitam texto e
+ * - `faixas` `{ versao, descricao|nome, linhas }` ou `null`, na raiz ou (formato real) em `pontuacao.faixas`
+ *   — a raiz tem prioridade; uma linha inválida rejeita a resposta; pendências e avisos aceitam texto e
  *   `{ mensagem }` e ignoram o resto.
  *
  * Respostas 2xx fora do formato viram `ApiError(200, MENSAGEM_RESPOSTA_INVALIDA)`; um item inválido
@@ -201,8 +208,10 @@ function paraUnidade(conteudo: Record<string, unknown>): UnidadeDaImagem {
   const filialEmObjeto = ehObjeto(filial) ? filial : null
   const colaboradorEmObjeto = ehObjeto(colaborador) ? colaborador : null
   return {
-    filial: codigoOuNulo(filialEmObjeto ? filialEmObjeto.filial : filial),
-    nomeFilial: textoOuNulo(primeiro(filialEmObjeto?.['nome filial'], unidade['nome filial'], conteudo['nome filial'])),
+    filial: codigoOuNulo(filialEmObjeto ? primeiro(filialEmObjeto.filial, filialEmObjeto.codigo) : filial),
+    nomeFilial: textoOuNulo(
+      primeiro(filialEmObjeto?.['nome filial'], filialEmObjeto?.nome, unidade['nome filial'], conteudo['nome filial']),
+    ),
     colaborador: textoOuNulo(colaboradorEmObjeto ? colaboradorEmObjeto.nome : colaborador),
     cargo: textoOuNulo(primeiro(colaboradorEmObjeto?.cargo, unidade.cargo, conteudo.cargo)),
   }
@@ -310,8 +319,9 @@ function tipoInformado(...valores: unknown[]): TipoImagem | undefined {
 export function paraImagemCongelada(conteudo: unknown, chave?: string | null): ImagemCongelada {
   if (!ehObjeto(conteudo)) throw respostaInvalida()
   const unidade = ehObjeto(conteudo.unidade) ? conteudo.unidade : {}
-  const colaborador = ehObjeto(unidade.colaborador) ? unidade.colaborador : {}
-  const idColaborador = idOuNulo(primeiro(conteudo['id colaborador'], colaborador['id colaborador']))
+  const colaboradorInformado = primeiro(unidade.colaborador, conteudo.colaborador)
+  const colaborador = ehObjeto(colaboradorInformado) ? colaboradorInformado : {}
+  const idColaborador = idOuNulo(primeiro(conteudo['id colaborador'], colaborador['id colaborador'], colaborador.id))
   const tipo = tipoInformado(conteudo.tipo, unidade.tipo) ?? (idColaborador === null ? 'filial' : 'colaborador')
   if (!(ausente(conteudo.indicadores) || Array.isArray(conteudo.indicadores))) throw respostaInvalida()
   const indicadores: unknown[] = Array.isArray(conteudo.indicadores) ? conteudo.indicadores : []
@@ -330,7 +340,7 @@ export function paraImagemCongelada(conteudo: unknown, chave?: string | null): I
     pontosBaseTotal: numeroOuNulo(conteudo['pontos base total']),
     indicadores: indicadores.map(paraIndicadorDaImagem),
     pontuacao: paraPontuacao(conteudo.pontuacao),
-    faixas: paraFaixas(conteudo.faixas),
+    faixas: paraFaixas(primeiro(conteudo.faixas, ehObjeto(conteudo.pontuacao) ? conteudo.pontuacao.faixas : undefined)),
     pendencias: mensagens(conteudo.pendencias),
     avisos: mensagens(conteudo.avisos),
     geradoEm: textoOuNulo(conteudo['gerado em']),
@@ -354,7 +364,12 @@ function paraImagemDaConsulta(item: unknown): ImagemDaConsulta {
   const periodo = ehObjeto(item.periodo) ? item.periodo.codigo : item.periodo
   const filial = ehObjeto(item.filial) ? item.filial : null
   const colaborador = ehObjeto(item.colaborador) ? item.colaborador : null
-  const idColaborador = idOuNulo(primeiro(item['id colaborador'], colaborador?.['id colaborador']))
+  // Bloco `unidade` (Swagger de 25/11/2026): só o nome da filial e o cargo vêm dele; o código da filial e o
+  // nome do colaborador continuam vindo da raiz. Imagem antiga: nome e colaborador nulos.
+  const unidade = ehObjeto(item.unidade) ? item.unidade : null
+  const filialDaUnidade = unidade && ehObjeto(unidade.filial) ? unidade.filial : null
+  const colaboradorDaUnidade = unidade && ehObjeto(unidade.colaborador) ? unidade.colaborador : null
+  const idColaborador = idOuNulo(primeiro(item['id colaborador'], colaborador?.['id colaborador'], colaborador?.id))
   const tipo = tipoInformado(item.tipo) ?? (idColaborador === null ? 'filial' : 'colaborador')
   return {
     id: item.id,
@@ -365,10 +380,10 @@ function paraImagemDaConsulta(item: unknown): ImagemDaConsulta {
     idDashboard: idOuNulo(primeiro(item['id dashboard'], dashboard?.id)),
     dashboard: textoOuNulo(dashboard ? dashboard.nome : primeiro(item.dashboard, item.dashboard_nome)),
     periodo: textoOuNulo(periodo),
-    filial: codigoOuNulo(filial ? filial.filial : item.filial),
-    nomeFilial: textoOuNulo(primeiro(filial?.['nome filial'], item['nome filial'])),
+    filial: codigoOuNulo(filial ? primeiro(filial.filial, filial.codigo) : item.filial),
+    nomeFilial: textoOuNulo(primeiro(filialDaUnidade?.nome, filial?.['nome filial'], filial?.nome, item['nome filial'])),
     colaborador: textoOuNulo(colaborador ? colaborador.nome : item.colaborador),
-    cargo: textoOuNulo(primeiro(colaborador?.cargo, item.cargo)),
+    cargo: textoOuNulo(primeiro(colaboradorDaUnidade?.cargo, colaborador?.cargo, item.cargo)),
     geradoEm: textoOuNulo(item['gerado em']),
     usuario: textoOuNulo(item.usuario),
     pedPercentual: numeroOuNulo(item['ped percentual']),

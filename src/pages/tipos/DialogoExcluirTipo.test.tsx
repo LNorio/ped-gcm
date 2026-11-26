@@ -10,7 +10,7 @@ const LOGISTICA = paraTipoApontamento(TIPO_LOGISTICA_API)
 const MARKETING = paraTipoApontamento(TIPO_MARKETING_API)
 
 const IMPACTO_LOGISTICA = 'O tipo Logística será removido. Esta ação não pode ser desfeita.'
-const BLOQUEIO_MARKETING = 'Este tipo possui 3 apontamento(s) vinculado(s) e não pode ser excluído.'
+const BLOQUEIO_MARKETING = 'Este tipo possui 3 apontamentos vinculados e não pode ser excluído.'
 
 describe('F3.3 — DialogoExcluirTipo (confirmação da exclusão de tipo)', () => {
   function renderizar(
@@ -129,7 +129,7 @@ describe('F3.3 — DialogoExcluirTipo (confirmação da exclusão de tipo)', () 
       renderizar({ ...LOGISTICA, quantidadeApontamentos: 1 })
 
       expect(
-        within(screen.getByRole('dialog')).getByText('Este tipo possui 1 apontamento(s) vinculado(s) e não pode ser excluído.'),
+        within(screen.getByRole('dialog')).getByText('Este tipo possui 1 apontamento vinculado e não pode ser excluído.'),
       ).toBeInTheDocument()
     })
   })

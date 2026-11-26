@@ -14,6 +14,7 @@ import { MenuAcoes, type ItemMenuAcoes } from '../../components/MenuAcoes'
 import { Tabela, type ColunaTabela } from '../../components/Tabela'
 import { ORIGEM_FIXO } from '../../services/tiposService'
 import type { TipoApontamento } from '../../types/dominio'
+import { formatarInteiro } from '../../utils/formato'
 
 export interface TabelaTiposProps {
   tipos: TipoApontamento[]
@@ -30,7 +31,7 @@ export interface TabelaTiposProps {
 }
 
 function textoUsuarios(quantidade: number): string {
-  return quantidade === 1 ? '1 usuário vinculado' : `${quantidade} usuários vinculados`
+  return quantidade === 1 ? '1 usuário vinculado' : `${formatarInteiro(quantidade)} usuários vinculados`
 }
 
 function colunaGrupos(tipo: TipoApontamento) {
@@ -69,7 +70,12 @@ export function TabelaTipos({ tipos, podeEditar, podeExcluir, onEditar, onExclui
       render: (tipo) => <Etiqueta tom={tipo.origem === ORIGEM_FIXO ? 'neutro' : 'info'}>{tipo.origem}</Etiqueta>,
     },
     { chave: 'grupos', titulo: 'Grupos vinculados', render: colunaGrupos },
-    { chave: 'quantidadeApontamentos', titulo: 'Apontamentos', alinhar: 'direita' },
+    {
+      chave: 'quantidadeApontamentos',
+      titulo: 'Apontamentos',
+      alinhar: 'direita',
+      render: (tipo) => formatarInteiro(tipo.quantidadeApontamentos),
+    },
     {
       chave: 'acoes',
       titulo: 'Ações',

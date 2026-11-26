@@ -56,7 +56,7 @@ export function ApontamentosPage() {
     alterarSituacao,
     excluir,
   } = useApontamentos()
-  const { acesso } = useSessao()
+  const { acesso, recarregarAcesso } = useSessao()
   const { podeAcao } = usePermissoes()
   const podeAlterarSituacao = podeAcao('alterar-situacao-apontamento')
   const podeExcluir = podeAcao('excluir-apontamento')
@@ -96,6 +96,8 @@ export function ApontamentosPage() {
   function abrirCadastro() {
     setErroCadastro(null)
     setCadastroAberto(true)
+    // Relê o acesso para o campo Tipo trazer tipos criados ou vinculados depois do login.
+    void recarregarAcesso()
   }
 
   function fecharCadastro() {

@@ -91,7 +91,7 @@
 }
 
 .dialogo-concluir__validacao--valida .dialogo-concluir__validacao-titulo {
-  color: var(--cor-sucesso);
+  color: var(--cor-sucesso-texto);
 }
 
 /* Aviso não bloqueante da entrada válida (ex.: %filial% numa consulta que traz todas as filiais). */
@@ -239,7 +239,7 @@
 }
 
 .dialogo-concluir__falta--ok {
-  color: var(--cor-sucesso);
+  color: var(--cor-sucesso-texto);
 }
 
 .dialogo-concluir__botoes {

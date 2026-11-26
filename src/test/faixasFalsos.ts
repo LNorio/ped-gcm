@@ -85,9 +85,11 @@ export interface TabelaFaixasApiFalsa {
 }
 
 export interface VersaoFaixasApiFalsa {
-  versao: number
+  /** D2 (25/11/2026): pode vir `null` (o Swagger aceita, ainda que hoje não ocorra). */
+  versao: number | null
   vigente: boolean
-  motivo: string
+  /** D2 (25/11/2026): `null` no cadastro da versão 1 feito sem motivo (o motivo é opcional nele). */
+  motivo: string | null
   data: string
   usuario: string
   /** `null` nas linhas de inativação, reativação e exclusão (não são versões). */
@@ -329,6 +331,45 @@ export function historicoCadastroFaixasApi(tabela: TabelaFaixasApiFalsa): Versao
       data: tabela['data da versao'] ?? '2026-09-01 10:00:00',
       usuario: tabela['autor da versao'] ?? 'Maria Souza',
       'quantidade de faixas': tabela['quantidade de faixas'],
+      acao: 'cadastro',
+    },
+  ]
+}
+
+/**
+ * Histórico da tabela 1 com os nulos do contrato real (D2, resposta do back-end de 25/11/2026 —
+ * `docs/backend/FRONT-resposta-verificacao-swagger-2026-11-25.md`), da mais recente para a mais antiga:
+ * - reativação (v1, sem quantidade de faixas);
+ * - inativação com `versao: null` (o Swagger aceita) e sem quantidade de faixas;
+ * - cadastro da versão 1 **sem motivo** (`motivo: null`), vigente, com 2 faixas.
+ */
+export function historicoComNulosFaixasApi(): VersaoFaixasApiFalsa[] {
+  return [
+    {
+      versao: 1,
+      vigente: false,
+      motivo: 'Voltou a valer para a filial',
+      data: '2026-11-20 10:00:00-04:00',
+      usuario: 'Ana Costa',
+      'quantidade de faixas': null,
+      acao: 'reativacao',
+    },
+    {
+      versao: null,
+      vigente: false,
+      motivo: 'Filial fechada para reforma',
+      data: '2026-11-15 09:30:00-04:00',
+      usuario: 'Ana Costa',
+      'quantidade de faixas': null,
+      acao: 'inativacao',
+    },
+    {
+      versao: 1,
+      vigente: true,
+      motivo: null,
+      data: '2026-11-01 08:00:00-04:00',
+      usuario: 'Maria Souza',
+      'quantidade de faixas': 2,
       acao: 'cadastro',
     },
   ]

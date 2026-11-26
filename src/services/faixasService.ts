@@ -96,9 +96,11 @@ export interface AlteracaoFaixas {
 
 /** Versão do histórico de uma tabela de faixas (RF-45). */
 export interface VersaoFaixas {
-  versao: number
+  /** `null` quando a API não informa (o Swagger aceita; D2 de 25/11/2026). */
+  versao: number | null
   vigente: boolean
-  motivo: string
+  /** `null` quando a API não informa (ex.: cadastro da versão 1 sem motivo; D2 de 25/11/2026). */
+  motivo: string | null
   data: string
   usuario: string
   /** `null` quando a API não informa. */
@@ -271,9 +273,10 @@ function extrairLista(resposta: unknown, chave: string): unknown[] {
 function converterVersao(valor: unknown): VersaoFaixas {
   if (
     !ehObjeto(valor) ||
-    !ehNumero(valor.versao) ||
+    // `versao` pode vir `null` (Swagger), mas o campo continua obrigatório: ausente é fora do formato.
+    !(valor.versao === null || ehNumero(valor.versao)) ||
     !ehBooleano(valor.vigente) ||
-    !ehTexto(valor.motivo) ||
+    !opcional(valor.motivo, ehTexto) ||
     !ehTexto(valor.data) ||
     !ehTexto(valor.usuario) ||
     !opcional(valor['quantidade de faixas'], ehNumero)
@@ -281,9 +284,9 @@ function converterVersao(valor: unknown): VersaoFaixas {
     throw respostaInvalida()
   }
   return {
-    versao: valor.versao,
+    versao: numeroOuNulo(valor.versao),
     vigente: valor.vigente,
-    motivo: valor.motivo,
+    motivo: textoOuNulo(valor.motivo),
     data: valor.data,
     usuario: valor.usuario,
     quantidadeDeFaixas: numeroOuNulo(valor['quantidade de faixas']),

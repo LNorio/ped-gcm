@@ -17,15 +17,16 @@
  * "Configurações" na tabela, que abrem a modal da integração do dado externo (`DialogoConcluirConstrucao`,
  * modo "configurar", `tipoAlvo` "indicador" — ver `useIntegracaoIndicador`) com a validação no back-end
  * (`validarIntegracao`); salvar grava, recarrega a lista e mostra "Integração atualizada.". O alerta
- * `integracaoPendente` também marca a aba no menu, só para o Admin, sem aviso no topo.
+ * `integracaoPendente` também marca a aba no menu, para Admin e Validador
+ * (`ver-integracao-pendente-indicador`, só leitura), sem aviso no topo.
  * Erros 400 por filial (F6.10, contrato real): no POST do cadastro e no `PUT .../meta`, a mensagem
  * geral fica no alerta do diálogo e `errosPorFilial(falha)` vai para os campos das filiais
  * (`errosFiliais`), limpos ao reenviar e ao fechar.
  * Metas pendentes (F6.12): com `definir-meta-indicador` (Admin e Validador), "Definir metas pendentes"
  * abre `DialogoDefinirMetasPendentes` (ver `useMetasPendentesIndicador`); salvar grava, recarrega a
  * lista e mostra "Metas definidas.".
- * Contrato final da meta via API (F6.11): o filtro ganha "Integração pendente (TI)" (por último) só para
- * quem tem `configurar-integracao-indicador`; o cadastro e o "Definir meta" recebem
+ * Contrato final da meta via API (F6.11): o filtro ganha "Integração pendente (TI)" (por último) para
+ * quem tem `ver-integracao-pendente-indicador` (Admin e Validador); o cadastro e o "Definir meta" recebem
  * `consultaIntegracaoDisponivel` (`metaViaApi.integracao !== false`) e o "Definir meta" a lista de dados
  * externos, carregada ao abrir; "Ver integração do dado externo" (fonte `dado_externo`) abre a modal da
  * integração em modo leitura. No cadastro da fonte `integracao` por quem não configura a integração
@@ -103,7 +104,7 @@ const OPCOES_SITUACAO: OpcaoSituacao[] = SITUACOES_FILTRO_INDICADOR.map((situaca
   rotulo: ROTULOS_SITUACAO_FILTRO_INDICADOR[situacao],
 }))
 
-/** F6.11: o Admin vê também "Integração pendente (TI)", por último. */
+/** F6.11: Admin e Validador (`ver-integracao-pendente-indicador`) veem também "Integração pendente (TI)", por último. */
 const OPCOES_SITUACAO_ADMIN: OpcaoSituacao[] = SITUACOES_FILTRO_INDICADOR_ADMIN.map((situacao) => ({
   valor: situacao,
   rotulo: ROTULOS_SITUACAO_FILTRO_INDICADOR_ADMIN[situacao],
@@ -166,6 +167,7 @@ export function IndicadoresPage() {
   const podeAlterarSituacao = podeAcao('alterar-situacao-indicador')
   const podeExcluir = podeAcao('excluir-indicador')
   const podeConfigurarIntegracao = podeAcao('configurar-integracao-indicador')
+  const podeVerIntegracaoPendente = podeAcao('ver-integracao-pendente-indicador')
   /** F6.11: sem `"meta via api"` na listagem, a consulta é tratada como disponível (sem aviso). */
   const consultaIntegracaoDisponivel = metaViaApi?.integracao !== false
 
@@ -179,14 +181,14 @@ export function IndicadoresPage() {
   }, [])
 
   // Sinal de alerta no menu: a aba fica marcada enquanto houver indicador aguardando meta, com
-  // componente desativado, com filial sem meta (F6.10) ou, só para o Admin, com a integração da meta
-  // pendente (F6.11). Usa useLayoutEffect para o sinal existir no mesmo commit da tabela (sem
+  // componente desativado, com filial sem meta (F6.10) ou, para Admin e Validador, com a integração da
+  // meta pendente (F6.11). Usa useLayoutEffect para o sinal existir no mesmo commit da tabela (sem
   // um frame em que a tabela aparece e o marcador ainda não).
   const temAlerta =
     alertas.aguardandoMeta > 0 ||
     alertas.comComponenteDesativado > 0 ||
     alertas.metaPendentePorFilial > 0 ||
-    (podeConfigurarIntegracao && (alertas.integracaoPendente ?? 0) > 0)
+    (podeVerIntegracaoPendente && (alertas.integracaoPendente ?? 0) > 0)
   useLayoutEffect(() => {
     definirAlerta('indicadores', temAlerta)
   }, [definirAlerta, temAlerta])
@@ -406,7 +408,7 @@ export function IndicadoresPage() {
           onBuscaChange={(valor) => setBusca(valor)}
           rotuloBusca="Buscar"
           placeholderBusca="Indicador, apontamento ou dado externo"
-          situacoes={podeConfigurarIntegracao ? OPCOES_SITUACAO_ADMIN : OPCOES_SITUACAO}
+          situacoes={podeVerIntegracaoPendente ? OPCOES_SITUACAO_ADMIN : OPCOES_SITUACAO}
           situacao={filtros.situacao}
           onSituacaoChange={(valor) => {
             if (ehSituacaoFiltro(valor)) setSituacao(valor)

@@ -3,20 +3,20 @@
  * vinculados" (principal, grupos do ERP) e "Usuários vinculados" (secundário, colaboradores).
  *
  * Mesmo padrão visual do formulário de dashboard (dropdown com busca do protótipo dashModal, via
- * `SeletorBusca`): a busca ignora acentos e maiúsculas, escolher acrescenta o item à lista de
+ * `SeletorBusca` de src/components/): a busca ignora acentos e maiúsculas, escolher acrescenta o item à lista de
  * escolhidos (na ordem da escolha) e mantém o painel aberto, e cada escolhido tem "Remover {nome}".
  * Só um painel fica aberto por vez. Itens escolhidos que não estão nas listas carregadas (ex.: grupo
  * antigo) aparecem pelo nome recebido e podem ser removidos.
  *
  * Componente controlado: os escolhidos ficam no formulário que o usa.
  */
-import { type KeyboardEvent, useId, useState } from 'react'
+import { useId, useState } from 'react'
 import { ErroCampo } from '../../components/ErroCampo'
 import type { ColaboradorVinculo } from '../../services/dashboardsService'
 import type { GrupoErp } from '../../services/tiposService'
 import type { ReferenciaNomeada } from '../../types/dominio'
 import { normalizarBusca } from '../../utils/formato'
-import { ICONE_REMOVER, SeletorBusca, type OpcaoSeletor } from '../dashboards/SeletorBusca'
+import { ICONE_REMOVER, SeletorBusca, type OpcaoSeletor } from '../../components/SeletorBusca'
 import './FormularioTipo.css'
 
 export interface SecaoVinculosTipoProps {
@@ -180,19 +180,10 @@ function SeletorVinculo({ textos, itens, escolhidos, onChange, aberto, onAlterna
     onChange(escolhidos.filter((item) => item.id !== id))
   }
 
-  // Enter na busca do dropdown não envia o formulário (o envio implícito gravaria o tipo sem querer).
-  function impedirEnvioPelaBusca(evento: KeyboardEvent<HTMLDivElement>) {
-    if (evento.key === 'Enter' && evento.target instanceof HTMLInputElement) evento.preventDefault()
-  }
-
+  // Enter na busca do dropdown não envia o formulário: o próprio SeletorBusca impede o envio implícito.
   return (
-    <div
-      className="formulario-dashboard__campo"
-      role="group"
-      aria-labelledby={idRotulo}
-      onKeyDown={impedirEnvioPelaBusca}
-    >
-      <span id={idRotulo} className="formulario-dashboard__rotulo">
+    <div className="formulario-tipo__campo" role="group" aria-labelledby={idRotulo}>
+      <span id={idRotulo} className="formulario-tipo__rotulo">
         {textos.campo}
       </span>
       <SeletorBusca
@@ -208,22 +199,22 @@ function SeletorVinculo({ textos, itens, escolhidos, onChange, aberto, onAlterna
         mensagemVazia={mensagemVazia}
         onEscolher={escolher}
       />
-      <div className="formulario-dashboard__selecionados">
+      <div className="formulario-tipo__selecionados">
         {escolhidos.length === 0 ? (
-          <p className="formulario-dashboard__vazio">{textos.vazio}</p>
+          <p className="formulario-tipo__vazio">{textos.vazio}</p>
         ) : (
-          <ul className="formulario-dashboard__lista" aria-label={textos.escolhidos}>
+          <ul className="formulario-tipo__lista" aria-label={textos.escolhidos}>
             {escolhidos.map((escolhido) => {
               const conhecido = itens.find((item) => item.id === String(escolhido.id))
               return (
-                <li key={escolhido.id} className="formulario-dashboard__escolhido">
-                  <span className="formulario-dashboard__escolhido-texto">
+                <li key={escolhido.id} className="formulario-tipo__escolhido">
+                  <span className="formulario-tipo__escolhido-texto">
                     <span>{escolhido.nome}</span>
                     {conhecido?.subtexto ? <small>{conhecido.subtexto}</small> : null}
                   </span>
                   <button
                     type="button"
-                    className="formulario-dashboard__remover foco-anel"
+                    className="formulario-tipo__remover foco-anel"
                     aria-label={`Remover ${escolhido.nome}`}
                     onClick={() => remover(escolhido.id)}
                   >

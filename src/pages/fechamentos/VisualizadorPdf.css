@@ -26,3 +26,11 @@
     min-height: 14rem;
   }
 }
+
+/* F12.2: link alternativo abaixo do PDF (telas pequenas e navegadores sem visualizador embutido) */
+.visualizador-pdf__link {
+  align-self: flex-start;
+  color: var(--cor-primaria);
+  font-weight: 600;
+  text-decoration: underline;
+}

@@ -458,6 +458,8 @@ export interface CorpoNovoIndicador {
 export interface CorpoIndicadorDoDashboard {
   'id indicador': number
   'pontos base': number
+  /** F7.15 (contrato proposto): só em dashboard não mensal e quando o indicador tem o cálculo informado. */
+  'calculo do periodo'?: SentidoCalculo
 }
 
 export interface CorpoDashboard {
@@ -986,7 +988,8 @@ export function paraCorpoNovoIndicador(dados: NovoIndicador): CorpoNovoIndicador
 
 /**
  * Corpo de `POST`/`PUT /api/ped/dashboards`. `enviar tarefa ti` só entra quando informado
- * (edição que gera tarefa de modificação para a TI).
+ * (edição que gera tarefa de modificação para a TI). `"calculo do periodo"` (F7.15) entra em cada
+ * indicador só quando a periodicidade não é `mensal` e o indicador tem o cálculo informado.
  */
 export function paraCorpoDashboard(dados: DadosDashboard): CorpoDashboard {
   const corpo: CorpoDashboard = {
@@ -995,10 +998,14 @@ export function paraCorpoDashboard(dados: DadosDashboard): CorpoDashboard {
     'pontuacao base maxima': dados.pontuacaoBaseMaxima,
     'tipo de vinculo': dados.tipoVinculo,
     'itens vinculados': [...dados.itensVinculados],
-    indicadores: dados.indicadores.map((item) => ({
-      'id indicador': item.idIndicador,
-      'pontos base': item.pontosBase,
-    })),
+    indicadores: dados.indicadores.map((item) => {
+      const indicador: CorpoIndicadorDoDashboard = { 'id indicador': item.idIndicador, 'pontos base': item.pontosBase }
+      // F7.15: o cálculo no período só existe em dashboard não mensal.
+      if (dados.periodicidade !== 'mensal' && item.calculoNoPeriodo !== undefined) {
+        indicador['calculo do periodo'] = item.calculoNoPeriodo
+      }
+      return indicador
+    }),
     'indicador base da faixa': dados.indicadorBaseDaFaixa,
     'formula de pontuacao': dados.formulaDePontuacao,
     'observacao para ti': dados.observacaoParaTi ?? null,

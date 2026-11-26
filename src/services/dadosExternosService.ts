@@ -84,6 +84,7 @@ import {
   paraCorpoNovoDadoExterno,
   paraDadoExterno,
 } from './adaptadores'
+import { formatarNumero } from '../utils/integracao/expressoes'
 import { ApiError, MENSAGEM_RESPOSTA_INVALIDA, type ValorQuery, apiFetch } from './api'
 
 const ROTA_DADOS_EXTERNOS = '/ped/dados-externos-cadastro'
@@ -276,9 +277,18 @@ function converterIndicadorCriadoOuNulo(valor: unknown): ReferenciaNomeada | nul
   return { id: valor.id, nome: valor.nome }
 }
 
+/**
+ * Converte um item de `GET /api/ped/dados-externos-cadastro/identificadores`
+ * (`{ identificador, nome, unidade, ativo, "dados cadastrados" }`, resposta do back-end de 25/11/2026, D1).
+ * A contagem vem de `"dados cadastrados"`; `quantidade` (formato antigo) fica só como reserva e, com os
+ * dois presentes, vale `"dados cadastrados"`. `nome`, `unidade` e `ativo` são ignorados. Sem
+ * `identificador` em texto, sem nenhuma contagem ou com a contagem fora de número, a resposta é inválida.
+ */
 function converterIdentificador(valor: unknown): IdentificadorColeta {
-  if (!ehObjeto(valor) || !ehTexto(valor.identificador) || !ehNumero(valor.quantidade)) throw respostaInvalida()
-  return { identificador: valor.identificador, quantidade: valor.quantidade }
+  if (!ehObjeto(valor) || !ehTexto(valor.identificador)) throw respostaInvalida()
+  const quantidade = valor['dados cadastrados'] !== undefined ? valor['dados cadastrados'] : valor.quantidade
+  if (!ehNumero(quantidade)) throw respostaInvalida()
+  return { identificador: valor.identificador, quantidade }
 }
 
 function converterMes(valor: unknown): MesConsiderado {
@@ -400,11 +410,14 @@ export function corpoIntegracao(integracao: IntegracaoDadoExterno): Record<strin
   }
 }
 
-/** Cálculo da entrada validada: `caminho` (ou `campo`), `expressao` e `resultado` (número vira texto). */
+/**
+ * Cálculo da entrada validada: `caminho` (ou `campo`), `expressao` e `resultado`. Número vira texto como no
+ * motor local (`formatarNumero`): vírgula decimal, sem milhar ("89,5", "1500,25"); texto continua como veio.
+ */
 function converterCalculo(valor: unknown): CalculoEntradaServidor {
   if (!ehObjeto(valor)) throw respostaInvalida()
   const caminho = valor.caminho ?? valor.campo
-  const resultado = ehNumero(valor.resultado) ? String(valor.resultado) : valor.resultado
+  const resultado = ehNumero(valor.resultado) ? formatarNumero(valor.resultado) : valor.resultado
   if (!ehTexto(caminho) || !ehTexto(valor.expressao) || !ehTexto(resultado)) throw respostaInvalida()
   return { caminho, expressao: valor.expressao, resultado }
 }

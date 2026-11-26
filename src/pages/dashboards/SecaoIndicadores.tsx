@@ -8,21 +8,39 @@
  * A lista mostra só os escolhidos, cada um com os pontos base neste dashboard; acima, o total e quanto
  * falta ou excede (RN-15). Na edição, um indicador já vinculado (`idsJaVinculados`) que ficou com
  * problema continua escolhido, com a etiqueta "⚠ {motivo}".
+ *
+ * Foco (F12.1, A4): escolher leva o foco à busca (pelo `SeletorBusca`); remover leva ao "Remover" do
+ * próximo, ou do anterior quando não há próximo, ou ao botão "Selecionar indicador" sem itens.
+ *
+ * Dashboard não mensal (F7.15, `mostrarCalculoNoPeriodo`): cada indicador ganha o select obrigatório
+ * "Cálculo no período" (somar, fazer a média ou usar só o último valor dos resultados mensais), com a
+ * coluna no cabeçalho e um aviso explicando o cálculo.
  */
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Campo } from '../../components/Campo'
 import { ErroCampo } from '../../components/ErroCampo'
+import { Aviso } from '../../components/Aviso'
 import { Etiqueta, type TomEtiqueta } from '../../components/Etiqueta'
-import type { DadoExterno, Indicador, TipoVinculo } from '../../types/dominio'
+import { Select, type OpcaoSelect } from '../../components/Select'
+import {
+  ROTULOS_SENTIDO_CALCULO,
+  SENTIDOS_CALCULO,
+  type DadoExterno,
+  type Indicador,
+  type SentidoCalculo,
+  type TipoVinculo,
+} from '../../types/dominio'
 import { formatarNumero, normalizarBusca } from '../../utils/formato'
 import { formatarPontos, motivoIndisponibilidade, somarPontos, textoTotalPontos } from './regrasDashboard'
-import { ICONE_REMOVER, SeletorBusca, type OpcaoSeletor } from './SeletorBusca'
+import { ICONE_REMOVER, SeletorBusca, type OpcaoSeletor } from '../../components/SeletorBusca'
 import './FormularioDashboard.css'
 
 /** Indicador escolhido e os pontos base digitados (texto em pt-BR). */
 export interface PontosIndicador {
   idIndicador: number
   pontos: string
+  /** Cálculo no período (F7.15, dashboard não mensal); ausente ou `''` enquanto não escolhido. */
+  calculoNoPeriodo?: SentidoCalculo | ''
 }
 
 export interface SecaoIndicadoresProps {
@@ -43,7 +61,16 @@ export interface SecaoIndicadoresProps {
   erro?: string | null
   /** Erro dos pontos base de cada indicador, pelo id. */
   errosPontos?: Record<number, string>
+  /** Mostra o "Cálculo no período" de cada indicador e o aviso (F7.15, dashboard não mensal). Padrão `false`. */
+  mostrarCalculoNoPeriodo?: boolean
+  /** Erro do cálculo no período de cada indicador, pelo id (só com `mostrarCalculoNoPeriodo`). */
+  errosCalculo?: Record<number, string>
 }
+
+const AVISO_CALCULO_NO_PERIODO =
+  'Como o dashboard não é mensal, o sistema vai usar o resultado mensal de cada mês do período e fazer o cálculo escolhido em cada indicador.'
+
+const OPCOES_CALCULO: OpcaoSelect[] = SENTIDOS_CALCULO.map((sentido) => ({ valor: sentido, rotulo: ROTULOS_SENTIDO_CALCULO[sentido] }))
 
 /** "Meta via API" (F7.6, origem `terceiro`), "Meta {valor com 2 casas}" ou "Meta a definir". */
 function textoMeta(indicador: Indicador): string {
@@ -73,10 +100,25 @@ export function SecaoIndicadores({
   onChange,
   erro,
   errosPontos = {},
+  mostrarCalculoNoPeriodo = false,
+  errosCalculo = {},
 }: SecaoIndicadoresProps) {
   const idTitulo = useId()
   const [aberto, setAberto] = useState(false)
   const [busca, setBusca] = useState('')
+  const botaoSeletorRef = useRef<HTMLButtonElement>(null)
+  const listaRef = useRef<HTMLUListElement>(null)
+  // Posição (na lista já sem o item removido) do "Remover" que recebe o foco; -1 = botão do seletor.
+  const focoAposRemoverRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    const indice = focoAposRemoverRef.current
+    if (indice === null) return
+    focoAposRemoverRef.current = null
+    const botoes = listaRef.current?.querySelectorAll<HTMLButtonElement>('.formulario-dashboard__remover')
+    const alvo = (indice >= 0 ? botoes?.[indice] : undefined) ?? botaoSeletorRef.current
+    alvo?.focus()
+  })
 
   const idsEscolhidos = valor.map((item) => item.idIndicador)
   const livres = indicadores.filter((indicador) => indicador.ativo && !idsEscolhidos.includes(indicador.id))
@@ -98,7 +140,7 @@ export function SecaoIndicadores({
 
   const escolhidos = valor.flatMap((item) => {
     const indicador = indicadores.find((opcao) => opcao.id === item.idIndicador)
-    return indicador ? [{ indicador, pontos: item.pontos }] : []
+    return indicador ? [{ indicador, pontos: item.pontos, calculo: item.calculoNoPeriodo ?? '' }] : []
   })
 
   const soma = somarPontos(valor.map((item) => item.pontos))
@@ -121,7 +163,16 @@ export function SecaoIndicadores({
     onChange(valor.map((item) => (item.idIndicador === idIndicador ? { ...item, pontos } : item)))
   }
 
+  function alterarCalculo(idIndicador: number, valorEscolhido: string) {
+    const calculoNoPeriodo = SENTIDOS_CALCULO.find((sentido) => sentido === valorEscolhido)
+    if (!calculoNoPeriodo) return
+    onChange(valor.map((item) => (item.idIndicador === idIndicador ? { ...item, calculoNoPeriodo } : item)))
+  }
+
   function remover(idIndicador: number) {
+    const posicao = escolhidos.findIndex((item) => item.indicador.id === idIndicador)
+    const restantes = escolhidos.length - 1
+    focoAposRemoverRef.current = restantes === 0 ? -1 : Math.min(posicao, restantes - 1)
     onChange(valor.filter((item) => item.idIndicador !== idIndicador))
   }
 
@@ -138,6 +189,7 @@ export function SecaoIndicadores({
           <Etiqueta tom={tomTotal}>{textoTotal}</Etiqueta>
         </span>
       </div>
+      {mostrarCalculoNoPeriodo ? <Aviso tipo="info">{AVISO_CALCULO_NO_PERIODO}</Aviso> : null}
       <SeletorBusca
         textoBotao="Selecionar indicador"
         aberto={aberto}
@@ -153,24 +205,31 @@ export function SecaoIndicadores({
         opcoes={opcoes}
         mensagemVazia={mensagemVazia}
         onEscolher={escolher}
+        refBotao={botaoSeletorRef}
       />
       <div className="formulario-dashboard__selecionados">
         {escolhidos.length === 0 ? (
           <p className="formulario-dashboard__vazio">Nenhum indicador selecionado.</p>
         ) : (
           <>
-            <div className="formulario-dashboard__cabecalho-lista">
-              <span>Indicador</span>
+            <div className={`formulario-dashboard__cabecalho-lista${mostrarCalculoNoPeriodo ? ' formulario-dashboard__cabecalho-lista--calculo' : ''}`}>
+              <span className="formulario-dashboard__cabecalho-indicador">Indicador</span>
               <span className="formulario-dashboard__cabecalho-pontos">Pts base neste dashboard</span>
+              {mostrarCalculoNoPeriodo ? <span className="formulario-dashboard__cabecalho-calculo">Cálculo no período</span> : null}
             </div>
-            <ul className="formulario-dashboard__lista" aria-label="Indicadores escolhidos">
-              {escolhidos.map(({ indicador, pontos }) => {
+            <ul ref={listaRef} className="formulario-dashboard__lista" aria-label="Indicadores escolhidos">
+              {escolhidos.map(({ indicador, pontos, calculo }) => {
                 const motivo = motivoIndisponibilidade(indicador, tipoVinculo, dadosExternos)
                 const erroPontos = errosPontos[indicador.id]
                 const idErro = `${idTitulo}-pontos-${indicador.id}`
+                const erroCalculo = mostrarCalculoNoPeriodo ? errosCalculo[indicador.id] : undefined
+                const idErroCalculo = `${idTitulo}-calculo-${indicador.id}`
+                const classeLinha = mostrarCalculoNoPeriodo
+                  ? 'formulario-dashboard__escolhido-linha formulario-dashboard__escolhido-linha--calculo'
+                  : 'formulario-dashboard__escolhido-linha'
                 return (
                   <li key={indicador.id} className="formulario-dashboard__escolhido formulario-dashboard__escolhido--indicador">
-                    <div className="formulario-dashboard__escolhido-linha">
+                    <div className={classeLinha}>
                       <span className="formulario-dashboard__escolhido-texto">
                         <span>{indicador.nome}</span>
                         <small>{subtextoEscolhido(indicador)}</small>
@@ -195,6 +254,22 @@ export function SecaoIndicadores({
                           onChange={(evento) => alterarPontos(indicador.id, evento.target.value)}
                         />
                       </div>
+                      {mostrarCalculoNoPeriodo ? (
+                        <div className="formulario-dashboard__calculo">
+                          {/* Como nos pontos, o erro fica abaixo da linha inteira e a ligação é feita aqui. */}
+                          <Select
+                            rotulo={`Cálculo no período de ${indicador.nome}`}
+                            rotuloOculto
+                            obrigatorio
+                            placeholder="Selecione"
+                            opcoes={OPCOES_CALCULO}
+                            value={calculo}
+                            aria-invalid={erroCalculo ? true : undefined}
+                            aria-describedby={erroCalculo ? idErroCalculo : undefined}
+                            onChange={(evento) => alterarCalculo(indicador.id, evento.target.value)}
+                          />
+                        </div>
+                      ) : null}
                       <button
                         type="button"
                         className="formulario-dashboard__remover foco-anel"
@@ -205,6 +280,7 @@ export function SecaoIndicadores({
                       </button>
                     </div>
                     <ErroCampo id={idErro} mensagem={erroPontos} />
+                    {mostrarCalculoNoPeriodo ? <ErroCampo id={idErroCalculo} mensagem={erroCalculo} /> : null}
                   </li>
                 )
               })}

@@ -41,8 +41,9 @@ const CORPO_ESPERADO = {
   'tipo de vinculo': 'colaboradores',
   'itens vinculados': [16, 11],
   indicadores: [
-    { 'id indicador': 1, 'pontos base': 70 },
-    { 'id indicador': 8, 'pontos base': 50 },
+    // F7.15: dashboard semestral — cada indicador leva o cálculo no período.
+    { 'id indicador': 1, 'pontos base': 70, 'calculo do periodo': 'media' },
+    { 'id indicador': 8, 'pontos base': 50, 'calculo do periodo': 'soma' },
   ],
   'indicador base da faixa': 1,
   'formula de pontuacao': 'Pontos base × atingimento, sem limite.',
@@ -143,6 +144,9 @@ describe('F7.7 — Cadastro de dashboard com a tarefa de construção sempre vis
     await abrirEEscolher(user, indicadores, 'Selecionar indicador', 'Indicadores', 'Vendas por zona')
     await user.type(d.getByRole('textbox', { name: 'Pontos base de Cobertura de visitas neste dashboard' }), '70')
     await user.type(d.getByRole('textbox', { name: 'Pontos base de Vendas por zona neste dashboard' }), '50')
+    // F7.15: semestral exige o cálculo no período de cada indicador.
+    await user.selectOptions(d.getByRole('combobox', { name: 'Cálculo no período de Cobertura de visitas' }), 'Fazer a média')
+    await user.selectOptions(d.getByRole('combobox', { name: 'Cálculo no período de Vendas por zona' }), 'Somar')
     expect(d.getByText('Total correto: 120 pts')).toBeInTheDocument()
     const base = d.getByRole('combobox', { name: 'Indicador base da faixa' })
     expect(within(base).getAllByRole('option').map((opcao) => opcao.textContent)).toEqual(['Selecione', 'Cobertura de visitas', 'Vendas por zona'])

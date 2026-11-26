@@ -170,6 +170,8 @@ describe('F11.1 — Serviço da tela Início (GET /api/ped/inicio)', () => {
         valorNovo: 6.5,
         data: '2026-11-12 14:30:00',
         usuario: 'Ana Costa',
+        // Sem "tipo de valor" na resposta (formato anterior a 25/11/2026): tipoValor null.
+        tipoValor: null,
       })
       expect(ultimasAlteracoes[1]).toMatchObject({ acao: 'lancamento', valorAnterior: null, valorNovo: 451590.62 })
       expect(ultimasAlteracoes[2]).toMatchObject({ acao: 'correcao', valorAnterior: false, valorNovo: true })

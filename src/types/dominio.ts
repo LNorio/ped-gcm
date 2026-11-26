@@ -716,6 +716,11 @@ export interface NovoIndicador {
 export interface IndicadorDoDashboard {
   idIndicador: number
   pontosBase: number
+  /**
+   * F7.15 (contrato proposto): como os resultados mensais do indicador se combinam no período do
+   * dashboard não mensal. Ausente no dashboard mensal (e não enviado à API nesse caso).
+   */
+  calculoNoPeriodo?: SentidoCalculo
 }
 
 export interface DadosDashboard {
@@ -1049,12 +1054,26 @@ export interface ResumoFechamento {
   avisos: string[]
 }
 
+/** Progresso de lançamentos de uma filial na prévia (`resumo."progresso por filial"[]`). */
+export interface ProgressoDaFilial {
+  /** Código da filial em texto. */
+  filial: string
+  nomeFilial: string | null
+  preenchidos: number
+  total: number
+}
+
 /** Prévia do encerramento (`GET /api/ped/fechamentos/{id}/previa` — RF-80); nada é gravado. */
 export interface PreviaFechamento {
   dashboard: DashboardDaImagem | null
   periodo: PeriodoDaImagem | null
   resumo: ResumoFechamento
   imagens: ImagemCongelada[]
+  /**
+   * Progresso por filial das unidades ainda não encerradas, na ordem da API (só a prévia traz o campo);
+   * `[]` quando ausente ou fora do formato.
+   */
+  progressoPorFilial: ProgressoDaFilial[]
 }
 
 /** Resultado do encerramento (`POST /api/ped/fechamentos/{id}/encerrar` — RF-81). */
@@ -1141,6 +1160,11 @@ export interface UltimaAlteracaoInicio {
   valorNovo: ValorLancamento | null
   data: string
   usuario: string | null
+  /**
+   * `"tipo de valor"` do apontamento (mesmo rótulo de `GET /ped/apontamentos`); `null` quando ausente ou
+   * desconhecido (a tela mantém o formato sem tipo).
+   */
+  tipoValor: TipoValor | null
 }
 
 /** Tudo o que a tela Início precisa, numa chamada só. */
